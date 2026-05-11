@@ -1,0 +1,107 @@
+# ==============================
+# Node.js / Express.js
+# ==============================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json.tmp
+
+# Build outputs
+build/
+dist/
+out/
+.next/
+coverage/
+.nyc_output/
+
+# React / Vite
+.vite/
+*.local
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Local data / mock storage
+local-data/
+data/local/
+data/uploads/
+storage/local/
+*.sqlite
+*.sqlite3
+*.db
+
+# Logs
+logs/
+*.log
+
+# Runtime files
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Docker
+.docker/tmp/
+docker-compose.override.yml
+
+# AWS / Cloud / Deploy artifacts
+.aws/
+.serverless/
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
+
+# Oracle Cloud CLI / Terraform local state
+.oci/
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Cloudflare / R2 tooling
+.wrangler/
+.dev.vars
+
+# IDE / Editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+desktop.ini
+
+# Test / cache
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Uploaded resumes or private documents
+uploads/
+resumes/
+*.docx
+*.hwp
+*.hwpx
+
+# Keep sample/demo files versioned
+!sample-data/
+!data/sample/
+!data/sampleJobs.json
+!data/sampleResume.txt
