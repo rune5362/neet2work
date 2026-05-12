@@ -70,16 +70,20 @@ sudo usermod -aG docker $USER
 
 ## 5. 프로젝트 받기
 
+원하는 작업 폴더에서 아래 명령을 실행합니다.
+
 ```bash
 git clone <repository-url>
-cd Neet2Work
+cd ./Neet2Work
 ```
 
-이미 프로젝트 폴더가 있다면 해당 폴더로 이동합니다.
+이미 프로젝트 폴더가 있다면 터미널에서 그 폴더를 열고 아래 명령으로 프로젝트 루트인지 확인합니다.
 
 ```bash
-cd /path/to/Neet2Work
+ls package.json
 ```
+
+이후 문서의 모든 명령은 프로젝트 루트 기준 상대경로로 실행합니다.
 
 ## 6. 프로젝트 초기 세팅
 

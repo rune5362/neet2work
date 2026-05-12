@@ -4,10 +4,12 @@
 
 Windows에서는 두 가지 경로를 지원합니다.
 
-- 추천: `winget`으로 Node.js LTS 설치 후 프로젝트 세팅
-- 선택: `nvm-windows` 설치 후 Node.js 24.14.0 사용
+- 기본 경로: `winget`으로 Node.js LTS를 직접 설치한 뒤 프로젝트 세팅
+- 대안 경로: `nvm-windows`로 Node.js 24.14.0을 설치한 뒤 프로젝트 세팅
 
-`nvm install 24`에서 오류가 나는 경우에는 추천 경로인 `winget` 기반 스크립트를 사용합니다.
+처음 세팅하는 팀원은 `nvm-windows`를 설치하지 않아도 됩니다. 아래 자동 세팅 스크립트는 `winget`으로 Node.js LTS를 직접 설치합니다.
+
+`nvm install 24`에서 오류가 나는 경우에도 기본 경로인 `winget` 기반 스크립트를 사용합니다.
 
 ## 1. PowerShell 열기
 
@@ -35,9 +37,26 @@ PowerShell을 새로 열고 확인합니다.
 git --version
 ```
 
-## 4. 선택 사항: nvm-windows 설치
+## 4. 기본 경로: Node.js LTS 직접 설치
 
-`nvm-windows`를 쓰고 싶다면 아래 명령으로 설치합니다.
+처음 세팅하는 팀원에게 권장하는 방식입니다. `nvm-windows`를 설치하지 않아도 됩니다.
+
+```powershell
+winget install --id OpenJS.NodeJS.LTS --exact --accept-package-agreements --accept-source-agreements
+```
+
+설치 후 PowerShell을 새로 열고 확인합니다.
+
+```powershell
+node -v
+npm -v
+```
+
+Node는 `v24.14.0`이 나오면 가장 좋고, 최소 `v24.14.0` 이상 `v25` 미만이면 됩니다.
+
+## 5. 대안 경로: nvm-windows 설치
+
+여러 프로젝트에서 Node 버전을 바꿔 써야 한다면 `nvm-windows`를 사용할 수 있습니다. 이 경로는 선택 사항입니다.
 
 ```powershell
 winget install --id CoreyButler.NVMforWindows --exact --accept-package-agreements --accept-source-agreements
@@ -58,24 +77,32 @@ node -v
 npm -v
 ```
 
-여기서 오류가 나면 `nvm-windows` 경로를 계속 붙잡지 말고 7번의 자동 세팅 스크립트를 사용합니다.
+여기서 오류가 나면 `nvm-windows` 경로를 계속 붙잡지 말고 4번의 기본 경로를 사용합니다.
 
-## 5. 프로젝트 폴더로 이동
+## 6. 프로젝트 폴더 준비
 
-```powershell
-cd C:\MLOps_20260406_AM\workspace\Neet2Work
-```
-
-다른 위치에 저장소를 받았다면 본인 프로젝트 경로로 이동합니다.
-
-아직 저장소를 받지 않았다면:
+아직 저장소를 받지 않았다면 원하는 작업 폴더에서 아래 명령을 실행합니다.
 
 ```powershell
 git clone <repository-url>
-cd Neet2Work
+cd .\Neet2Work
 ```
 
-## 6. 실행 정책을 현재 터미널에서만 허용
+이미 저장소를 받은 상태라면 프로젝트 폴더를 기준으로 PowerShell을 엽니다.
+
+가장 쉬운 방법:
+
+- 파일 탐색기에서 프로젝트 폴더를 엽니다.
+- 주소창에 `powershell`을 입력하고 Enter를 누릅니다.
+- 아래 명령으로 현재 위치가 프로젝트 루트인지 확인합니다.
+
+```powershell
+Get-ChildItem package.json
+```
+
+이후 문서의 모든 명령은 프로젝트 루트 기준 상대경로로 실행합니다.
+
+## 7. 실행 정책을 현재 터미널에서만 허용
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
@@ -83,7 +110,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 이 설정은 현재 PowerShell 창에서만 적용됩니다.
 
-## 7. Windows 자동 세팅 스크립트 실행
+## 8. Windows 자동 세팅 스크립트 실행
 
 ```powershell
 .\scripts\setup-windows.ps1
@@ -98,18 +125,18 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 - `.env.example`을 기준으로 `.env` 생성
 - Playwright Chromium 설치
 
-## 8. 설치 후 PowerShell을 새로 열어야 하는 경우
+## 9. 설치 후 PowerShell을 새로 열어야 하는 경우
 
 Node.js를 처음 설치한 직후에는 PATH 반영 때문에 새 PowerShell 창이 필요할 수 있습니다.
 
-아래 오류가 나오면 PowerShell을 닫고 다시 연 뒤 5번부터 다시 실행합니다.
+아래 오류가 나오면 PowerShell을 닫고 다시 연 뒤 6번부터 다시 실행합니다.
 
 ```txt
 Node.js 24 이상을 찾지 못했습니다.
 npm 명령을 찾지 못했습니다.
 ```
 
-## 9. Docker Desktop 설치
+## 10. Docker Desktop 설치
 
 PostgreSQL 17까지 Docker로 실행하려면 Docker Desktop이 필요합니다.
 
@@ -124,7 +151,7 @@ docker --version
 docker compose version
 ```
 
-## 10. 세팅 확인
+## 11. 세팅 확인
 
 ```powershell
 node -v
@@ -134,7 +161,7 @@ npm test
 
 Node는 `v24.14.0`이 나오면 가장 좋고, 최소 `v24.14.0` 이상 `v25` 미만이면 됩니다.
 
-## 11. 개발 서버 실행
+## 12. 개발 서버 실행
 
 ```powershell
 npm run dev
@@ -146,7 +173,7 @@ npm run dev
 - Backend: `http://localhost:3000`
 - Health Check: `http://localhost:3000/health`
 
-## 12. PostgreSQL 17까지 함께 실행
+## 13. PostgreSQL 17까지 함께 실행
 
 Docker Desktop이 설치되어 있다면 아래 명령을 사용합니다.
 
@@ -154,7 +181,7 @@ Docker Desktop이 설치되어 있다면 아래 명령을 사용합니다.
 npm run docker:up
 ```
 
-## 13. 전체 검사까지 한 번에 실행
+## 14. 전체 검사까지 한 번에 실행
 
 세팅 후 테스트, 린트, 빌드까지 한 번에 확인하고 싶다면:
 
