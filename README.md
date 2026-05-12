@@ -94,7 +94,7 @@
 ## 폴더 구조
 
 ```txt
-ilhad-eum-youth/
+neet2work/
 ├─ apps/
 │  ├─ frontend/
 │  │  ├─ src/
