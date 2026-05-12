@@ -14,7 +14,7 @@
 아래 문서를 먼저 따라 합니다.
 
 ```txt
-SETUP.md
+setup/SETUP.md
 ```
 
 빠른 세팅 명령:

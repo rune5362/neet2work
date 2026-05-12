@@ -2,6 +2,8 @@
 
 이 문서는 macOS에서 아무것도 설치되어 있지 않은 상태를 기준으로 개발 환경을 준비하는 순서입니다.
 
+주의: 이 문서는 `setup/` 폴더 안에 있지만, 모든 명령은 프로젝트 루트에서 실행합니다. 프로젝트 루트는 `package.json`, `apps/`, `scripts/` 폴더가 있는 위치입니다.
+
 ## 1. Xcode Command Line Tools 설치
 
 ```bash
