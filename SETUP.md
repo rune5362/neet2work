@@ -200,6 +200,31 @@ npm run setup:playwright
 
 브라우저가 누락되었다는 오류가 나오면 위 명령을 다시 실행합니다.
 
+## VS Code 확장 설치
+
+최소 추천 확장을 한 번에 설치하려면 아래 명령을 실행합니다.
+
+Windows:
+
+```powershell
+.\scripts\install-vscode-extensions.ps1
+```
+
+macOS / Linux:
+
+```bash
+bash scripts/install-vscode-extensions.sh
+```
+
+설치되는 확장:
+
+- ESLint
+- Prettier
+- Docker
+- Playwright
+- PostgreSQL
+- DotENV
+
 ## 자주 생기는 문제
 
 ### npm 명령이 인식되지 않는 경우
