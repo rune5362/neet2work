@@ -1,0 +1,12 @@
+{
+  "jobId": "job-001",
+  "matchScore": 82,
+  "strengths": ["React 경험이 채용공고와 잘 맞습니다."],
+  "weaknesses": ["성과를 수치로 표현하면 더 설득력이 높아집니다."],
+  "missingKeywords": ["TypeScript", "상태 관리"],
+  "rewriteGuides": ["프로젝트 경험을 문제 상황, 해결 방법, 결과 중심으로 작성하세요."],
+  "suggestedSentences": [
+    "React 기반 프로젝트에서 사용자 입력 데이터를 API와 연동하여 분석 결과를 시각화한 경험이 있습니다."
+  ],
+  "mode": "mock"
+}

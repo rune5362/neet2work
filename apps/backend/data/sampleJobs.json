@@ -1,0 +1,32 @@
+[
+  {
+    "id": "job-001",
+    "title": "프론트엔드 개발자",
+    "company": "샘플테크",
+    "location": "서울",
+    "careerLevel": "신입",
+    "skills": ["React", "TypeScript", "JavaScript", "HTML", "CSS"],
+    "description": "React 기반 웹 서비스 개발자를 채용합니다. API 연동과 사용자 경험 개선 역량을 중요하게 봅니다.",
+    "sourceUrl": "https://example.com/jobs/1"
+  },
+  {
+    "id": "job-002",
+    "title": "Node.js 백엔드 개발자",
+    "company": "커리어랩",
+    "location": "경기",
+    "careerLevel": "신입/주니어",
+    "skills": ["Node.js", "Express", "TypeScript", "REST API", "Docker"],
+    "description": "Express 기반 REST API와 Docker 개발 환경을 함께 관리할 백엔드 개발자를 찾습니다.",
+    "sourceUrl": "https://example.com/jobs/2"
+  },
+  {
+    "id": "job-003",
+    "title": "AI 서비스 기획형 개발자",
+    "company": "워크브릿지",
+    "location": "인천",
+    "careerLevel": "신입",
+    "skills": ["AI", "Prompt Engineering", "React", "API", "Data Analysis"],
+    "description": "생성형 AI를 활용해 사용자의 커리어 데이터를 분석하고 개선 가이드를 제공하는 서비스를 만듭니다.",
+    "sourceUrl": "https://example.com/jobs/3"
+  }
+]
