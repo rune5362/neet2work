@@ -8,59 +8,41 @@
 
 | 운영체제 | 문서 | 추천 방식 |
 | --- | --- | --- |
-| Windows | [WINDOWS_SETUP.md](./WINDOWS_SETUP.md) | winget으로 nvm-windows 설치 후 Node 24.14.0 사용 |
+| Windows | [WINDOWS_SETUP.md](./WINDOWS_SETUP.md) | 자동 스크립트 우선, 내부에서 winget + nvm-windows 사용 |
 | macOS | [MACOS_SETUP.md](./MACOS_SETUP.md) | Homebrew + nvm |
 | Linux | [LINUX_SETUP.md](./LINUX_SETUP.md) | apt + nvm |
 
-## 1. 필수 도구
+## Windows 빠른 실행
 
-| 도구 | 권장 버전 | 확인 명령 |
-| --- | --- | --- |
-| Node.js | 24.14.0 LTS | `node -v` |
-| npm | 11.9.0 | `npm -v` |
-| Git | 최신 안정 버전 | `git --version` |
-| Docker Desktop | 최신 안정 버전 | `docker --version` |
-
-Node 버전은 프로젝트 루트의 `.nvmrc`, `.node-version`, `package.json`에 맞춰 `24.14.0`을 사용합니다.
-프로젝트는 `.npmrc`에서 `engine-strict=true`를 사용하므로 Node 버전이 맞지 않으면 설치 단계에서 오류가 날 수 있습니다.
-
-## 2. Node.js 24 LTS 설치
-
-### Windows
-
-Windows는 [WINDOWS_SETUP.md](./WINDOWS_SETUP.md)를 먼저 참고합니다.
-
-Windows 팀원은 모두 `winget`으로 `nvm-windows`를 설치하고, `nvm-windows`로 Node.js 24.14.0을 사용합니다.
-
-이미 `nvm-windows`가 설치되어 있다면 프로젝트 루트에서 아래 명령을 실행합니다.
+Windows 팀원은 프로젝트 루트에서 아래 명령만 실행합니다.
 
 ```powershell
-nvm install 24.14.0
-nvm use 24.14.0
-node -v
-npm -v
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\setup-windows.ps1
 ```
 
-이미 Node.js 24 LTS를 공식 설치 파일로 설치했다면 `node -v`가 `v24.x.x`인지 확인합니다.
+스크립트가 자동으로 처리하는 일:
 
-### macOS / Linux
+- `winget` 확인
+- `nvm-windows` 설치 또는 확인
+- Node.js 24.14.0 설치 및 사용
+- npm 의존성 설치
+- `.env` 생성
+- Playwright Chromium 설치
 
-macOS는 [MACOS_SETUP.md](./MACOS_SETUP.md), Linux는 [LINUX_SETUP.md](./LINUX_SETUP.md)를 먼저 참고합니다.
+수동 확인 명령은 [WINDOWS_SETUP.md](./WINDOWS_SETUP.md)의 문제 해결 섹션에서만 사용합니다.
 
-이미 `nvm`이 설치되어 있다면 프로젝트 루트에서 아래 명령을 실행합니다.
+## macOS / Linux 빠른 실행
+
+macOS와 Linux는 OS별 문서에 따라 `nvm`과 Node.js를 먼저 준비한 뒤 프로젝트 루트에서 실행합니다.
 
 ```bash
-nvm install
-nvm use
-node -v
-npm -v
+bash scripts/setup-unix.sh
 ```
 
-`.nvmrc`에 `24.14.0`이 들어 있으므로 프로젝트 루트에서 `nvm install`만 실행해도 같은 Node 버전을 설치합니다.
+## 저장소 준비
 
-`asdf`, `mise`, `nodenv`를 사용하는 경우 `.node-version`의 `24.14.0` 값을 기준으로 설치합니다.
-
-## 3. 저장소 준비
+아직 저장소를 받지 않았다면 원하는 작업 폴더에서 아래 명령을 실행합니다.
 
 ```bash
 git clone <repository-url>
@@ -87,31 +69,19 @@ ls package.json
 git pull
 ```
 
-## 4. npm 기반 초기 세팅
+## 필수 버전
 
-프로젝트 루트에서 한 번만 실행합니다.
+| 도구 | 권장 버전 |
+| --- | --- |
+| Node.js | 24.14.0 LTS |
+| npm | 11.9.0 |
+| Git | 최신 안정 버전 |
+| Docker Desktop | 선택, PostgreSQL 컨테이너 실행 시 필요 |
 
-```bash
-npm run setup
-```
+Node 버전은 프로젝트 루트의 `.nvmrc`, `.node-version`, `package.json`에 맞춰 `24.14.0`을 사용합니다.
+프로젝트는 `.npmrc`에서 `engine-strict=true`를 사용하므로 Node 버전이 맞지 않으면 설치 단계에서 오류가 날 수 있습니다.
 
-이 명령은 다음 작업을 수행합니다.
-
-- `npm install`로 루트와 workspaces 의존성 설치
-- `.env`가 없으면 `.env.example`을 복사해 `.env` 생성
-- Playwright Chromium 브라우저 설치
-
-`npm install` 후 생성되거나 갱신되는 `package-lock.json`은 팀원 간 동일 의존성 설치를 위해 커밋 대상입니다.
-
-개별로 실행하고 싶다면 아래 명령을 사용합니다.
-
-```bash
-npm install
-npm run setup:env
-npm run setup:playwright
-```
-
-## 5. 환경변수
+## 환경변수
 
 초기 세팅 후 루트에 `.env` 파일이 생성됩니다.
 
@@ -127,7 +97,7 @@ PostgreSQL을 Docker Compose로 실행할 경우 기본 `DATABASE_URL`은 아래
 DATABASE_URL=postgresql://neet2work:neet2work@localhost:5432/neet2work
 ```
 
-## 6. 로컬 실행
+## 로컬 실행
 
 프론트엔드와 백엔드를 동시에 실행합니다.
 
@@ -148,7 +118,7 @@ npm run dev:frontend
 npm run dev:backend
 ```
 
-## 7. PostgreSQL 17 실행
+## PostgreSQL 17 실행
 
 PostgreSQL까지 함께 실행하려면 Docker Compose를 사용합니다.
 
@@ -168,9 +138,9 @@ Docker Compose는 다음 컨테이너를 실행합니다.
 - backend
 - PostgreSQL 17
 
-로컬에 PostgreSQL을 직접 설치해서 쓰는 경우에는 `.env`의 `DATABASE_URL`만 본인 환경에 맞게 수정합니다.
+Docker가 없어도 기본 개발은 가능합니다. 이 경우 서버는 DB 연결 실패로 종료되지 않고 Mock fallback을 사용합니다.
 
-## 8. 테스트와 품질 검사
+## 테스트와 품질 검사
 
 테스트:
 
@@ -196,7 +166,7 @@ npm run build
 npm run check
 ```
 
-## 9. Playwright RPA 준비
+## Playwright RPA 준비
 
 초기 세팅에서 Playwright Chromium이 설치됩니다.
 
@@ -206,29 +176,16 @@ npm run setup:playwright
 
 브라우저가 누락되었다는 오류가 나오면 위 명령을 다시 실행합니다.
 
-## 10. 자주 생기는 문제
+## 자주 생기는 문제
 
 ### npm 명령이 인식되지 않는 경우
 
-Node.js 24 LTS를 다시 설치하거나 터미널을 새로 열어 PATH를 갱신합니다.
+Windows는 [WINDOWS_SETUP.md](./WINDOWS_SETUP.md)의 문제 해결 섹션을 확인합니다.
 
-```bash
-node -v
-npm -v
-```
-
-### Node 버전이 다를 경우
-
-프로젝트 루트에서 아래 명령을 실행합니다.
+macOS / Linux는 터미널을 새로 열거나 아래 명령으로 Node 버전을 다시 적용합니다.
 
 ```bash
 nvm use
-```
-
-Windows의 `nvm-windows`를 사용하는 경우:
-
-```powershell
-nvm use 24.14.0
 ```
 
 ### .env 파일이 없는 경우
