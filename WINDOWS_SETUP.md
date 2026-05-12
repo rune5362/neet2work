@@ -42,6 +42,8 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\scripts\setup-windows.ps1
 ```
 
+첫 번째 명령에서 `Execution Policy Change` 확인 메시지가 나오면 `Y`를 입력하고 Enter를 누릅니다. `-Scope Process` 옵션을 사용하므로 현재 PowerShell 창에서만 임시로 적용되고, 창을 닫으면 사라집니다.
+
 이 스크립트가 자동으로 처리하는 일:
 
 - `winget` 확인
@@ -125,6 +127,37 @@ node -v
 npm -v
 where node
 where npm
+```
+
+### `setup-windows.ps1` 파일을 찾지 못하는 경우
+
+아래 오류는 현재 PowerShell 위치가 프로젝트 루트가 아니라는 뜻입니다.
+
+```txt
+The term '.\scripts\setup-windows.ps1' is not recognized as the name of a cmdlet, function, script file, or operable program.
+```
+
+현재 위치와 파일 존재 여부를 확인합니다.
+
+```powershell
+Get-Location
+Test-Path .\package.json
+Test-Path .\scripts\setup-windows.ps1
+```
+
+둘 다 `True`가 나와야 합니다.
+
+`False`가 나오면 파일 탐색기에서 프로젝트 폴더를 열고 주소창에 `powershell`을 입력해서 PowerShell을 다시 연 뒤 실행합니다.
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\setup-windows.ps1
+```
+
+프로젝트 폴더는 맞는데 스크립트가 없다면 최신 변경사항을 받습니다.
+
+```powershell
+git pull
 ```
 
 `winget`이 없다는 오류가 나면 Microsoft Store에서 `App Installer`를 설치한 뒤 PowerShell을 새로 엽니다.
