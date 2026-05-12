@@ -8,12 +8,17 @@
     "apps/backend"
   ],
   "scripts": {
+    "setup": "npm install && npm run setup:env && npm run setup:playwright",
+    "setup:env": "node scripts/setup-env.mjs",
+    "setup:playwright": "npm exec -w apps/backend playwright install chromium",
     "dev": "concurrently \"npm run dev -w apps/backend\" \"npm run dev -w apps/frontend\"",
     "dev:frontend": "npm run dev -w apps/frontend",
     "dev:backend": "npm run dev -w apps/backend",
     "build": "npm run build -w apps/frontend && npm run build -w apps/backend",
     "lint": "npm run lint -w apps/frontend && npm run lint -w apps/backend",
     "test": "npm run test -w apps/frontend && npm run test -w apps/backend",
+    "check": "npm run lint && npm test && npm run build",
+    "docker:up": "docker compose up --build",
     "format": "prettier --write ."
   },
   "devDependencies": {

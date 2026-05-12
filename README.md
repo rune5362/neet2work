@@ -180,11 +180,15 @@ R2_SECRET_ACCESS_KEY=
 
 ## 실행 방법
 
+자세한 개발 환경 세팅은 [SETUP.md](./SETUP.md)를 참고합니다. 협업 규칙은 [CONTRIBUTING.md](./CONTRIBUTING.md)에 정리되어 있습니다.
+
 ### 처음 설치
 
 ```bash
-npm install
+npm run setup
 ```
+
+`npm run setup`은 의존성 설치, `.env` 생성, Playwright Chromium 설치를 한 번에 수행합니다.
 
 ### 프론트/백엔드 동시 실행
 
