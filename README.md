@@ -180,7 +180,7 @@ R2_SECRET_ACCESS_KEY=
 
 ## 실행 방법
 
-자세한 개발 환경 세팅은 [SETUP.md](./SETUP.md)를 참고합니다. 협업 규칙은 [CONTRIBUTING.md](./CONTRIBUTING.md)에 정리되어 있습니다.
+자세한 개발 환경 세팅은 [SETUP.md](./SETUP.md)를 참고합니다. 운영체제별 완전 초기 세팅은 [WINDOWS_SETUP.md](./WINDOWS_SETUP.md), [MACOS_SETUP.md](./MACOS_SETUP.md), [LINUX_SETUP.md](./LINUX_SETUP.md)에 정리되어 있습니다. 협업 규칙은 [CONTRIBUTING.md](./CONTRIBUTING.md)에 정리되어 있습니다.
 
 ### 처음 설치
 

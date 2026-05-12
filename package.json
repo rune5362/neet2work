@@ -2,13 +2,15 @@
   "name": "ilhad-eum-youth",
   "version": "1.0.0",
   "private": true,
-  "packageManager": "npm@11.6.2",
+  "packageManager": "npm@11.9.0",
   "workspaces": [
     "apps/frontend",
     "apps/backend"
   ],
   "scripts": {
     "setup": "npm install && npm run setup:env && npm run setup:playwright",
+    "setup:windows": "powershell -ExecutionPolicy Bypass -File scripts/setup-windows.ps1",
+    "setup:unix": "bash scripts/setup-unix.sh",
     "setup:env": "node scripts/setup-env.mjs",
     "setup:playwright": "npm exec -w apps/backend playwright install chromium",
     "dev": "concurrently \"npm run dev -w apps/backend\" \"npm run dev -w apps/frontend\"",
@@ -29,6 +31,6 @@
     "typescript-eslint": "^8.0.0"
   },
   "engines": {
-    "node": ">=24"
+    "node": ">=24.14.0 <25"
   }
 }

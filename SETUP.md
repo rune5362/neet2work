@@ -2,27 +2,39 @@
 
 이 문서는 팀원이 새 PC나 새 작업 폴더에서 동일한 개발 환경을 빠르게 세팅하기 위한 가이드입니다.
 
+## 운영체제별 빠른 시작
+
+처음 세팅하는 팀원은 본인 운영체제 문서를 먼저 봅니다.
+
+| 운영체제 | 문서 | 추천 방식 |
+| --- | --- | --- |
+| Windows | [WINDOWS_SETUP.md](./WINDOWS_SETUP.md) | PowerShell + winget 또는 nvm-windows |
+| macOS | [MACOS_SETUP.md](./MACOS_SETUP.md) | Homebrew + nvm |
+| Linux | [LINUX_SETUP.md](./LINUX_SETUP.md) | apt + nvm |
+
 ## 1. 필수 도구
 
 | 도구 | 권장 버전 | 확인 명령 |
 | --- | --- | --- |
-| Node.js | 24 LTS | `node -v` |
-| npm | 11.x | `npm -v` |
+| Node.js | 24.14.0 LTS | `node -v` |
+| npm | 11.9.0 | `npm -v` |
 | Git | 최신 안정 버전 | `git --version` |
 | Docker Desktop | 최신 안정 버전 | `docker --version` |
 
-Node 버전은 프로젝트 루트의 `.nvmrc`, `.node-version`, `package.json`에 맞춰 `24`를 사용합니다.
+Node 버전은 프로젝트 루트의 `.nvmrc`, `.node-version`, `package.json`에 맞춰 `24.14.0`을 사용합니다.
 프로젝트는 `.npmrc`에서 `engine-strict=true`를 사용하므로 Node 버전이 맞지 않으면 설치 단계에서 오류가 날 수 있습니다.
 
 ## 2. Node.js 24 LTS 설치
 
 ### Windows
 
-권장 방법은 `nvm-windows`를 사용하는 것입니다.
+Windows는 [WINDOWS_SETUP.md](./WINDOWS_SETUP.md)를 먼저 참고합니다.
+
+`nvm-windows`를 이미 사용 중이라면 아래 방식도 가능합니다.
 
 ```powershell
-nvm install 24
-nvm use 24
+nvm install 24.14.0
+nvm use 24.14.0
 node -v
 npm -v
 ```
@@ -31,7 +43,9 @@ npm -v
 
 ### macOS / Linux
 
-`nvm`을 사용하는 경우:
+macOS는 [MACOS_SETUP.md](./MACOS_SETUP.md), Linux는 [LINUX_SETUP.md](./LINUX_SETUP.md)를 먼저 참고합니다.
+
+이미 `nvm`이 설치되어 있다면 프로젝트 루트에서 아래 명령을 실행합니다.
 
 ```bash
 nvm install
@@ -40,9 +54,9 @@ node -v
 npm -v
 ```
 
-`.nvmrc`에 `24`가 들어 있으므로 프로젝트 루트에서 `nvm install`만 실행해도 Node 24를 설치합니다.
+`.nvmrc`에 `24.14.0`이 들어 있으므로 프로젝트 루트에서 `nvm install`만 실행해도 같은 Node 버전을 설치합니다.
 
-`asdf`, `mise`, `nodenv`를 사용하는 경우 `.node-version`의 `24` 값을 기준으로 설치합니다.
+`asdf`, `mise`, `nodenv`를 사용하는 경우 `.node-version`의 `24.14.0` 값을 기준으로 설치합니다.
 
 ## 3. 저장소 준비
 
@@ -198,7 +212,7 @@ nvm use
 Windows의 `nvm-windows`를 사용하는 경우:
 
 ```powershell
-nvm use 24
+nvm use 24.14.0
 ```
 
 ### .env 파일이 없는 경우
