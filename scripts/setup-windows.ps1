@@ -31,6 +31,39 @@ function Get-NodeVersion {
   return [Version]$version
 }
 
+function Ensure-Winget {
+  if (-not (Test-Command "winget")) {
+    throw @"
+winget 명령을 찾을 수 없습니다.
+Microsoft Store에서 App Installer를 설치한 뒤 PowerShell을 새로 열고 다시 실행하세요.
+"@
+  }
+}
+
+function Ensure-NvmWindows {
+  if (Test-Command "nvm") {
+    return
+  }
+
+  Ensure-Winget
+  Write-Step "winget으로 nvm-windows 설치"
+  winget install --id CoreyButler.NVMforWindows --exact --silent --accept-package-agreements --accept-source-agreements
+  Refresh-Path
+
+  if (-not (Test-Command "nvm")) {
+    throw "nvm-windows 설치 후 nvm 명령을 찾지 못했습니다. PowerShell을 새로 열고 다시 실행해 주세요."
+  }
+}
+
+function Ensure-ProjectNodeVersion {
+  Ensure-NvmWindows
+
+  Write-Step "nvm-windows로 Node.js 24.14.0 준비"
+  nvm install 24.14.0
+  nvm use 24.14.0
+  Refresh-Path
+}
+
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $repoRoot
 $requiredNodeVersion = [Version]"24.14.0"
@@ -43,16 +76,7 @@ Write-Step "Node.js 24.14.0 이상 확인"
 $nodeVersion = Get-NodeVersion
 
 if ($null -eq $nodeVersion -or $nodeVersion -lt $requiredNodeVersion -or $nodeVersion -ge $nextMajorNodeVersion) {
-  if (-not (Test-Command "winget")) {
-    throw @"
-winget 명령을 찾을 수 없습니다.
-Microsoft Store에서 App Installer를 설치하거나 Node.js 24 LTS를 직접 설치한 뒤 다시 실행하세요.
-"@
-  }
-
-  Write-Step "winget으로 Node.js LTS 설치"
-  winget install --id OpenJS.NodeJS.LTS --exact --silent --accept-package-agreements --accept-source-agreements
-  Refresh-Path
+  Ensure-ProjectNodeVersion
   $nodeVersion = Get-NodeVersion
 }
 
