@@ -8,6 +8,7 @@
 - `package-lock.json`은 팀원 간 동일 의존성 설치를 위해 커밋합니다.
 - API 키, DB 비밀번호, 개인 설정은 `.env`에만 저장하고 커밋하지 않습니다.
 - 기능을 추가할 때는 Mock fallback이 깨지지 않도록 유지합니다.
+- DB 스키마 변경은 Prisma migration으로 남기고 `prisma/migrations`를 커밋합니다.
 
 ## 처음 참여할 때
 
@@ -29,6 +30,7 @@ npm run setup
 node -v
 npm -v
 npm run check
+npm run security:audit
 ```
 
 ## 브랜치와 커밋
@@ -75,3 +77,24 @@ npm run docker:up
 ```
 
 Docker를 쓰지 않는 경우에는 로컬 PostgreSQL 17을 설치하고 `.env`의 `DATABASE_URL`을 수정합니다.
+
+## DB 변경 규칙
+
+스키마 변경은 `apps/backend/prisma/schema.prisma`에서 시작합니다.
+
+```bash
+npm run db:migrate -w apps/backend -- --name add_feature_name
+npm run db:seed
+```
+
+커밋 대상:
+
+- `apps/backend/prisma/schema.prisma`
+- `apps/backend/prisma/migrations/`
+- 필요한 경우 `apps/backend/prisma/seed.ts`
+
+커밋하지 않는 대상:
+
+- 실제 로컬 DB 데이터
+- `.env`
+- `apps/backend/src/generated/prisma/`

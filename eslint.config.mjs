@@ -3,7 +3,12 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["**/dist/**", "**/node_modules/**", "apps/backend/data/**"]
+    ignores: [
+      "**/dist/**",
+      "**/node_modules/**",
+      "apps/backend/data/**",
+      "apps/backend/src/generated/prisma/**"
+    ]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

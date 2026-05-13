@@ -104,6 +104,9 @@ if (-not $SkipInstall) {
   Write-Step ".env 생성"
   npm run setup:env
 
+  Write-Step "Prisma Client 생성"
+  npm run db:generate
+
   Write-Step "Playwright Chromium 설치"
   npm run setup:playwright
 }

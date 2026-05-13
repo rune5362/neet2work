@@ -121,6 +121,7 @@ bash scripts/setup-unix.sh
 ```bash
 npm install
 npm run setup:env
+npm run db:generate
 npm run setup:playwright
 ```
 

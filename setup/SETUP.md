@@ -54,6 +54,7 @@ Do you want to change the execution policy?
 - Node.js 24.14.0 설치 및 사용
 - npm 의존성 설치
 - `.env` 생성
+- Prisma Client 생성
 - Playwright Chromium 설치
 
 수동 확인 명령은 [WINDOWS_SETUP.md](./WINDOWS_SETUP.md)의 문제 해결 섹션에서만 사용합니다.
@@ -166,6 +167,36 @@ Docker Compose는 다음 컨테이너를 실행합니다.
 
 Docker가 없어도 기본 개발은 가능합니다. 이 경우 서버는 DB 연결 실패로 종료되지 않고 Mock fallback을 사용합니다.
 
+## DB 마이그레이션과 샘플 데이터
+
+PostgreSQL 스키마는 Prisma Migrate로 관리합니다.
+
+Prisma Client 생성:
+
+```bash
+npm run db:generate
+```
+
+마이그레이션 적용:
+
+```bash
+npm run db:migrate
+```
+
+공통 샘플 데이터 입력:
+
+```bash
+npm run db:seed
+```
+
+DB 화면 확인:
+
+```bash
+npm run db:studio
+```
+
+자세한 흐름은 `apps/backend/prisma/README.md`를 참고합니다.
+
 ## 테스트와 품질 검사
 
 테스트:
@@ -190,6 +221,13 @@ npm run build
 
 ```bash
 npm run check
+```
+
+보안 점검:
+
+```bash
+npm run security:audit
+npm run security:signatures
 ```
 
 ## Playwright RPA 준비

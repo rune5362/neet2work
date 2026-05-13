@@ -54,6 +54,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 - npm 확인
 - `npm install`
 - `.env.example`을 기준으로 `.env` 생성
+- Prisma Client 생성
 - Playwright Chromium 설치
 
 ## 3. 개발 서버 실행

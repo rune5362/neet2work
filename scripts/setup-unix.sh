@@ -48,6 +48,9 @@ npm install
 echo "==> Creating .env if missing"
 npm run setup:env
 
+echo "==> Generating Prisma Client"
+npm run db:generate
+
 echo "==> Installing Playwright Chromium"
 npm run setup:playwright
 

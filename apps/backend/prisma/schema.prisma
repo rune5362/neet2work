@@ -1,0 +1,46 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model JobPosting {
+  id          String           @id
+  title       String
+  company     String
+  location    String
+  careerLevel String           @map("career_level")
+  skills      String[]
+  description String
+  sourceUrl   String           @map("source_url")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  analyses    ResumeAnalysis[]
+
+  @@map("job_postings")
+}
+
+model ResumeAnalysis {
+  id                 String       @id @default(cuid())
+  jobId              String       @map("job_id")
+  resumeText         String       @map("resume_text")
+  matchScore         Int          @map("match_score")
+  strengths          String[]
+  weaknesses         String[]
+  missingKeywords    String[]     @map("missing_keywords")
+  rewriteGuides      String[]     @map("rewrite_guides")
+  suggestedSentences String[]     @map("suggested_sentences")
+  mode               AnalysisMode @default(mock)
+  createdAt          DateTime     @default(now()) @map("created_at")
+  job                JobPosting   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("resume_analyses")
+}
+
+enum AnalysisMode {
+  mock
+  ai
+}
