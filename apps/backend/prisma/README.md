@@ -21,6 +21,18 @@ npm run db:seed
 npm run db:studio
 ```
 
+DB 연결 필요 여부:
+
+| 명령 | DB 필요 여부 | 설명 |
+| --- | --- | --- |
+| `npm run db:generate` | 필요 없음 | Prisma Client 생성 |
+| `npm run db:migrate` | 필요 | PostgreSQL에 migration 적용 |
+| `npm run db:seed` | 필요 | PostgreSQL에 샘플 데이터 입력 |
+| `npm run db:reset` | 필요 | 로컬 DB 초기화 |
+| `npm run db:studio` | 필요 | Prisma Studio 실행 |
+
+`npm run setup`은 내부에서 `db:generate`만 실행하므로 PostgreSQL이 꺼져 있어도 통과해야 합니다. 반대로 `db:migrate`, `db:seed`는 실제 DB 연결이 없으면 실패하는 것이 정상입니다.
+
 backend workspace에서 직접 실행해도 됩니다.
 
 ```bash

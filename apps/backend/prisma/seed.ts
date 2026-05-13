@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import { resolve } from "node:path";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma/client";
+import { PrismaClient } from "../src/generated/prisma/client.js";
 import type { JobPosting } from "../src/types/job.js";
 
 config({ path: resolve(process.cwd(), "../../.env") });

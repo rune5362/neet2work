@@ -202,6 +202,8 @@ npm run setup
 
 `npm run setup`은 의존성 설치, `.env` 생성, Prisma Client 생성, Playwright Chromium 설치를 한 번에 수행합니다.
 
+`npm run setup` 과정의 `db:generate`는 Prisma Client 생성만 수행하므로 PostgreSQL이 실행 중이지 않아도 됩니다.
+
 ### 프론트/백엔드 동시 실행
 
 ```bash
@@ -291,6 +293,7 @@ npm run db:seed
 - 실제 로컬 DB 데이터는 Git으로 공유하지 않습니다.
 - 공유할 샘플 데이터는 `apps/backend/prisma/seed.ts`에 반영합니다.
 - 서버 실행은 DB 없이도 Mock fallback으로 가능하지만, `db:migrate`, `db:seed`는 실제 DB 연결이 필요합니다.
+- `npm run setup`, `npm run db:generate`, `npm run dev`는 DB 없이도 실행 가능하도록 유지합니다.
 
 자세한 DB 관리 흐름은 [apps/backend/prisma/README.md](./apps/backend/prisma/README.md)를 참고합니다.
 

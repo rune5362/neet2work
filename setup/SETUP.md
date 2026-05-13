@@ -177,6 +177,8 @@ Prisma Client 생성:
 npm run db:generate
 ```
 
+`db:generate`는 Prisma Client 파일만 생성하므로 PostgreSQL이 실행 중이지 않아도 됩니다.
+
 마이그레이션 적용:
 
 ```bash
@@ -194,6 +196,18 @@ DB 화면 확인:
 ```bash
 npm run db:studio
 ```
+
+DB 연결 필요 여부:
+
+| 명령 | DB 필요 여부 | 설명 |
+| --- | --- | --- |
+| `npm run setup` | 필요 없음 | 의존성 설치, `.env` 생성, Prisma Client 생성, Playwright 설치 |
+| `npm run db:generate` | 필요 없음 | Prisma Client 생성 |
+| `npm run dev` | 필요 없음 | DB가 없어도 Mock fallback으로 서버 실행 |
+| `npm run db:migrate` | 필요 | PostgreSQL에 migration 적용 |
+| `npm run db:seed` | 필요 | PostgreSQL에 샘플 데이터 입력 |
+| `npm run db:reset` | 필요 | 로컬 DB 초기화 후 migration/seed 재실행 |
+| `npm run db:studio` | 필요 | DB GUI 접속 |
 
 자세한 흐름은 `apps/backend/prisma/README.md`를 참고합니다.
 
