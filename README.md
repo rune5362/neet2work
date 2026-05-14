@@ -34,7 +34,7 @@
 | 구분 | 기술 |
 | --- | --- |
 | Node.js | 24 LTS |
-| Package Manager | npm |
+| Package Manager | pnpm 11 |
 | Frontend | React 19 + Vite 7 |
 | Backend | Express 5 |
 | DB | PostgreSQL 17 |
@@ -64,6 +64,7 @@
 - PostgreSQL 17
 - Prisma Migrate
 - Prisma Seed
+- 각자 개발 DB 사용, 공통 스키마는 Prisma migration으로 통일
 - AWS RDS Free Tier
 - Cloudflare R2
 - Local JSON Data
@@ -88,11 +89,10 @@
 ### Deployment & DevOps
 
 - GitHub
-- Docker
-- Docker Compose
+- Docker / Docker Compose (선택)
 - AWS
 - Oracle Cloud
-- npm workspaces
+- pnpm workspaces
 
 ## 폴더 구조
 
@@ -142,7 +142,7 @@ neet2work/
 │  ├─ WINDOWS_SETUP.md
 │  ├─ MACOS_SETUP.md
 │  └─ LINUX_SETUP.md
-├─ docker-compose.yml
+├─ docker-compose.yml        # 선택: 로컬 컨테이너 실행용
 ├─ package.json
 └─ README.md
 ```
@@ -173,6 +173,8 @@ Express 5 + TypeScript Backend API
 
 실제 키 값은 GitHub에 업로드하지 않습니다. `.env.example`을 참고해 필요할 때만 `.env`를 생성합니다.
 
+DB 인스턴스 자체는 팀원이 각자 따로 사용합니다. 팀 공통 기준은 `apps/backend/prisma/schema.prisma`, `apps/backend/prisma/migrations/`, `apps/backend/prisma/seed.ts`입니다.
+
 ```env
 NODE_ENV=development
 VITE_API_BASE_URL=http://localhost:3000
@@ -180,6 +182,7 @@ PORT=3000
 CLIENT_URL=http://localhost:5173
 AI_API_KEY=
 AI_MODEL=
+# 개인 개발 DB URL로 교체합니다. 예: Supabase, AWS RDS, 로컬 PostgreSQL
 DATABASE_URL=postgresql://neet2work:neet2work@localhost:5432/neet2work
 POSTGRES_USER=neet2work
 POSTGRES_PASSWORD=neet2work
@@ -197,38 +200,38 @@ R2_SECRET_ACCESS_KEY=
 ### 처음 설치
 
 ```bash
-npm run setup
+corepack pnpm run setup
 ```
 
-`npm run setup`은 의존성 설치, `.env` 생성, Prisma Client 생성, Playwright Chromium 설치를 한 번에 수행합니다.
+`corepack pnpm run setup`은 의존성 설치, `.env` 생성, Prisma Client 생성, Playwright Chromium 설치를 한 번에 수행합니다.
 
-`npm run setup` 과정의 `db:generate`는 Prisma Client 생성만 수행하므로 PostgreSQL이 실행 중이지 않아도 됩니다.
+`corepack pnpm run setup` 과정의 `db:generate`는 Prisma Client 생성만 수행하므로 PostgreSQL이 실행 중이지 않아도 됩니다.
 
 ### 프론트/백엔드 동시 실행
 
 ```bash
-npm run dev
+corepack pnpm run dev
 ```
 
 ### 각각 실행
 
 ```bash
-npm run dev:frontend
-npm run dev:backend
+corepack pnpm run dev:frontend
+corepack pnpm run dev:backend
 ```
 
-### Docker Compose 실행
+### 선택: Docker Compose 실행
 
 ```bash
 docker compose up --build
 ```
 
-Docker Compose는 frontend, backend, PostgreSQL 17 컨테이너를 함께 실행합니다.
+Docker Compose는 로컬에서 frontend, backend, PostgreSQL 17 컨테이너를 함께 실행하고 싶을 때만 사용합니다. 각자 Supabase, AWS RDS, 로컬 PostgreSQL 등 별도 DB를 쓰는 기본 개발 흐름에는 필수가 아닙니다.
 
 ### 테스트 실행
 
 ```bash
-npm test
+corepack pnpm run test
 ```
 
 프론트엔드와 백엔드는 Vitest 기반 smoke test를 포함합니다.
@@ -237,9 +240,11 @@ npm test
 
 PostgreSQL 스키마 공유는 Prisma Migrate를 사용합니다.
 
+DB 서버는 각자 따로 사용하고, 스키마와 샘플 데이터만 Git으로 통일합니다.
+
 ```bash
-npm run db:migrate
-npm run db:seed
+corepack pnpm run db:migrate
+corepack pnpm run db:seed
 ```
 
 Prisma migration은 아래 구조로 관리합니다.
@@ -269,31 +274,32 @@ apps/backend/prisma/
 새 스키마 변경을 만들 때는 아래 명령을 사용합니다.
 
 ```bash
-npm run db:migrate -w apps/backend -- --name add_feature_name
+corepack pnpm --filter @neet2work/backend run db:migrate -- --name add_feature_name
 ```
 
 동료가 만든 migration을 받은 뒤에는 아래 순서로 맞춥니다.
 
 ```bash
 git pull
-npm run db:migrate
-npm run db:seed
+corepack pnpm run db:migrate
+corepack pnpm run db:seed
 ```
 
 기존 스키마를 크게 바꾸고 싶을 때는 상황에 따라 다르게 처리합니다.
 
 - 팀원들이 아직 migration을 적용하기 전: 기존 초기 migration을 다시 만들 수 있습니다.
 - 팀원들이 이미 migration을 적용한 뒤: 기존 migration은 수정하지 않고 새 migration을 추가합니다.
-- 로컬 개발 DB 데이터가 필요 없을 때: `npm run db:reset`으로 로컬 DB를 초기화한 뒤 seed를 다시 넣습니다.
+- 로컬 개발 DB 데이터가 필요 없을 때: `corepack pnpm run db:reset`으로 로컬 DB를 초기화한 뒤 seed를 다시 넣습니다.
 
 주의사항:
 
 - 이미 공유된 migration 파일은 되도록 수정하거나 삭제하지 않습니다.
 - 공유 후 DB 변경은 새 migration으로 누적합니다.
-- 실제 로컬 DB 데이터는 Git으로 공유하지 않습니다.
+- 실제 개발 DB 데이터는 Git으로 공유하지 않습니다.
 - 공유할 샘플 데이터는 `apps/backend/prisma/seed.ts`에 반영합니다.
+- `db:reset`은 현재 `.env`의 `DATABASE_URL` 대상 DB를 초기화하므로, 공용/운영 DB에서는 실행하지 않습니다.
 - 서버 실행은 DB 없이도 Mock fallback으로 가능하지만, `db:migrate`, `db:seed`는 실제 DB 연결이 필요합니다.
-- `npm run setup`, `npm run db:generate`, `npm run dev`는 DB 없이도 실행 가능하도록 유지합니다.
+- `corepack pnpm run setup`, `corepack pnpm run db:generate`, `corepack pnpm run dev`는 DB 없이도 실행 가능하도록 유지합니다.
 
 자세한 DB 관리 흐름은 [apps/backend/prisma/README.md](./apps/backend/prisma/README.md)를 참고합니다.
 
@@ -358,7 +364,7 @@ Content-Type: application/json
 ## 설계 원칙
 
 - TypeScript로 핵심 데이터 타입을 먼저 정의합니다.
-- React와 Express를 분리하되 npm workspaces로 하나의 저장소에서 관리합니다.
+- React와 Express를 분리하되 pnpm workspaces로 하나의 저장소에서 관리합니다.
 - API 키, DB, R2, AWS 설정이 없어도 서버가 죽지 않게 합니다.
 - 실제 AI 연동 전에도 Mock 분석 결과가 화면에 나오게 합니다.
 - 채용공고 수집은 처음부터 실제 크롤링에 의존하지 않고 `sampleJobs.json`으로 먼저 완성합니다.
@@ -373,4 +379,4 @@ Content-Type: application/json
 - 기업별 합격 가능성 통계 제공
 - 관리자 페이지
 - 실제 채용 플랫폼 연동
-- Docker 기반 통합 배포 환경 구축
+- Supabase/AWS RDS 기반 개발/운영 DB 분리

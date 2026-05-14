@@ -1,0 +1,49 @@
+[
+  {
+    "id": "saramin-53846395",
+    "title": "[이수그룹 IT계열사] Python 개발자 채용(D-27)",
+    "company": "(주)이수시스템",
+    "location": "서울 서초구",
+    "careerLevel": "경력 3~7년",
+    "skills": [
+      "Python",
+      "웹개발",
+      "소프트웨어개발",
+      "AI"
+    ],
+    "description": "(주)이수시스템의 [이수그룹 IT계열사] Python 개발자 채용(D-27) 공고. 서울 서초구 / 경력 3~7년 / 대졸↑ / 정규직. 키워드: Python, 웹개발, 소프트웨어개발, AI",
+    "source": "saramin",
+    "sourceJobId": "53846395",
+    "sourceUrl": "https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=53846395",
+    "country": "KR",
+    "language": "ko",
+    "employmentType": "정규직",
+    "educationLevel": "대졸↑",
+    "salaryText": null,
+    "deadlineText": "~ 06/10(수)",
+    "applyMethod": null,
+    "companyInfo": null,
+    "rawText": "(주)이수시스템의 [이수그룹 IT계열사] Python 개발자 채용(D-27) 공고. 서울 서초구 / 경력 3~7년 / 대졸↑ / 정규직. 키워드: Python, 웹개발, 소프트웨어개발, AI",
+    "rawJson": {
+      "listTitleHint": "[이수그룹 IT계열사] Python 개발자 채용",
+      "listCompanyHint": "(주)이수시스템",
+      "listHints": {
+        "location": "서울 서초구",
+        "careerLevel": "경력 3~7년",
+        "educationLevel": "대졸↑",
+        "employmentType": "정규직",
+        "skills": [
+          "Python",
+          "웹개발",
+          "소프트웨어개발"
+        ],
+        "deadlineText": "~ 06/10(수)"
+      },
+      "detailStatus": 200,
+      "detailFinalUrl": "https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=53846395",
+      "detailTextLength": 1766,
+      "parser": "stdlib-htmlparser-v1"
+    },
+    "collectedAt": "2026-05-14T03:32:18.451712+00:00"
+  }
+]

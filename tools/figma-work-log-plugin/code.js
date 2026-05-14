@@ -132,21 +132,7 @@ function preserveCurrentTextWidth(textNode, width) {
   }
 }
 
-function decorateAppendedText(textNode, startIndex, endIndex) {
-  const tag = '#by Codex';
-  const text = textNode.characters.slice(startIndex, endIndex);
-  const relativeIndex = text.indexOf(tag);
-
-  if (relativeIndex === -1 || typeof textNode.setRangeFontSize !== 'function') {
-    return null;
-  }
-
-  const tagStart = startIndex + relativeIndex;
-  const tagEnd = tagStart + tag.length;
-  const baseFontSize = textNode.fontSize;
-  const nextFontSize = typeof baseFontSize === 'number' ? Math.max(8, Math.round(baseFontSize * 0.72)) : 10;
-
-  textNode.setRangeFontSize(tagStart, tagEnd, nextFontSize);
+function decorateAppendedText(_textNode, _startIndex, _endIndex) {
   return null;
 }
 

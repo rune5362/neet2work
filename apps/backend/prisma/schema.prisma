@@ -8,18 +8,34 @@ datasource db {
 }
 
 model JobPosting {
-  id          String           @id
-  title       String
-  company     String
-  location    String
-  careerLevel String           @map("career_level")
-  skills      String[]
-  description String
-  sourceUrl   String           @map("source_url")
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
-  analyses    ResumeAnalysis[]
+  id              String           @id
+  title           String
+  company         String
+  location        String
+  careerLevel     String           @map("career_level")
+  skills          String[]         @default([])
+  description     String
+  source          String           @default("manual")
+  sourceJobId     String?          @map("source_job_id")
+  sourceUrl       String           @map("source_url")
+  country         String           @default("KR")
+  language        String           @default("ko")
+  employmentType  String?          @map("employment_type")
+  educationLevel  String?          @map("education_level")
+  salaryText      String?          @map("salary_text")
+  deadlineText    String?          @map("deadline_text")
+  applyMethod     String?          @map("apply_method")
+  companyInfo     Json?            @map("company_info")
+  rawText         String?          @map("raw_text")
+  rawJson         Json?            @map("raw_json")
+  collectedAt     DateTime?        @map("collected_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  analyses        ResumeAnalysis[]
 
+  @@unique([source, sourceJobId])
+  @@index([country])
+  @@index([source, collectedAt])
   @@map("job_postings")
 }
 
@@ -28,11 +44,11 @@ model ResumeAnalysis {
   jobId              String       @map("job_id")
   resumeText         String       @map("resume_text")
   matchScore         Int          @map("match_score")
-  strengths          String[]
-  weaknesses         String[]
-  missingKeywords    String[]     @map("missing_keywords")
-  rewriteGuides      String[]     @map("rewrite_guides")
-  suggestedSentences String[]     @map("suggested_sentences")
+  strengths          String[]     @default([])
+  weaknesses         String[]     @default([])
+  missingKeywords    String[]     @default([]) @map("missing_keywords")
+  rewriteGuides      String[]     @default([]) @map("rewrite_guides")
+  suggestedSentences String[]     @default([]) @map("suggested_sentences")
   mode               AnalysisMode @default(mock)
   createdAt          DateTime     @default(now()) @map("created_at")
   job                JobPosting   @relation(fields: [jobId], references: [id], onDelete: Cascade)

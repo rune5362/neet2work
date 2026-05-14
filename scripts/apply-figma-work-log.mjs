@@ -98,7 +98,7 @@ async function main() {
     console.log(resultText);
   } catch (error) {
     console.error(error.message);
-    console.error('Start the bridge with npm.cmd run figma:bridge and keep the Figma plugin runner open.');
+    console.error('Start the bridge with corepack pnpm run figma:bridge and keep the Figma plugin runner open.');
     process.exitCode = 1;
   }
 }

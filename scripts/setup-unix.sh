@@ -34,27 +34,28 @@ fi
 
 echo "Node: $(node -v)"
 
-echo "==> Checking npm"
-if ! command -v npm >/dev/null 2>&1; then
-  echo "npm is not installed or not available in PATH."
+echo "==> Checking Corepack"
+if ! command -v corepack >/dev/null 2>&1; then
+  echo "Corepack is not installed or not available in PATH."
   exit 1
 fi
 
-echo "npm: $(npm -v)"
+echo "==> Checking pnpm 11 through Corepack"
+echo "pnpm: $(corepack pnpm --version)"
 
-echo "==> Installing npm dependencies"
-npm install
+echo "==> Installing pnpm dependencies"
+corepack pnpm install
 
 echo "==> Creating .env if missing"
-npm run setup:env
+corepack pnpm run setup:env
 
 echo "==> Generating Prisma Client"
-npm run db:generate
+corepack pnpm run db:generate
 
 echo "==> Installing Playwright Chromium"
-npm run setup:playwright
+corepack pnpm run setup:playwright
 
 echo "==> Setup complete"
-echo "Run dev server: npm run dev"
-echo "Run Docker stack: npm run docker:up"
-echo "Run tests: npm test"
+echo "Run dev server: corepack pnpm run dev"
+echo "Run Docker stack: corepack pnpm run docker:up"
+echo "Run tests: corepack pnpm run test"

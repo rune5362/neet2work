@@ -6,7 +6,10 @@
 
 - DB 구조는 `schema.prisma`와 `migrations/`로 공유합니다.
 - 샘플 데이터는 `seed.ts`로 공유합니다.
-- 각 팀원의 실제 로컬 DB 데이터는 공유하지 않습니다.
+- DB 인스턴스 자체는 팀원이 각자 따로 사용합니다.
+- 각 팀원은 본인 `.env`의 `DATABASE_URL`에 개인 개발 DB를 연결합니다.
+- 개인 개발 DB는 Supabase, AWS RDS, 로컬 PostgreSQL, Docker PostgreSQL 중 무엇이든 가능합니다.
+- 실제 개발 DB 데이터는 공유하지 않습니다.
 - migration 파일은 Git에 커밋합니다.
 - `src/generated/prisma/`는 `prisma generate`로 생성하므로 커밋하지 않습니다.
 
@@ -15,28 +18,28 @@
 프로젝트 루트에서 실행합니다.
 
 ```bash
-npm run db:generate
-npm run db:migrate
-npm run db:seed
-npm run db:studio
+corepack pnpm run db:generate
+corepack pnpm run db:migrate
+corepack pnpm run db:seed
+corepack pnpm run db:studio
 ```
 
 DB 연결 필요 여부:
 
 | 명령 | DB 필요 여부 | 설명 |
 | --- | --- | --- |
-| `npm run db:generate` | 필요 없음 | Prisma Client 생성 |
-| `npm run db:migrate` | 필요 | PostgreSQL에 migration 적용 |
-| `npm run db:seed` | 필요 | PostgreSQL에 샘플 데이터 입력 |
-| `npm run db:reset` | 필요 | 로컬 DB 초기화 |
-| `npm run db:studio` | 필요 | Prisma Studio 실행 |
+| `corepack pnpm run db:generate` | 필요 없음 | Prisma Client 생성 |
+| `corepack pnpm run db:migrate` | 필요 | PostgreSQL에 migration 적용 |
+| `corepack pnpm run db:seed` | 필요 | PostgreSQL에 샘플 데이터 입력 |
+| `corepack pnpm run db:reset` | 필요 | 현재 `DATABASE_URL`의 개발 DB 초기화 |
+| `corepack pnpm run db:studio` | 필요 | Prisma Studio 실행 |
 
-`npm run setup`은 내부에서 `db:generate`만 실행하므로 PostgreSQL이 꺼져 있어도 통과해야 합니다. 반대로 `db:migrate`, `db:seed`는 실제 DB 연결이 없으면 실패하는 것이 정상입니다.
+`corepack pnpm run setup`은 내부에서 `db:generate`만 실행하므로 PostgreSQL이 꺼져 있어도 통과해야 합니다. 반대로 `db:migrate`, `db:seed`는 실제 DB 연결이 없으면 실패하는 것이 정상입니다.
 
 backend workspace에서 직접 실행해도 됩니다.
 
 ```bash
-npm run db:migrate -w apps/backend
+corepack pnpm --filter @neet2work/backend run db:migrate
 ```
 
 ## 새 테이블/컬럼 추가 흐름
@@ -45,13 +48,13 @@ npm run db:migrate -w apps/backend
 2. migration 생성 및 로컬 DB 적용
 
 ```bash
-npm run db:migrate -w apps/backend -- --name add_some_feature
+corepack pnpm --filter @neet2work/backend run db:migrate -- --name add_some_feature
 ```
 
 또는 backend 폴더에서:
 
 ```bash
-npm run db:migrate -- --name add_some_feature
+corepack pnpm run db:migrate -- --name add_some_feature
 ```
 
 3. 생성된 `prisma/migrations/` 폴더 확인
@@ -62,14 +65,16 @@ npm run db:migrate -- --name add_some_feature
 
 ```bash
 git pull
-npm run db:migrate
-npm run db:seed
+corepack pnpm run db:migrate
+corepack pnpm run db:seed
 ```
 
-## 로컬 DB 초기화
+이 명령은 팀 공통 migration을 내 개인 DB에 적용하는 흐름입니다. 다른 팀원의 DB에는 영향을 주지 않습니다.
 
-주의: 로컬 DB 데이터가 삭제됩니다.
+## 개발 DB 초기화
+
+주의: 현재 `.env`의 `DATABASE_URL`이 가리키는 DB 데이터가 삭제됩니다. Supabase, AWS RDS 같은 원격 DB를 쓰는 경우에도 개인 개발용 DB인지 먼저 확인합니다. 공용 DB나 운영 DB에서는 실행하지 않습니다.
 
 ```bash
-npm run db:reset
+corepack pnpm run db:reset
 ```

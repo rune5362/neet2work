@@ -236,5 +236,5 @@ const server = createServer(async (request, response) => {
 server.listen(port, host, () => {
   console.log(`Figma work log server running at http://${host}:${port}`);
   console.log(`Serving KST date ${date}`);
-  console.log('Queue a sync with npm.cmd run figma:apply-log');
+  console.log('Queue a sync with corepack pnpm run figma:apply-log');
 });

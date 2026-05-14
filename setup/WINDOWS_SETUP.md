@@ -51,8 +51,8 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 - `winget` 확인
 - `nvm-windows`가 없으면 `winget`으로 설치
 - Node.js가 없거나 버전이 맞지 않으면 `nvm install 24.14.0`, `nvm use 24.14.0` 실행
-- npm 확인
-- `npm install`
+- Corepack 확인 및 pnpm 11 실행
+- `corepack pnpm install`
 - `.env.example`을 기준으로 `.env` 생성
 - Prisma Client 생성
 - Playwright Chromium 설치
@@ -60,7 +60,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ## 3. 개발 서버 실행
 
 ```powershell
-npm run dev
+corepack pnpm run dev
 ```
 
 접속 주소:
@@ -75,8 +75,8 @@ npm run dev
 
 ```powershell
 node -v
-npm -v
-npm test
+corepack pnpm --version
+corepack pnpm run test
 ```
 
 Node는 `v24.14.0`이 나와야 합니다.
@@ -93,19 +93,23 @@ Node는 `v24.14.0`이 나와야 합니다.
 .\scripts\setup-windows.ps1 -SkipInstall -RunCheck
 ```
 
-## 5. PostgreSQL 17까지 함께 실행
+## 5. 개인 개발 DB 연결
 
-Docker Desktop이 설치되어 있다면 아래 명령을 사용합니다.
+DB 서버는 팀원별로 따로 사용합니다. Supabase, AWS RDS, 로컬 PostgreSQL, Docker PostgreSQL 중 본인이 쓸 DB의 PostgreSQL 연결 문자열을 루트 `.env`의 `DATABASE_URL`에 넣습니다.
+
+DB를 연결한 뒤 공통 스키마와 샘플 데이터를 적용합니다.
 
 ```powershell
-npm run docker:up
+corepack pnpm run db:migrate
+corepack pnpm run db:seed
+corepack pnpm run db:studio
 ```
 
-Docker Desktop이 없다면 PostgreSQL 컨테이너는 실행할 수 없지만, Mock fallback 구조 덕분에 기본 프론트엔드와 백엔드 개발은 가능합니다.
+DB를 아직 연결하지 않아도 Mock fallback 구조 덕분에 기본 프론트엔드와 백엔드 개발은 가능합니다.
 
-## 6. Docker Desktop 설치
+## 6. 선택: Docker Desktop 설치
 
-PostgreSQL 17까지 Docker로 실행하려면 Docker Desktop이 필요합니다.
+개인 개발 DB를 Docker PostgreSQL로 띄우고 싶은 경우에만 Docker Desktop을 설치합니다.
 
 ```powershell
 winget install --id Docker.DockerDesktop --exact --accept-package-agreements --accept-source-agreements
@@ -118,6 +122,12 @@ docker --version
 docker compose version
 ```
 
+Docker Desktop이 준비된 경우에만 아래 명령으로 로컬 컨테이너 DB까지 실행합니다.
+
+```powershell
+corepack pnpm run docker:up
+```
+
 ## 7. 문제가 생겼을 때 확인할 명령
 
 자동 스크립트가 실패했을 때만 아래 명령을 순서대로 확인합니다.
@@ -127,9 +137,9 @@ winget --version
 nvm version
 nvm list
 node -v
-npm -v
+corepack pnpm --version
 where node
-where npm
+where corepack
 ```
 
 ### `setup-windows.ps1` 파일을 찾지 못하는 경우
@@ -183,5 +193,5 @@ nvm use 24.14.0
 ```txt
 nvm-windows 설치 후 nvm 명령을 찾지 못했습니다.
 Node.js 24.14.0 이상 25 미만을 찾지 못했습니다.
-npm 명령을 찾지 못했습니다.
+Corepack 명령을 찾지 못했습니다.
 ```

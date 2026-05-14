@@ -108,7 +108,7 @@ function extractFigmaLines(markdown) {
   return markdown
     .split(/\r?\n/)
     .map((line) => line.trimEnd())
-    .filter((line) => /^(\s*)-\s+/.test(line) || /^\s*#by Codex\b/.test(line));
+    .filter((line) => /^(\s*)-\s+/.test(line));
 }
 
 export function buildWorkLogExport({

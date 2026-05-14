@@ -74,26 +74,12 @@ nvm --version
 nvm install
 nvm use
 node -v
-npm -v
+corepack pnpm --version
 ```
 
 `.nvmrc`에 `24.14.0`이 들어 있으므로 `nvm install`은 같은 Node 버전을 설치합니다.
 
-## 6. Docker Desktop 설치
-
-```bash
-brew install --cask docker
-open -a Docker
-```
-
-확인:
-
-```bash
-docker --version
-docker compose version
-```
-
-## 7. 프로젝트 받기
+## 6. 프로젝트 받기
 
 원하는 작업 폴더에서 아래 명령을 실행합니다.
 
@@ -110,7 +96,7 @@ ls package.json
 
 이후 문서의 모든 명령은 프로젝트 루트 기준 상대경로로 실행합니다.
 
-## 8. 프로젝트 초기 세팅
+## 7. 프로젝트 초기 세팅
 
 ```bash
 bash scripts/setup-unix.sh
@@ -119,17 +105,52 @@ bash scripts/setup-unix.sh
 또는 직접 실행합니다.
 
 ```bash
-npm install
-npm run setup:env
-npm run db:generate
-npm run setup:playwright
+corepack pnpm install
+corepack pnpm run setup:env
+corepack pnpm run db:generate
+corepack pnpm run setup:playwright
 ```
 
-## 9. 실행
+## 8. 개인 개발 DB 연결
+
+DB 서버는 팀원별로 따로 사용합니다. Supabase, AWS RDS, 로컬 PostgreSQL, Docker PostgreSQL 중 본인이 쓸 DB의 PostgreSQL 연결 문자열을 루트 `.env`의 `DATABASE_URL`에 넣습니다.
+
+DB를 연결한 뒤 공통 스키마와 샘플 데이터를 적용합니다.
 
 ```bash
-npm run dev
-npm run docker:up
-npm test
-npm run check
+corepack pnpm run db:migrate
+corepack pnpm run db:seed
+corepack pnpm run db:studio
+```
+
+DB를 아직 연결하지 않아도 Mock fallback 구조 덕분에 기본 프론트엔드와 백엔드 개발은 가능합니다.
+
+## 9. 선택: Docker Desktop 설치
+
+개인 개발 DB를 Docker PostgreSQL로 띄우고 싶은 경우에만 Docker Desktop을 설치합니다.
+
+```bash
+brew install --cask docker
+open -a Docker
+```
+
+확인:
+
+```bash
+docker --version
+docker compose version
+```
+
+Docker Desktop이 준비된 경우에만 아래 명령으로 로컬 컨테이너 DB까지 실행합니다.
+
+```bash
+corepack pnpm run docker:up
+```
+
+## 10. 실행
+
+```bash
+corepack pnpm run dev
+corepack pnpm run test
+corepack pnpm run check
 ```

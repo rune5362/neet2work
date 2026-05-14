@@ -13,7 +13,7 @@ Use this file before editing or syncing the Figma work log.
 ## Recording Workflow
 
 - Use KST dates.
-- Before writing session notes, run `npm.cmd run worklog:prepare`.
+- Before writing session notes, run `corepack pnpm run worklog:prepare`.
 - Active `docs/work-log/WORK_SESSIONS.md` and `docs/work-log/WORK_LOG.md`
   should contain only the current KST date. Older date sections belong in
   `docs/work-log/archive/`.
@@ -33,15 +33,6 @@ Use this file before editing or syncing the Figma work log.
   `docs/work-log/WORK_LOG.md` entries, update the matching date's
   `Figma Summary` only as needed, then sync.
 - Keep Figma summaries short. They are not full session logs.
-- Add the author tag once per date section, not per bullet.
-- Prefer the section-level tag style:
-
-```txt
-5/13
-
-- Main work summary
-  #by Codex
-```
 
 ## Sync Rules
 
@@ -49,7 +40,7 @@ Use this file before editing or syncing the Figma work log.
   root:
 
 ```bash
-npm.cmd run figma:bridge
+corepack pnpm run figma:bridge
 ```
 
 - Bridge URL: `http://localhost:3927`
@@ -62,7 +53,7 @@ npm.cmd run figma:bridge
 - After the bridge and runner are ready, sync with:
 
 ```bash
-npm.cmd run figma:apply-log
+corepack pnpm run figma:apply-log
 ```
 
 - Replace the same display-date section instead of appending duplicate dates.
@@ -70,13 +61,12 @@ npm.cmd run figma:apply-log
 - Preserve the current Figma text box width.
 - Let text height grow naturally with content.
 - Keep the current font as the default style.
-- The `#by Codex` tag may be styled smaller than the main bullet text.
 
 ## Commands
 
 ```bash
-npm.cmd run worklog:prepare
-npm.cmd run worklog:export
-npm.cmd run figma:bridge
-npm.cmd run figma:apply-log
+corepack pnpm run worklog:prepare
+corepack pnpm run worklog:export
+corepack pnpm run figma:bridge
+corepack pnpm run figma:apply-log
 ```
