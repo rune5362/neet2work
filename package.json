@@ -22,6 +22,7 @@
     "db:deploy": "corepack pnpm --filter @neet2work/backend run db:deploy",
     "db:reset": "corepack pnpm --filter @neet2work/backend run db:reset",
     "db:seed": "corepack pnpm --filter @neet2work/backend run db:seed",
+    "db:import:jobs": "corepack pnpm --filter @neet2work/backend run db:import:jobs",
     "db:studio": "corepack pnpm --filter @neet2work/backend run db:studio",
     "db:status": "corepack pnpm --filter @neet2work/backend run db:status",
     "dev": "concurrently \"corepack pnpm --filter @neet2work/backend dev\" \"corepack pnpm --filter @neet2work/frontend dev\"",
