@@ -61,3 +61,22 @@
 - DB 스키마/migration, Python 크롤러 골격, 사람인 목록-상세 1건 재수집, 표준 `JobPosting`/원본 보존 전략을 재검증
 - `prisma validate`, empty DB 기준 `prisma migrate diff`, Python `py_compile`, 사람인 1건 live JSON 생성, `corepack pnpm run check` 통과 확인
 - 남은 리스크는 실제 Supabase migration 적용 전 상태, `source_job_id` null 중복 가능성, 오래된 Playwright 수집기 타입 이름 혼동 가능성으로 정리
+
+### Supabase DB Initial Load
+
+- Supabase plugin으로 `neet2work` 프로젝트 `public` 스키마가 비어 있음을 확인하고 Prisma 기준 테이블을 생성
+- `job_postings`, `resume_analyses`, `AnalysisMode`, 인덱스, FK, 배열 기본값, Prisma migration 기록 테이블을 적용
+- Supabase public schema 노출 리스크를 줄이기 위해 앱 데이터 테이블 2개에 RLS를 활성화하는 migration을 추가
+- 샘플 공고 3건을 `job_postings`에 upsert하고 Supabase table list/count/query로 적재 확인
+- 남은 판단 사항: `job_postings`와 `resume_analyses`는 RLS policy가 아직 없어서 클라이언트 공개 API 접근은 막혀 있고, `_prisma_migrations` RLS 적용 여부는 별도 결정 필요
+
+### Job Import Follow-up
+
+- `.env`에서 `DATABASE_URL`을 비워도 Prisma config가 localhost를 기본값으로 잡던 fallback을 제거해 의도하지 않은 로컬 DB 접속을 차단
+- `.env.example`의 `DATABASE_URL`도 빈 값으로 바꿔 DB 없이 mock fallback 실행이 기본임을 명확히 정리
+- 표준 `JobPosting` JSON을 검증하고 upsert하는 `prisma/importJobPostings.ts`와 `db:import:jobs` 명령 추가
+- 사람인 수집 샘플 JSON을 dry-run 검증한 뒤 Supabase `job_postings`에 1건 upsert
+- Supabase query로 `job_postings` 총 4건, `sample` 3건, `saramin` 1건 상태 확인
+- 검증: import dry-run, Supabase source/count query, `prisma validate`, backend `tsc --noEmit`, `git diff --check` 통과
+- 참고: `corepack pnpm run db:import:jobs`는 현재 node_modules purge 확인 요구로 중단되어 직접 `tsx.CMD` 경로로 dry-run 검증
+- main merge 검토 중 import 스크립트의 Prisma JSON null 타입 오류를 수정하고, 별도 타입체크, backend/frontend lint, tests, typecheck, frontend build까지 재검증

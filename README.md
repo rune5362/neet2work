@@ -182,8 +182,8 @@ PORT=3000
 CLIENT_URL=http://localhost:5173
 AI_API_KEY=
 AI_MODEL=
-# 개인 개발 DB URL로 교체합니다. 예: Supabase, AWS RDS, 로컬 PostgreSQL
-DATABASE_URL=postgresql://neet2work:neet2work@localhost:5432/neet2work
+# 개인 개발 DB URL로 교체합니다. 비워두면 DB 없이 mock fallback으로 실행됩니다.
+DATABASE_URL=
 POSTGRES_USER=neet2work
 POSTGRES_PASSWORD=neet2work
 POSTGRES_DB=neet2work
@@ -300,6 +300,22 @@ corepack pnpm run db:seed
 - `db:reset`은 현재 `.env`의 `DATABASE_URL` 대상 DB를 초기화하므로, 공용/운영 DB에서는 실행하지 않습니다.
 - 서버 실행은 DB 없이도 Mock fallback으로 가능하지만, `db:migrate`, `db:seed`는 실제 DB 연결이 필요합니다.
 - `corepack pnpm run setup`, `corepack pnpm run db:generate`, `corepack pnpm run dev`는 DB 없이도 실행 가능하도록 유지합니다.
+
+### 채용공고 JSON Import
+
+크롤러가 만든 표준 `JobPosting` JSON은 먼저 dry-run으로 형식을 확인합니다.
+
+```bash
+corepack pnpm run db:import:jobs -- --dry-run ../../docs/research/job-sites/saramin_sample_2026-05-14.json
+```
+
+개인 개발 DB의 `DATABASE_URL`을 넣은 뒤 실제 upsert를 실행합니다.
+
+```bash
+corepack pnpm run db:import:jobs -- ../../docs/research/job-sites/saramin_sample_2026-05-14.json
+```
+
+이 명령은 `id` 기준으로 upsert하므로 같은 JSON을 다시 실행해도 중복 행을 만들지 않습니다.
 
 자세한 DB 관리 흐름은 [apps/backend/prisma/README.md](./apps/backend/prisma/README.md)를 참고합니다.
 

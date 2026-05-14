@@ -21,3 +21,17 @@ python scripts/job_crawler/saramin.py --limit 1 --output docs/research/job-sites
 ```
 
 출력 JSON은 `apps/backend/prisma/schema.prisma`의 `JobPosting` 확장 필드와 맞춰 둔다.
+
+## DB 적재 전 검증
+
+크롤러 산출물은 먼저 dry-run import로 표준 필드가 맞는지 확인한다.
+
+```bash
+corepack pnpm run db:import:jobs -- --dry-run ../../docs/research/job-sites/saramin_sample_2026-05-14.json
+```
+
+개인 개발 DB의 `DATABASE_URL`을 설정한 뒤 실제 적재한다.
+
+```bash
+corepack pnpm run db:import:jobs -- ../../docs/research/job-sites/saramin_sample_2026-05-14.json
+```

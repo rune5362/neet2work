@@ -21,6 +21,7 @@
 corepack pnpm run db:generate
 corepack pnpm run db:migrate
 corepack pnpm run db:seed
+corepack pnpm run db:import:jobs -- --dry-run ../../docs/research/job-sites/saramin_sample_2026-05-14.json
 corepack pnpm run db:studio
 ```
 
@@ -31,6 +32,8 @@ DB 연결 필요 여부:
 | `corepack pnpm run db:generate` | 필요 없음 | Prisma Client 생성 |
 | `corepack pnpm run db:migrate` | 필요 | PostgreSQL에 migration 적용 |
 | `corepack pnpm run db:seed` | 필요 | PostgreSQL에 샘플 데이터 입력 |
+| `corepack pnpm run db:import:jobs -- --dry-run <file>` | 필요 없음 | 표준 채용공고 JSON 형식 검증 |
+| `corepack pnpm run db:import:jobs -- <file>` | 필요 | 표준 채용공고 JSON upsert |
 | `corepack pnpm run db:reset` | 필요 | 현재 `DATABASE_URL`의 개발 DB 초기화 |
 | `corepack pnpm run db:studio` | 필요 | Prisma Studio 실행 |
 
@@ -70,6 +73,22 @@ corepack pnpm run db:seed
 ```
 
 이 명령은 팀 공통 migration을 내 개인 DB에 적용하는 흐름입니다. 다른 팀원의 DB에는 영향을 주지 않습니다.
+
+## 크롤러 JSON 적재
+
+크롤러는 DB에 바로 쓰지 않고 표준 JSON을 먼저 만듭니다. 사람이 산출물을 확인한 뒤 아래 명령으로 형식 검증을 먼저 합니다.
+
+```bash
+corepack pnpm run db:import:jobs -- --dry-run ../../docs/research/job-sites/saramin_sample_2026-05-14.json
+```
+
+개인 개발 DB의 `DATABASE_URL`이 설정된 상태에서 실제 적재를 실행합니다.
+
+```bash
+corepack pnpm run db:import:jobs -- ../../docs/research/job-sites/saramin_sample_2026-05-14.json
+```
+
+import는 `id` 기준 upsert라 같은 파일을 다시 넣어도 중복 행을 만들지 않습니다. `source`와 `sourceJobId`는 수집 중복 방지와 추적을 위해 필수로 둡니다.
 
 ## 개발 DB 초기화
 
