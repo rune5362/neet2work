@@ -7,3 +7,4 @@ allowBuilds:
   "prisma": true
 
 minimumReleaseAge: 1440
+verifyDepsBeforeRun: false

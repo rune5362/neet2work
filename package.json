@@ -25,6 +25,7 @@
     "db:import:jobs": "corepack pnpm --filter @neet2work/backend run db:import:jobs",
     "db:studio": "corepack pnpm --filter @neet2work/backend run db:studio",
     "db:status": "corepack pnpm --filter @neet2work/backend run db:status",
+    "crawl:saramin:check": "corepack pnpm --filter @neet2work/backend exec tsx src/scripts/saraminImportCheck.ts",
     "dev": "concurrently \"corepack pnpm --filter @neet2work/backend dev\" \"corepack pnpm --filter @neet2work/frontend dev\"",
     "dev:frontend": "corepack pnpm --filter @neet2work/frontend dev",
     "dev:backend": "corepack pnpm --filter @neet2work/backend dev",
