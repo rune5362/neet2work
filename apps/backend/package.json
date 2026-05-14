@@ -17,6 +17,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:reset": "prisma migrate reset",
     "db:seed": "prisma db seed",
+    "db:import:jobs": "tsx prisma/importJobPostings.ts",
     "db:studio": "prisma studio",
     "db:status": "prisma migrate status"
   },
