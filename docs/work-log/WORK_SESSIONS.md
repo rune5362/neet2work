@@ -80,3 +80,9 @@
 - 검증: import dry-run, Supabase source/count query, `prisma validate`, backend `tsc --noEmit`, `git diff --check` 통과
 - 참고: `corepack pnpm run db:import:jobs`는 현재 node_modules purge 확인 요구로 중단되어 직접 `tsx.CMD` 경로로 dry-run 검증
 - main merge 검토 중 import 스크립트의 Prisma JSON null 타입 오류를 수정하고, 별도 타입체크, backend/frontend lint, tests, typecheck, frontend build까지 재검증
+
+### Saramin Import Check
+
+- 사람인 Python 크롤러 결과를 `tmp/saramin_import_check.json`으로 생성한 뒤 표준 `JobPosting` import dry-run에 넘기는 backend check runner 추가
+- `crawl:saramin:check` 명령과 pnpm 11 실행 전 자동 install 방지 설정을 package-only 커밋으로 분리해 `main`과 `playground`에 동일하게 반영
+- 검증: `corepack pnpm run crawl:saramin:check`, backend Vitest, backend lint, backend `tsc --noEmit`, Prisma schema validate, `git diff --check` 통과
