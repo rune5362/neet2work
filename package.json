@@ -8,6 +8,12 @@
     "apps/backend"
   ],
   "scripts": {
+    "figma:check": "node scripts/check-figma-target.mjs",
+    "worklog:prepare": "node scripts/prepare-work-log-day.mjs",
+    "worklog:export": "node scripts/prepare-work-log-day.mjs --quiet && node scripts/export-work-log.mjs",
+    "figma:bridge": "node scripts/prepare-work-log-day.mjs --quiet && node scripts/serve-figma-work-log.mjs",
+    "figma:apply-log": "node scripts/prepare-work-log-day.mjs --quiet && node scripts/apply-figma-work-log.mjs",
+    "figma:serve-log": "node scripts/serve-figma-work-log.mjs",
     "dev": "concurrently \"npm run dev -w apps/backend\" \"npm run dev -w apps/frontend\"",
     "dev:frontend": "npm run dev -w apps/frontend",
     "dev:backend": "npm run dev -w apps/backend",

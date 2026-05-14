@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 16px;
+        color: #161616;
+        background: #f7f8fa;
+        font-size: 13px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      label {
+        display: block;
+        margin: 0 0 6px;
+        font-weight: 600;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        border: 1px solid #c9ced6;
+        border-radius: 6px;
+        padding: 8px 10px;
+        background: #fff;
+        color: #161616;
+        font: inherit;
+      }
+
+      textarea {
+        min-height: 170px;
+        resize: vertical;
+        line-height: 1.45;
+      }
+
+      .field {
+        margin-bottom: 12px;
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      button {
+        min-height: 34px;
+        border: 0;
+        border-radius: 6px;
+        padding: 0 12px;
+        background: #1c6ef2;
+        color: #fff;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: #e2e5ea;
+        color: #20242b;
+      }
+
+      button:disabled {
+        cursor: default;
+        opacity: 0.55;
+      }
+
+      .status {
+        min-height: 18px;
+        margin-top: 10px;
+        color: #4d5662;
+        line-height: 1.4;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="field">
+      <label for="endpoint">Bridge URL</label>
+      <input id="endpoint" />
+    </div>
+
+    <div class="field">
+      <label for="targetNodeId">Target frame node ID</label>
+      <input id="targetNodeId" />
+    </div>
+
+    <div class="field">
+      <label for="textLayerName">Text layer name</label>
+      <input id="textLayerName" />
+    </div>
+
+    <div class="field">
+      <label for="workLogText">Append text</label>
+      <textarea id="workLogText"></textarea>
+    </div>
+
+    <div class="actions">
+      <button id="fetchButton" type="button">Fetch Preview</button>
+      <button id="appendButton" type="button">Append Preview</button>
+      <button id="pollButton" class="secondary" type="button">Pause Runner</button>
+      <button id="cancelButton" class="secondary" type="button">Close</button>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <script>
+      const endpointInput = document.querySelector('#endpoint');
+      const targetNodeIdInput = document.querySelector('#targetNodeId');
+      const textLayerNameInput = document.querySelector('#textLayerName');
+      const workLogTextInput = document.querySelector('#workLogText');
+      const fetchButton = document.querySelector('#fetchButton');
+      const appendButton = document.querySelector('#appendButton');
+      const pollButton = document.querySelector('#pollButton');
+      const cancelButton = document.querySelector('#cancelButton');
+      const status = document.querySelector('#status');
+      const POLL_MS = 1500;
+
+      let polling = true;
+      let applyingJob = false;
+      let lastIdleStatusAt = 0;
+
+      function setStatus(message) {
+        status.textContent = message;
+      }
+
+      function bridgeBaseUrl() {
+        return endpointInput.value.trim().replace(/\/+$/, '');
+      }
+
+      function bridgeEndpoint(path) {
+        return `${bridgeBaseUrl()}${path}`;
+      }
+
+      function sendAppendMessage({ jobId = null, text }) {
+        appendButton.disabled = true;
+
+        parent.postMessage(
+          {
+            pluginMessage: {
+              type: 'append-work-log',
+              jobId,
+              targetNodeId: targetNodeIdInput.value.trim(),
+              textLayerName: textLayerNameInput.value.trim(),
+              text,
+            },
+          },
+          '*',
+        );
+      }
+
+      async function reportJobResult(message) {
+        if (!message.jobId) return;
+
+        await fetch(bridgeEndpoint(`/work-log/jobs/${encodeURIComponent(message.jobId)}/result`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ok: message.ok,
+            result: message.result || null,
+            error: message.error || null,
+          }),
+        });
+      }
+
+      async function pollNextJob() {
+        if (!polling || applyingJob || !bridgeBaseUrl()) return;
+
+        try {
+          const response = await fetch(bridgeEndpoint('/work-log/jobs/next'));
+
+          if (response.status === 204) {
+            const now = Date.now();
+            if (now - lastIdleStatusAt > 5000) {
+              setStatus('Runner connected. Waiting for Codex job...');
+              lastIdleStatusAt = now;
+            }
+            return;
+          }
+
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
+          }
+
+          applyingJob = true;
+          workLogTextInput.value = payload.text;
+          setStatus(`Applying queued job ${payload.id} (${payload.displayDate})...`);
+          sendAppendMessage({ jobId: payload.id, text: payload.text });
+        } catch (error) {
+          setStatus(`Bridge disconnected: ${error.message}`);
+        }
+      }
+
+      window.onmessage = (event) => {
+        const message = event.data.pluginMessage;
+        if (!message) return;
+
+        if (message.type === 'init') {
+          endpointInput.value = message.bridgeUrl;
+          targetNodeIdInput.value = message.targetNodeId;
+          textLayerNameInput.value = message.textLayerName;
+          setStatus('Runner ready. Start or keep npm.cmd run figma:bridge running.');
+        }
+
+        if (message.type === 'append-result') {
+          appendButton.disabled = false;
+          applyingJob = false;
+          reportJobResult(message).catch((error) => {
+            setStatus(`Append done, but result report failed: ${error.message}`);
+          });
+          setStatus(message.ok ? 'Append complete. Runner is still open.' : `Append failed: ${message.error}`);
+        }
+      };
+
+      fetchButton.onclick = async () => {
+        fetchButton.disabled = true;
+        setStatus('Fetching work log...');
+
+        try {
+          const response = await fetch(bridgeEndpoint('/work-log'));
+          const payload = await response.json();
+
+          if (!response.ok) {
+            throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
+          }
+
+          workLogTextInput.value = payload.text;
+          setStatus(`Loaded ${payload.displayDate}. Existing Figma text will be kept.`);
+        } catch (error) {
+          setStatus(`Fetch failed: ${error.message}`);
+        } finally {
+          fetchButton.disabled = false;
+        }
+      };
+
+      appendButton.onclick = () => {
+        setStatus('Applying preview text to WORK_LOG...');
+        sendAppendMessage({ text: workLogTextInput.value });
+      };
+
+      pollButton.onclick = () => {
+        polling = !polling;
+        pollButton.textContent = polling ? 'Pause Runner' : 'Resume Runner';
+        setStatus(polling ? 'Runner resumed.' : 'Runner paused.');
+      };
+
+      cancelButton.onclick = () => {
+        parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');
+      };
+
+      setInterval(pollNextJob, POLL_MS);
+    </script>
+  </body>
+</html>
