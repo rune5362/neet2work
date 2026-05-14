@@ -38,6 +38,7 @@
 | Frontend | React 19 + Vite 7 |
 | Backend | Express 5 |
 | DB | PostgreSQL 17 |
+| DB Migration | Prisma Migrate + Prisma Seed |
 | RPA | Playwright |
 | Formatter | Prettier |
 | Linter | ESLint |
@@ -61,6 +62,8 @@
 ### Database & Storage
 
 - PostgreSQL 17
+- Prisma Migrate
+- Prisma Seed
 - AWS RDS Free Tier
 - Cloudflare R2
 - Local JSON Data
@@ -94,7 +97,7 @@
 ## 폴더 구조
 
 ```txt
-ilhad-eum-youth/
+neet2work/
 ├─ apps/
 │  ├─ frontend/
 │  │  ├─ src/
@@ -122,6 +125,10 @@ ilhad-eum-youth/
 │     ├─ data/
 │     │  ├─ sampleJobs.json
 │     │  └─ sampleAnalysis.json
+│     ├─ prisma/
+│     │  ├─ migrations/
+│     │  ├─ schema.prisma
+│     │  └─ seed.ts
 │     ├─ package.json
 │     ├─ tsconfig.json
 │     └─ vitest.config.ts
@@ -130,6 +137,11 @@ ilhad-eum-youth/
 ├─ .editorconfig
 ├─ .gitattributes
 ├─ .gitignore
+├─ setup/
+│  ├─ SETUP.md
+│  ├─ WINDOWS_SETUP.md
+│  ├─ MACOS_SETUP.md
+│  └─ LINUX_SETUP.md
 ├─ docker-compose.yml
 ├─ package.json
 └─ README.md
@@ -180,11 +192,17 @@ R2_SECRET_ACCESS_KEY=
 
 ## 실행 방법
 
+자세한 개발 환경 세팅은 [setup/SETUP.md](./setup/SETUP.md)를 참고합니다. 운영체제별 완전 초기 세팅은 [setup/WINDOWS_SETUP.md](./setup/WINDOWS_SETUP.md), [setup/MACOS_SETUP.md](./setup/MACOS_SETUP.md), [setup/LINUX_SETUP.md](./setup/LINUX_SETUP.md)에 정리되어 있습니다. 협업 규칙은 [CONTRIBUTING.md](./CONTRIBUTING.md)에 정리되어 있습니다.
+
 ### 처음 설치
 
 ```bash
-npm install
+npm run setup
 ```
+
+`npm run setup`은 의존성 설치, `.env` 생성, Prisma Client 생성, Playwright Chromium 설치를 한 번에 수행합니다.
+
+`npm run setup` 과정의 `db:generate`는 Prisma Client 생성만 수행하므로 PostgreSQL이 실행 중이지 않아도 됩니다.
 
 ### 프론트/백엔드 동시 실행
 
@@ -214,6 +232,70 @@ npm test
 ```
 
 프론트엔드와 백엔드는 Vitest 기반 smoke test를 포함합니다.
+
+### DB 마이그레이션
+
+PostgreSQL 스키마 공유는 Prisma Migrate를 사용합니다.
+
+```bash
+npm run db:migrate
+npm run db:seed
+```
+
+Prisma migration은 아래 구조로 관리합니다.
+
+```txt
+apps/backend/prisma/
+├─ schema.prisma
+├─ seed.ts
+└─ migrations/
+   ├─ migration_lock.toml
+   └─ 00000000000000_init/
+      └─ migration.sql
+```
+
+`00000000000000_init/migration.sql`은 의미 없는 예시 파일이 아니라, 현재 프로젝트의 초기 DB 스키마를 만드는 실제 migration 파일입니다. 이 파일은 `job_postings`, `resume_analyses`, `AnalysisMode` enum, 인덱스, 외래키 관계를 생성합니다.
+
+마이그레이션 실행 순서는 `prisma/migrations/` 아래의 폴더명 순서로 결정됩니다.
+
+```txt
+1. 00000000000000_init/migration.sql
+2. 20260513153000_add_users/migration.sql
+3. 20260514101000_add_resume_history/migration.sql
+```
+
+실제 작업에서는 Prisma가 보통 `20260513..._name` 형식의 migration 폴더를 자동 생성합니다.
+
+새 스키마 변경을 만들 때는 아래 명령을 사용합니다.
+
+```bash
+npm run db:migrate -w apps/backend -- --name add_feature_name
+```
+
+동료가 만든 migration을 받은 뒤에는 아래 순서로 맞춥니다.
+
+```bash
+git pull
+npm run db:migrate
+npm run db:seed
+```
+
+기존 스키마를 크게 바꾸고 싶을 때는 상황에 따라 다르게 처리합니다.
+
+- 팀원들이 아직 migration을 적용하기 전: 기존 초기 migration을 다시 만들 수 있습니다.
+- 팀원들이 이미 migration을 적용한 뒤: 기존 migration은 수정하지 않고 새 migration을 추가합니다.
+- 로컬 개발 DB 데이터가 필요 없을 때: `npm run db:reset`으로 로컬 DB를 초기화한 뒤 seed를 다시 넣습니다.
+
+주의사항:
+
+- 이미 공유된 migration 파일은 되도록 수정하거나 삭제하지 않습니다.
+- 공유 후 DB 변경은 새 migration으로 누적합니다.
+- 실제 로컬 DB 데이터는 Git으로 공유하지 않습니다.
+- 공유할 샘플 데이터는 `apps/backend/prisma/seed.ts`에 반영합니다.
+- 서버 실행은 DB 없이도 Mock fallback으로 가능하지만, `db:migrate`, `db:seed`는 실제 DB 연결이 필요합니다.
+- `npm run setup`, `npm run db:generate`, `npm run dev`는 DB 없이도 실행 가능하도록 유지합니다.
+
+자세한 DB 관리 흐름은 [apps/backend/prisma/README.md](./apps/backend/prisma/README.md)를 참고합니다.
 
 ## API 예시
 

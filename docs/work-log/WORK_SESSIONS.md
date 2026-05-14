@@ -22,3 +22,9 @@
 - Figma sync 전 bridge 실행 명령, bridge URL, plugin manifest, runner 실행 경로를 `FIGMA_WORK_LOG_RULES.md`에 명시
 - Figma 플러그인과 bridge 실행 파일을 `C:\lsh\git\figma_bridge`로 복사하고 독립 실행용 `package.json` 구성
 - 복사본에서 `node --check`와 `npm.cmd run worklog:export`로 동작 확인
+
+### Main Branch Update Merge
+
+- `origin/main` 최신 커밋을 fetch하고 `playground` 브랜치에 병합 진행
+- `package.json` scripts 충돌을 Figma/worklog 명령과 setup/db 명령을 모두 보존하는 방식으로 해결
+- `package.json` JSON 파싱, `git diff --check`, `npm.cmd run worklog:prepare`로 기본 검증 완료

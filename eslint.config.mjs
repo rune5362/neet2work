@@ -3,7 +3,12 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["**/dist/**", "**/node_modules/**", "apps/backend/data/**"]
+    ignores: [
+      "**/dist/**",
+      "**/node_modules/**",
+      "apps/backend/data/**",
+      "apps/backend/src/generated/prisma/**"
+    ]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -21,7 +26,16 @@ export default tseslint.config(
       }
     },
     rules: {
-      "@typescript-eslint/no-explicit-any": "warn"
+      "@typescript-eslint/no-explicit-any": "warn",
+      // Express error handlers keep unused _next to preserve the 4-arg middleware signature.
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          "argsIgnorePattern": "^_",
+          "varsIgnorePattern": "^_",
+          "caughtErrorsIgnorePattern": "^_"
+        }
+      ]
     }
   },
   {
@@ -35,7 +49,16 @@ export default tseslint.config(
       }
     },
     rules: {
-      "@typescript-eslint/no-explicit-any": "warn"
+      "@typescript-eslint/no-explicit-any": "warn",
+      // Express error handlers keep unused _next to preserve the 4-arg middleware signature.
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          "argsIgnorePattern": "^_",
+          "varsIgnorePattern": "^_",
+          "caughtErrorsIgnorePattern": "^_"
+        }
+      ]
     }
   }
 );

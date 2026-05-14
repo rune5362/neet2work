@@ -1,8 +1,8 @@
 {
-  "name": "ilhad-eum-youth",
+  "name": "neet2work",
   "version": "1.0.0",
   "private": true,
-  "packageManager": "npm@11.6.2",
+  "packageManager": "npm@11.9.0",
   "workspaces": [
     "apps/frontend",
     "apps/backend"
@@ -14,12 +14,30 @@
     "figma:bridge": "node scripts/prepare-work-log-day.mjs --quiet && node scripts/serve-figma-work-log.mjs",
     "figma:apply-log": "node scripts/prepare-work-log-day.mjs --quiet && node scripts/apply-figma-work-log.mjs",
     "figma:serve-log": "node scripts/serve-figma-work-log.mjs",
+    "setup": "npm install && npm run setup:env && npm run db:generate && npm run setup:playwright",
+    "setup:windows": "powershell -ExecutionPolicy Bypass -File scripts/setup-windows.ps1",
+    "setup:unix": "bash scripts/setup-unix.sh",
+    "setup:vscode": "powershell -ExecutionPolicy Bypass -File scripts/install-vscode-extensions.ps1",
+    "setup:env": "node scripts/setup-env.mjs",
+    "setup:playwright": "npm exec -w apps/backend playwright install chromium",
+    "db:generate": "npm run db:generate -w apps/backend",
+    "db:migrate": "npm run db:migrate -w apps/backend",
+    "db:migrate:create": "npm run db:migrate:create -w apps/backend",
+    "db:deploy": "npm run db:deploy -w apps/backend",
+    "db:reset": "npm run db:reset -w apps/backend",
+    "db:seed": "npm run db:seed -w apps/backend",
+    "db:studio": "npm run db:studio -w apps/backend",
+    "db:status": "npm run db:status -w apps/backend",
     "dev": "concurrently \"npm run dev -w apps/backend\" \"npm run dev -w apps/frontend\"",
     "dev:frontend": "npm run dev -w apps/frontend",
     "dev:backend": "npm run dev -w apps/backend",
     "build": "npm run build -w apps/frontend && npm run build -w apps/backend",
     "lint": "npm run lint -w apps/frontend && npm run lint -w apps/backend",
     "test": "npm run test -w apps/frontend && npm run test -w apps/backend",
+    "check": "npm run lint && npm test && npm run build",
+    "security:audit": "npm audit --workspaces",
+    "security:signatures": "npm audit signatures",
+    "docker:up": "docker compose up --build",
     "format": "prettier --write ."
   },
   "devDependencies": {
@@ -30,6 +48,6 @@
     "typescript-eslint": "^8.0.0"
   },
   "engines": {
-    "node": ">=24"
+    "node": ">=24.14.0 <25"
   }
 }
