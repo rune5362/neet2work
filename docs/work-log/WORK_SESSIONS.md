@@ -70,3 +70,16 @@
   - `corepack pnpm run crawl:matrix:check`
   - crawler safety scan: browser automation/proxy/stealth 없음, Python collector DB write 없음
 - 참고: backend test는 샌드박스에서 Vitest `.vite-temp` 쓰기 `EPERM`이 발생했지만, 같은 명령을 승인된 샌드박스 외부 실행으로 재시도해 4 files / 18 tests 통과
+
+### Figma Work Log Condensing
+
+- Figma-facing `WORK_LOG.md`가 상세 실행 로그처럼 길어져서 계획/분류/구현/검증 4줄 요약으로 축약
+- 상세 검증 기록은 `WORK_SESSIONS.md`에 유지하고 Figma 텍스트에는 핵심 결과만 남김
+- 이미 Figma에 올라간 이전 날짜도 짧게 보이도록 archive의 2026-05-13, 2026-05-14 `WORK_LOG.md` 요약을 각각 3~4줄로 축약
+- `scripts/export-work-log.mjs`가 기본 `WORK_LOG.md`에 없는 날짜를 `docs/work-log/archive/<date>/WORK_LOG.md`에서 fallback으로 읽도록 보강
+- Figma bridge/plugin runner로 2026-05-13, 2026-05-14, 2026-05-15 요약을 순차 반영했고 결과는 `5/13 replaced`, `5/14 replaced`, `5/15 appended`
+- 2026-05-15 Figma 요약이 여전히 길어 보여서 결과 중심 2줄로 재축약
+- 2줄 요약을 Figma에 재반영했고 결과는 `5/15 replaced`
+- Figma 요약 재비대화를 막기 위해 `FIGMA_WORK_LOG_RULES.md`에 2줄 권장/3줄 hard limit/80자 제한을 명시
+- `prepare-work-log-day.mjs`의 `WORK_LOG.md` 템플릿에 짧은 요약 안내 주석을 추가하고, `export-work-log.mjs`가 3줄/80자 초과 요약을 거절하도록 guard 추가
+- 3줄로 줄인 2026-05-14 요약을 Figma에 재반영했고 결과는 `5/14 replaced`

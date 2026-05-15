@@ -27,7 +27,16 @@ const FILES = [
     path: resolve(WORK_LOG_DIR, 'WORK_LOG.md'),
     title: '# Work Log',
     template(date) {
-      return ['# Work Log', '', `## ${date}`, '', '### Figma Summary', ''].join('\n');
+      return [
+        '# Work Log',
+        '',
+        `## ${date}`,
+        '',
+        '### Figma Summary',
+        '',
+        '<!-- 2 bullets preferred, 3 max. Keep details in WORK_SESSIONS.md. -->',
+        '',
+      ].join('\n');
     },
   },
 ];

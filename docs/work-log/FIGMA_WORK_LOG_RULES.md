@@ -34,6 +34,17 @@ Use this file before editing or syncing the Figma work log.
   `Figma Summary` only as needed, then sync.
 - Keep Figma summaries short. They are not full session logs.
 
+## Figma Summary Budget
+
+- Default to 2 bullets.
+- Hard limit: 3 bullets.
+- Keep each bullet under 80 characters.
+- Write outcome-level bullets only: plan, decision, implementation, verification.
+- Do not include command lists, long file paths, detailed source lists, error
+  traces, or nested bullets.
+- Put detailed commands, files, evidence, and verification output in
+  `WORK_SESSIONS.md`.
+
 ## Sync Rules
 
 - Before syncing to Figma, make sure the local bridge is running from the repo

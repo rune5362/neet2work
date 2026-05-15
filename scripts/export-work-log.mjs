@@ -1,9 +1,12 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const KST_TIME_ZONE = 'Asia/Seoul';
-const DEFAULT_WORK_LOG_PATH = resolve(process.cwd(), 'docs', 'work-log', 'WORK_LOG.md');
+const WORK_LOG_DIR = resolve(process.cwd(), 'docs', 'work-log');
+const DEFAULT_WORK_LOG_PATH = resolve(WORK_LOG_DIR, 'WORK_LOG.md');
+const MAX_FIGMA_BULLETS = 3;
+const MAX_FIGMA_BULLET_LENGTH = 80;
 
 function readArg(name) {
   const prefix = `--${name}=`;
@@ -111,15 +114,52 @@ function extractFigmaLines(markdown) {
     .filter((line) => /^(\s*)-\s+/.test(line));
 }
 
+function validateFigmaLines({ date, figmaLines, sourcePath }) {
+  if (figmaLines.length > MAX_FIGMA_BULLETS) {
+    throw new Error(
+      `Figma Summary for ${date} has ${figmaLines.length} bullets in ${sourcePath}; keep it to ${MAX_FIGMA_BULLETS} or fewer.`,
+    );
+  }
+
+  const longLine = figmaLines.find((line) => line.replace(/^(\s*)-\s+/, '').length > MAX_FIGMA_BULLET_LENGTH);
+  if (longLine) {
+    throw new Error(
+      `Figma Summary bullet for ${date} is too long in ${sourcePath}; keep each bullet under ${MAX_FIGMA_BULLET_LENGTH} characters: ${longLine}`,
+    );
+  }
+}
+
+function archiveWorkLogPath(date) {
+  return resolve(WORK_LOG_DIR, 'archive', date, 'WORK_LOG.md');
+}
+
+function loadDateSection({ date, workLogPath }) {
+  const markdown = readFileSync(workLogPath, 'utf8');
+  const dateSection = extractDateSection(markdown, date);
+  if (dateSection || resolve(workLogPath) !== DEFAULT_WORK_LOG_PATH) {
+    return { dateSection, sourcePath: workLogPath };
+  }
+
+  const archivedPath = archiveWorkLogPath(date);
+  if (!existsSync(archivedPath)) {
+    return { dateSection: null, sourcePath: workLogPath };
+  }
+
+  const archivedMarkdown = readFileSync(archivedPath, 'utf8');
+  return {
+    dateSection: extractDateSection(archivedMarkdown, date),
+    sourcePath: archivedPath,
+  };
+}
+
 export function buildWorkLogExport({
   date = todayKstIso(),
   workLogPath = DEFAULT_WORK_LOG_PATH,
 } = {}) {
-  const markdown = readFileSync(workLogPath, 'utf8');
-  const dateSection = extractDateSection(markdown, date);
+  const { dateSection, sourcePath } = loadDateSection({ date, workLogPath });
 
   if (!dateSection) {
-    throw new Error(`No work log section found for ${date}. Add "## ${date}" to ${workLogPath}.`);
+    throw new Error(`No work log section found for ${date}. Add "## ${date}" to ${sourcePath}.`);
   }
 
   const figmaSection =
@@ -129,8 +169,10 @@ export function buildWorkLogExport({
   const figmaLines = extractFigmaLines(figmaSection);
 
   if (figmaLines.length === 0) {
-    throw new Error(`No bullet items found for ${date} in ${workLogPath}.`);
+    throw new Error(`No bullet items found for ${date} in ${sourcePath}.`);
   }
+
+  validateFigmaLines({ date, figmaLines, sourcePath });
 
   const displayDate = formatKstDisplayDate(date);
 
