@@ -4,6 +4,14 @@ let pool: Pool | null = null;
 
 export type PostgresStatus = "not_configured" | "connected" | "unavailable";
 
+export type PostgresHealth = {
+  status: PostgresStatus;
+  error?: {
+    code?: string;
+    message: string;
+  };
+};
+
 export function getPostgresPool(): Pool | null {
   if (!process.env.DATABASE_URL) {
     return null;
@@ -16,17 +24,39 @@ export function getPostgresPool(): Pool | null {
   return pool;
 }
 
-export async function checkPostgresConnection(): Promise<PostgresStatus> {
+export async function checkPostgresConnection(): Promise<PostgresHealth> {
   const currentPool = getPostgresPool();
 
   if (!currentPool) {
-    return "not_configured";
+    return {
+      status: "not_configured"
+    };
   }
 
   try {
     await currentPool.query("select 1");
-    return "connected";
-  } catch {
-    return "unavailable";
+    return {
+      status: "connected"
+    };
+  } catch (error) {
+    return {
+      status: "unavailable",
+      error: normalizePostgresError(error)
+    };
   }
+}
+
+function normalizePostgresError(error: unknown): PostgresHealth["error"] {
+  if (error instanceof Error) {
+    const maybeCode = "code" in error ? String(error.code) : undefined;
+
+    return {
+      code: maybeCode,
+      message: error.message
+    };
+  }
+
+  return {
+    message: "Unknown PostgreSQL connection error"
+  };
 }

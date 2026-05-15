@@ -19,6 +19,8 @@ const app = express();
 
 const PORT = Number(process.env.PORT) || 3000;
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+const NODE_ENV = process.env.NODE_ENV || "development";
+const isDevelopment = NODE_ENV === "development";
 
 app.use(
   cors({
@@ -33,17 +35,29 @@ app.get("/", (_req, res) => {
   res.json({
     service: "일했음 청년 API",
     status: "running",
-    mode: process.env.NODE_ENV || "development"
+    mode: NODE_ENV
   });
 });
 
 app.get("/health", async (_req, res, next) => {
   try {
-    const database = await checkPostgresConnection();
+    const databaseHealth = await checkPostgresConnection();
+
+    if (databaseHealth.status === "unavailable" && databaseHealth.error) {
+      console.error("[database] connection failed", {
+        code: databaseHealth.error.code,
+        message: databaseHealth.error.message
+      });
+    }
 
     res.json({
       ok: true,
-      database,
+      database: databaseHealth.status,
+      ...(isDevelopment && databaseHealth.error
+        ? {
+            databaseError: databaseHealth.error
+          }
+        : {}),
       ai: process.env.AI_API_KEY ? "configured" : "mock",
       storage: process.env.R2_ACCESS_KEY_ID ? "configured" : "local"
     });
