@@ -41,6 +41,25 @@ Workspace: `C:\lsh\git\neet2work`
 - 일본/global 필드 때문에 schema migration을 바로 만들지 않는다. 실제 샘플이 현재 필드로 담기 어렵다는 증거가 먼저 필요하다.
 - 한국 후보 전체를 `GREEN collector` 또는 `YELLOW/RED evidence`로 정리한 뒤 일본 후보로 넘어간다.
 
+## Operational Batch Follow-up
+
+2026-05-15 이후 운영 수집으로 확장할 때는 이 1건 sample 계획이 아니라
+`docs/plans/2026-05-15-operational-job-collection-scope.md`와
+`docs/research/job-sites/OPERATIONAL_SOURCE_CONTRACTS.md`를 함께 따른다.
+
+운영 batch 대상은 현재 evidence와 collector가 모두 통과한 `GREEN` source만이다:
+
+- `saramin`
+- `jobkorea`
+- `linkareer`
+- `mynavi_tenshoku`
+- `daijob`
+- `careercross`
+- `green_japan`
+
+`catch`, `doda`, `rikunabi_next`, `jobplanet`, `indeed_kr` 등은 현재 운영 batch 대상이 아니며,
+재검토 전에는 evidence-only 또는 제외 상태를 유지한다.
+
 ## Status Rules
 
 | Status | 의미 | 처리 |

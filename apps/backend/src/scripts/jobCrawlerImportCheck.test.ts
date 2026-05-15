@@ -22,11 +22,17 @@ describe("buildJobCrawlerImportCheckCommands", () => {
         label: "Collect saramin sample",
         command: "python",
         args: [
-          path.join(repoRoot, "scripts", "job_crawler", "saramin.py"),
+          path.join(repoRoot, "scripts", "job_crawler", "run_source.py"),
+          "--source",
+          "saramin",
           "--limit",
           "1",
           "--delay-seconds",
           "1",
+          "--format",
+          "batch",
+          "--mode",
+          "sample",
           "--output",
           path.join(repoRoot, "tmp", "saramin_import_check.json")
         ],
@@ -45,7 +51,7 @@ describe("buildJobCrawlerImportCheckCommands", () => {
     ]);
   });
 
-  it("maps JobKorea to its source collector", () => {
+  it("passes JobKorea through the shared collector runner", () => {
     const repoRoot = path.resolve("C:/work/neet2work");
 
     const plan = buildJobCrawlerImportCheckCommands({
@@ -64,17 +70,23 @@ describe("buildJobCrawlerImportCheckCommands", () => {
       cwd: repoRoot
     });
     expect(plan.commands[0]?.args).toEqual([
-      path.join(repoRoot, "scripts", "job_crawler", "jobkorea.py"),
+      path.join(repoRoot, "scripts", "job_crawler", "run_source.py"),
+      "--source",
+      "jobkorea",
       "--limit",
       "3",
       "--delay-seconds",
       "0",
+      "--format",
+      "batch",
+      "--mode",
+      "sample",
       "--output",
       path.join(repoRoot, "tmp", "jobkorea_import_check.json")
     ]);
   });
 
-  it("maps Linkareer to its source collector", () => {
+  it("passes Linkareer through the shared collector runner", () => {
     const repoRoot = path.resolve("C:/work/neet2work");
 
     const plan = buildJobCrawlerImportCheckCommands({
@@ -85,12 +97,10 @@ describe("buildJobCrawlerImportCheckCommands", () => {
     });
 
     expect(plan.outputPath).toBe(path.join(repoRoot, "tmp", "linkareer_import_check.json"));
-    expect(plan.commands[0]?.args[0]).toBe(
-      path.join(repoRoot, "scripts", "job_crawler", "linkareer.py")
-    );
+    expect(plan.commands[0]?.args).toContain("linkareer");
   });
 
-  it("maps Mynavi Tenshoku to its source collector", () => {
+  it("passes Mynavi Tenshoku through the shared collector runner", () => {
     const repoRoot = path.resolve("C:/work/neet2work");
 
     const plan = buildJobCrawlerImportCheckCommands({
@@ -101,12 +111,10 @@ describe("buildJobCrawlerImportCheckCommands", () => {
     });
 
     expect(plan.outputPath).toBe(path.join(repoRoot, "tmp", "mynavi_tenshoku_import_check.json"));
-    expect(plan.commands[0]?.args[0]).toBe(
-      path.join(repoRoot, "scripts", "job_crawler", "mynavi_tenshoku.py")
-    );
+    expect(plan.commands[0]?.args).toContain("mynavi_tenshoku");
   });
 
-  it("maps Daijob to its source collector", () => {
+  it("passes Daijob through the shared collector runner", () => {
     const repoRoot = path.resolve("C:/work/neet2work");
 
     const plan = buildJobCrawlerImportCheckCommands({
@@ -117,12 +125,10 @@ describe("buildJobCrawlerImportCheckCommands", () => {
     });
 
     expect(plan.outputPath).toBe(path.join(repoRoot, "tmp", "daijob_import_check.json"));
-    expect(plan.commands[0]?.args[0]).toBe(
-      path.join(repoRoot, "scripts", "job_crawler", "daijob.py")
-    );
+    expect(plan.commands[0]?.args).toContain("daijob");
   });
 
-  it("maps CareerCross to its source collector", () => {
+  it("passes CareerCross through the shared collector runner", () => {
     const repoRoot = path.resolve("C:/work/neet2work");
 
     const plan = buildJobCrawlerImportCheckCommands({
@@ -133,12 +139,10 @@ describe("buildJobCrawlerImportCheckCommands", () => {
     });
 
     expect(plan.outputPath).toBe(path.join(repoRoot, "tmp", "careercross_import_check.json"));
-    expect(plan.commands[0]?.args[0]).toBe(
-      path.join(repoRoot, "scripts", "job_crawler", "careercross.py")
-    );
+    expect(plan.commands[0]?.args).toContain("careercross");
   });
 
-  it("maps Green Japan to its source collector", () => {
+  it("passes Green Japan through the shared collector runner", () => {
     const repoRoot = path.resolve("C:/work/neet2work");
 
     const plan = buildJobCrawlerImportCheckCommands({
@@ -149,9 +153,7 @@ describe("buildJobCrawlerImportCheckCommands", () => {
     });
 
     expect(plan.outputPath).toBe(path.join(repoRoot, "tmp", "green_japan_import_check.json"));
-    expect(plan.commands[0]?.args[0]).toBe(
-      path.join(repoRoot, "scripts", "job_crawler", "green_japan.py")
-    );
+    expect(plan.commands[0]?.args).toContain("green_japan");
   });
 
   it("uses the repository-local tsx CLI when no command override is provided", () => {
@@ -175,5 +177,28 @@ describe("parseJobCrawlerImportCheckArgs", () => {
     expect(() => parseJobCrawlerImportCheckArgs(["--source", "korec"])).toThrow(
       "Unsupported source: korec"
     );
+  });
+
+  it("parses batch output flags", () => {
+    expect(
+      parseJobCrawlerImportCheckArgs([
+        "--source",
+        "saramin",
+        "--format",
+        "batch",
+        "--mode",
+        "batch",
+        "--source-cap",
+        "50",
+        "--category-cap",
+        "12"
+      ])
+    ).toMatchObject({
+      source: "saramin",
+      outputFormat: "batch",
+      collectionMode: "batch",
+      sourceCap: 50,
+      categoryCap: 12
+    });
   });
 });

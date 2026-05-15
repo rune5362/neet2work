@@ -83,3 +83,42 @@
 - Figma 요약 재비대화를 막기 위해 `FIGMA_WORK_LOG_RULES.md`에 2줄 권장/3줄 hard limit/80자 제한을 명시
 - `prepare-work-log-day.mjs`의 `WORK_LOG.md` 템플릿에 짧은 요약 안내 주석을 추가하고, `export-work-log.mjs`가 3줄/80자 초과 요약을 거절하도록 guard 추가
 - 3줄로 줄인 2026-05-14 요약을 Figma에 재반영했고 결과는 `5/14 replaced`
+
+### Supabase Sample Import Verification
+
+- Supabase `neet2work` 프로젝트가 `ACTIVE_HEALTHY`이고 Prisma migrations 4개가 적용된 상태를 확인
+- import 전 `job_postings`는 `sample` 3건, `saramin` 1건으로 총 4건임을 확인
+- `jobkorea`, `linkareer`, `mynavi_tenshoku`, `daijob`, `careercross`, `green_japan` sample JSON 6개를 dry-run 검증 후 Supabase에 upsert
+- import 후 `job_postings`는 총 10건이며 7개 GREEN source가 각각 1건씩 존재함을 확인
+- backend public query와 같은 필드/정렬로 Supabase에서 10건 조회를 확인
+- 제한: 로컬 `.env`와 현재 프로세스에 `DATABASE_URL`이 없어 `dev:backend` 기반 `/api/jobs` 실제 HTTP 검증은 아직 못 함
+
+### Supabase Sample Seed Cleanup
+
+- 사용자 요청에 따라 Supabase `job_postings`의 초기 데모 seed 3건(`job-001`, `job-002`, `job-003`)을 삭제
+- 삭제 전 연결된 `resume_analyses`가 없음을 확인했고 삭제 결과는 `deleted_job_count=3`, `deleted_analysis_count=0`
+- 삭제 후 `sample` source 잔여 건수는 0건이며, 남은 source는 `saramin`, `jobkorea`, `linkareer`, `mynavi_tenshoku`, `daijob`, `careercross`, `green_japan` 각 1건
+
+### Operational Collection Scope Plan
+
+- 사용자와 합의한 기준대로 운영 수집 범위를 `활성 공고`, `신입/주니어 우선`, `경력직 포함`, `IT 한정 금지`로 정리
+- 코드 구현 없이 `docs/plans/2026-05-15-operational-job-collection-scope.md` 계획 문서만 추가
+- 계획에는 active/closed 판정, career stage, job category, source/category/career caps, schema lifecycle field 후보, future verification 순서를 포함
+- Chrome 확장 백엔드(`Chrome`, `extension`)에서 ChatGPT `Pro 확장 모드`로 계획을 재검토했고, source contract, batch JSON contract, lifecycle state machine, public DTO allowlist, `(source, sourceJobId)` dedupe 보강점을 계획에 반영
+- GPT 제안 중 repo 필드명과 다른 `companyName`/`url`은 현재 계약인 `company`/`sourceUrl` 기준으로 조정했고, 구현/DB write/scheduler는 이번 계획 강화 범위에서 제외
+
+### Operational Collection Implementation Slices
+
+- 운영 수집 계획을 작은 slice로 구현: source contract 문서, lifecycle Prisma schema/migration, batch payload import, Python classification/batch helper, shared collector runner를 추가
+- Import는 legacy array와 `job_batch_v1` envelope를 모두 받게 하고, 운영 payload는 `(source, sourceJobId)`로 upsert하며 raw/internal fields는 public job list select에서 제외
+- Python collector는 계속 JSON-only로 유지하고 `run_source.py`가 기존 7개 GREEN collector 결과를 sample/batch envelope로 감싸도록 연결
+- Chrome 확장 백엔드(`Chrome`, `extension`)에서 ChatGPT `Pro 확장 모드`로 README+계획 방향성 체크를 다시 받았고, "방향은 강하지만 scope control 필요" 결론에 따라 README의 RPA 표현을 collector/ETL로 정리하고 첫 운영 DB-write는 KR 3개 source 이하로 제한하는 계획을 반영
+- 검증:
+  - `python -m unittest scripts/job_crawler/test_contract.py scripts/job_crawler/test_runner.py`
+  - `python -m py_compile scripts/job_crawler/contract.py scripts/job_crawler/models.py scripts/job_crawler/run_source.py scripts/job_crawler/test_contract.py scripts/job_crawler/test_runner.py`
+  - `node node_modules/vitest/vitest.mjs run --configLoader runner --root apps/backend --config vitest.config.ts`
+  - `.\apps\backend\node_modules\.bin\tsc.CMD --noEmit`
+  - `DATABASE_URL` dummy + `.\node_modules\.bin\prisma.CMD validate`
+  - `corepack pnpm --filter @neet2work/backend run lint`
+  - `node node_modules\tsx\dist\cli.mjs apps/backend/src/scripts/jobCrawlerMatrixCheck.ts --continue-on-fail`
+- 제한: 실제 Supabase/공유 DB write는 이번 작업에서 실행하지 않았고, closed/inactive lifecycle 자동 전환은 아직 다음 slice로 남김

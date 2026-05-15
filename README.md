@@ -2,7 +2,7 @@
 
 2026 final project. "일해야 한다(Need to work)"와 발음이 비슷한 점을 활용해, 쉬었음 청년(NEET)이 일하는 청년(WORK)으로 전환되는 흐름을 표현한 프로젝트입니다.
 
-> RPA 기반 채용 공고 수집과 생성형 AI 자기소개서 분석을 결합한 맞춤형 커리어 컨설팅 서비스
+> 공개 HTML 기반 채용공고 collector/ETL과 생성형 AI 자기소개서 분석을 결합한 맞춤형 커리어 컨설팅 서비스
 
 ## 프로젝트 소개
 
@@ -39,7 +39,8 @@
 | Backend | Express 5 |
 | DB | PostgreSQL 17 |
 | DB Migration | Prisma Migrate + Prisma Seed |
-| RPA | Playwright |
+| Job Collection | Python public HTML collector/ETL |
+| Browser Automation | Playwright |
 | Formatter | Prettier |
 | Linter | ESLint |
 | Test | Vitest |
@@ -70,9 +71,11 @@
 - Local JSON Data
 - In-memory Fallback
 
-### RPA
+### Job Collection / Browser Automation
 
-- Playwright
+- 현재 채용공고 수집은 RPA가 아니라 공개 HTML 기반 Python collector/ETL 구조입니다.
+- Python collector는 JSON만 만들고 DB에는 직접 쓰지 않습니다.
+- Playwright는 브라우저 자동화가 필요한 future RPA/검증 경로로 분리합니다.
 
 ### AI
 
@@ -315,7 +318,7 @@ corepack pnpm run db:import:jobs --dry-run ../../docs/research/job-sites/saramin
 corepack pnpm run db:import:jobs -- ../../docs/research/job-sites/saramin_sample_2026-05-14.json
 ```
 
-이 명령은 `id` 기준으로 upsert하므로 같은 JSON을 다시 실행해도 중복 행을 만들지 않습니다.
+이 명령은 운영 수집 payload에서는 `(source, sourceJobId)` 기준으로 upsert하므로 같은 JSON을 다시 실행해도 중복 행을 만들지 않습니다.
 
 자세한 DB 관리 흐름은 [apps/backend/prisma/README.md](./apps/backend/prisma/README.md)를 참고합니다.
 

@@ -45,6 +45,27 @@ type PublicJobRow = {
   collectedAt: Date | null;
 };
 
+export const PUBLIC_JOB_SELECT = {
+  id: true,
+  title: true,
+  company: true,
+  location: true,
+  careerLevel: true,
+  skills: true,
+  description: true,
+  source: true,
+  sourceJobId: true,
+  sourceUrl: true,
+  country: true,
+  language: true,
+  employmentType: true,
+  educationLevel: true,
+  salaryText: true,
+  deadlineText: true,
+  applyMethod: true,
+  collectedAt: true
+};
+
 function toJobPosting(job: PublicJobRow): JobPosting {
   return {
     id: job.id,
@@ -74,26 +95,7 @@ export async function getJobs(): Promise<JobPosting[]> {
   if (prisma) {
     try {
       const jobs = await prisma.jobPosting.findMany({
-        select: {
-          id: true,
-          title: true,
-          company: true,
-          location: true,
-          careerLevel: true,
-          skills: true,
-          description: true,
-          source: true,
-          sourceJobId: true,
-          sourceUrl: true,
-          country: true,
-          language: true,
-          employmentType: true,
-          educationLevel: true,
-          salaryText: true,
-          deadlineText: true,
-          applyMethod: true,
-          collectedAt: true
-        },
+        select: PUBLIC_JOB_SELECT,
         orderBy: [{ collectedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
         take: 50
       });

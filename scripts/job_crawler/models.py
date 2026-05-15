@@ -42,6 +42,14 @@ class StandardJobPosting:
     rawText: str | None = None
     rawJson: dict[str, Any] | None = field(default_factory=dict)
     collectedAt: str = field(default_factory=utc_now_iso)
+    status: str | None = None
+    firstSeenAt: str | None = None
+    lastSeenAt: str | None = None
+    closedAt: str | None = None
+    jobCategory: str | None = None
+    careerStage: str | None = None
+    crawlBatchId: str | None = None
+    classifierMeta: dict[str, Any] | None = None
 
     def to_json_dict(self) -> dict[str, Any]:
         return asdict(self)

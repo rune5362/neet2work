@@ -105,3 +105,23 @@ Detail fields observed:
 - Keep samples small: default `1`, maximum `5`.
 - Preserve uncertain source-specific fields in `rawJson` or `companyInfo`.
 - Keep public API responses free of `rawText`, `rawJson`, and `companyInfo`.
+
+## Operational Contract Rule
+
+`GREEN` probe는 collector 구현 허가 조건이고, 운영 batch 수집 허가는 한 단계 더 엄격하다.
+
+운영 batch에 들어가는 source는
+`docs/research/job-sites/OPERATIONAL_SOURCE_CONTRACTS.md`에 source contract가 있어야 한다.
+
+계약에는 최소한 아래 항목이 있어야 한다.
+
+- public list URL pattern
+- public detail URL pattern
+- stable `sourceJobId` extraction
+- active-list evidence
+- closed-signal rules
+- pagination and stop conditions
+- request delay and max request count
+- downgrade triggers
+
+계약이 현재 source HTML과 맞지 않으면 해당 source를 `YELLOW`로 내리고 batch matrix에서 제외한다.

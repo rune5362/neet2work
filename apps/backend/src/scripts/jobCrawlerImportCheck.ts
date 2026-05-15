@@ -30,36 +30,65 @@ export type JobCrawlerImportCheckOptions = {
   outputPath?: string;
   limit?: number;
   delaySeconds?: number;
+  outputFormat?: "array" | "batch";
+  collectionMode?: "sample" | "batch";
+  sourceCap?: number;
+  categoryCap?: number;
   pythonCommand?: string;
   tsxCommand?: string;
 };
 
-const SUPPORTED_SOURCES: Record<JobCrawlerSource, string> = {
-  saramin: path.join("scripts", "job_crawler", "saramin.py"),
-  jobkorea: path.join("scripts", "job_crawler", "jobkorea.py"),
-  linkareer: path.join("scripts", "job_crawler", "linkareer.py"),
-  mynavi_tenshoku: path.join("scripts", "job_crawler", "mynavi_tenshoku.py"),
-  daijob: path.join("scripts", "job_crawler", "daijob.py"),
-  careercross: path.join("scripts", "job_crawler", "careercross.py"),
-  green_japan: path.join("scripts", "job_crawler", "green_japan.py")
+const SUPPORTED_SOURCES: Record<JobCrawlerSource, true> = {
+  saramin: true,
+  jobkorea: true,
+  linkareer: true,
+  mynavi_tenshoku: true,
+  daijob: true,
+  careercross: true,
+  green_japan: true
 };
+const RUNNER_SCRIPT = path.join("scripts", "job_crawler", "run_source.py");
 
 export function buildJobCrawlerImportCheckCommands(
   options: JobCrawlerImportCheckOptions
 ): JobCrawlerImportCheckPlan {
   const repoRoot = path.resolve(options.repoRoot);
-  const sourceScript = SUPPORTED_SOURCES[options.source];
   const outputPath = path.resolve(
     repoRoot,
     options.outputPath ?? path.join("tmp", `${options.source}_import_check.json`)
   );
   const limit = options.limit ?? 1;
   const delaySeconds = options.delaySeconds ?? 1;
+  const outputFormat = options.outputFormat ?? "batch";
+  const collectionMode = options.collectionMode ?? "sample";
   const pythonCommand = options.pythonCommand ?? process.env.PYTHON ?? "python";
   const tsxCommand = options.tsxCommand ?? process.execPath;
   const tsxArgs = options.tsxCommand
     ? []
     : [path.join(repoRoot, "node_modules", "tsx", "dist", "cli.mjs")];
+  const collectorArgs = [
+    path.join(repoRoot, RUNNER_SCRIPT),
+    "--source",
+    options.source,
+    "--limit",
+    String(limit),
+    "--delay-seconds",
+    String(delaySeconds),
+    "--format",
+    outputFormat,
+    "--mode",
+    collectionMode,
+    "--output",
+    outputPath
+  ];
+
+  if (options.sourceCap !== undefined) {
+    collectorArgs.push("--source-cap", String(options.sourceCap));
+  }
+
+  if (options.categoryCap !== undefined) {
+    collectorArgs.push("--category-cap", String(options.categoryCap));
+  }
 
   return {
     outputPath,
@@ -67,15 +96,7 @@ export function buildJobCrawlerImportCheckCommands(
       {
         label: `Collect ${options.source} sample`,
         command: pythonCommand,
-        args: [
-          path.join(repoRoot, sourceScript),
-          "--limit",
-          String(limit),
-          "--delay-seconds",
-          String(delaySeconds),
-          "--output",
-          outputPath
-        ],
+        args: collectorArgs,
         cwd: repoRoot
       },
       {
@@ -142,6 +163,38 @@ export function parseJobCrawlerImportCheckArgs(argv: string[]) {
 
     if (arg === "--delay-seconds") {
       parsed.delaySeconds = Number.parseFloat(requireValue(argv, index, arg));
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--format") {
+      const outputFormat = requireValue(argv, index, arg);
+      if (outputFormat !== "array" && outputFormat !== "batch") {
+        throw new Error(`Unsupported format: ${outputFormat}`);
+      }
+      parsed.outputFormat = outputFormat;
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--mode") {
+      const collectionMode = requireValue(argv, index, arg);
+      if (collectionMode !== "sample" && collectionMode !== "batch") {
+        throw new Error(`Unsupported mode: ${collectionMode}`);
+      }
+      parsed.collectionMode = collectionMode;
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--source-cap") {
+      parsed.sourceCap = Number.parseInt(requireValue(argv, index, arg), 10);
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--category-cap") {
+      parsed.categoryCap = Number.parseInt(requireValue(argv, index, arg), 10);
       index += 1;
       continue;
     }
