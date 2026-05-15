@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ssl
 from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -18,6 +19,15 @@ class FetchResult:
     text: str
 
 
+def create_ssl_context() -> ssl.SSLContext:
+    try:
+        import certifi
+    except ImportError:
+        return ssl.create_default_context()
+
+    return ssl.create_default_context(cafile=certifi.where())
+
+
 def fetch_text(url: str, timeout: int = 15) -> FetchResult:
     request = Request(
         url,
@@ -29,7 +39,7 @@ def fetch_text(url: str, timeout: int = 15) -> FetchResult:
     )
 
     try:
-        with urlopen(request, timeout=timeout) as response:
+        with urlopen(request, timeout=timeout, context=create_ssl_context()) as response:
             raw = response.read()
             charset = response.headers.get_content_charset() or "utf-8"
             return FetchResult(

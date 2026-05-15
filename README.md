@@ -306,7 +306,7 @@ corepack pnpm run db:seed
 크롤러가 만든 표준 `JobPosting` JSON은 먼저 dry-run으로 형식을 확인합니다.
 
 ```bash
-corepack pnpm run db:import:jobs -- --dry-run ../../docs/research/job-sites/saramin_sample_2026-05-14.json
+corepack pnpm run db:import:jobs --dry-run ../../docs/research/job-sites/saramin_sample_2026-05-14.json
 ```
 
 개인 개발 DB의 `DATABASE_URL`을 넣은 뒤 실제 upsert를 실행합니다.

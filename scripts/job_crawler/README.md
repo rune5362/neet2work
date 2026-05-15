@@ -22,12 +22,44 @@ python scripts/job_crawler/saramin.py --limit 1 --output docs/research/job-sites
 
 출력 JSON은 `apps/backend/prisma/schema.prisma`의 `JobPosting` 확장 필드와 맞춰 둔다.
 
+## 일본 샘플 검증
+
+Mynavi Tenshoku는 `country: JP`, `language: ja`를 가진 1건 샘플로 검증한다.
+
+```bash
+corepack pnpm run crawl:mynavi:check
+```
+
+Daijob은 `country: JP`, `language: en`을 가진 1건 샘플로 검증한다.
+
+```bash
+corepack pnpm run crawl:daijob:check
+```
+
+CareerCross는 `country: JP`, `language: en`을 가진 1건 샘플로 검증한다.
+
+```bash
+corepack pnpm run crawl:careercross:check
+```
+
+Green Japan은 `country: JP`, `language: ja`를 가진 1건 샘플로 검증한다.
+
+```bash
+corepack pnpm run crawl:green:check
+```
+
+검증 완료된 GREEN 수집원 전체는 matrix check로 묶어 실행한다.
+
+```bash
+corepack pnpm run crawl:matrix:check
+```
+
 ## DB 적재 전 검증
 
 크롤러 산출물은 먼저 dry-run import로 표준 필드가 맞는지 확인한다.
 
 ```bash
-corepack pnpm run db:import:jobs -- --dry-run ../../docs/research/job-sites/saramin_sample_2026-05-14.json
+corepack pnpm run db:import:jobs --dry-run ../../docs/research/job-sites/saramin_sample_2026-05-14.json
 ```
 
 개인 개발 DB의 `DATABASE_URL`을 설정한 뒤 실제 적재한다.

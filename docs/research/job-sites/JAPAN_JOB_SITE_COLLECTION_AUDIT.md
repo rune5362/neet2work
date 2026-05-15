@@ -46,6 +46,50 @@
 | Hello Work | 공식 API 후보로 보류 | 일본 정부 고용 서비스라 신뢰도는 높지만 API 이용 자격/신청 확인 필요 |
 | paiza | 구조 조사 후 보류 | 개발자 특화성은 좋지만 공개 HTML 기준 공고 목록 데이터가 약함 |
 
+## 2026-05-15 실행 전 필드 갭 리뷰
+
+이번 실행 파이프라인의 허용 수집 방식은 공개 `HTTP request + HTML parsing`
+뿐이다. 로그인, captcha, proxy, stealth, browser automation, 내부 API 의존은
+`GREEN` 조건에서 제외한다.
+
+따라서 2026-05-13 조사에서 데이터 가치가 높게 보였던 KOREC는 이번
+collector 구현 순서에서 제외한다. KOREC는 한국인 대상 일본 취업 스토리에는
+좋지만, 현재 근거가 렌더링과 내부 API 구조에 기대고 첫 공고 클릭에서 로그인
+모달이 확인되었으므로 `GREEN` 수집원으로 승격하지 않는다.
+
+현재 `JobPosting` 스키마로 일본 샘플을 먼저 담고, Prisma schema migration은
+만들지 않는다.
+
+| 일본/글로벌 필드 | 현재 저장 위치 | 이번 결정 |
+| --- | --- | --- |
+| 국가 | `country` | 일본 사이트는 `JP`로 저장 |
+| 원문 언어 | `language` | 일본어 페이지는 `ja`, 영어 UI/영문 공고는 `en` |
+| 제목/회사/지역/본문 | `title`, `company`, `location`, `description` | 필수 정규화 필드로 유지 |
+| 경력 조건 | `careerLevel` | 원문 표현이 애매하면 `rawJson.careerText`에도 보존 |
+| 고용형태 | `employmentType` | 正社員, 契約社員, 業務委託, Full-time 등을 원문 중심으로 저장 |
+| 학력 조건 | `educationLevel` | 공개 필드가 있을 때만 저장 |
+| 연봉/월급/시급/통화 | `salaryText` | 통화 분리 필드 없이 원문 전체를 보존 |
+| 마감/게시/갱신일 | `deadlineText`, `rawJson` | 마감은 `deadlineText`, 게시/갱신 메타는 `rawJson` |
+| 지원 방식/외부 지원 | `applyMethod`, `rawJson` | 공개 지원 경로만 저장 |
+| 회사 규모/업종/리크루터 여부 | `companyInfo` | 구조화 가능한 값만 저장 |
+| 일본어/영어 조건 | `rawJson.languageRequirements` | 별도 컬럼을 만들지 않음 |
+| 비자 지원/해외 지원 | `rawJson.visaSupport`, `rawJson.overseasApplication` | 별도 컬럼을 만들지 않음 |
+| 리모트/하이브리드 | `rawJson.remoteOption` | 별도 컬럼을 만들지 않음 |
+| 입사 시기 | `rawJson.expectedStartDate` | 별도 컬럼을 만들지 않음 |
+| 상세 parser 상태 | `rawJson.parser`, `rawJson.detailStatus`, `rawJson.detailFinalUrl` | selector drift 추적용으로 저장 |
+
+1차 일본 probe 순서는 현재 파이프라인 기준으로 아래처럼 조정한다.
+
+1. `mynavi_tenshoku`
+2. `doda`
+3. `rikunabi_next`
+4. `daijob`
+5. `careercross`
+6. `green_japan`
+
+각 사이트는 `docs/research/job-sites/evidence/<source>_2026-05-15.md`를 먼저
+만든 뒤 `GREEN`일 때만 collector와 sample JSON을 만든다.
+
 ## 사이트별 확보 데이터 한눈에 보기
 
 | 사이트 | 목록에서 확인된 데이터 | 상세 또는 상세급 데이터 | 부족한 데이터/리스크 | 결론 근거 |
