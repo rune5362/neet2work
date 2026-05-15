@@ -12,6 +12,7 @@ Date: 2026-05-15
 - 로그인, captcha, proxy, stealth, browser automation, undocumented internal API는 금지한다.
 - Python collector는 JSON 산출물만 만들고 DB에 직접 쓰지 않는다.
 - 운영 import는 `(source, sourceJobId)`를 안정 키로 본다.
+- 1차 운영 수집은 IT 공고만 대상으로 하며, non-IT 후보는 batch payload에서 제외한다.
 - batch 수집 전에는 source별 계약이 현재 HTML과 맞는지 다시 확인한다.
 - source drift가 확인되면 해당 source를 `YELLOW`로 내리고 batch matrix에서 제외한다.
 
@@ -19,13 +20,13 @@ Date: 2026-05-15
 
 | Source | Country | Public list URL pattern | Public detail URL pattern | `sourceJobId` rule | Initial role |
 | --- | --- | --- | --- | --- | --- |
-| `saramin` | KR | `https://www.saramin.co.kr/zf_user/jobs/list/job-category?cat_mcls=2` | `/zf_user/jobs/relay/view?rec_idx=<id>` | `rec_idx` query value | Korea broad collection |
-| `jobkorea` | KR | `https://www.jobkorea.co.kr/Search/?stext=<keyword>` | `/Recruit/GI_Read/<id>` | numeric `GI_Read` path id | Korea broad collection |
-| `linkareer` | KR | `https://linkareer.com/list/recruit`, `https://linkareer.com/list/intern` | `/activity/<id>` | numeric activity path id | Korean intern/junior/recruit collection |
-| `mynavi_tenshoku` | JP | `https://tenshoku.mynavi.jp/list/o1G/` | `/jobinfo-<id-parts>/` | `jobinfo-...` path id parts | Japan broad collection |
-| `daijob` | JP | `https://www.daijob.com/en/jobs/search` | `/en/jobs/detail/<id>` | numeric detail path id | Japan/global bilingual collection |
-| `careercross` | JP | `https://www.careercross.com/en/` | `/en/job/detail-<id>` | numeric detail path id | Japan/global bilingual collection |
-| `green_japan` | JP | `https://www.green-japan.com/search_key/01` | `/company/<companyId>/job/<jobId>` | `<companyId>-<jobId>` | Japan startup/tech-heavy collection |
+| `saramin` | KR | `https://www.saramin.co.kr/zf_user/jobs/list/job-category?cat_mcls=2` | `/zf_user/jobs/relay/view?rec_idx=<id>` | `rec_idx` query value | Korea IT collection |
+| `jobkorea` | KR | `https://www.jobkorea.co.kr/Search/?stext=<keyword>` | `/Recruit/GI_Read/<id>` | numeric `GI_Read` path id | Korea IT collection |
+| `linkareer` | KR | `https://linkareer.com/list/recruit`, `https://linkareer.com/list/intern` | `/activity/<id>` | numeric activity path id | Korean IT intern/junior/recruit collection |
+| `mynavi_tenshoku` | JP | `https://tenshoku.mynavi.jp/list/o1G/` | `/jobinfo-<id-parts>/` | `jobinfo-...` path id parts | Japan IT/Web/Game collection |
+| `daijob` | JP | `https://www.daijob.com/en/jobs/search` | `/en/jobs/detail/<id>` | numeric detail path id | Japan/global IT bilingual collection |
+| `careercross` | JP | `https://www.careercross.com/en/` | `/en/job/detail-<id>` | numeric detail path id | Japan/global IT bilingual collection |
+| `green_japan` | JP | `https://www.green-japan.com/search_key/01` | `/company/<companyId>/job/<jobId>` | `<companyId>-<jobId>` | Japan startup/IT/Web collection |
 
 ## Downgrade Triggers
 

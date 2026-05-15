@@ -14,6 +14,7 @@
 - 운영 batch 수집은 `docs/research/job-sites/OPERATIONAL_SOURCE_CONTRACTS.md`의 `GREEN` source 계약을 만족할 때만 허용한다.
 - 운영 batch 수집에서도 Python은 JSON만 만들고, DB 적재는 TypeScript/Prisma import 경계에서만 한다.
 - 마감/종료 신호가 명확한 공고는 active 공고로 취급하지 않는다.
+- 1차 운영 수집은 IT 공고만 대상으로 하며, non-IT 후보는 batch payload에서 제외한다.
 
 ## 운영 수집 전 계약
 
@@ -24,6 +25,7 @@
 - title, company, location, career level, source URL을 확보할 수 있다.
 - closed/expired 신호와 downgrade trigger가 source별로 정리되어 있다.
 - `(source, sourceJobId)` 기준 중복 방지 계약을 유지한다.
+- IT scope classifier를 통과하지 못한 공고는 현재 운영 batch에서 제외한다.
 
 운영 source 계약은
 `docs/research/job-sites/OPERATIONAL_SOURCE_CONTRACTS.md`를 기준으로 한다.

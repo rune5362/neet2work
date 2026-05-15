@@ -6,5 +6,6 @@
 
 <!-- 2 bullets preferred, 3 max. Keep details in WORK_SESSIONS.md. -->
 
-- 한국/일본 채용 사이트 후보를 검증해 7개 `GREEN` 수집원을 확정
-- 7개 collector/matrix check 구현 후 sample, dry-run import, backend 검증 통과
+- 7개 `GREEN` collector와 batch dry-run matrix 검증을 안정화
+- 운영 batch 계약/lifecycle/import 경계를 추가하고 테스트 통과
+- 1차 운영 수집을 IT 한정으로 좁히고 non-IT batch 제외 적용

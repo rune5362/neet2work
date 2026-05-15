@@ -122,3 +122,16 @@
   - `corepack pnpm --filter @neet2work/backend run lint`
   - `node node_modules\tsx\dist\cli.mjs apps/backend/src/scripts/jobCrawlerMatrixCheck.ts --continue-on-fail`
 - 제한: 실제 Supabase/공유 DB write는 이번 작업에서 실행하지 않았고, closed/inactive lifecycle 자동 전환은 아직 다음 slice로 남김
+
+### Operational Collection IT Scope Narrowing
+
+- 사용자 수정 요청에 따라 1차 운영 수집 범위를 IT 공고로 축소
+- IT 범위는 software engineering, data/AI, infrastructure/security, QA/testing, IT product planning/design, technical support, solution consulting으로 정의하고 일반 비IT 직군은 `non_it`로 제외
+- `scripts/job_crawler/contract.py`의 category classifier와 cap 적용 경로가 non-IT를 batch payload에서 제외하도록 변경
+- 운영 계획/스키마/source contract/README에서 "비IT 포함" 표현을 제거하고 "비IT는 추후 확장 후보"로 정리
+- 검증:
+  - `python -m unittest scripts/job_crawler/test_contract.py scripts/job_crawler/test_runner.py`
+  - `python -m py_compile scripts/job_crawler/contract.py scripts/job_crawler/run_source.py scripts/job_crawler/test_contract.py scripts/job_crawler/test_runner.py`
+  - `node node_modules\tsx\dist\cli.mjs apps/backend/src/scripts/jobCrawlerMatrixCheck.ts --continue-on-fail`
+  - `git diff --check`
+- 참고: matrix에서 `linkareer` 첫 샘플은 IT scope 필터 후 0건 batch가 되었고 dry-run import는 정상 통과

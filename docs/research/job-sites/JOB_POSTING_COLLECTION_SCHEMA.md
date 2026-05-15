@@ -70,11 +70,25 @@
 
 ## 운영 직무/경력 범위
 
-- IT만 수집하지 않는다.
+- 1차 운영 수집은 IT 공고만 대상으로 한다.
+- 비IT 공고는 future expansion 후보로만 남기고 현재 batch import에서는 제외한다.
 - 신입, 인턴, 주니어, 경력무관을 우선 수집한다.
 - 일반 경력직도 포함한다.
 - 고연차/리드/매니저급은 소량만 유지한다.
 - `jobCategory`는 직무 기능만 표현한다. 일본/글로벌/언어 맥락은 `country`, `language`, `source`, future language fields로 분리한다.
+
+현재 IT 범위:
+
+- `software_engineering`: backend, frontend, full-stack, app, game, server, API
+- `data_ai`: data analyst, data engineering, ML/AI, BI
+- `it_infrastructure_security`: DevOps, cloud, SRE, system/network, security
+- `qa_testing`: QA engineer, test automation, software tester
+- `product_planning`: IT service/platform PM, PO, service planning
+- `product_design`: UX/UI and product design for web/app/platform
+- `technical_support`: IT helpdesk, technical support, support engineer, SaaS CS
+- `solution_consulting`: solution sales, cloud/SI/ERP consultant, technical sales
+- `other_it`: IT context is visible but detailed function is unclear
+- `non_it`: current operational import에서 제외
 
 자세한 source별 운영 계약은
 `docs/research/job-sites/OPERATIONAL_SOURCE_CONTRACTS.md`를 따른다.

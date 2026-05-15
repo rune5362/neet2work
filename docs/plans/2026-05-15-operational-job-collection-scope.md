@@ -34,7 +34,8 @@ This plan changes the collection target from "one sample row per source" to "bou
 
 ### Change
 
-- Do not limit the product to IT-only postings.
+- Limit the first operational collection scope to IT postings.
+- Treat non-IT postings as future expansion candidates, not current import targets.
 - Prioritize entry-level, intern, junior, and career-unspecified postings.
 - Include regular career postings too.
 - Keep senior/lead/manager postings, but cap them lower than early-career postings.
@@ -56,13 +57,13 @@ Use only current `GREEN` sources:
 
 | Source | Country | Initial Role |
 | --- | --- | --- |
-| `saramin` | KR | Korea broad job collection |
-| `jobkorea` | KR | Korea broad job collection |
-| `linkareer` | KR | Korea intern/junior/public recruitment collection |
-| `mynavi_tenshoku` | JP | Japan broad career collection |
-| `daijob` | JP | Japan/global bilingual collection |
-| `careercross` | JP | Japan/global bilingual collection |
-| `green_japan` | JP | Japan startup/tech-heavy collection, not exclusive product scope |
+| `saramin` | KR | Korea IT job collection |
+| `jobkorea` | KR | Korea IT job collection |
+| `linkareer` | KR | Korea IT intern/junior/public recruitment collection |
+| `mynavi_tenshoku` | JP | Japan IT/Web/Game collection |
+| `daijob` | JP | Japan/global IT bilingual collection |
+| `careercross` | JP | Japan/global IT bilingual collection |
+| `green_japan` | JP | Japan startup/IT/Web collection |
 
 `YELLOW` and `RED` sources remain evidence-only until re-reviewed.
 
@@ -174,28 +175,28 @@ Each classification should be deterministic and conservative.
 
 ### Job Category Rule
 
-Do not restrict collection to IT. Normalize each posting into a future job-function `jobCategory` value:
+Restrict the first operational collection to IT. Normalize each posting into an IT-focused `jobCategory` value:
 
 | Value | Examples |
 | --- | --- |
-| `software_engineering` | backend, frontend, app, cloud, devops |
+| `software_engineering` | backend, frontend, full-stack, app, game, server, API |
 | `data_ai` | data analyst, ML, AI service, BI |
-| `product_planning` | service planning, PM, PO, business planning |
-| `design` | UX/UI, product design, graphic design |
-| `marketing_content` | digital marketing, content, brand, growth |
-| `sales_cs_operations` | sales, customer success, business operations |
-| `hr_admin` | HR, recruiting, general affairs, office admin |
-| `finance_accounting` | finance, accounting, payroll |
-| `education_research` | education, research assistant, training |
-| `manufacturing_engineering` | manufacturing, mechanical, electrical, quality, plant |
-| `logistics_trade` | logistics, trade, supply chain, purchasing |
-| `retail_service` | retail, hospitality, store operations, service roles |
-| `healthcare_bio` | healthcare, pharma, biotech, clinical support |
-| `legal_compliance` | legal, compliance, audit, risk |
-| `media_translation_global` | translation, localization, global content, bilingual support |
-| `other` | useful but not classifiable |
+| `it_infrastructure_security` | DevOps, cloud, SRE, system/network, security |
+| `qa_testing` | QA engineer, test automation, software tester |
+| `product_planning` | IT service planning, PM, PO, platform/business planning |
+| `product_design` | UX/UI, product design for web/app/platform |
+| `technical_support` | IT helpdesk, technical support, support engineer, SaaS CS |
+| `solution_consulting` | solution sales, cloud/SI/ERP consultant, technical sales |
+| `other_it` | IT context is visible, but function is not classifiable |
+| `non_it` | excluded from the current operational import |
 
 Do not use geography as a job category. Represent Japan/global/bilingual context separately through existing or future fields such as `country`, `source`, `language`, `languageRequirementText`, or `isBilingualRole`.
+
+Excluded for the first operational scope:
+
+- general admin, HR, accounting, retail, logistics, hospitality, manufacturing, legal, healthcare, and general office jobs
+- general sales, CS, marketing, content, or planning roles with no visible software/platform/IT product context
+- language-only or Japan/global roles without a software/platform/IT product context
 
 Initial category caps should prevent one category from flooding the DB:
 
@@ -212,11 +213,12 @@ For each source batch:
 1. Parse active listing candidates.
 2. Drop explicit closed/expired postings.
 3. Classify career stage and job category.
-4. Fill early-career buckets first up to the per-source cap.
-5. Fill mid/unknown buckets second.
-6. Fill senior/lead buckets last.
-7. Enforce per-category caps throughout.
-8. Stop when source cap, page cap, request cap, or drift/failure stop condition is reached.
+4. Drop `non_it` postings from the current operational payload.
+5. Fill early-career buckets first up to the per-source cap.
+6. Fill mid/unknown buckets second.
+7. Fill senior/lead buckets last.
+8. Enforce per-category caps throughout.
+9. Stop when source cap, page cap, request cap, or drift/failure stop condition is reached.
 
 Caps are best-effort quality controls. Do not backfill weak, stale, closed, or misclassified postings simply to hit a target share.
 
@@ -345,7 +347,7 @@ Import should reject or quarantine postings missing required identity fields. Du
 - [x] Add active-only collection rule.
 - [x] Add source collection contract template and one contract stub per current `GREEN` source.
 - [x] Add career-stage rule.
-- [x] Add non-IT category rule.
+- [x] Add IT-only category rule.
 - [x] Add source/category/career caps.
 - [x] State that closed postings are skipped or marked closed, never blindly deleted.
 - [x] State that operational imports dedupe by `(source, sourceJobId)`.
@@ -465,7 +467,7 @@ Use these values for the first real batch unless the user changes them:
 | schedule | manual only at first |
 | delete missing postings | no |
 | close explicit ended postings | yes |
-| collect IT only | no |
+| collect IT only | yes |
 | early-career priority | yes |
 | career postings included | yes |
 
@@ -488,7 +490,7 @@ Use these values for the first real batch unless the user changes them:
 - Import dedupes by `(source, sourceJobId)`.
 - Closed postings are excluded or marked closed, not shown as active.
 - Missing postings are marked `inactive` only after the agreed threshold.
-- IT and non-IT categories both appear in output.
+- Only IT categories appear in operational output; `non_it` candidates are excluded.
 - Early-career postings dominate but career postings are present.
 - `jobCategory` represents job function only, not geography/source/language context.
 - Public job list API and front-end types exclude `rawText`, `rawJson`, and `companyInfo`.
@@ -532,7 +534,7 @@ Accepted:
 - Keep mock-first stability.
 - Keep Python JSON-only collectors and the TypeScript/Prisma import boundary.
 - Keep active-posting caps and conservative classification evidence.
-- Keep non-IT categories while prioritizing intern/entry/junior/career-unspecified postings.
+- Keep IT-only collection while prioritizing intern/entry/junior/career-unspecified postings.
 - Describe the collection system as public HTML collector/ETL, not RPA, unless a future browser automation flow actually drives UI interactions.
 
 Adapted:

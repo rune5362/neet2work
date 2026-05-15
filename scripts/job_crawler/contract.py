@@ -22,21 +22,16 @@ CAREER_STAGE_VALUES = {
 JOB_CATEGORY_VALUES = {
     "software_engineering",
     "data_ai",
+    "it_infrastructure_security",
+    "qa_testing",
     "product_planning",
-    "design",
-    "marketing_content",
-    "sales_cs_operations",
-    "hr_admin",
-    "finance_accounting",
-    "education_research",
-    "manufacturing_engineering",
-    "logistics_trade",
-    "retail_service",
-    "healthcare_bio",
-    "legal_compliance",
-    "media_translation_global",
-    "other",
+    "product_design",
+    "technical_support",
+    "solution_consulting",
+    "other_it",
+    "non_it",
 }
+IT_JOB_CATEGORY_VALUES = JOB_CATEGORY_VALUES - {"non_it"}
 EARLY_CAREER_STAGES = {"intern", "entry", "junior", "career_unspecified"}
 MID_CAREER_STAGES = {"mid", "unknown"}
 SENIOR_CAREER_STAGES = {"senior", "lead_manager"}
@@ -103,55 +98,62 @@ def classify_job_category(
 ) -> tuple[str, list[str]]:
     text = _combined_text(title, " ".join(skills), description)
     lowered = text.lower()
+    has_it_context = _has_it_context(text)
 
     rules: list[tuple[str, list[str], list[str]]] = [
-        ("data_ai", ["데이터", "분석", "머신러닝", "인공지능"], ["data", "analytics", "ml", "ai", "bi"]),
+        ("data_ai", ["데이터", "분석", "머신러닝", "인공지능", "BI"], ["data", "analytics", "ml", "ai", "bi"]),
         (
             "software_engineering",
-            ["개발", "엔지니어", "프론트엔드", "백엔드", "클라우드"],
-            ["software", "backend", "frontend", "developer", "devops", "react", "spring"],
-        ),
-        ("product_planning", ["서비스기획", "서비스 기획", "사업기획", "상품기획"], ["product", "pm", "po"]),
-        ("design", ["디자인", "디자이너", "ux", "ui"], ["designer", "ux", "ui", "graphic"]),
-        (
-            "marketing_content",
-            ["마케팅", "콘텐츠", "브랜드", "퍼포먼스"],
-            ["marketing", "content", "brand", "growth"],
+            ["개발", "개발자", "프론트엔드", "백엔드", "풀스택", "모바일", "게임", "서버"],
+            ["software", "backend", "frontend", "developer", "react", "spring"],
         ),
         (
-            "sales_cs_operations",
-            ["영업", "고객성공", "고객 성공", "고객지원", "영업 운영", "cs"],
-            ["sales", "customer success", "customer support", "business operations"],
-        ),
-        ("hr_admin", ["인사", "채용", "총무", "사무"], ["hr", "recruiting", "admin"]),
-        ("finance_accounting", ["재무", "회계", "급여", "세무"], ["finance", "accounting", "payroll"]),
-        ("education_research", ["교육", "연구", "강사", "트레이닝"], ["education", "research", "training"]),
-        (
-            "manufacturing_engineering",
-            ["제조", "품질", "기계", "전기", "공장", "설비"],
-            ["manufacturing", "quality", "mechanical", "electrical", "plant"],
+            "it_infrastructure_security",
+            ["인프라", "클라우드", "네트워크", "보안", "시스템 운영", "서버 운영"],
+            ["cloud", "sre", "aws", "azure", "gcp", "network", "security", "sysadmin"],
         ),
         (
-            "logistics_trade",
-            ["물류", "무역", "구매", "공급망"],
-            ["logistics", "trade", "supply chain", "purchasing"],
+            "qa_testing",
+            ["QA", "테스트", "테스터", "품질보증", "검증"],
+            ["qa", "tester", "test automation", "jstqb"],
         ),
-        ("retail_service", ["리테일", "매장", "호텔", "서비스"], ["retail", "hospitality", "store"]),
-        ("healthcare_bio", ["의료", "제약", "바이오", "임상"], ["healthcare", "pharma", "biotech", "clinical"]),
-        ("legal_compliance", ["법무", "컴플라이언스", "감사", "리스크"], ["legal", "compliance", "audit", "risk"]),
         (
-            "media_translation_global",
-            ["번역", "현지화", "글로벌", "일본어", "영어"],
-            ["translation", "localization", "global", "bilingual"],
+            "product_planning",
+            ["서비스기획", "서비스 기획", "프로덕트", "PM", "PO"],
+            ["product manager", "product owner", "platform pm"],
+        ),
+        (
+            "product_design",
+            ["UX", "UI", "프로덕트 디자인", "웹디자인", "앱디자인"],
+            ["ux", "ui", "product design"],
+        ),
+        (
+            "technical_support",
+            ["기술지원", "IT 헬프데스크", "헬프데스크", "솔루션 엔지니어", "SaaS CS"],
+            ["technical support", "it helpdesk", "helpdesk", "support engineer", "solutions engineer"],
+        ),
+        (
+            "solution_consulting",
+            ["솔루션 영업", "기술영업", "클라우드 컨설턴트", "SI 컨설턴트", "ERP 컨설턴트"],
+            ["solution sales", "technical sales", "cloud consultant", "erp consultant", "si consultant"],
         ),
     ]
 
     for category, ko_keywords, en_keywords in rules:
         matched = _first_match(text, ko_keywords) or _first_match(lowered, en_keywords)
         if matched:
+            if (
+                category
+                in {"qa_testing", "product_planning", "product_design", "technical_support", "solution_consulting"}
+                and not has_it_context
+            ):
+                continue
             return category, [f"keyword:{matched}"]
 
-    return "other", ["no_clear_category_evidence"]
+    if has_it_context:
+        return "other_it", ["it_context_keyword"]
+
+    return "non_it", ["no_it_scope_evidence"]
 
 
 def enrich_operational_fields(
@@ -235,9 +237,12 @@ def apply_collection_caps(
     source_cap: int = DEFAULT_SOURCE_CAP,
     category_cap: int = DEFAULT_CATEGORY_CAP,
     career_group_caps: dict[str, int] | None = None,
+    it_only: bool = True,
 ) -> list[StandardJobPosting]:
     group_caps = career_group_caps or DEFAULT_CAREER_GROUP_CAPS
     enriched = [enrich_operational_fields(posting) for posting in postings]
+    if it_only:
+        enriched = [posting for posting in enriched if posting.jobCategory in IT_JOB_CATEGORY_VALUES]
     category_counts: dict[str, int] = defaultdict(int)
     group_counts: dict[str, int] = defaultdict(int)
     selected: list[StandardJobPosting] = []
@@ -288,6 +293,49 @@ def _first_match(text: str, keywords: Iterable[str]) -> str:
         if keyword in text:
             return keyword
     return ""
+
+
+def _has_it_context(text: str) -> bool:
+    lowered = text.lower()
+    ko_keywords = [
+        "IT",
+        "개발",
+        "웹",
+        "앱",
+        "플랫폼",
+        "소프트웨어",
+        "시스템",
+        "데이터",
+        "AI",
+        "인공지능",
+        "클라우드",
+        "보안",
+        "서버",
+        "네트워크",
+        "모바일",
+        "게임",
+        "SaaS",
+        "UX",
+        "UI",
+    ]
+    en_keywords = [
+        "software",
+        "web",
+        "app",
+        "platform",
+        "saas",
+        "cloud",
+        "data",
+        "ai",
+        "security",
+        "server",
+        "network",
+        "mobile",
+        "game",
+        "ux",
+        "ui",
+    ]
+    return _has_any(text, ko_keywords) or _has_any(lowered, en_keywords)
 
 
 def _extract_years(text: str) -> int | None:
