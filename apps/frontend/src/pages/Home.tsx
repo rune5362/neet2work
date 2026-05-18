@@ -32,7 +32,7 @@ const techStack = [
 export function Home() {
   return (
     <main className="homePage">
-      <HomeTopNav />
+      <HomeTopNav active="home" />
 
       <section className="homeHero" id="home">
         <div className="homeHeroCopy">
