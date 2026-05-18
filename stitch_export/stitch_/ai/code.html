@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-fixed": "#ffddba",
+                    "on-secondary-container": "#00742f",
+                    "primary": "#002045",
+                    "on-secondary-fixed": "#002108",
+                    "ai-indigo": "#4338CA",
+                    "secondary-fixed-dim": "#6bde80",
+                    "transition-orange": "#F6AD55",
+                    "inverse-surface": "#2f3033",
+                    "surface": "#faf9fd",
+                    "on-tertiary": "#ffffff",
+                    "tertiary-fixed-dim": "#f2bc82",
+                    "growth-green": "#2DA44E",
+                    "tertiary-container": "#4f2e00",
+                    "on-background": "#1a1c1e",
+                    "on-tertiary-fixed-variant": "#633f0f",
+                    "outline-variant": "#c4c6cf",
+                    "on-primary-fixed": "#001b3c",
+                    "surface-container-lowest": "#ffffff",
+                    "secondary": "#006e2c",
+                    "primary-fixed": "#d6e3ff",
+                    "surface-container-highest": "#e3e2e6",
+                    "on-surface": "#1a1c1e",
+                    "tertiary": "#321b00",
+                    "secondary-container": "#88fb99",
+                    "error-container": "#ffdad6",
+                    "surface-tint": "#455f88",
+                    "surface-muted": "#F6F8FA",
+                    "surface-variant": "#e3e2e6",
+                    "surface-container-high": "#e9e7eb",
+                    "surface-bright": "#faf9fd",
+                    "inverse-on-surface": "#f1f0f4",
+                    "error": "#ba1a1a",
+                    "on-secondary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "on-surface-variant": "#43474e",
+                    "background": "#faf9fd",
+                    "surface-container": "#efedf1",
+                    "primary-container": "#1a365d",
+                    "outline": "#74777f",
+                    "on-tertiary-container": "#c6955e",
+                    "surface-dim": "#dad9dd",
+                    "secondary-fixed": "#88fb99",
+                    "surface-container-low": "#f4f3f7",
+                    "on-secondary-fixed-variant": "#00531f",
+                    "border-subtle": "#D0D7DE",
+                    "primary-fixed-dim": "#adc7f7",
+                    "on-primary-fixed-variant": "#2d476f",
+                    "on-primary-container": "#86a0cd",
+                    "on-primary": "#ffffff",
+                    "on-tertiary-fixed": "#2b1700",
+                    "on-error": "#ffffff",
+                    "inverse-primary": "#adc7f7"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "base": "8px",
+                    "margin-mobile": "16px",
+                    "container-max": "1200px",
+                    "gutter": "24px",
+                    "section-gap": "80px"
+            },
+            "fontFamily": {
+                    "label-md": ["JetBrains Mono"],
+                    "headline-md": ["Hanken Grotesk"],
+                    "headline-lg": ["Hanken Grotesk"],
+                    "body-lg": ["Hanken Grotesk"],
+                    "body-md": ["Hanken Grotesk"],
+                    "headline-xl": ["Hanken Grotesk"],
+                    "headline-lg-mobile": ["Hanken Grotesk"],
+                    "label-sm": ["JetBrains Mono"]
+            },
+            "fontSize": {
+                    "label-md": ["14px", {"lineHeight": "1.2", "fontWeight": "500"}],
+                    "headline-md": ["24px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.25", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "headline-xl": ["48px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "label-sm": ["12px", {"lineHeight": "1.2", "fontWeight": "500"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Hanken Grotesk', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .ai-border-gradient {
+            border-left: 4px solid #4338CA;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface selection:bg-primary-fixed">
+<!-- TopAppBar -->
+<nav class="bg-surface border-b border-border-subtle fixed top-0 w-full z-50">
+<div class="flex justify-between items-center w-full px-margin-mobile md:px-gutter max-w-container-max mx-auto h-16">
+<div class="font-headline-md text-headline-md-mobile md:text-headline-md font-bold text-primary">일했음 청년</div>
+<div class="hidden md:flex items-center gap-base">
+<a class="text-on-surface-variant px-2 hover:text-primary transition-colors duration-200 font-body-md text-body-md" href="#">채용 공고</a>
+<a class="text-primary font-bold border-b-2 border-primary pb-1 font-body-md text-body-md" href="#">자소설 분석</a>
+<a class="text-on-surface-variant px-2 hover:text-primary transition-colors duration-200 font-body-md text-body-md" href="#">커리어 가이드</a>
+<a class="text-on-surface-variant px-2 hover:text-primary transition-colors duration-200 font-body-md text-body-md" href="#">내 활동</a>
+</div>
+<div class="flex items-center gap-base">
+<button class="text-primary font-label-md text-label-md px-4 py-2 active:scale-95 transition-transform">Login</button>
+<button class="bg-primary text-on-primary rounded-lg px-4 py-2 font-label-md text-label-md active:scale-95 transition-transform">Signup</button>
+</div>
+</div>
+</nav>
+<main class="mt-16">
+<!-- Hero Section -->
+<section class="bg-primary-container py-section-gap relative overflow-hidden">
+<div class="absolute inset-0 opacity-10">
+<div class="absolute top-0 right-0 w-96 h-96 bg-ai-indigo rounded-full blur-[100px]"></div>
+<div class="absolute bottom-0 left-0 w-96 h-96 bg-growth-green rounded-full blur-[100px]"></div>
+</div>
+<div class="max-w-container-max mx-auto px-margin-mobile md:px-gutter flex flex-col items-center text-center relative z-10">
+<div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-ai-indigo/20 text-on-primary-container border border-ai-indigo/30 mb-6">
+<span class="material-symbols-outlined text-[18px]">psychology</span>
+<span class="font-label-md text-label-md">Advanced Career AI v2.4</span>
+</div>
+<h1 class="font-headline-xl text-[36px] md:text-headline-xl text-white mb-6 tracking-tight leading-tight">내 자소서의 잠재력을 <br class="md:hidden"/>AI로 확인하세요</h1>
+<p class="font-body-lg text-body-lg text-on-primary-container max-w-[640px] mb-10 opacity-90">
+                    단순한 문법 교정을 넘어, 데이터 기반의 직무 적합도와 강점을 분석합니다. 수천 명의 합격 데이터를 학습한 AI가 당신만의 독창적인 커리어 스토리를 완성해 드립니다.
+                </p>
+<div class="flex flex-col sm:flex-row gap-4">
+<button class="bg-growth-green hover:bg-on-secondary-container text-white px-10 py-4 rounded-xl font-headline-md text-headline-md transition-all active:scale-95 flex items-center gap-3">
+                        분석 시작하기
+                        <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+<button class="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-10 py-4 rounded-xl font-headline-md text-headline-md transition-all active:scale-95 backdrop-blur-sm">
+                        가이드 보기
+                    </button>
+</div>
+</div>
+</section>
+<!-- Analysis Sample Card Section -->
+<section class="bg-surface -mt-20 relative z-20 pb-section-gap">
+<div class="max-w-container-max mx-auto px-margin-mobile md:px-gutter">
+<div class="bg-white rounded-[32px] shadow-[0_32px_64px_rgba(0,32,69,0.08)] border border-border-subtle p-8 md:p-12">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+<div class="lg:col-span-5 flex flex-col items-center justify-center text-center border-b lg:border-b-0 lg:border-r border-border-subtle pb-12 lg:pb-0 lg:pr-12">
+<div class="relative w-48 h-48 mb-6">
+<svg class="w-full h-full -rotate-90" viewbox="0 0 100 100">
+<circle class="text-surface-muted" cx="50" cy="50" fill="none" r="45" stroke="currentColor" stroke-width="8"></circle>
+<circle class="text-growth-green transition-all duration-1000" cx="50" cy="50" fill="none" r="45" stroke="currentColor" stroke-dasharray="282.7" stroke-dashoffset="14.1" stroke-width="8"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="font-headline-xl text-headline-xl text-primary leading-none">95%</span>
+<span class="font-label-md text-label-md text-on-surface-variant">Match Score</span>
+</div>
+</div>
+<h3 class="font-headline-md text-headline-md text-primary mb-2">마케팅 직무 적합도</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">전략적 사고와 데이터 분석 경험이 <br/>매우 우수하게 반영되었습니다.</p>
+</div>
+<div class="lg:col-span-7 space-y-6">
+<div class="ai-border-gradient bg-surface-muted p-6 rounded-xl">
+<div class="flex items-center gap-2 mb-3">
+<span class="material-symbols-outlined text-ai-indigo">auto_awesome</span>
+<span class="font-label-md text-label-md text-ai-indigo">AI 주요 인사이트</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface mb-4">"과거 프로젝트에서 보여준 <strong>150% 목표 달성 수치</strong>는 지원자의 성과 지향적 면모를 가장 잘 보여주는 핵심 키워드입니다. 이를 초반부에 배치하여 강렬한 인상을 남기세요."</p>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1 bg-primary/10 text-primary font-label-sm text-label-sm rounded-full">#성과중심</span>
+<span class="px-3 py-1 bg-primary/10 text-primary font-label-sm text-label-sm rounded-full">#데이터분석</span>
+<span class="px-3 py-1 bg-primary/10 text-primary font-label-sm text-label-sm rounded-full">#전략수립</span>
+</div>
+</div>
+<div class="flex items-center justify-between p-4 bg-growth-green/5 rounded-xl border border-growth-green/10">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-growth-green">check_circle</span>
+<span class="font-body-md text-body-md text-on-surface font-semibold">문장 가독성 분석 완료</span>
+</div>
+<span class="text-on-surface-variant font-label-md text-label-md">상위 5% 수준</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Core Features Bento Grid -->
+<section class="max-w-container-max mx-auto px-margin-mobile md:px-gutter py-section-gap">
+<div class="text-center mb-16">
+<h2 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary mb-4">당신의 성공을 위한 정밀 분석 솔루션</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">차별화된 세 가지 핵심 모듈로 자소서의 질을 한 단계 높입니다.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-base">
+<!-- Feature 1 -->
+<div class="md:col-span-8 group bg-white border border-border-subtle p-8 md:p-10 rounded-[24px] hover:shadow-xl transition-all duration-300">
+<div class="flex flex-col md:flex-row gap-8 items-start">
+<div class="flex-1">
+<span class="font-label-md text-label-md text-primary bg-primary/5 px-3 py-1 rounded-full mb-6 inline-block">01. PREDICTION</span>
+<h3 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary mb-4">직무 적합도 예측</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-6">지원하시는 공고의 직무 기술서(JD)와 당신의 자소서를 정교하게 대조합니다. 단순 단어 포함 여부를 넘어 문맥과 경험의 결을 분석하여 합격 가능성을 수치화합니다.</p>
+<div class="flex items-center gap-4 text-primary font-body-md">
+<span class="material-symbols-outlined">trending_up</span>
+<span>산업군 평균 대비 매칭 지수 제공</span>
+</div>
+</div>
+<div class="w-full md:w-64 aspect-square rounded-2xl overflow-hidden shadow-inner">
+<img class="w-full h-full object-cover" data-alt="A futuristic UI dashboard showing a high-tech radar chart and data visualization of job matching metrics. The interface uses a clean white background with primary navy blue and soft indigo highlights. The atmosphere is professional and analytical with a sense of data-driven precision." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBgJRywoDgsd9MeX17Exzxuy6j_CjMF_joVIB50BpU8H0rcr7zr438MRejximIxZkiQkDFvfnVsZRaXX0lrwCYvPZtrL-bD0fzI-kxJp9QshmvxBxExogG_8EAAO-SLqcxLyfcAByLJzuhlRGphlG32HJ2J_Z9zlIKpbVhr4cIPG-mhNXywhv5MQQfTgncmzJjtIxaDQ7qKFeRHR9ekidZbyuP6U38kzRWxcdsNcj2Dqzc8zzGAqFQCGtiLUJ8395Ut7ECkARX9OhdX"/>
+</div>
+</div>
+</div>
+<!-- Feature 2 -->
+<div class="md:col-span-4 bg-primary text-white p-8 md:p-10 rounded-[24px] hover:shadow-xl transition-all duration-300">
+<span class="font-label-md text-label-md text-primary-fixed bg-primary-fixed/20 px-3 py-1 rounded-full mb-6 inline-block">02. ANALYSIS</span>
+<h3 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg mb-4">강점 및 보완점 분석</h3>
+<p class="font-body-md text-body-md text-on-primary-container mb-8">AI가 수만 개의 합격 자기소개서를 분석한 데이터를 바탕으로, 당신의 글에서 돋보이는 강점과 다소 아쉬운 보완점을 냉철하게 짚어냅니다.</p>
+<ul class="space-y-4">
+<li class="flex gap-3 text-on-primary-container">
+<span class="material-symbols-outlined text-growth-green">add_circle</span>
+<span class="font-body-md">경험 데이터 구체성 평가</span>
+</li>
+<li class="flex gap-3 text-on-primary-container">
+<span class="material-symbols-outlined text-transition-orange">info</span>
+<span class="font-body-md">논리적 비약 구간 탐지</span>
+</li>
+</ul>
+</div>
+<!-- Feature 3 -->
+<div class="md:col-span-12 bg-surface-muted border border-border-subtle p-8 md:p-10 rounded-[24px] hover:shadow-xl transition-all duration-300">
+<div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
+<div class="max-w-2xl">
+<span class="font-label-md text-label-md text-primary bg-primary/5 px-3 py-1 rounded-full mb-6 inline-block">03. GUIDANCE</span>
+<h3 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary mb-4">실시간 수정 가이드 제공</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">"어떻게 고쳐야 할지 모르겠어"라는 고민을 해결합니다. AI가 문장을 직접 교정해주거나, 더 임팩트 있는 대체 키워드를 추천하여 읽는 이의 마음을 사로잡는 문장으로 바꿔드립니다.</p>
+</div>
+<div class="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+<div class="bg-white p-6 rounded-xl border border-border-subtle shadow-sm flex-1 lg:w-64">
+<span class="font-label-sm text-label-sm text-on-surface-variant block mb-2">Before</span>
+<p class="text-error font-body-md line-through">열심히 일해서 성과를 냈습니다.</p>
+</div>
+<div class="flex items-center justify-center">
+<span class="material-symbols-outlined text-primary hidden sm:block">trending_flat</span>
+<span class="material-symbols-outlined text-primary sm:hidden">south</span>
+</div>
+<div class="bg-white p-6 rounded-xl border border-growth-green/30 shadow-sm flex-1 lg:w-64">
+<span class="font-label-sm text-label-sm text-growth-green block mb-2">AI Suggestion</span>
+<p class="text-on-surface font-body-md font-medium">철저한 시장 조사를 통해 매출 15% 상승을 견인했습니다.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Final CTA -->
+<section class="max-w-container-max mx-auto px-margin-mobile md:px-gutter mb-section-gap">
+<div class="bg-primary-container rounded-[40px] p-12 md:p-20 text-center relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-primary-container via-primary-container to-ai-indigo opacity-50"></div>
+<div class="relative z-10">
+<h2 class="font-headline-xl text-[32px] md:text-headline-xl text-white mb-6">준비되셨나요? <br/>지금 바로 첫 분석을 시작하세요.</h2>
+<p class="font-body-lg text-body-lg text-on-primary-container mb-10 opacity-80">회원가입 시 첫 분석 리포트가 무료로 제공됩니다.</p>
+<button class="bg-white text-primary px-12 py-5 rounded-2xl font-headline-md text-headline-md hover:shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-all active:scale-95">
+                        내 자소서 업로드하기
+                    </button>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-muted border-t border-border-subtle mt-section-gap">
+<div class="flex flex-col md:flex-row justify-between items-center gap-base w-full px-margin-mobile md:px-gutter max-w-container-max mx-auto py-10">
+<div class="flex flex-col gap-2 items-center md:items-start">
+<div class="font-headline-md text-headline-md font-bold text-primary">일했음 청년</div>
+<p class="text-on-surface-variant font-body-md text-body-md opacity-80 text-center md:text-left">© 2024 일했음 청년 (neet2work). From NEET to WORK.</p>
+</div>
+<div class="flex gap-gutter">
+<a class="text-on-surface-variant hover:text-secondary transition-colors font-body-md text-body-md" href="#">GitHub</a>
+<a class="text-on-surface-variant hover:text-secondary transition-colors font-body-md text-body-md" href="#">Team Members</a>
+<span class="text-on-surface-variant/40 hidden md:inline">|</span>
+<span class="text-on-surface-variant font-body-md text-body-md">React • Express • PostgreSQL • AI</span>
+</div>
+</div>
+</footer>
+</body></html>

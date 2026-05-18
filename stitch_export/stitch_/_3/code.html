@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-tint": "#455f88",
+                        "inverse-primary": "#adc7f7",
+                        "error-container": "#ffdad6",
+                        "on-background": "#1a1c1e",
+                        "transition-orange": "#F6AD55",
+                        "on-secondary-container": "#00742f",
+                        "on-tertiary": "#ffffff",
+                        "background": "#faf9fd",
+                        "growth-green": "#2DA44E",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-fixed": "#002108",
+                        "tertiary-fixed-dim": "#f2bc82",
+                        "error": "#ba1a1a",
+                        "surface-dim": "#dad9dd",
+                        "surface-variant": "#e3e2e6",
+                        "tertiary-fixed": "#ffddba",
+                        "on-primary-fixed": "#001b3c",
+                        "border-subtle": "#D0D7DE",
+                        "surface-container-low": "#f4f3f7",
+                        "on-secondary-fixed-variant": "#00531f",
+                        "on-primary-container": "#86a0cd",
+                        "primary": "#002045",
+                        "primary-container": "#1a365d",
+                        "surface-muted": "#F6F8FA",
+                        "primary-fixed": "#d6e3ff",
+                        "on-error-container": "#93000a",
+                        "ai-indigo": "#4338CA",
+                        "secondary-container": "#88fb99",
+                        "secondary-fixed": "#88fb99",
+                        "outline-variant": "#c4c6cf",
+                        "on-surface": "#1a1c1e",
+                        "inverse-surface": "#2f3033",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-container": "#c6955e",
+                        "primary-fixed-dim": "#adc7f7",
+                        "outline": "#74777f",
+                        "surface": "#faf9fd",
+                        "surface-container": "#efedf1",
+                        "surface-bright": "#faf9fd",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface-variant": "#43474e",
+                        "on-tertiary-fixed": "#2b1700",
+                        "surface-container-highest": "#e3e2e6",
+                        "inverse-on-surface": "#f1f0f4",
+                        "secondary": "#006e2c",
+                        "tertiary": "#321b00",
+                        "secondary-fixed-dim": "#6bde80",
+                        "on-tertiary-fixed-variant": "#633f0f",
+                        "on-primary-fixed-variant": "#2d476f",
+                        "tertiary-container": "#4f2e00",
+                        "surface-container-high": "#e9e7eb",
+                        "on-error": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "base": "8px",
+                        "section-gap": "80px",
+                        "margin-mobile": "16px",
+                        "container-max": "1200px",
+                        "gutter": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "headline-lg": ["Hanken Grotesk"],
+                        "headline-xl": ["Hanken Grotesk"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "body-lg": ["Hanken Grotesk"],
+                        "label-md": ["JetBrains Mono"],
+                        "label-sm": ["JetBrains Mono"],
+                        "body-md": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                        "headline-lg": ["32px", {"lineHeight": "1.25", "fontWeight": "600"}],
+                        "headline-xl": ["48px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["24px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                        "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "label-md": ["14px", {"lineHeight": "1.2", "fontWeight": "500"}],
+                        "label-sm": ["12px", {"lineHeight": "1.2", "fontWeight": "500"}],
+                        "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .ai-card-glow {
+            box-shadow: 0 4px 20px rgba(67, 56, 202, 0.08);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background">
+<!-- TopAppBar -->
+<header class="bg-surface border-b border-border-subtle fixed top-0 left-0 right-0 z-50">
+<div class="flex justify-between items-center w-full px-margin-mobile md:px-gutter max-w-container-max mx-auto h-16">
+<div class="font-headline-md text-headline-md-mobile md:text-headline-md font-bold text-primary">
+                일했음 청년
+            </div>
+<nav class="hidden md:flex gap-base">
+<a class="text-on-surface-variant px-2 hover:text-primary transition-colors duration-200 font-body-md text-body-md" href="#">채용 공고</a>
+<a class="text-on-surface-variant px-2 hover:text-primary transition-colors duration-200 font-body-md text-body-md" href="#">자소설 분석</a>
+<a class="text-on-surface-variant px-2 hover:text-primary transition-colors duration-200 font-body-md text-body-md" href="#">커리어 가이드</a>
+<a class="text-on-surface-variant px-2 hover:text-primary transition-colors duration-200 font-body-md text-body-md" href="#">내 활동</a>
+</nav>
+<div class="flex items-center gap-base">
+<button class="text-on-surface-variant font-label-md text-label-md px-4 py-2">Login</button>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-6 py-2 rounded-lg active:scale-95 transition-transform duration-150">Signup</button>
+</div>
+</div>
+</header>
+<main class="pt-16">
+<!-- Hero Section -->
+<section class="relative overflow-hidden pt-20 pb-section-gap bg-surface-container-lowest">
+<div class="max-w-container-max mx-auto px-margin-mobile md:px-gutter grid md:grid-cols-2 items-center gap-section-gap">
+<div class="flex flex-col gap-6 z-10">
+<span class="inline-flex items-center gap-2 text-ai-indigo font-label-md text-label-md">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+                        AI Career Assistant
+                    </span>
+<h1 class="font-headline-xl text-[40px] md:text-headline-xl leading-tight">
+                        쉬었음에서 <span class="text-growth-green">일했음</span>으로,<br/>
+                        청년의 새로운 시작
+                    </h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-lg">
+                        AI 기반 자소서 분석과 맞춤형 채용 공고 수집으로 당신의 커리어를 응원합니다. 불확실한 취업 준비의 시간을 데이터 기반의 확신으로 바꿔보세요.
+                    </p>
+<div class="flex flex-wrap gap-4 pt-4">
+<button class="bg-primary text-on-primary px-8 py-4 rounded-xl font-headline-md text-headline-md-mobile flex items-center gap-2 hover:shadow-lg transition-all active:scale-95">
+                            자소서 분석 시작하기
+                            <span class="material-symbols-outlined">trending_flat</span>
+</button>
+<button class="border border-border-subtle bg-white text-on-surface px-8 py-4 rounded-xl font-headline-md text-headline-md-mobile hover:bg-surface-muted transition-all">
+                            서비스 둘러보기
+                        </button>
+</div>
+</div>
+<div class="relative">
+<div class="bg-surface-container-high rounded-[40px] aspect-square flex items-center justify-center p-base overflow-hidden border border-border-subtle shadow-sm">
+<img alt="Professional collaboration" class="w-full h-full object-cover rounded-[32px]" data-alt="A modern, high-tech workspace showing a diverse group of young professionals collaborating in a brightly lit office with minimalist design. Large glass windows in the background reveal a soft city view, reflecting a hopeful and optimistic atmosphere. The scene is captured in high-key lighting, emphasizing professional growth and the transition to a successful career, with cool blue and green accents consistent with the brand's primary and growth colors." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCwG-JBdlRbnB_E9bhswlA7_wy2s5fl4OQLe8R5RjAEAcuSd-yfr43yjSBlW4DTdcVInRoo-lEwU-S8UWH6CNkWpghnntS1tbeByVItrpnyHOHf-sXPRDfB8SU_FN3MUCooOSgfwjW4LpG6vDe2SnILL2N3Ya92l9z6NyLrN_YyCwaE683mOE7r98iiNdqqE4xr18HANnGH_Wmpdc1tmA8h5RsIezQmLhmX1jMCkYBksNJl02-zRPquxfPcQ6hvDsgdhDYK84b6oSdW"/>
+</div>
+<!-- Floating Insight Card -->
+<div class="absolute -bottom-8 -left-8 bg-white p-6 rounded-2xl shadow-xl border border-border-subtle flex gap-4 max-w-[280px]">
+<div class="w-12 h-12 bg-secondary-container text-on-secondary-container rounded-full flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined">verified</span>
+</div>
+<div>
+<p class="font-label-md text-label-sm text-on-surface-variant">취업 성공률 향상</p>
+<p class="font-headline-md text-headline-md text-primary">+24.5%</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Problem/Solution Section -->
+<section class="py-section-gap bg-surface-muted">
+<div class="max-w-container-max mx-auto px-margin-mobile md:px-gutter">
+<div class="text-center mb-16">
+<h2 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary mb-4">
+                        'Need to Work'가 '일했음'이 되기까지
+                    </h2>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-2xl mx-auto">
+                        사회적 고립과 구직 단념의 '쉬었음' 기간을 끝내고, 스스로의 가치를 증명하는 '일했음'의 과정으로 나아가는 청년들을 위한 징검다리가 되겠습니다.
+                    </p>
+</div>
+<div class="grid md:grid-cols-2 gap-gutter">
+<!-- NEET State -->
+<div class="bg-white p-8 rounded-3xl border border-border-subtle flex flex-col gap-6">
+<div class="flex justify-between items-start">
+<div class="w-12 h-12 bg-surface-container-high rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-outline">hourglass_empty</span>
+</div>
+<span class="font-label-md text-label-sm bg-surface-container text-outline px-3 py-1 rounded-full">BEFORE</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md mb-2">막막한 '쉬었음'</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">무엇부터 시작해야 할지 모르는 막연함, 직무에 대한 불확신, 파편화된 채용 정보 사이에서 겪는 피로감.</p>
+</div>
+<div class="h-1 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-outline w-1/4"></div>
+</div>
+</div>
+<!-- WORK State -->
+<div class="bg-white p-8 rounded-3xl border-l-4 border-l-growth-green shadow-sm flex flex-col gap-6">
+<div class="flex justify-between items-start">
+<div class="w-12 h-12 bg-secondary-container text-secondary rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">work</span>
+</div>
+<span class="font-label-md text-label-sm bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full">AFTER</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-primary">당당한 '일했음'</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">데이터로 증명된 자소서, 나에게 꼭 맞는 채용 기회, 성장을 향한 명확한 로드맵과 자신감.</p>
+</div>
+<div class="h-1 bg-surface-muted rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary to-growth-green w-full"></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Key Features (Bento Grid Style) -->
+<section class="py-section-gap">
+<div class="max-w-container-max mx-auto px-margin-mobile md:px-gutter">
+<div class="flex flex-col md:flex-row justify-between items-end mb-16 gap-4">
+<div class="max-w-xl">
+<h2 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary mb-4">핵심 기능</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">취업의 모든 과정을 AI와 데이터로 혁신합니다.</p>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Feature 1: AI Analysis -->
+<div class="md:col-span-2 bg-primary-container text-on-primary-container p-10 rounded-[32px] relative overflow-hidden group">
+<div class="flex flex-col h-full justify-between relative z-10">
+<div>
+<span class="material-symbols-outlined text-[48px] mb-6 block text-on-primary-container">psychology</span>
+<h3 class="font-headline-lg text-headline-lg mb-4 text-white">AI Resume Analysis</h3>
+<p class="font-body-lg text-body-lg text-on-primary-container opacity-90 max-w-md">
+                                    자기소개서 직무 적합도 예측 및 수정 가이드 제공. 대형 언어 모델(LLM)이 당신의 경험을 기업의 니즈에 맞춰 재해석합니다.
+                                </p>
+</div>
+<div class="mt-10">
+<button class="bg-white text-primary px-6 py-3 rounded-full font-label-md text-label-md hover:bg-surface-variant transition-colors">분석 리포트 샘플 보기</button>
+</div>
+</div>
+<!-- Abstract AI Visual -->
+<div class="absolute top-0 right-0 w-1/2 h-full opacity-20 pointer-events-none bg-gradient-to-l from-ai-indigo to-transparent"></div>
+</div>
+<!-- Feature 2: RPA Collection -->
+<div class="bg-surface-container p-10 rounded-[32px] border border-border-subtle flex flex-col group hover:border-primary transition-all">
+<span class="material-symbols-outlined text-[48px] mb-6 block text-primary">dynamic_feed</span>
+<h3 class="font-headline-md text-headline-md text-primary mb-4">RPA Job Collection</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">
+                            Playwright 기반의 실시간 채용 공고 수집. 흩어져 있는 수천 개의 공고를 당신의 조건에 맞춰 실시간으로 필터링합니다.
+                        </p>
+<div class="mt-auto pt-8">
+<div class="flex gap-2">
+<span class="px-3 py-1 bg-white rounded-full font-label-sm text-label-sm border border-border-subtle">Real-time</span>
+<span class="px-3 py-1 bg-white rounded-full font-label-sm text-label-sm border border-border-subtle">Auto-scan</span>
+</div>
+</div>
+</div>
+<!-- Feature 3: Matching -->
+<div class="md:col-span-3 bg-white border border-border-subtle p-10 rounded-[32px] flex flex-col md:flex-row gap-gutter items-center hover:shadow-lg transition-shadow">
+<div class="md:w-1/2">
+<span class="material-symbols-outlined text-[48px] mb-6 block text-growth-green" style="font-variation-settings: 'FILL' 1;">target</span>
+<h3 class="font-headline-md text-headline-md text-primary mb-4">Personalized Matching</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">
+                                강점과 보완점을 분석한 최적의 기업 추천. 단순히 조건만 맞추는 것이 아니라, 당신의 커리어 성장 가능성이 가장 높은 기업을 우선적으로 매칭합니다.
+                            </p>
+</div>
+<div class="md:w-1/2 grid grid-cols-2 gap-4">
+<div class="bg-surface-muted p-6 rounded-2xl border border-border-subtle text-center">
+<div class="text-ai-indigo font-headline-md text-headline-md mb-1">직무 역량</div>
+<div class="w-full bg-surface-variant h-2 rounded-full overflow-hidden">
+<div class="bg-ai-indigo h-full w-[85%]"></div>
+</div>
+</div>
+<div class="bg-surface-muted p-6 rounded-2xl border border-border-subtle text-center">
+<div class="text-growth-green font-headline-md text-headline-md mb-1">매칭 지수</div>
+<div class="w-full bg-surface-variant h-2 rounded-full overflow-hidden">
+<div class="bg-growth-green h-full w-[92%]"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Tech Stack Section -->
+<section class="py-section-gap bg-surface-container-low overflow-hidden">
+<div class="max-w-container-max mx-auto px-margin-mobile md:px-gutter">
+<div class="text-center mb-16">
+<h2 class="font-headline-lg text-headline-lg text-primary mb-4">최신 기술로 구축된 신뢰</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">견고한 아키텍처와 혁신적인 AI 기술을 결합하여 최상의 사용자 경험을 제공합니다.</p>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-gutter">
+<div class="bg-white p-8 rounded-2xl border border-border-subtle flex flex-col items-center text-center shadow-sm hover:translate-y-[-4px] transition-transform">
+<div class="w-16 h-16 bg-surface-muted rounded-full flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-[32px] text-primary">layers</span>
+</div>
+<div class="font-label-md text-label-md text-outline mb-1">Frontend</div>
+<div class="font-headline-md text-headline-md text-primary">React 19</div>
+</div>
+<div class="bg-white p-8 rounded-2xl border border-border-subtle flex flex-col items-center text-center shadow-sm hover:translate-y-[-4px] transition-transform">
+<div class="w-16 h-16 bg-surface-muted rounded-full flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-[32px] text-primary">dns</span>
+</div>
+<div class="font-label-md text-label-md text-outline mb-1">Backend</div>
+<div class="font-headline-md text-headline-md text-primary">Express 5</div>
+</div>
+<div class="bg-white p-8 rounded-2xl border border-border-subtle flex flex-col items-center text-center shadow-sm hover:translate-y-[-4px] transition-transform">
+<div class="w-16 h-16 bg-surface-muted rounded-full flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-[32px] text-primary">database</span>
+</div>
+<div class="font-label-md text-label-md text-outline mb-1">Database</div>
+<div class="font-headline-md text-headline-md text-primary">PostgreSQL 17</div>
+</div>
+<div class="bg-white p-8 rounded-2xl border border-border-subtle flex flex-col items-center text-center shadow-sm hover:translate-y-[-4px] transition-transform">
+<div class="w-16 h-16 bg-primary-container text-on-primary-container rounded-full flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-[32px]">auto_awesome</span>
+</div>
+<div class="font-label-md text-label-md text-on-primary-container mb-1">AI Engine</div>
+<div class="font-headline-md text-headline-md text-primary">Generative AI</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Team Section -->
+<section class="py-section-gap">
+<div class="max-w-container-max mx-auto px-margin-mobile md:px-gutter">
+<div class="flex flex-col md:flex-row items-center gap-section-gap">
+<div class="md:w-1/3">
+<h2 class="font-headline-lg text-headline-lg text-primary mb-6">우리 팀</h2>
+<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+                            청년의 내일이 오늘보다 밝기를 바라는 마음으로 모였습니다. 기획부터 AI 모델링, 서비스 구현까지 각 분야의 전문가들이 '일했음'을 함께 만듭니다.
+                        </p>
+</div>
+<div class="md:w-2/3 grid grid-cols-1 sm:grid-cols-2 gap-base">
+<div class="p-6 bg-surface rounded-2xl border border-border-subtle flex items-center gap-4">
+<div class="w-14 h-14 bg-surface-container-high rounded-full overflow-hidden shrink-0">
+<img alt="PM" class="w-full h-full object-cover" data-alt="Professional headshot of a friendly looking male Project Manager in a modern minimalist setting. The person is smiling warmly at the camera, wearing a smart casual outfit. High-key lighting highlights the professional and empathetic persona, with clean lines and soft shadows as per the UI design guidelines." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAw9mUqeEjhKCV20lqISHYxEzaNBOipVCdx-PD7BT5_tATNStPdqmgmcHfH4qD4cTIRmZr7dESgaMWbRFnoOkrSUhmRZc6mcp05N79lZ8O4GA_-b8Aicbajtd46idc5rNnbyx2_8zB7SXqMy3w-2nCW2-dG2actYWj8MSH0O95MeUOBtHXCpnP43aBo4BrJzHrIy1d1Bt1rZ_XNwzArys6me9UPCJLhkErM38BjdCmGcs5QKpXbzo2058aNh-FElhgxZ9NCavM6hGNj"/>
+</div>
+<div>
+<div class="font-headline-md text-headline-md text-primary">Project Manager</div>
+<div class="font-body-md text-body-md text-outline">Product Strategy</div>
+</div>
+</div>
+<div class="p-6 bg-surface rounded-2xl border border-border-subtle flex items-center gap-4">
+<div class="w-14 h-14 bg-surface-container-high rounded-full overflow-hidden shrink-0">
+<img alt="AI Dev" class="w-full h-full object-cover" data-alt="A focused female AI Developer in a sleek tech studio environment. She is surrounded by subtle digital glow and modern hardware, reflecting an authoritative and intelligent presence. The portrait uses professional studio lighting with a neutral color palette, emphasizing innovation and mechanical precision in line with the AI theme." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBLi-xGmz_LPwSClHxnPPtcNx9_FnZ3qZ4O--UZI-pooJWvCUtN1KOxjnl5wwE5W9KX6CcreuNlNT6qtapwuEWU5Cangp8V3kriQwdKo6ZmGYbFePt8r9putew9uzFIKcC1foImYaxluVtZd3qPdZYODyTp6VtAwcZbxqw9D6kPQ5cqyu3G8rgOBQ-LoT0vvch2Lv9Mozc5mVm8Q1Rs6ZacQ8_cffRPxtAd0zVsqlVqGdBjdyD2XJ0u_xNqSjd8oM9Y_bH2fZ0sC0bp"/>
+</div>
+<div>
+<div class="font-headline-md text-headline-md text-primary">AI Developer</div>
+<div class="font-body-md text-body-md text-outline">LLM Optimization</div>
+</div>
+</div>
+<div class="p-6 bg-surface rounded-2xl border border-border-subtle flex items-center gap-4">
+<div class="w-14 h-14 bg-surface-container-high rounded-full overflow-hidden shrink-0">
+<img alt="Backend" class="w-full h-full object-cover" data-alt="Portrait of a male Backend Developer with a calm and steady mentor-like expression. He is positioned in a clean, professional office setting with soft luminescent lighting. The overall mood is authoritative yet empathetic, reflecting a supportive backend infrastructure role, with a palette of deep blues and whites." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJkyOicj9up0l3z4gNL4oRLy-CJLSVB4ZkuSF0V1OZ1XRclrRE4dy-AwgZpqnGuA3HisImLwNMQOI3V7njKPjc6l_6QM_59k9Aqmf40RsGRAF1LcTVy8mJZB7uVQMpkl60q5-Pp_Pc9Ud8DyumTbLQpP31SX6ZpwRz3jz3VnPo2v3BJx4I_h6es5Dpn9gIE8tO1HYLPmeeDPOeT9htQ4Ervp_1ZZ3tVy9xQyiVf2xS-OSgjGn1kQ724YzzGwjI4goO0TdH9dPg7Hdq"/>
+</div>
+<div>
+<div class="font-headline-md text-headline-md text-primary">Backend Developer</div>
+<div class="font-body-md text-body-md text-outline">System Architecture</div>
+</div>
+</div>
+<div class="p-6 bg-surface rounded-2xl border border-border-subtle flex items-center gap-4">
+<div class="w-14 h-14 bg-surface-container-high rounded-full overflow-hidden shrink-0">
+<img alt="Frontend" class="w-full h-full object-cover" data-alt="Creative female Frontend Developer with a modern and artistic flair, captured in a bright studio with high legibility and generous whitespace. The lighting is soft and diffused, creating a supportive glow that reflects her role in creating high-quality, professional user interfaces using React 19." src="https://lh3.googleusercontent.com/aida-public/AB6AXuADeTm2dSPyPavsvwOSlPpIq-kiGMjw8AnfOFT7OuqMZ9gQaOh-AFcqi0n9Z42FW3RsHmMcINNbaCpix2KIeCC2Dy3WijXQ924Q7t4kxwhNTBVUOHyhjJeOQ6M2Ycs2vsF9vc4LXv57vF4DjNv6p4sDzEzx0KPidXHobB8N0NaNk73BOOi8gV20HyV52NnDgYUetbRDoPPZrUEpTCbGqWyiC0G78SAP1B955rSZmU_grY0kFQFTM6Wu5_S2sKzcump5R3D-Hx7suktf"/>
+</div>
+<div>
+<div class="font-headline-md text-headline-md text-primary">Frontend Developer</div>
+<div class="font-body-md text-body-md text-outline">UI/UX Implementation</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Final CTA -->
+<section class="py-section-gap">
+<div class="max-w-container-max mx-auto px-margin-mobile md:px-gutter">
+<div class="bg-primary rounded-[40px] py-20 px-10 text-center text-on-primary relative overflow-hidden">
+<div class="relative z-10">
+<h2 class="font-headline-xl text-[32px] md:text-headline-xl mb-6">당신의 새로운 시작을 응원합니다.</h2>
+<p class="font-body-lg text-body-lg mb-10 max-w-2xl mx-auto opacity-80">지금 바로 AI 자소서 분석을 통해 당신의 잠재력을 발견하고, 당신에게 딱 맞는 커리어를 시작해 보세요.</p>
+<button class="bg-white text-primary px-10 py-5 rounded-2xl font-headline-md text-headline-md-mobile hover:bg-surface-variant transition-all active:scale-95 shadow-lg">무료로 분석 시작하기</button>
+</div>
+<!-- Background Accent -->
+<div class="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+<div class="absolute bottom-0 left-0 w-32 h-32 bg-growth-green opacity-20 rounded-full translate-y-1/2 -translate-x-1/2"></div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-muted border-t border-border-subtle mt-section-gap">
+<div class="flex flex-col md:flex-row justify-between items-center gap-base w-full px-margin-mobile md:px-gutter max-w-container-max mx-auto py-10">
+<div class="flex flex-col gap-2 items-center md:items-start">
+<div class="font-headline-md text-headline-md font-bold text-primary">일했음 청년</div>
+<div class="font-body-md text-body-md text-on-surface-variant">© 2024 일했음 청년 (neet2work). From NEET to WORK.</div>
+</div>
+<div class="flex gap-gutter">
+<a class="text-on-surface-variant hover:text-secondary transition-colors font-body-md text-body-md" href="#">GitHub</a>
+<a class="text-on-surface-variant hover:text-secondary transition-colors font-body-md text-body-md" href="#">Team Members</a>
+<span class="text-on-surface-variant font-body-md text-body-md">React • Express • PostgreSQL • AI</span>
+</div>
+</div>
+</footer>
+</body></html>

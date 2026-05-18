@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed-variant": "#633f0f",
+                        "on-background": "#1a1c1e",
+                        "outline": "#74777f",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-fixed": "#001b3c",
+                        "border-subtle": "#D0D7DE",
+                        "surface-container": "#efedf1",
+                        "on-secondary-container": "#00742f",
+                        "surface-muted": "#F6F8FA",
+                        "tertiary-fixed-dim": "#f2bc82",
+                        "on-secondary-fixed-variant": "#00531f",
+                        "on-secondary-fixed": "#002108",
+                        "surface-bright": "#faf9fd",
+                        "error": "#ba1a1a",
+                        "tertiary-fixed": "#ffddba",
+                        "surface-variant": "#e3e2e6",
+                        "on-primary": "#ffffff",
+                        "surface-dim": "#dad9dd",
+                        "transition-orange": "#F6AD55",
+                        "error-container": "#ffdad6",
+                        "primary": "#002045",
+                        "outline-variant": "#c4c6cf",
+                        "secondary-fixed": "#88fb99",
+                        "surface-container-high": "#e9e7eb",
+                        "surface-container-highest": "#e3e2e6",
+                        "tertiary-container": "#4f2e00",
+                        "secondary": "#006e2c",
+                        "ai-indigo": "#4338CA",
+                        "primary-container": "#1a365d",
+                        "on-error": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "background": "#faf9fd",
+                        "inverse-primary": "#adc7f7",
+                        "secondary-fixed-dim": "#6bde80",
+                        "growth-green": "#2DA44E",
+                        "surface-container-low": "#f4f3f7",
+                        "inverse-on-surface": "#f1f0f4",
+                        "on-surface": "#1a1c1e",
+                        "surface": "#faf9fd",
+                        "on-secondary": "#ffffff",
+                        "on-primary-container": "#86a0cd",
+                        "on-surface-variant": "#43474e",
+                        "on-tertiary-fixed": "#2b1700",
+                        "on-primary-fixed-variant": "#2d476f",
+                        "inverse-surface": "#2f3033",
+                        "on-tertiary-container": "#c6955e",
+                        "surface-tint": "#455f88",
+                        "secondary-container": "#88fb99",
+                        "tertiary": "#321b00",
+                        "primary-fixed": "#d6e3ff",
+                        "primary-fixed-dim": "#adc7f7",
+                        "surface-container-lowest": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-mobile": "16px",
+                        "gutter": "24px",
+                        "section-gap": "80px",
+                        "container-max": "1200px",
+                        "base": "8px"
+                    },
+                    "fontFamily": {
+                        "label-md": ["JetBrains Mono"],
+                        "headline-lg": ["Hanken Grotesk"],
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "label-sm": ["JetBrains Mono"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "body-md": ["Hanken Grotesk"],
+                        "headline-xl": ["Hanken Grotesk"],
+                        "body-lg": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "label-md": ["14px", {"lineHeight": "1.2", "fontWeight": "500"}],
+                        "headline-lg": ["32px", {"lineHeight": "1.25", "fontWeight": "600"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "1.2", "fontWeight": "500"}],
+                        "headline-md": ["24px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "headline-xl": ["48px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .ai-card-shadow {
+            box-shadow: 0 4px 20px rgba(67, 56, 202, 0.08);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="w-full top-0 sticky z-50 bg-surface border-b border-border-subtle">
+<div class="max-w-container-max mx-auto px-gutter flex justify-between items-center h-16">
+<div class="flex items-center gap-base">
+<span class="font-headline-md text-headline-md font-bold text-primary">일했음 청년</span>
+</div>
+<nav class="hidden md:flex gap-8 items-center">
+<a class="text-primary font-bold border-b-2 border-primary pb-1 font-body-md text-body-md" href="#">채용 공고</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">자소서 분석</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">커리어 가이드</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">내 활동</a>
+</nav>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-on-surface-variant">search</button>
+<button class="px-4 py-2 rounded-lg bg-surface-container-highest text-primary font-bold font-label-md text-label-md hover:bg-surface-muted transition-all">로그인</button>
+</div>
+</div>
+</header>
+<main class="flex-grow max-w-[800px] mx-auto w-full px-margin-mobile md:px-gutter py-12">
+<!-- Job Summary Header -->
+<section class="mb-12">
+<div class="flex items-start gap-4 mb-4">
+<div class="w-16 h-16 bg-white border border-border-subtle rounded-xl flex items-center justify-center overflow-hidden">
+<img alt="Tech Bridge Logo" class="w-12 h-12 object-contain" data-alt="A clean, minimalist tech company logo featuring abstract geometric lines suggesting a bridge and connectivity. The design is modern corporate, using professional deep blues and crisp whites, set against a sterile white background with soft, diffused professional lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvEpFGcDr9XPuF_hhdlanWMA0QtlQiezeYLtSZNnUEV1KtFlpg7HZ7WKXf0dQcsuaCdhKjbnyw0asI7Mhq7jAfD0CItcz_hjQmmBS87MLScIVZZvubbvrqVTiov-FqcvDcAjO6dsVtuzb5ucSNFiAHVeAFyeGHWj72ujZF9cQVjf_-e__lUVCNjdE3QyIMj6l0XGbeUvOVHfawReuHaJ2z1P-n92j5W8Y_xIgU6oI89IavPOe5MF4-2mWOFrYUQpRjIo19JxWOwVsy"/>
+</div>
+<div>
+<h1 class="font-headline-lg text-headline-lg text-primary mb-1">Frontend Developer (React/Next.js)</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px]">corporate_fare</span>
+                        Tech Bridge
+                    </p>
+</div>
+</div>
+<div class="h-1 w-full bg-surface-muted rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary to-growth-green w-1/4"></div>
+</div>
+<p class="mt-4 font-label-sm text-label-sm text-on-surface-variant">지원 단계: 정보 입력 (1/4)</p>
+</section>
+<!-- Application Form -->
+<form class="space-y-10">
+<!-- Personal Information -->
+<div class="space-y-6">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">person</span>
+<h2 class="font-headline-md text-headline-md text-on-surface">개인 정보</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="font-label-md text-label-md text-on-surface-variant block">이름</label>
+<input class="w-full px-4 py-3 rounded-lg border border-border-subtle bg-surface-bright focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all outline-none" placeholder="홍길동" type="text"/>
+</div>
+<div class="space-y-2">
+<label class="font-label-md text-label-md text-on-surface-variant block">연락처</label>
+<input class="w-full px-4 py-3 rounded-lg border border-border-subtle bg-surface-bright focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all outline-none" placeholder="010-0000-0000" type="tel"/>
+</div>
+<div class="md:col-span-2 space-y-2">
+<label class="font-label-md text-label-md text-on-surface-variant block">이메일 주소</label>
+<input class="w-full px-4 py-3 rounded-lg border border-border-subtle bg-surface-bright focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all outline-none" placeholder="example@techbridge.com" type="email"/>
+</div>
+</div>
+</div>
+<!-- Resume Submission -->
+<div class="space-y-6">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">description</span>
+<h2 class="font-headline-md text-headline-md text-on-surface">이력서 제출</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- AI Resume Selection -->
+<div class="relative group cursor-pointer border-2 border-ai-indigo bg-ai-indigo/5 p-6 rounded-xl ai-card-shadow transition-all hover:scale-[1.02]">
+<div class="absolute top-4 right-4 bg-ai-indigo text-white px-2 py-0.5 rounded text-[10px] font-bold">추천</div>
+<div class="flex flex-col h-full">
+<span class="material-symbols-outlined text-ai-indigo mb-4 text-3xl" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<h3 class="font-headline-md text-headline-md text-ai-indigo mb-2">AI 분석 이력서</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-4">현재 직무에 가장 적합하게 최적화된 AI 분석 이력서를 사용합니다.</p>
+<div class="mt-auto flex items-center gap-2 text-ai-indigo font-bold text-label-md">
+<span>이력서 선택하기</span>
+<span class="material-symbols-outlined text-sm">arrow_forward</span>
+</div>
+</div>
+</div>
+<!-- New Upload -->
+<div class="group cursor-pointer border border-border-subtle bg-surface hover:border-primary p-6 rounded-xl transition-all hover:bg-surface-muted">
+<div class="flex flex-col h-full">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary mb-4 text-3xl">upload_file</span>
+<h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary mb-2">새 파일 업로드</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-4">PDF, Word 형식의 새로운 이력서 파일을 업로드합니다.</p>
+<div class="mt-auto flex items-center gap-2 text-on-surface-variant group-hover:text-primary font-bold text-label-md">
+<span>파일 찾기</span>
+<span class="material-symbols-outlined text-sm">attach_file</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Portfolio -->
+<div class="space-y-6">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">link</span>
+<h2 class="font-headline-md text-headline-md text-on-surface">포트폴리오 <span class="text-on-surface-variant text-body-md font-normal">(선택)</span></h2>
+</div>
+<div class="space-y-4">
+<div class="relative">
+<input class="w-full pl-12 pr-4 py-3 rounded-lg border border-border-subtle bg-surface-bright focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all outline-none" placeholder="GitHub, Behance 또는 개인 웹사이트 URL" type="url"/>
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">link</span>
+</div>
+<div class="border-2 border-dashed border-border-subtle rounded-xl p-8 flex flex-col items-center justify-center gap-2 bg-surface-muted hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant text-4xl">cloud_upload</span>
+<p class="font-label-md text-label-md text-on-surface">포트폴리오 파일 업로드</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">최대 20MB (PDF, ZIP)</p>
+</div>
+</div>
+</div>
+<!-- Terms Agreement -->
+<div class="bg-surface-container-low p-6 rounded-xl space-y-4 border border-border-subtle">
+<div class="flex items-start gap-3">
+<input class="mt-1 w-5 h-5 text-growth-green border-border-subtle rounded focus:ring-growth-green" id="all_agree" type="checkbox"/>
+<label class="font-bold text-on-surface" for="all_agree">모든 약관에 동의합니다.</label>
+</div>
+<div class="h-[1px] bg-border-subtle w-full"></div>
+<div class="space-y-3 pl-8">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<input class="w-4 h-4 text-growth-green border-border-subtle rounded focus:ring-growth-green" id="privacy" type="checkbox"/>
+<label class="text-on-surface-variant text-label-md" for="privacy">개인정보 수집 및 이용 동의 (필수)</label>
+</div>
+<button class="text-primary text-label-sm underline" type="button">보기</button>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<input class="w-4 h-4 text-growth-green border-border-subtle rounded focus:ring-growth-green" id="data_share" type="checkbox"/>
+<label class="text-on-surface-variant text-label-md" for="data_share">제3자 데이터 제공 동의 (필수)</label>
+</div>
+<button class="text-primary text-label-sm underline" type="button">보기</button>
+</div>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="flex flex-col md:flex-row gap-4 pt-4">
+<button class="flex-1 bg-growth-green text-white font-bold py-4 rounded-xl shadow-lg hover:scale-[1.02] active:scale-95 transition-all text-body-lg flex items-center justify-center gap-2" type="submit">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">send</span>
+                    지원하기
+                </button>
+<button class="flex-1 bg-surface-container-highest text-primary font-bold py-4 rounded-xl hover:bg-surface-dim transition-all text-body-lg" type="button">
+                    취소
+                </button>
+</div>
+</form>
+</main>
+<!-- Footer -->
+<footer class="w-full py-section-gap mt-auto bg-surface-muted border-t border-border-subtle">
+<div class="max-w-container-max mx-auto px-gutter grid grid-cols-1 md:grid-cols-2 gap-base items-center">
+<div>
+<p class="font-headline-sm text-headline-sm font-bold text-primary mb-2">일했음 청년</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">© 2024 일했음 청년 (Neet2Work). All rights reserved.</p>
+</div>
+<div class="flex flex-wrap gap-6 md:justify-end">
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label-sm text-label-sm" href="#">팀 정보</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label-sm text-label-sm" href="#">기술 스택</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label-sm text-label-sm" href="#">개인정보처리방침</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label-sm text-label-sm" href="#">이용약관</a>
+</div>
+</div>
+</footer>
+</body></html>
