@@ -29,7 +29,9 @@ body {
 }
 
 button,
-textarea {
+textarea,
+input,
+select {
   font: inherit;
 }
 
@@ -286,7 +288,10 @@ h1 {
 }
 
 .panel,
-.resultPanel {
+.resultPanel,
+.jobsToolbar,
+.jobsListPanel,
+.jobDetailPanel {
   border: 1px solid var(--hairline);
   border-radius: 12px;
   background: var(--canvas);
@@ -294,6 +299,182 @@ h1 {
 
 .panel {
   padding: 32px;
+}
+
+.jobsHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 48px;
+  align-items: end;
+  padding: 72px 0 32px;
+}
+
+.jobsHero h1 {
+  max-width: 760px;
+}
+
+.jobsStats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--hairline-cool);
+}
+
+.jobsStats div {
+  padding: 22px;
+  background: var(--canvas);
+}
+
+.jobsStats span {
+  color: var(--ink-mute);
+  font-size: 0.82rem;
+}
+
+.jobsStats strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--ink);
+  font-size: 2rem;
+  font-weight: 500;
+  letter-spacing: -0.72px;
+}
+
+.jobsToolbar {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(180px, 260px);
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: var(--canvas-soft);
+}
+
+.jobsToolbar label {
+  display: grid;
+  gap: 8px;
+  color: var(--ink-mute);
+  font-size: 0.84rem;
+}
+
+.jobsToolbar input,
+.jobsToolbar select {
+  min-height: 40px;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+.jobsToolbar input:focus,
+.jobsToolbar select:focus {
+  outline: 0;
+  border-color: var(--ink);
+}
+
+.jobsLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  gap: 24px;
+  align-items: start;
+}
+
+.jobsListPanel,
+.jobDetailPanel {
+  padding: 32px;
+}
+
+.jobsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.jobListing {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid var(--hairline-cool);
+  border-radius: 8px;
+  padding: 18px;
+  background: var(--canvas);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.jobListing.selected,
+.jobListing:hover {
+  border-color: var(--primary-deep);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.jobListing span {
+  color: var(--ink-mute);
+  font-size: 0.84rem;
+}
+
+.jobListing strong {
+  color: var(--ink);
+  font-size: 1.08rem;
+  font-weight: 500;
+}
+
+.jobListing p {
+  margin-bottom: 4px;
+  color: var(--ink-mute);
+}
+
+.inlineJobDetail {
+  display: none;
+}
+
+.jobDetailPanel {
+  position: sticky;
+  top: 96px;
+}
+
+.jobDetailPanel > strong {
+  display: block;
+  margin: 10px 0 20px;
+  color: var(--primary-deep);
+  font-weight: 500;
+}
+
+.jobDetailPanel dl {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 20px;
+}
+
+.jobDetailPanel dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--hairline-cool);
+  padding-bottom: 10px;
+}
+
+.jobDetailPanel dt {
+  color: var(--ink-mute);
+}
+
+.jobDetailPanel dd {
+  margin: 0;
+  color: var(--ink);
+  text-align: right;
+}
+
+.jobDetailPanel p {
+  color: var(--ink-secondary);
+  line-height: 1.5;
+}
+
+.jobDetailPanel .primaryAction {
+  width: 100%;
+  margin-top: 20px;
 }
 
 .sectionTitle {
@@ -476,13 +657,61 @@ textarea:focus {
 
   .hero,
   .workspace,
-  .resultPanel {
+  .resultPanel,
+  .jobsHero,
+  .jobsLayout {
     grid-template-columns: 1fr;
   }
 
   .hero {
     gap: 28px;
     padding: 56px 0 48px;
+  }
+
+  .jobDetailPanel {
+    display: none;
+  }
+
+  .inlineJobDetail {
+    display: grid;
+    gap: 12px;
+    border-top: 1px solid var(--hairline-cool);
+    margin-top: 12px;
+    padding-top: 14px;
+  }
+
+  .inlineJobDetail dl {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+  }
+
+  .inlineJobDetail dl div {
+    border-radius: 6px;
+    padding: 10px;
+    background: var(--canvas-soft);
+  }
+
+  .inlineJobDetail dt {
+    color: var(--ink-mute);
+    font-size: 0.78rem;
+  }
+
+  .inlineJobDetail dd {
+    margin: 4px 0 0;
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .inlineJobDetail p {
+    margin: 0;
+    color: var(--ink-secondary);
+  }
+
+  .inlineJobDetail span {
+    color: var(--ink-mute);
+    font-size: 0.82rem;
   }
 }
 
@@ -515,6 +744,20 @@ textarea:focus {
   }
 
   .panel {
+    padding: 22px;
+  }
+
+  .jobsHero {
+    padding-top: 40px;
+  }
+
+  .jobsToolbar,
+  .jobsStats {
+    grid-template-columns: 1fr;
+  }
+
+  .jobsListPanel,
+  .jobDetailPanel {
     padding: 22px;
   }
 }
