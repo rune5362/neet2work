@@ -1,15 +1,11 @@
 :root {
-  color: #1a1a1a;
-  background: #ffffff;
+  color: #19221d;
+  background: #f4efe3;
   font-family:
-    Inter,
     "Pretendard",
     "Apple SD Gothic Neo",
     "Malgun Gothic",
-    Arial,
     sans-serif;
-  font-synthesis: none;
-  text-rendering: geometricPrecision;
 }
 
 * {
@@ -20,107 +16,45 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #ffffff;
+  background:
+    radial-gradient(circle at top left, rgba(255, 196, 87, 0.42), transparent 34rem),
+    linear-gradient(135deg, #fbf5e8 0%, #e9f0dd 52%, #dfead9 100%);
 }
 
 button,
-input,
-select {
+textarea {
   font: inherit;
 }
 
-button,
-a {
-  -webkit-tap-highlight-color: transparent;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.page {
-  --primary: #024ad8;
-  --primary-deep: #0e3191;
-  --primary-soft: #c9e0fc;
-  --ink: #1a1a1a;
-  --paper: #ffffff;
-  --cloud: #f7f7f7;
-  --fog: #e8e8e8;
-  --steel: #c2c2c2;
-  --graphite: #636363;
-  --charcoal: #3d3d3d;
-  --error: #b3262b;
-  --lift: 0 2px 8px rgba(26, 26, 26, 0.08);
-  width: min(1366px, 100%);
-  min-height: 100vh;
+.shell {
+  width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 0 24px 64px;
-  background: var(--paper);
+  padding: 48px 0;
 }
 
-.pageC {
-  width: 100%;
-  max-width: none;
-  padding: 0;
-  background: var(--cloud);
+.hero,
+.workspace,
+.resultPanel {
+  display: grid;
+  gap: 24px;
 }
 
-.appHeader {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 64px;
-  border-bottom: 1px solid var(--fog);
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(16px);
+.hero {
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: end;
+  margin-bottom: 28px;
 }
 
-.pageC .appHeader {
-  padding: 0 24px;
-}
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-  min-width: 44px;
-  min-height: 44px;
-}
-
-.brand img {
-  display: block;
-  width: clamp(148px, 18vw, 220px);
-  height: auto;
-}
-
-.appHeader nav {
-  display: flex;
-  gap: 4px;
-  overflow-x: auto;
-}
-
-.appHeader nav a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 8px 16px;
-  color: var(--charcoal);
-}
-
-.appHeader nav a.active {
-  color: var(--primary);
-  box-shadow: inset 0 -2px 0 var(--primary);
-}
-
-.eyebrow {
-  margin: 0 0 12px;
-  color: var(--primary);
-  font-size: 0.82rem;
-  font-weight: 700;
-  line-height: 1.3;
+.eyebrow,
+.sectionTitle p,
+.heroCard span,
+.scoreBox span {
+  margin: 0;
+  color: #5a704a;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 h1,
@@ -131,766 +65,225 @@ p {
 }
 
 h1 {
-  margin-bottom: 20px;
-  font-size: clamp(2.4rem, 6.5vw, 4.7rem);
-  font-weight: 500;
-  line-height: 1;
-  letter-spacing: 0;
-}
-
-h2 {
   margin-bottom: 16px;
-  font-size: clamp(1.4rem, 3vw, 2rem);
-  font-weight: 500;
-  line-height: 1.1;
+  font-size: clamp(3rem, 8vw, 6.8rem);
+  line-height: 0.9;
+  letter-spacing: -0.08em;
 }
 
-h3 {
+.heroText {
+  max-width: 720px;
   margin-bottom: 0;
+  color: #3f4d41;
   font-size: 1.1rem;
-  line-height: 1.25;
+  line-height: 1.8;
 }
 
-.primaryAction,
-.outlineAction,
-.segmented button,
-.stateSwitch button,
-.categoryRail button,
-.pagination button,
-.cardActions button,
-.loadMore {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  border-radius: 4px;
-  padding: 12px 20px;
-  font-weight: 700;
-  cursor: pointer;
+.heroCard,
+.panel,
+.resultPanel {
+  border: 1px solid rgba(37, 52, 36, 0.12);
+  border-radius: 28px;
+  background: rgba(255, 252, 245, 0.78);
+  box-shadow: 0 24px 70px rgba(47, 58, 41, 0.12);
+  backdrop-filter: blur(18px);
 }
 
-.primaryAction {
-  border: 1px solid var(--primary);
-  background: var(--primary);
-  color: #ffffff;
-}
-
-.outlineAction {
-  border: 1px solid var(--ink);
-  background: var(--paper);
-  color: var(--ink);
-}
-
-.heroActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 28px;
-}
-
-.aHero {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
-  gap: 32px;
-  padding: 80px 0 32px;
-}
-
-.aHero::before,
-.bHero::before {
-  position: absolute;
-  width: 28px;
-  height: 220px;
-  background: var(--primary);
-  content: "";
-  transform: skewX(-28deg);
-}
-
-.aHero::before {
-  top: 96px;
-  left: -6px;
-}
-
-.heroCopy {
-  position: relative;
-  border-radius: 16px;
-  padding: clamp(28px, 5vw, 56px);
-  background:
-    linear-gradient(135deg, rgba(247, 247, 247, 0.95), rgba(255, 255, 255, 0.98)),
-    var(--paper);
-}
-
-.heroCopy p,
-.bHero p,
-.dashHero p,
-.footerBand p {
-  max-width: 760px;
-  color: var(--charcoal);
-  line-height: 1.5;
-}
-
-.metricPanel {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1px;
-  border-radius: 16px;
-  overflow: hidden;
-  background: var(--fog);
-  box-shadow: var(--lift);
-}
-
-.metricPanel.compact {
-  grid-template-columns: repeat(4, 1fr);
-}
-
-.metricPanel article {
+.heroCard {
   padding: 24px;
-  background: var(--paper);
 }
 
-.metricPanel span,
-.metricPanel p {
-  color: var(--graphite);
-}
-
-.metricPanel strong {
+.heroCard strong {
   display: block;
-  margin: 8px 0;
-  font-size: clamp(1.6rem, 4vw, 2.3rem);
-  font-weight: 500;
+  margin: 10px 0;
+  font-size: 1.5rem;
 }
 
-.aLayout {
-  display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  gap: 24px;
-}
-
-.optionPanel,
-.boardSurface,
-.cardSurface,
-.statePanel,
-.categoryRail,
-.dashHero,
-.dashControls,
-.footerBand {
-  border: 1px solid var(--fog);
-  border-radius: 16px;
-  background: var(--paper);
-  box-shadow: var(--lift);
-}
-
-.optionPanel {
-  align-self: start;
-  padding: 24px;
-}
-
-.controls {
-  display: grid;
-  gap: 14px;
-}
-
-.controls.inline {
-  grid-template-columns: auto auto minmax(0, 1fr);
-  align-items: end;
-}
-
-.filterForm {
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(130px, 170px));
-  gap: 12px;
-}
-
-.controls.stacked .filterForm {
-  grid-template-columns: 1fr;
-}
-
-.filterForm label {
-  display: grid;
-  gap: 7px;
-  color: var(--graphite);
-  font-size: 0.86rem;
-}
-
-.filterForm input,
-.filterForm select {
-  width: 100%;
-  height: 44px;
-  border: 1px solid var(--steel);
-  border-radius: 4px;
-  padding: 0 12px;
-  background: var(--paper);
-  color: var(--ink);
-}
-
-.filterForm input:focus,
-.filterForm select:focus {
-  outline: 0;
-  border-color: var(--ink);
-}
-
-.segmented,
-.stateSwitch {
-  display: inline-grid;
-  gap: 4px;
-  border: 1px solid var(--fog);
-  border-radius: 8px;
-  padding: 4px;
-  background: var(--cloud);
-}
-
-.segmented {
-  grid-template-columns: repeat(2, minmax(120px, 1fr));
-}
-
-.stateSwitch {
-  grid-template-columns: repeat(4, auto);
-}
-
-.segmented button,
-.stateSwitch button {
-  min-height: 36px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--ink);
-  padding: 8px 10px;
-  white-space: nowrap;
-}
-
-.segmented button.active,
-.stateSwitch button.active {
-  border-color: var(--ink);
-  background: var(--ink);
-  color: #ffffff;
-}
-
-.boardSurface,
-.cardSurface,
-.statePanel {
-  min-width: 0;
-  padding: 24px;
-}
-
-.boardHeader {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.boardHeader h2 {
+.heroCard p,
+.muted {
   margin-bottom: 0;
+  color: #697568;
+  line-height: 1.7;
 }
 
-.boardHeader span {
-  color: var(--graphite);
+.alert {
+  margin-bottom: 20px;
+  border: 1px solid #f2a37f;
+  border-radius: 18px;
+  padding: 14px 18px;
+  background: #fff0e7;
+  color: #a1431b;
 }
 
-.boardTable {
-  border: 1px solid var(--fog);
-  border-radius: 16px;
-  overflow: hidden;
+.workspace {
+  grid-template-columns: 1.05fr 0.95fr;
+  align-items: start;
 }
 
-.boardRow {
-  display: grid;
-  grid-template-columns: 72px minmax(240px, 1.7fr) minmax(100px, 0.7fr) 120px 100px minmax(170px, 0.8fr);
-  gap: 12px;
-  align-items: center;
-  min-height: 58px;
-  border-bottom: 1px solid var(--fog);
-  padding: 12px 14px;
-  background: var(--paper);
+.panel,
+.resultPanel {
+  padding: 26px;
 }
 
-.boardRow:last-child {
-  border-bottom: 0;
-}
-
-.boardHead {
-  min-height: 44px;
-  background: var(--cloud);
-  color: var(--graphite);
-  font-size: 0.86rem;
-  font-weight: 700;
-}
-
-.boardRow strong {
-  font-weight: 600;
-}
-
-.statusBadge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 26px;
-  border: 1px solid var(--steel);
-  border-radius: 8px;
-  padding: 4px 8px;
-  margin-right: 8px;
-  background: var(--paper);
-  color: var(--ink);
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.status-게시됨 {
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-.status-마감임박 {
-  border-color: #ff5050;
-  color: #b3262b;
-}
-
-.status-보류 {
-  border-color: var(--ink);
-  background: var(--ink);
-  color: #ffffff;
-}
-
-.pagination {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  align-items: center;
-  margin-top: 16px;
-}
-
-.pagination button,
-.loadMore {
-  border: 1px solid var(--ink);
-  background: var(--paper);
-  color: var(--ink);
-}
-
-.pagination button:disabled {
-  cursor: not-allowed;
-  border-color: var(--steel);
-  color: var(--graphite);
-}
-
-.cardGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 16px;
-}
-
-.feedCard {
-  display: grid;
-  gap: 14px;
-  border: 1px solid var(--fog);
-  border-radius: 16px;
-  padding: 18px;
-  background: var(--paper);
-  box-shadow: var(--lift);
-}
-
-.thumb {
-  display: grid;
-  place-items: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
-  background: var(--primary-soft);
-  color: var(--primary-deep);
-  font-size: 1.25rem;
-  font-weight: 800;
-}
-
-.cardMeta,
-.cardActions,
-.tagList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.cardMeta > span:last-child,
-.tagList span {
-  border: 1px solid var(--fog);
-  border-radius: 8px;
-  padding: 5px 8px;
-  color: var(--charcoal);
-  font-size: 0.8rem;
-}
-
-.feedCard p {
-  margin: 0;
-  color: var(--charcoal);
-  line-height: 1.45;
-}
-
-.feedCard dl {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin: 0;
-}
-
-.feedCard dl div {
-  border-radius: 8px;
-  padding: 9px;
-  background: var(--cloud);
-}
-
-.feedCard dt {
-  color: var(--graphite);
-  font-size: 0.76rem;
-}
-
-.feedCard dd {
-  margin: 4px 0 0;
-  font-weight: 700;
-}
-
-.cardActions {
-  justify-content: flex-end;
-  margin-top: auto;
-}
-
-.cardActions button {
-  min-height: 38px;
-  border: 1px solid var(--ink);
-  background: var(--paper);
-  color: var(--ink);
-  padding: 8px 14px;
-}
-
-.cardActions button:first-child {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: #ffffff;
-}
-
-.loadMore {
-  width: 100%;
-  margin-top: 16px;
-}
-
-.statePanel {
-  display: grid;
-  align-content: center;
-  min-height: 320px;
-  border-style: dashed;
-}
-
-.statePanel strong {
-  font-size: 1.25rem;
-}
-
-.statePanel p {
-  margin-bottom: 0;
-  color: var(--charcoal);
-}
-
-.statePanel.error {
-  border-color: var(--error);
-  background: #fff5f5;
-}
-
-.bHero {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1.1fr);
-  gap: 24px;
-  padding: 64px 0 24px;
-}
-
-.bHero::before {
-  top: 88px;
-  right: 28%;
-}
-
-.bHero > div:first-child {
-  border-radius: 16px;
-  padding: clamp(28px, 5vw, 52px);
-  background: var(--ink);
-  color: #ffffff;
-}
-
-.bHero .eyebrow,
-.bHero > div:first-child p {
-  color: var(--primary-soft);
-}
-
-.dealRail {
-  display: grid;
-  gap: 14px;
-}
-
-.dealRail article {
-  border: 1px solid var(--fog);
-  border-radius: 16px;
-  padding: 20px;
-  background: var(--paper);
-  box-shadow: var(--lift);
-}
-
-.dealRail span {
-  color: var(--primary);
-  font-weight: 700;
-}
-
-.dealRail strong {
-  display: block;
-  margin: 8px 0;
-}
-
-.marketToolbar,
-.dashControls {
-  border: 1px solid var(--fog);
-  border-radius: 16px;
-  padding: 18px;
-  background: var(--cloud);
-}
-
-.bLayout {
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 20px;
-  margin-top: 20px;
-}
-
-.categoryRail {
-  align-self: start;
-  padding: 18px;
-}
-
-.categoryRail button {
-  width: 100%;
-  justify-content: flex-start;
-  border: 1px solid var(--fog);
-  background: var(--paper);
-  color: var(--ink);
-  margin-top: 8px;
-}
-
-.categoryRail button.active {
-  border-color: var(--ink);
-  background: var(--ink);
-  color: #ffffff;
-}
-
-.cardsB .feedCard {
-  min-height: 420px;
-}
-
-.cardsB .thumb {
-  width: 100%;
-  height: 120px;
-}
-
-.dashShell {
-  display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
-  min-height: calc(100vh - 64px);
-}
-
-.dashNav {
-  display: grid;
-  align-content: start;
-  gap: 8px;
-  padding: 28px 18px;
-  background: var(--ink);
-  color: #ffffff;
-}
-
-.dashNav strong {
+.sectionTitle {
   margin-bottom: 18px;
 }
 
-.dashNav a {
-  border-radius: 8px;
-  padding: 12px;
+.sectionTitle h2 {
+  margin-bottom: 0;
+  font-size: 1.7rem;
 }
 
-.dashNav a:first-of-type {
-  background: var(--primary);
-}
-
-.dashMain {
+.jobList {
   display: grid;
-  gap: 18px;
-  padding: 24px;
+  gap: 14px;
 }
 
-.dashHero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px;
-  align-items: start;
-  padding: 28px;
+.jobCard {
+  width: 100%;
+  border: 1px solid rgba(25, 34, 29, 0.1);
+  border-radius: 22px;
+  padding: 20px;
+  background: #fffdf6;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
-.boardC .boardRow {
-  grid-template-columns: 64px minmax(280px, 2fr) 110px 120px 100px minmax(180px, 0.9fr);
+.jobCard:hover,
+.jobCard.selected {
+  transform: translateY(-2px);
+  border-color: #5b7f40;
+  box-shadow: 0 16px 36px rgba(62, 87, 45, 0.14);
 }
 
-.footerBand {
+.jobCard span {
+  color: #5a704a;
+  font-weight: 700;
+}
+
+.jobCard strong {
+  display: block;
+  margin: 8px 0;
+  font-size: 1.25rem;
+}
+
+.jobCard p {
+  margin-bottom: 14px;
+  color: #687366;
+}
+
+.chips {
   display: flex;
-  gap: 18px;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 32px;
-  padding: 32px;
-  background: var(--ink);
-  color: #ffffff;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.footerBand p {
-  color: #ffffff;
+.chips em {
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #e9f0dd;
+  color: #415a32;
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 700;
 }
 
-@media (max-width: 1023px) {
-  .page {
-    padding: 0 18px 48px;
-  }
-
-  .pageC {
-    padding: 0;
-  }
-
-  .aHero,
-  .aLayout,
-  .bHero,
-  .bLayout,
-  .dashShell,
-  .dashHero {
-    grid-template-columns: 1fr;
-  }
-
-  .aHero::before,
-  .bHero::before {
-    display: none;
-  }
-
-  .controls.inline {
-    grid-template-columns: 1fr;
-  }
-
-  .filterForm {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .metricPanel.compact {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .dashNav {
-    grid-template-columns: repeat(5, max-content);
-    overflow-x: auto;
-    padding: 14px 18px;
-  }
-
-  .dashMain,
-  .pageC .appHeader {
-    padding-left: 18px;
-    padding-right: 18px;
-  }
-
-  .boardTable {
-    overflow-x: auto;
-  }
-
-  .boardRow {
-    min-width: 900px;
-  }
+textarea {
+  width: 100%;
+  min-height: 280px;
+  resize: vertical;
+  border: 1px solid rgba(25, 34, 29, 0.12);
+  border-radius: 22px;
+  padding: 18px;
+  background: #fffdf6;
+  color: #28352b;
+  line-height: 1.7;
 }
 
-@media (max-width: 767px) {
-  .page {
-    padding: 0 14px 40px;
+textarea:focus {
+  outline: 3px solid rgba(91, 127, 64, 0.2);
+  border-color: #5b7f40;
+}
+
+.panel > button {
+  width: 100%;
+  margin-top: 16px;
+  border: 0;
+  border-radius: 18px;
+  padding: 16px 20px;
+  background: #19221d;
+  color: #fff8eb;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.panel > button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.resultPanel {
+  grid-template-columns: 220px repeat(2, minmax(0, 1fr));
+  margin-top: 24px;
+}
+
+.resultPanel.empty {
+  display: block;
+  color: #697568;
+}
+
+.scoreBox {
+  display: grid;
+  align-content: center;
+  border-radius: 24px;
+  padding: 24px;
+  background: #19221d;
+  color: #fff8eb;
+}
+
+.scoreBox span {
+  color: #ffcf72;
+}
+
+.scoreBox strong {
+  font-size: 4rem;
+  line-height: 1;
+}
+
+.scoreBox p {
+  margin-bottom: 0;
+  color: #dbe5d3;
+}
+
+.resultList {
+  border-top: 1px solid rgba(25, 34, 29, 0.1);
+  padding-top: 16px;
+}
+
+.resultList h3 {
+  margin-bottom: 10px;
+}
+
+.resultList ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #3f4d41;
+  line-height: 1.7;
+}
+
+@media (max-width: 860px) {
+  .shell {
+    padding: 32px 0;
   }
 
-  .pageC {
-    padding: 0;
-  }
-
-  .appHeader {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 8px;
-    padding: 10px 0;
-  }
-
-  .pageC .appHeader {
-    padding: 10px 14px;
-  }
-
-  .appHeader nav {
-    width: 100%;
-  }
-
-  .aHero,
-  .bHero {
-    padding-top: 40px;
-  }
-
-  .heroActions,
-  .footerBand {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .metricPanel,
-  .metricPanel.compact,
-  .filterForm,
-  .feedCard dl {
-    grid-template-columns: 1fr;
-  }
-
-  .segmented,
-  .stateSwitch {
-    width: 100%;
-  }
-
-  .stateSwitch {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .boardTable {
-    border: 0;
-    border-radius: 0;
-    overflow: visible;
-  }
-
-  .boardHead {
-    display: none;
-  }
-
-  .boardRow {
-    display: grid;
-    min-width: 0;
-    grid-template-columns: 1fr;
-    gap: 6px;
-    border: 1px solid var(--fog);
-    border-radius: 16px;
-    margin-bottom: 12px;
-    padding: 16px;
-    box-shadow: var(--lift);
-  }
-
-  .boardRow > span:first-child::before {
-    content: "번호 ";
-    color: var(--graphite);
-  }
-
-  .pagination {
-    justify-content: stretch;
-  }
-
-  .pagination button {
-    flex: 1;
-  }
-
-  .dashMain {
-    padding: 14px;
-  }
-
-  .cardGrid {
+  .hero,
+  .workspace,
+  .resultPanel {
     grid-template-columns: 1fr;
   }
 }
