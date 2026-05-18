@@ -1350,6 +1350,12 @@ textarea:focus {
   background: var(--remix-surface-container);
 }
 
+.remixIconButton svg {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
 .remixStartButton,
 .remixPrimaryAction,
 .remixSecondaryAction,
@@ -1672,6 +1678,16 @@ textarea:focus {
 }
 
 .remixFeatureCard:hover .material-symbols-outlined {
+  color: white;
+}
+
+.remixFeatureCard div > span {
+  color: var(--remix-primary);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.remixFeatureCard:hover div > span {
   color: white;
 }
 
