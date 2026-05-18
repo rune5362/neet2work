@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { analyzeResume, getJobs } from "./api/client";
 import { AnalysisPanel } from "./components/AnalysisPanel";
 import { JobCard } from "./components/JobCard";
+import logoUrl from "./assets/logo/neet2work_logo_lockup_reference_curve 1.png";
 import type { AnalysisResult } from "./types/analysis";
 import type { JobPosting } from "./types/job";
 
@@ -59,28 +60,74 @@ export default function App() {
 
   return (
     <main className="shell">
+      <header className="topNav">
+        <a className="brand" href="/" aria-label="Neet2Work 홈">
+          <img src={logoUrl} alt="Neet2Work" />
+        </a>
+        <nav aria-label="주요 메뉴">
+          <a href="#jobs">공고</a>
+          <a href="#resume">분석</a>
+          <a href="#result">리포트</a>
+        </nav>
+        <a className="navCta" href="#resume">
+          시작하기
+        </a>
+      </header>
+
       <section className="hero">
-        <div>
-          <p className="eyebrow">Mock-first career consulting</p>
-          <h1>일했음 청년</h1>
+        <div className="heroCopy">
+          <p className="eyebrow">AI career workspace</p>
+          <h1>채용공고와 자기소개서를 한 화면에서 검증합니다</h1>
           <p className="heroText">
-            채용공고와 자기소개서를 비교해 직무 적합도, 부족한 키워드, 수정 방향을 빠르게
-            확인하는 AI 커리어 컨설팅 데모입니다.
+            Neet2Work는 공고 데이터와 자기소개서 초안을 비교해 적합도, 누락 키워드,
+            수정 방향을 빠르게 정리하는 커리어 분석 워크스페이스입니다.
           </p>
+          <div className="heroActions">
+            <a className="primaryAction" href="#jobs">
+              공고 선택하기
+            </a>
+            <a className="secondaryAction" href="#result">
+              리포트 보기
+            </a>
+          </div>
         </div>
-        <div className="heroCard">
-          <span>API 상태</span>
-          <strong>키 없이도 실행</strong>
-          <p>DB, R2, AI 키가 없어도 로컬 JSON과 Mock 분석으로 발표 흐름을 유지합니다.</p>
+        <div className="productMockup" aria-label="분석 제품 UI 미리보기">
+          <div className="mockupHeader">
+            <span />
+            <span />
+            <span />
+            <strong>resume_match.sql</strong>
+          </div>
+          <div className="codeBlock">
+            <p>
+              <span>select</span> role, match_score, missing_keywords
+            </p>
+            <p>
+              <span>from</span> job_resume_analysis
+            </p>
+            <p>
+              <span>where</span> candidate = "frontend"
+            </p>
+          </div>
+          <div className="mockTable">
+            <div>
+              <span>match_score</span>
+              <strong>87%</strong>
+            </div>
+            <div>
+              <span>missing</span>
+              <strong>3 keywords</strong>
+            </div>
+          </div>
         </div>
       </section>
 
       {errorMessage ? <p className="alert">{errorMessage}</p> : null}
 
       <section className="workspace">
-        <div className="panel">
+        <div className="panel" id="jobs">
           <div className="sectionTitle">
-            <p>Step 1</p>
+            <p>Step 01</p>
             <h2>채용공고 선택</h2>
           </div>
 
@@ -100,9 +147,9 @@ export default function App() {
           )}
         </div>
 
-        <div className="panel">
+        <div className="panel" id="resume">
           <div className="sectionTitle">
-            <p>Step 2</p>
+            <p>Step 02</p>
             <h2>자기소개서 입력</h2>
           </div>
           <textarea
@@ -116,7 +163,9 @@ export default function App() {
         </div>
       </section>
 
-      <AnalysisPanel analysis={analysis} selectedJob={selectedJob} />
+      <section id="result">
+        <AnalysisPanel analysis={analysis} selectedJob={selectedJob} />
+      </section>
     </main>
   );
 }
