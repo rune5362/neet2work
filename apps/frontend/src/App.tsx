@@ -3,6 +3,15 @@ import { analyzeResume, getJobs } from "./api/client";
 import { AnalysisPanel } from "./components/AnalysisPanel";
 import { JobCard } from "./components/JobCard";
 import logoUrl from "./assets/logo/neet2work_logo_lockup_reference_curve 1.png";
+import { RemixStitch } from "./pages/RemixStitch";
+import { StitchActivity } from "./pages/stitch/StitchActivity";
+import { StitchAi } from "./pages/stitch/StitchAi";
+import { StitchApply } from "./pages/stitch/StitchApply";
+import { StitchCareerGuide } from "./pages/stitch/StitchCareerGuide";
+import { StitchHome } from "./pages/stitch/StitchHome";
+import { StitchJobDetail } from "./pages/stitch/StitchJobDetail";
+import { StitchJobs } from "./pages/stitch/StitchJobs";
+import { StitchJobsFilter } from "./pages/stitch/StitchJobsFilter";
 import type { AnalysisResult } from "./types/analysis";
 import type { JobPosting } from "./types/job";
 
@@ -133,11 +142,41 @@ const demoJobs: JobPosting[] = [
 ];
 
 export default function App() {
+  if (window.location.pathname === "/RemixStitch" || window.location.pathname === "/RemixStitch/") {
+    return <RemixStitch />;
+  }
+
+  if (window.location.pathname.startsWith("/stitch_export")) {
+    return <StitchExportRouter pathname={window.location.pathname} />;
+  }
+
   if (window.location.pathname === "/jobs") {
     return <JobsPage />;
   }
 
   return <HomePage />;
+}
+
+function StitchExportRouter({ pathname }: { pathname: string }) {
+  switch (pathname.replace(/\/$/, "")) {
+    case "/stitch_export/ai":
+      return <StitchAi />;
+    case "/stitch_export/activity":
+      return <StitchActivity />;
+    case "/stitch_export/apply":
+      return <StitchApply />;
+    case "/stitch_export/career-guide":
+      return <StitchCareerGuide />;
+    case "/stitch_export/job-detail":
+      return <StitchJobDetail />;
+    case "/stitch_export/jobs":
+      return <StitchJobs />;
+    case "/stitch_export/jobs-filter":
+      return <StitchJobsFilter />;
+    case "/stitch_export":
+    default:
+      return <StitchHome />;
+  }
 }
 
 function HomePage() {
