@@ -22,9 +22,9 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
             <a className={active === "analysis" ? "active" : ""} href="/ai-analysis">
               AI 분석
             </a>
-            <a className={active === "community" ? "active" : ""} href="/#support">
+            {/* <a className={active === "community" ? "active" : ""} href="/#home">
               커뮤니티
-            </a>
+            </a> */}
           </div>
         </div>
         <div className="homeNavActions">
