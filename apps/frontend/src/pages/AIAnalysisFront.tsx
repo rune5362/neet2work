@@ -156,9 +156,9 @@ export function AIAnalysisFront() {
               />
             </label>
 
-            <button className="aiSubmitButton" type="button">
+            <a className="aiSubmitButton" href="/ai-analysis/details">
               ✦ 내 자기소개서 생성하기
-            </button>
+            </a>
           </form>
 
           <aside className="aiWritingTip">
