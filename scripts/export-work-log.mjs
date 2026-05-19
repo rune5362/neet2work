@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 const KST_TIME_ZONE = 'Asia/Seoul';
 const WORK_LOG_DIR = resolve(process.cwd(), 'docs', 'work-log');
 const DEFAULT_WORK_LOG_PATH = resolve(WORK_LOG_DIR, 'WORK_LOG.md');
-const MAX_FIGMA_BULLETS = 3;
-const MAX_FIGMA_BULLET_LENGTH = 80;
+const MAX_FIGMA_BULLETS = 10;
+const MAX_FIGMA_BULLET_LENGTH = 100;
 
 function readArg(name) {
   const prefix = `--${name}=`;

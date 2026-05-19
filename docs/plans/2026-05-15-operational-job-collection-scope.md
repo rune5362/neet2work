@@ -398,7 +398,8 @@ Import should reject or quarantine postings missing required identity fields. Du
 - [x] Add future `sample` mode: default 1, maximum 5.
 - [x] Add future `batch` mode: source cap 50 for first run.
 - [x] Enforce delay for multi-detail collection.
-- [ ] Stop collection when closed-signal density or HTTP failures spike.
+- [x] Stop collection when repeated detail HTTP failures make batch collection
+  unreliable.
 - [x] Validate batch JSON shape before handing it to import dry-run.
 - [x] Generate JSON only; never write DB from Python.
 
@@ -426,15 +427,452 @@ Import should reject or quarantine postings missing required identity fields. Du
 
 **Files:**
 
-- Output: `tmp/<source>_batch_check.json`
+- Output: `tmp/<source>_batch_review.json`
 - Output: source evidence notes only when behavior changes
 
-- [ ] Run one source at a time.
-- [ ] Start with 20 postings per source, not 50.
-- [ ] First operational DB-write review uses at most 3 KR sources, not all 7 sample-matrix sources.
-- [ ] Manually inspect category/career mix.
-- [ ] Raise to 50 only after the source output looks clean.
-- [ ] If a source drifts, downgrade to `YELLOW` and remove it from batch matrix.
+- [x] Run one source at a time.
+- [x] Keep `sourceCap=20`; use up to 50 candidates only as the review scan window.
+- [x] First operational dry-run review used only 3 KR sources: `saramin`, `jobkorea`, and `linkareer`.
+- [x] Manually inspect category/career mix.
+- [x] Keep `linkareer` on the contract-approved `/list/intern` path because `/list/recruit` produced 0 strict IT postings.
+- [x] No KR source was downgraded; `linkareer` remains low-yield and should stay dry-run-only until real DB write review.
+
+KR dry-run review result:
+
+| Source | Output | Dry-run count | Notes |
+| --- | --- | ---: | --- |
+| `saramin` | `tmp/saramin_batch_review.json` | 10 | Strict IT filter removed broad/general postings. |
+| `jobkorea` | `tmp/jobkorea_batch_review.json` | 18 | Strongest KR batch yield. |
+| `linkareer` | `tmp/linkareer_batch_review.json` | 3 | Uses `/list/intern`; mixed-role rows need manual review before DB write. |
+
+### Phase 7: Shared DB Write Preflight
+
+**Files:**
+
+- Output: `docs/runbooks/KR_BATCH_DB_WRITE_PREFLIGHT.md`
+
+- [x] Confirm KR artifact counts and expected write impact.
+- [x] Inspect Supabase current row counts through read-only queries.
+- [x] Check overlap by `(source, sourceJobId)`.
+- [x] Block real import until shared DB lifecycle migration is deployed.
+- [x] Apply lifecycle migration through Supabase plugin SQL plus `_prisma_migrations` checksum sync after approval.
+- [x] Keep real import behind separate explicit approval.
+
+Current preflight result:
+
+| Check | Result |
+| --- | ---: |
+| Current `job_postings` rows | 7 |
+| Current `resume_analyses` rows | 0 |
+| Existing KR review overlap | 1 |
+| Expected new rows after approved import | 30 |
+| Expected updated rows after approved import | 1 |
+| Expected total `job_postings` after approved import | 37 |
+
+Migration sync result: shared Supabase now records
+`20260515080000_job_posting_operational_lifecycle` with checksum
+`24c5226a7a900d6271676ce1423c04069f5197d85b1ce176aa4db72c44c330ab`.
+Lifecycle enum, 8 columns, and 3 indexes were verified. Do not remove
+`--dry-run` from import commands until real import is separately approved.
+
+### Phase 8: Approved KR Shared DB Import
+
+**Files:**
+
+- Output: `tmp/saramin_batch_review.json`
+- Output: `tmp/jobkorea_batch_review.json`
+- Output: `tmp/linkareer_batch_review.json`
+- Log: `docs/runbooks/KR_BATCH_DB_WRITE_PREFLIGHT.md`
+
+- [x] Receive separate explicit approval for real KR import.
+- [x] Import `saramin`, `jobkorea`, and `linkareer` one source at a time through
+  Supabase plugin SQL because local `DATABASE_URL` was unavailable and plugin
+  usage was requested.
+- [x] Preserve `(source, sourceJobId)` dedupe and `first_seen_at` on conflict.
+- [x] Verify final source counts, expected IDs, duplicate keys, active status,
+  and `non_it` absence.
+- [x] Backfill trace fields for `jobkorea` and `linkareer` with a compact
+  normalized DB snapshot trace. The approved import pass stored normalized
+  fields and lifecycle/classifier fields first; the follow-up backfill closed
+  the shared DB null-trace gap without replaying one oversized plugin payload.
+- [x] Remediate the `_prisma_migrations` Supabase advisory by revoking
+  anon/auth/PUBLIC grants and enabling RLS through the Supabase plugin.
+
+Approved import result:
+
+| Source | Artifact rows | New rows | Updated rows | Final rows |
+| --- | ---: | ---: | ---: | ---: |
+| `saramin` | 10 | 10 | 0 | 11 |
+| `jobkorea` | 18 | 17 | 1 | 18 |
+| `linkareer` | 3 | 3 | 0 | 4 |
+
+Final shared DB verification:
+
+| Check | Result |
+| --- | ---: |
+| `job_postings` total rows | 37 |
+| expected imported KR source IDs present | 31 |
+| missing expected KR source IDs | 0 |
+| duplicate `(source, source_job_id)` keys | 0 |
+| rows without `source_job_id` | 0 |
+| KR non-active rows | 0 |
+| KR `jobCategory=non_it` rows | 0 |
+
+Post-import gap closure:
+
+| Check | Result |
+| --- | ---: |
+| `jobkorea` rows with `raw_json` / `raw_text` / `company_info` | 18 / 18 / 18 |
+| `linkareer` rows with `raw_json` / `raw_text` / `company_info` | 4 / 4 / 4 |
+| `_prisma_migrations` anon/auth/PUBLIC grants | 0 |
+| `_prisma_migrations` RLS enabled | yes |
+
+HTTP stability follow-up:
+
+- `scripts/job_crawler/http_client.py` now retries transient timeout failures
+  before surfacing a source fetch error.
+- `green_japan` remains a public HTTP source; timeout failures are treated as
+  transient unless repeated failures trip the batch failure threshold.
+
+### Phase 9: Lifecycle Transition Dry-Run
+
+**Files:**
+
+- Create: `apps/backend/src/scripts/jobLifecycleDryRun.ts`
+- Create: `apps/backend/src/scripts/jobLifecycleDryRun.test.ts`
+- Modify: `package.json`
+- Modify: `apps/backend/package.json`
+- Log: `docs/runbooks/KR_BATCH_DB_WRITE_PREFLIGHT.md`
+
+- [x] Implement a dry-run-only planner that consumes a current
+  `job_batch_v1` artifact plus an existing source snapshot.
+- [x] Report observed active rows without writing status changes.
+- [x] Propose `closed` only when the current posting has `status=closed` and
+  source-visible closed evidence.
+- [x] Propose `inactive` only when an absent active row reaches the missing
+  threshold, default `3`.
+- [x] Protect absent rows from state changes when the crawl is partial:
+  non-batch mode, batch errors, timeout/failure/skip warnings, or zero postings
+  with existing rows.
+- [x] Keep the planner DB-write-free; shared Supabase snapshots should be
+  gathered through the plugin read path when `DATABASE_URL` is unavailable.
+
+Command shape:
+
+```powershell
+corepack pnpm run db:lifecycle:jobs:dry-run -- `
+  --batch tmp/<source>_batch_review.json `
+  --existing tmp/<source>_existing_lifecycle_snapshot.json `
+  --inactive-threshold 3 `
+  --output tmp/<source>_lifecycle_dry_run.json
+```
+
+### Phase 10: Operational Pipeline Skeleton
+
+**Files:**
+
+- Create: `apps/backend/src/scripts/jobOperationalPipeline.ts`
+- Create: `apps/backend/src/scripts/jobOperationalPipeline.test.ts`
+- Modify: `package.json`
+- Modify: `apps/backend/package.json`
+
+- [x] Add a plan-only operational pipeline skeleton for the current KR sources:
+  `saramin`, `jobkorea`, and `linkareer`.
+- [x] Keep collection, import dry-run, Supabase lifecycle snapshot, lifecycle
+  dry-run, import apply, and lifecycle apply visible as ordered stages.
+- [x] Mark Supabase snapshot as an explicit plugin-backed read step.
+- [x] Mark DB mutation stages as approval-gated.
+- [x] Leave lifecycle apply as approval-gated; this phase does not execute any
+  DB write.
+- [x] Keep JP source expansion, scheduler, and automated lifecycle apply out of
+  this skeleton phase.
+
+Command shape:
+
+```powershell
+corepack pnpm run jobs:operational:plan -- --source <source>
+```
+
+The output schema is `job_operational_pipeline_v1`. It is intentionally a
+JSON plan, not an executor. Current ordered stages:
+
+1. `collect_batch`: generate `tmp/<source>_batch_review.json`
+2. `import_dry_run`: validate the batch through the import boundary
+3. `import_apply`: approval-gated DB write stage
+4. `lifecycle_snapshot`: Supabase plugin read to
+   `tmp/<source>_existing_lifecycle_snapshot.json`
+5. `lifecycle_plan`: generate `tmp/<source>_lifecycle_dry_run.json`
+6. `lifecycle_apply`: approval-gated DB lifecycle mutation stage
+
+### Phase 11: Lifecycle Apply Command
+
+**Files:**
+
+- Create: `apps/backend/src/scripts/jobLifecycleApply.ts`
+- Create: `apps/backend/src/scripts/jobLifecycleApply.test.ts`
+- Modify: `apps/backend/src/scripts/jobLifecycleDryRun.ts`
+- Modify: `apps/backend/src/scripts/jobOperationalPipeline.ts`
+- Modify: `package.json`
+- Modify: `apps/backend/package.json`
+
+- [x] Add `db:lifecycle:jobs:apply` as the official lifecycle report apply
+  command.
+- [x] Require `job_lifecycle_dry_run_v1` reports to include `generatedAt`.
+- [x] Reject partial reports before any DB mutation.
+- [x] Reconcile bucket counts against decision arrays before applying.
+- [x] Reject unknown decision/skipped reasons.
+- [x] Re-read current DB rows before mutation and fail on missing rows,
+  duplicate rows, status drift, or missing-count drift.
+- [x] Apply source decisions in a transaction.
+- [x] Fail when any `updateMany` count is not exactly `1`.
+- [x] Update observed rows to `active` and reset lifecycle `missingCount=0`.
+- [x] Update source-visible closed candidates to `closed`, set `closedAt`, and
+  reset lifecycle `missingCount=0`.
+- [x] Update threshold-reached absent rows to `inactive`.
+- [x] Update below-threshold absent rows only in `classifierMeta.lifecycle`
+  with the next missing count.
+- [x] Preserve existing `classifierMeta` classification/debug fields while
+  updating the nested lifecycle metadata.
+- [x] Treat same-crawl below-threshold missing rows as already applied when
+  database lifecycle metadata already matches the report, so repeated apply
+  attempts do not increment `missingCount` twice.
+- [x] Keep lifecycle apply approval-gated in the operational pipeline.
+- [x] Regenerate current KR lifecycle dry-run reports with `generatedAt`
+  included. No DB write was run in this phase.
+
+Command shape:
+
+```powershell
+corepack pnpm run db:lifecycle:jobs:apply -- --report tmp/<source>_lifecycle_dry_run.json
+```
+
+The command requires `DATABASE_URL`; when unavailable, continue using the
+Supabase plugin SQL path only after explicit approval and the same report
+validation rules.
+
+### Phase 12: Manual Operational Run Plan
+
+**Files:**
+
+- Create: `apps/backend/src/scripts/jobOperationalManualRun.ts`
+- Create: `apps/backend/src/scripts/jobOperationalManualRun.test.ts`
+- Modify: `package.json`
+- Modify: `apps/backend/package.json`
+- Modify: `docs/runbooks/KR_BATCH_DB_WRITE_PREFLIGHT.md`
+
+- [x] Add `jobs:operational:manual-run` as the plan-only entrypoint for the
+  current KR manual operation loop.
+- [x] Cover all current KR operational sources by default: `saramin`,
+  `jobkorea`, `linkareer`.
+- [x] Support `--source <source>` filters for source-by-source reruns.
+- [x] Reuse the existing source pipeline commands for local collection,
+  import dry-run, import apply command shape, and lifecycle dry-run.
+- [x] Keep Supabase plugin read/write stages explicit instead of pretending a
+  local command can execute plugin SQL.
+- [x] Keep import apply and lifecycle apply behind approval-gated steps.
+- [x] Include Supabase SQL snippets for lifecycle snapshot, preflight, lifecycle
+  apply guidance, and post-apply verification.
+- [x] Keep scheduler, JP expansion, and background automation out of scope.
+
+Command shape:
+
+```powershell
+corepack pnpm run jobs:operational:manual-run
+```
+
+Output schema: `job_operational_manual_run_v1`.
+
+### Phase 13: Manual Scheduler Skeleton And SQL Artifacts
+
+**Files:**
+
+- Create: `apps/backend/src/scripts/jobOperationalSqlArtifacts.ts`
+- Create: `apps/backend/src/scripts/jobOperationalSqlArtifacts.test.ts`
+- Create: `apps/backend/src/scripts/jobOperationalScheduler.ts`
+- Create: `apps/backend/src/scripts/jobOperationalScheduler.test.ts`
+- Modify: `apps/backend/src/scripts/jobOperationalPipeline.ts`
+- Modify: `apps/backend/src/scripts/jobOperationalPipeline.test.ts`
+- Modify: `apps/backend/src/scripts/jobOperationalManualRun.ts`
+- Modify: `apps/backend/src/scripts/jobOperationalManualRun.test.ts`
+- Modify: `package.json`
+- Modify: `apps/backend/package.json`
+- Modify: `docs/runbooks/KR_BATCH_DB_WRITE_PREFLIGHT.md`
+
+- [x] Add `jobs:operational:sql-artifacts` as the artifact-only SQL generator.
+- [x] Generate import apply SQL from a validated `job_batch_v1` artifact.
+- [x] Generate lifecycle apply SQL from a validated
+  `job_lifecycle_dry_run_v1` report.
+- [x] Keep generated SQL guarded with advisory locks, duplicate checks, status
+  drift checks, missing-count drift checks, and exact update-count checks.
+- [x] Preserve `first_seen_at` on import conflict.
+- [x] Add `import_sql_artifact` and `lifecycle_sql_artifact` stages to the
+  source pipeline and KR manual run plan before approval-gated writes.
+- [x] Add `jobs:operational:scheduler` as a manual-trigger scheduler skeleton
+  that derives from `jobs:operational:manual-run` but excludes DB write steps.
+- [x] Keep automatic cron/background execution and Supabase apply outside this
+  phase.
+
+Command shapes:
+
+```powershell
+corepack pnpm run jobs:operational:sql-artifacts -- `
+  --batch tmp/<source>_batch_review.json `
+  --output-dir tmp/job-operational-sql
+
+corepack pnpm run jobs:operational:sql-artifacts -- `
+  --lifecycle-report tmp/<source>_lifecycle_dry_run.json `
+  --output-dir tmp/job-operational-sql
+
+corepack pnpm run jobs:operational:scheduler
+```
+
+Output schemas:
+
+- `job_operational_sql_artifacts_v1`
+- `job_operational_scheduler_v1`
+
+### Phase 14: KR Architecture Close-Out Before JP
+
+**Goal:** Stop deep KR-only polishing once the operational architecture is
+reproducible enough to support JP expansion.
+
+KR is considered architecture-complete for the JP handoff when:
+
+- `jobs:operational:scheduler` emits the non-mutating KR flow for `saramin`,
+  `jobkorea`, and `linkareer`.
+- Each KR source can generate both SQL artifacts:
+  `tmp/job-operational-sql/<source>_import_apply.sql` and
+  `tmp/job-operational-sql/<source>_lifecycle_apply.sql`.
+- The runbook documents the approval-gated write boundary and the JP handoff
+  point.
+- The remaining KR items are explicitly backlog, not blockers for JP.
+
+Deferred until after JP architecture starts:
+
+- cron/background scheduler wiring
+- automatic Supabase apply
+- exhaustive closed/inactive edge-case tuning
+- source-specific inactive thresholds beyond the current default
+- frontend exposure of lifecycle/category fields
+
+### Phase 15: JP Architecture Start
+
+**Goal:** Start JP without mixing it into the KR manual operation loop.
+
+**Files:**
+
+- Create: `apps/backend/src/scripts/jobOperationalJpPlan.ts`
+- Create: `apps/backend/src/scripts/jobOperationalJpPlan.test.ts`
+- Modify: `apps/backend/src/scripts/jobOperationalPipeline.ts`
+- Modify: `apps/backend/src/scripts/jobOperationalPipeline.test.ts`
+- Modify: `apps/backend/src/scripts/jobOperationalManualRun.ts`
+- Modify: `apps/backend/src/scripts/jobOperationalScheduler.ts`
+- Modify: `package.json`
+- Modify: `apps/backend/package.json`
+
+- [x] Add `jobs:operational:jp-plan` as the first JP plan-only entrypoint.
+- [x] Start with `mynavi_tenshoku` by default.
+- [x] Allow only current JP `GREEN` sources:
+  `mynavi_tenshoku`, `green_japan`, `daijob`, `careercross`.
+- [x] Keep `doda` and `rikunabi_next` held until fresh evidence changes their
+  status.
+- [x] Reuse the source pipeline stages and artifact naming already proven by
+  KR.
+- [x] Keep KR manual run and scheduler scoped to KR sources only.
+- [x] Keep JP DB writes out of this phase.
+
+Command shape:
+
+```powershell
+corepack pnpm run jobs:operational:jp-plan
+```
+
+Optional JP source subset:
+
+```powershell
+corepack pnpm run jobs:operational:jp-plan -- --source green_japan
+```
+
+Output schema: `job_operational_jp_plan_v1`.
+
+### Phase 16: JP Architecture Close-Out
+
+**Goal:** Close the JP architecture slice at the same level as KR: reproducible
+plan/check coverage for all current JP `GREEN` sources, with DB writes still
+approval-gated.
+
+**Files:**
+
+- Modify: `apps/backend/src/scripts/jobOperationalJpPlan.ts`
+- Modify: `apps/backend/src/scripts/jobOperationalJpPlan.test.ts`
+- Modify: `docs/plans/2026-05-15-operational-job-collection-scope.md`
+
+- [x] Add `--all` to `jobs:operational:jp-plan`.
+- [x] Emit all current JP `GREEN` sources:
+  `mynavi_tenshoku`, `green_japan`, `daijob`, `careercross`.
+- [x] Add an `architectureCloseout` contract to the JP plan output.
+- [x] Mark JP close-out as ready for manual DB review only when all JP
+  `GREEN` sources are present in the plan.
+- [x] Keep `doda` and `rikunabi_next` held.
+- [x] Keep JP import and lifecycle DB writes approval-gated.
+
+Close-out command:
+
+```powershell
+corepack pnpm run jobs:operational:jp-plan -- --all
+```
+
+JP is architecture-complete for the next handoff when:
+
+- `jobs:operational:jp-plan -- --all` emits all four JP `GREEN` source plans.
+- Each JP source reuses the KR-proven collection, import dry-run, SQL artifact,
+  lifecycle plan, lifecycle SQL artifact, and approval-gated apply stages.
+- Sample checks pass for `mynavi_tenshoku`, `green_japan`, `daijob`, and
+  `careercross`.
+- `doda` and `rikunabi_next` remain held until fresh public HTML evidence
+  changes their source status.
+- No JP database write is performed without explicit approval.
+
+Deferred after JP architecture close-out:
+
+- JP database import approval and apply
+- JP lifecycle snapshot/apply against Supabase
+- cron/background scheduling
+- source-specific JP inactive-threshold tuning
+- frontend exposure of JP lifecycle/category fields
+
+### Phase 17: JP DB Import Preflight
+
+**Goal:** Prepare the JP import approval packet without writing to the DB.
+
+**Files:**
+
+- Create: `docs/runbooks/JP_BATCH_DB_WRITE_PREFLIGHT.md`
+- Output: `tmp/mynavi_tenshoku_batch_review.json`
+- Output: `tmp/green_japan_batch_review.json`
+- Output: `tmp/daijob_batch_review.json`
+- Output: `tmp/careercross_batch_review.json`
+- Output: `tmp/job-operational-sql/<source>_import_apply.sql`
+
+- [x] Generate JP batch review artifacts for all current JP `GREEN` sources.
+- [x] Run dry-run imports for all JP batch artifacts.
+- [x] Generate import SQL artifacts without executing them.
+- [x] Check category/career mix and artifact duplicate keys.
+- [x] Run Supabase read-only count/overlap checks.
+- [x] Record expected JP write impact before asking for approval.
+- [x] Keep real import apply and lifecycle apply out of this phase.
+
+Preflight result:
+
+| Source | Artifact rows | Existing overlap | Expected new rows |
+| --- | ---: | ---: | ---: |
+| `mynavi_tenshoku` | 20 | 1 | 19 |
+| `green_japan` | 15 | 1 | 14 |
+| `daijob` | 15 | 0 | 15 |
+| `careercross` | 3 | 0 | 3 |
+
+Expected write impact after approval: `51` new rows and `2` updates. Expected
+`job_postings` total after import: `95`.
 
 ## Verification Plan
 
@@ -541,3 +979,44 @@ Adapted:
 
 - Sample matrix may cover all 7 `GREEN` sources.
 - First operational DB-write rollout should use at most 3 KR sources before adding JP/global sources.
+
+## GPT 5.5 Pro Lifecycle Direction Review
+
+Direction review was run after KR import, lifecycle dry-run reports, and
+Supabase `missingCount` sync to validate the next work item.
+
+Evidence:
+
+- Date: 2026-05-18
+- Chrome backend: `Chrome`, type `extension`
+- ChatGPT UI evidence: model menu showed `최신 • 5.5`; `Pro • 확장` was checked; composer showed `Pro 확장 모드`
+- Prompt source: current KR import/lifecycle status plus proposed
+  `db:lifecycle:jobs:apply --report ...` next step
+
+Output verdict:
+
+- Direction is correct.
+- `db:lifecycle:jobs:apply` should come before scheduler/manual automation
+  and before JP source expansion.
+- The main remaining risk is whether lifecycle decisions can be safely applied
+  to DB state, not more collection breadth.
+
+Accepted before apply:
+
+- Add strict report completeness validation: source, crawl batch, generated
+  time, partial flag, existing snapshot count, observed count, decision bucket
+  counts, and count reconciliation.
+- Re-read DB state before applying a report and fail on drift: missing rows,
+  duplicate `(source, sourceJobId)`, unexpected current status, or unexpected
+  `missingCount`.
+- Run apply source-by-source in a transaction and fail if actual update counts
+  do not match report counts.
+- Keep `closed` conservative: only source-visible closed evidence may set
+  `closed`; repeated absence may only lead to `inactive`.
+- Keep internal lifecycle metadata out of public API responses.
+
+Adapted:
+
+- Keep `--force` out of the first apply command.
+- Keep Supabase plugin SQL path documented for the user's personal DB, while
+  preserving the `DATABASE_URL` command path for local environments.

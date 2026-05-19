@@ -1,16 +1,19 @@
 import { Pool } from "pg";
+import { resolveDatabaseUrl } from "../database/connection.js";
 
 let pool: Pool | null = null;
 
 export type PostgresStatus = "not_configured" | "connected" | "unavailable";
 
 export function getPostgresPool(): Pool | null {
-  if (!process.env.DATABASE_URL) {
+  const connectionString = resolveDatabaseUrl();
+
+  if (!connectionString) {
     return null;
   }
 
   pool ??= new Pool({
-    connectionString: process.env.DATABASE_URL
+    connectionString
   });
 
   return pool;

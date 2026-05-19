@@ -23,6 +23,23 @@ Keep the demo path stable even when real external services are unavailable.
 Do not read, print, or commit `.env` values. When explicitly verifying
 automation, check only whether required keys exist.
 
+## Supabase Operating Path
+
+- For this repository, use the Supabase plugin/connector as the default path
+  for project database reads and approved writes.
+- Do not block approved Supabase work solely because local `DATABASE_URL` is
+  unavailable. Treat the local Prisma/`DATABASE_URL` path as a fallback only
+  when the user explicitly asks for it or the plugin path is unavailable.
+- Treat the configured Supabase project database as the user's project DB; do
+  not call it a shared DB unless the current task provides evidence for that.
+- Once the user explicitly approves Supabase plugin use for a concrete scope in
+  the current session, do not ask again merely to use the plugin for further
+  steps inside that same approved scope.
+- Still require explicit approval before any new or materially broader
+  persistent database mutation, migration, destructive change, production write,
+  or scope expansion. A session plugin approval is not blanket authorization
+  for unrelated writes.
+
 ## Chrome And ChatGPT Review Workflow
 
 - When a task uses `@chrome`, the Chrome plugin, ChatGPT, GPT Pro, or

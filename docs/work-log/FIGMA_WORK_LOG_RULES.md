@@ -36,9 +36,10 @@ Use this file before editing or syncing the Figma work log.
 
 ## Figma Summary Budget
 
-- Default to 2 bullets.
-- Hard limit: 3 bullets.
-- Keep each bullet under 80 characters.
+- Default to the number of bullets needed to capture the actual day, usually
+  3-6 bullets for meaningful work and fewer for tiny updates.
+- Do not force the summary into exactly 3 lines.
+- Keep each bullet under 100 characters.
 - Write outcome-level bullets only: plan, decision, implementation, verification.
 - Do not include command lists, long file paths, detailed source lists, error
   traces, or nested bullets.
@@ -56,6 +57,12 @@ corepack pnpm run figma:bridge
 
 - Bridge URL: `http://localhost:3927`
 - Bridge server script: `scripts/serve-figma-work-log.mjs`
+- Optional Windows startup task:
+  `corepack pnpm run figma:bridge:startup:register`
+  - This starts only the local bridge at Windows logon.
+  - It does not start Figma or the plugin runner.
+  - It uses `scripts/start-figma-work-log-bridge.ps1`, which avoids
+    `worklog:prepare` so booting Windows does not mutate work log files.
 - Figma plugin manifest:
   `tools/figma-work-log-plugin/manifest.json`
 - Figma runner path:

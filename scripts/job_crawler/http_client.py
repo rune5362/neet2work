@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import ssl
+import socket
+import time
 from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -28,7 +30,26 @@ def create_ssl_context() -> ssl.SSLContext:
     return ssl.create_default_context(cafile=certifi.where())
 
 
-def fetch_text(url: str, timeout: int = 15) -> FetchResult:
+def _is_retryable_fetch_error(error: BaseException) -> bool:
+    reason = error.reason if isinstance(error, URLError) else error
+
+    if isinstance(reason, (TimeoutError, socket.timeout)):
+        return True
+
+    message = str(reason).lower()
+    return "timed out" in message or "timeout" in message
+
+
+def _fetch_error_reason(error: BaseException) -> object:
+    return error.reason if isinstance(error, URLError) else error
+
+
+def fetch_text(
+    url: str,
+    timeout: int = 15,
+    retries: int = 2,
+    retry_delay: float = 0.5,
+) -> FetchResult:
     request = Request(
         url,
         headers={
@@ -38,17 +59,28 @@ def fetch_text(url: str, timeout: int = 15) -> FetchResult:
         },
     )
 
-    try:
-        with urlopen(request, timeout=timeout, context=create_ssl_context()) as response:
-            raw = response.read()
-            charset = response.headers.get_content_charset() or "utf-8"
-            return FetchResult(
-                url=response.geturl(),
-                status=response.status,
-                text=raw.decode(charset, errors="replace"),
-            )
-    except HTTPError as error:
-        body = error.read().decode("utf-8", errors="replace")
-        return FetchResult(url=url, status=error.code, text=body)
-    except URLError as error:
-        raise RuntimeError(f"Fetch failed for {url}: {error.reason}") from error
+    max_retries = max(0, retries)
+
+    for attempt in range(max_retries + 1):
+        try:
+            with urlopen(request, timeout=timeout, context=create_ssl_context()) as response:
+                raw = response.read()
+                charset = response.headers.get_content_charset() or "utf-8"
+                return FetchResult(
+                    url=response.geturl(),
+                    status=response.status,
+                    text=raw.decode(charset, errors="replace"),
+                )
+        except HTTPError as error:
+            body = error.read().decode("utf-8", errors="replace")
+            return FetchResult(url=url, status=error.code, text=body)
+        except (URLError, TimeoutError, socket.timeout, OSError) as error:
+            if attempt < max_retries and _is_retryable_fetch_error(error):
+                if retry_delay > 0:
+                    time.sleep(retry_delay)
+                continue
+            raise RuntimeError(
+                f"Fetch failed for {url}: {_fetch_error_reason(error)}"
+            ) from error
+
+    raise RuntimeError(f"Fetch failed for {url}")

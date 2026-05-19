@@ -34,7 +34,7 @@ const FILES = [
         '',
         '### Figma Summary',
         '',
-        '<!-- 2 bullets preferred, 3 max. Keep details in WORK_SESSIONS.md. -->',
+        '<!-- Keep this concise; use as many bullets as the day needs. Details stay in WORK_SESSIONS.md. -->',
         '',
       ].join('\n');
     },

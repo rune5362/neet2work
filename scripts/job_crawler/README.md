@@ -54,7 +54,8 @@ Mynavi Tenshoku는 `country: JP`, `language: ja`를 가진 1건 샘플로 검증
 corepack pnpm run crawl:mynavi:check
 ```
 
-Daijob은 `country: JP`, `language: en`을 가진 1건 샘플로 검증한다.
+Daijob은 공개 IT industry 필터 목록에서 `country: JP`, `language: en`을
+가진 1건 샘플로 검증한다.
 
 ```bash
 corepack pnpm run crawl:daijob:check

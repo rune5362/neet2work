@@ -1,11 +1,13 @@
 # Work Log
 
-## 2026-05-15
+## 2026-05-19
 
 ### Figma Summary
 
-<!-- 2 bullets preferred, 3 max. Keep details in WORK_SESSIONS.md. -->
+<!-- Keep this concise; use as many bullets as the day needs. Details stay in WORK_SESSIONS.md. -->
 
-- 7개 `GREEN` collector와 batch dry-run matrix 검증을 안정화
-- 운영 batch 계약/lifecycle/import 경계를 추가하고 테스트 통과
-- 1차 운영 수집을 IT 한정으로 좁히고 non-IT batch 제외 적용
+- JP 4개 source import/lifecycle preflight와 DB 적용 검증
+- Supabase DB env split, CA 연결, backend DB smoke 확인
+- `/api/jobs` detail/search/filter/facets 계약 추가
+- public jobs active-only와 DB fallback 정책 보강
+- operational SQL artifact/scheduler skeleton TDD 검증

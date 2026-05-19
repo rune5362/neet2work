@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { resolveDatabaseUrl } from "../src/database/connection.js";
 import { Prisma, PrismaClient } from "../src/generated/prisma/client.js";
 import type { CollectedJobBatch, CollectedJobPosting, JobPostingStatus } from "../src/types/job.js";
 
@@ -285,7 +286,7 @@ async function main() {
     return;
   }
 
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = resolveDatabaseUrl();
 
   if (!connectionString) {
     throw new Error("DATABASE_URL이 없어 채용공고 import를 실행할 수 없습니다.");

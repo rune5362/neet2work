@@ -20,7 +20,10 @@ else:
     from .models import SourceJobLink, StandardJobPosting
 
 
-DEFAULT_LIST_URL = "https://www.daijob.com/en/jobs/search"
+DEFAULT_LIST_URL = (
+    "https://www.daijob.com/en/jobs/search?"
+    "il%5B%5D=119&il%5B%5D=122&il%5B%5D=124"
+)
 SOURCE = "daijob"
 TEXT_LIMIT = 5000
 MAX_LIMIT = 5

@@ -18,6 +18,13 @@
     "db:reset": "prisma migrate reset",
     "db:seed": "prisma db seed",
     "db:import:jobs": "tsx prisma/importJobPostings.ts",
+    "db:lifecycle:jobs:dry-run": "tsx src/scripts/jobLifecycleDryRun.ts",
+    "db:lifecycle:jobs:apply": "tsx src/scripts/jobLifecycleApply.ts",
+    "jobs:operational:plan": "tsx src/scripts/jobOperationalPipeline.ts",
+    "jobs:operational:manual-run": "tsx src/scripts/jobOperationalManualRun.ts",
+    "jobs:operational:sql-artifacts": "tsx src/scripts/jobOperationalSqlArtifacts.ts",
+    "jobs:operational:scheduler": "tsx src/scripts/jobOperationalScheduler.ts",
+    "jobs:operational:jp-plan": "tsx src/scripts/jobOperationalJpPlan.ts",
     "db:studio": "prisma studio",
     "db:status": "prisma migrate status"
   },

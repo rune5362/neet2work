@@ -3,135 +3,391 @@
 오늘 작업 상세 기록 원장이다.
 지난 날짜 기록은 `docs/work-log/archive/`에 보관한다.
 
-## 2026-05-15
+## 2026-05-19
+### KR Manual Scheduler Skeleton And SQL Artifacts
 
-### Job Collection Pipeline Planning
-
-- 한국 사이트부터 일본 사이트까지 수집 가능성 검증과 표준화 파이프라인 확보를 목표로 `planning-brief.md`를 생성
-- repo 현실 기준으로 `docs/plans/2026-05-15-job-collection-pipeline.md`에 단계별 실행 계획, write set, acceptance check, rollback risk, verification command를 고정
-- 초기에는 `@chrome`/ChatGPT 자동화 도구가 일반 MCP 목록에 노출되지 않는 것으로 판단해 GPT-5.5 Pro 검토 프롬프트를 `planning-brief.md`에 보존
-- 검증: 계획 문서 금지어 scan, `git diff --check`, `corepack pnpm run worklog:prepare`, `corepack pnpm run worklog:export` 통과
-- `chrome@openai-bundled`의 신뢰된 marketplace browser-client로 Chrome extension backend 연결을 재확인하고 ChatGPT에 계획 검토 프롬프트 제출
-- GPT 검토 결과를 `docs/plans/2026-05-15-job-collection-pipeline-gpt-review.md`에 정리하고, 기존 계획을 후보 큐/`GREEN-YELLOW-RED` probe 우선 방식으로 보정
-- 사용자 요청에 따라 ChatGPT `Pro` 모드로 같은 검토를 재실행했고, 모델 메뉴에서 `다시 시도하기 • 5.5 Pro` 확인
-- Pro 재검토 결과를 반영해 새 사이트 추가 전 Phase 0 계약 고정, Saramin baseline 검증, public API raw field 누출 확인을 계획에 추가
-- `docs/runbooks/CHROME_GPT_REVIEW_RULES.md`를 추가하고, `AGENTS.md`에서 `@chrome`/ChatGPT/GPT Pro 검토 시에만 해당 runbook을 읽도록 조건부 규칙 추가
-- pnpm 11 마이그레이션 이후 남아 있던 `AGENTS.md`의 `npm.cmd` 실행 예시를 `corepack pnpm` 기준으로 교정
-- 사용자 요청에 따라 job collection 계획을 재작성하고 `planning-brief.md`를 현재 repo/pnpm 기준으로 갱신
-- `chrome@openai-bundled` extension backend에서 ChatGPT `최신 • 5.5` / `Pro • 확장` 체크를 확인한 뒤 계획 검토를 재요청
-- GPT 응답을 `docs/plans/2026-05-15-job-collection-pipeline-gpt-review.md`에 repo 현실 기준으로 수용/수정/거절 정리
-- 최종 실행 체크리스트를 `docs/plans/2026-05-15-job-collection-pipeline.md`에 write set, acceptance check, rollback risk, verification command까지 고정
-
-### Job Collection Pipeline Sliced Execution
-
-- 사용자 지시에 따라 큰 계획을 한 번에 실행하지 않고 site/probe/collector/matrix 단위로 `작업 -> 검증` 루프를 반복
-- Phase 0/1에서 Saramin baseline, public raw-field boundary, backend test/lint/tsc, Python compile을 재검증하고 Windows `tsc.CMD` 명령을 계획 문서에 고정
-- evidence template을 `docs/research/job-sites/evidence/README.md`로 추가하고 모든 후보를 `GREEN/YELLOW/RED` 기준으로 분류
-- 한국 후보 결과:
-  - `GREEN`: `saramin`, `jobkorea`, `linkareer`
-  - `YELLOW`: `catch`
-  - `RED`: `jobplanet`, `indeed_kr`
-- 일본 후보 전 field-gap review를 `docs/research/job-sites/JAPAN_JOB_SITE_COLLECTION_AUDIT.md`에 추가하고 KOREC는 내부 API/로그인 근거 때문에 이번 collector 순서에서 제외
-- 일본 후보 결과:
-  - `GREEN`: `mynavi_tenshoku`, `daijob`, `careercross`, `green_japan`
-  - `YELLOW`: `doda`
-  - `RED`: `rikunabi_next`
-- GREEN 소스별 collector, sample JSON, root check script를 추가:
-  - `scripts/job_crawler/jobkorea.py`
-  - `scripts/job_crawler/linkareer.py`
-  - `scripts/job_crawler/mynavi_tenshoku.py`
-  - `scripts/job_crawler/daijob.py`
-  - `scripts/job_crawler/careercross.py`
-  - `scripts/job_crawler/green_japan.py`
-- 공통 runner를 `apps/backend/src/scripts/jobCrawlerImportCheck.ts`로 확장하고 `apps/backend/src/scripts/jobCrawlerMatrixCheck.ts`를 추가해 GREEN 7개만 matrix check에 포함
-- CareerCross에서 Python 기본 CA 경로 문제로 SSL 검증 실패가 발생해 원인을 `certifi` CA bundle 차이로 확인하고, 인증서 검증을 끄지 않는 방식으로 `scripts/job_crawler/http_client.py`를 보강
+- `jobs:operational:manual-run` 기반 다음 slice를 시작해 manual scheduler skeleton과 SQL artifact generator를 추가
+- 새 CLI:
+  - `jobs:operational:sql-artifacts`: `job_batch_v1`에서 import apply SQL, `job_lifecycle_dry_run_v1`에서 lifecycle apply SQL 생성
+  - `jobs:operational:scheduler`: manual-run plan에서 비파괴 단계만 추린 `job_operational_scheduler_v1` 출력
+- `job_operational_pipeline_v1` 및 `job_operational_manual_run_v1`에 `import_sql_artifact`, `lifecycle_sql_artifact` 단계를 추가
+- SQL artifact 안전장치:
+  - artifact-only, 자동 DB write 없음
+  - import SQL은 duplicate payload/sourceJobId guard와 `first_seen_at` conflict 보존 포함
+  - lifecycle SQL은 partial report 거부, duplicate target/status/missingCount drift check, advisory lock, exact update-count check 포함
+- 운영 계획 문서와 KR preflight runbook에 새 command shape와 단계 순서를 반영
 - 검증:
-  - `git diff --check`
-  - `python -m py_compile ...`
-  - `.\apps\backend\node_modules\.bin\tsc.CMD --noEmit -p apps\backend\tsconfig.json`
-  - `corepack pnpm --filter @neet2work/backend lint`
-  - `corepack pnpm --filter @neet2work/backend test`
-  - `corepack pnpm run crawl:matrix:check`
-- 큰 계획 종료 후 코드 리뷰를 수행했고 blocking finding은 없음. 남은 리스크는 외부 사이트 selector/차단 drift이므로 matrix 실패 시 해당 소스를 `YELLOW`로 내리고 evidence를 갱신하는 방식으로 처리
+  - RED: 신규 SQL artifact/scheduler 모듈 부재 및 기존 pipeline/manual-run stage mismatch 확인
+  - `corepack pnpm --filter @neet2work/backend test -- src/scripts/jobOperationalSqlArtifacts.test.ts src/scripts/jobOperationalScheduler.test.ts src/scripts/jobOperationalPipeline.test.ts src/scripts/jobOperationalManualRun.test.ts` 통과: 11 files, 62 tests
+  - `.\apps\backend\node_modules\.bin\tsc.CMD --noEmit -p apps\backend\tsconfig.json` 통과
+  - `corepack pnpm --filter @neet2work/backend lint` 통과
+  - `corepack pnpm run jobs:operational:scheduler` 통과
+  - `corepack pnpm run jobs:operational:plan -- --source saramin` 통과
+  - `corepack pnpm run jobs:operational:manual-run -- --source saramin` 통과
+  - `corepack pnpm run jobs:operational:sql-artifacts -- --batch tmp/saramin_batch_review.json --output-dir tmp/job-operational-sql` 통과
+  - `corepack pnpm run jobs:operational:sql-artifacts -- --lifecycle-report tmp/saramin_lifecycle_dry_run.json --output-dir tmp/job-operational-sql` 통과
 
-### Selfdex Verification Closure
+### KR Architecture Close-Out Goal
 
-- `@selfdex` 다음 작업 후보를 기준으로 열린 job crawler pipeline 변경분을 새 기능 추가 없이 검증 마감
-- `GREEN` collector 7개와 evidence 상태를 재확인했고 `YELLOW/RED` 소스에는 final collector가 없는 상태를 확인
-- `corepack pnpm run crawl:matrix:check`로 `saramin`, `jobkorea`, `linkareer`, `mynavi_tenshoku`, `daijob`, `careercross`, `green_japan` 수집 + dry-run import 전부 통과 확인
-- 각 collector의 `--limit 6` 거절을 실제 실행으로 확인해 최대 5건 guard가 살아 있음을 확인
-- public API raw-field boundary는 `job.service.ts`의 Prisma `select`/`toJobPosting()` 경로에서 `rawText`, `rawJson`, `companyInfo`를 반환하지 않는 구조로 확인
+- 사용자 `/set goal` 기준 반영:
+  - JP 작업 전까지 KR은 과도하게 세부 완성하지 않고 운영 아키텍처 우선으로 마감
+  - `collect -> import dry-run -> SQL artifact -> lifecycle plan -> lifecycle SQL artifact -> verification` 흐름이 재현되면 JP 전환 가능
+- `job_operational_scheduler_v1` 출력에 `architectureCloseout` 계약 추가:
+  - 3개 KR source 비파괴 scheduler plan
+  - 3개 KR source import/lifecycle SQL artifact 생성
+  - runbook의 JP handoff 및 deferred KR details 문서화
+  - cron/background scheduling, automatic Supabase apply, exhaustive closed/inactive tuning은 backlog로 분리
+- KR 3-source SQL artifact shallow rehearsal:
+  - `saramin`: import/lifecycle SQL artifact + manifest 생성
+  - `jobkorea`: import/lifecycle SQL artifact + manifest 생성
+  - `linkareer`: import/lifecycle SQL artifact + manifest 생성
+  - 생성 위치: `tmp/job-operational-sql/`
+- 운영 계획 문서와 KR preflight runbook에 `KR Architecture Close-Out Before JP` 기준 추가
 - 검증:
-  - `git diff --check`
-  - `python -B -m py_compile ...`
-  - `corepack pnpm --filter @neet2work/backend lint`
-  - `corepack pnpm --filter @neet2work/backend test`
-  - `.\apps\backend\node_modules\.bin\tsc.CMD --noEmit -p apps\backend\tsconfig.json`
-  - `corepack pnpm run crawl:matrix:check`
-  - crawler safety scan: browser automation/proxy/stealth 없음, Python collector DB write 없음
-- 참고: backend test는 샌드박스에서 Vitest `.vite-temp` 쓰기 `EPERM`이 발생했지만, 같은 명령을 승인된 샌드박스 외부 실행으로 재시도해 4 files / 18 tests 통과
+  - RED: scheduler close-out contract 없음으로 `jobOperationalScheduler.test.ts` 실패 확인
+  - `corepack pnpm --filter @neet2work/backend test -- src/scripts/jobOperationalScheduler.test.ts src/scripts/jobOperationalSqlArtifacts.test.ts src/scripts/jobOperationalPipeline.test.ts src/scripts/jobOperationalManualRun.test.ts` 통과: 11 files, 63 tests
+  - `.\apps\backend\node_modules\.bin\tsc.CMD --noEmit -p apps\backend\tsconfig.json` 통과
+  - `corepack pnpm --filter @neet2work/backend lint` 통과
+  - `corepack pnpm run jobs:operational:scheduler` 통과
+  - KR 3-source combined `jobs:operational:sql-artifacts -- --batch ... --lifecycle-report ...` 통과
+  - `git diff --check` 통과
 
-### Figma Work Log Condensing
+### JP Operational Architecture Start
 
-- Figma-facing `WORK_LOG.md`가 상세 실행 로그처럼 길어져서 계획/분류/구현/검증 4줄 요약으로 축약
-- 상세 검증 기록은 `WORK_SESSIONS.md`에 유지하고 Figma 텍스트에는 핵심 결과만 남김
-- 이미 Figma에 올라간 이전 날짜도 짧게 보이도록 archive의 2026-05-13, 2026-05-14 `WORK_LOG.md` 요약을 각각 3~4줄로 축약
-- `scripts/export-work-log.mjs`가 기본 `WORK_LOG.md`에 없는 날짜를 `docs/work-log/archive/<date>/WORK_LOG.md`에서 fallback으로 읽도록 보강
-- Figma bridge/plugin runner로 2026-05-13, 2026-05-14, 2026-05-15 요약을 순차 반영했고 결과는 `5/13 replaced`, `5/14 replaced`, `5/15 appended`
-- 2026-05-15 Figma 요약이 여전히 길어 보여서 결과 중심 2줄로 재축약
-- 2줄 요약을 Figma에 재반영했고 결과는 `5/15 replaced`
-- Figma 요약 재비대화를 막기 위해 `FIGMA_WORK_LOG_RULES.md`에 2줄 권장/3줄 hard limit/80자 제한을 명시
-- `prepare-work-log-day.mjs`의 `WORK_LOG.md` 템플릿에 짧은 요약 안내 주석을 추가하고, `export-work-log.mjs`가 3줄/80자 초과 요약을 거절하도록 guard 추가
-- 3줄로 줄인 2026-05-14 요약을 Figma에 재반영했고 결과는 `5/14 replaced`
-
-### Supabase Sample Import Verification
-
-- Supabase `neet2work` 프로젝트가 `ACTIVE_HEALTHY`이고 Prisma migrations 4개가 적용된 상태를 확인
-- import 전 `job_postings`는 `sample` 3건, `saramin` 1건으로 총 4건임을 확인
-- `jobkorea`, `linkareer`, `mynavi_tenshoku`, `daijob`, `careercross`, `green_japan` sample JSON 6개를 dry-run 검증 후 Supabase에 upsert
-- import 후 `job_postings`는 총 10건이며 7개 GREEN source가 각각 1건씩 존재함을 확인
-- backend public query와 같은 필드/정렬로 Supabase에서 10건 조회를 확인
-- 제한: 로컬 `.env`와 현재 프로세스에 `DATABASE_URL`이 없어 `dev:backend` 기반 `/api/jobs` 실제 HTTP 검증은 아직 못 함
-
-### Supabase Sample Seed Cleanup
-
-- 사용자 요청에 따라 Supabase `job_postings`의 초기 데모 seed 3건(`job-001`, `job-002`, `job-003`)을 삭제
-- 삭제 전 연결된 `resume_analyses`가 없음을 확인했고 삭제 결과는 `deleted_job_count=3`, `deleted_analysis_count=0`
-- 삭제 후 `sample` source 잔여 건수는 0건이며, 남은 source는 `saramin`, `jobkorea`, `linkareer`, `mynavi_tenshoku`, `daijob`, `careercross`, `green_japan` 각 1건
-
-### Operational Collection Scope Plan
-
-- 사용자와 합의한 기준대로 운영 수집 범위를 `활성 공고`, `신입/주니어 우선`, `경력직 포함`, `IT 한정 금지`로 정리
-- 코드 구현 없이 `docs/plans/2026-05-15-operational-job-collection-scope.md` 계획 문서만 추가
-- 계획에는 active/closed 판정, career stage, job category, source/category/career caps, schema lifecycle field 후보, future verification 순서를 포함
-- Chrome 확장 백엔드(`Chrome`, `extension`)에서 ChatGPT `Pro 확장 모드`로 계획을 재검토했고, source contract, batch JSON contract, lifecycle state machine, public DTO allowlist, `(source, sourceJobId)` dedupe 보강점을 계획에 반영
-- GPT 제안 중 repo 필드명과 다른 `companyName`/`url`은 현재 계약인 `company`/`sourceUrl` 기준으로 조정했고, 구현/DB write/scheduler는 이번 계획 강화 범위에서 제외
-
-### Operational Collection Implementation Slices
-
-- 운영 수집 계획을 작은 slice로 구현: source contract 문서, lifecycle Prisma schema/migration, batch payload import, Python classification/batch helper, shared collector runner를 추가
-- Import는 legacy array와 `job_batch_v1` envelope를 모두 받게 하고, 운영 payload는 `(source, sourceJobId)`로 upsert하며 raw/internal fields는 public job list select에서 제외
-- Python collector는 계속 JSON-only로 유지하고 `run_source.py`가 기존 7개 GREEN collector 결과를 sample/batch envelope로 감싸도록 연결
-- Chrome 확장 백엔드(`Chrome`, `extension`)에서 ChatGPT `Pro 확장 모드`로 README+계획 방향성 체크를 다시 받았고, "방향은 강하지만 scope control 필요" 결론에 따라 README의 RPA 표현을 collector/ETL로 정리하고 첫 운영 DB-write는 KR 3개 source 이하로 제한하는 계획을 반영
+- KR close-out 이후 JP 작업을 시작
+- 첫 JP source는 `mynavi_tenshoku`로 고정하고, DB write 없는 plan-only architecture부터 착수
+- `apps/backend/src/scripts/jobOperationalJpPlan.ts` 추가:
+  - output schema: `job_operational_jp_plan_v1`
+  - default source: `mynavi_tenshoku`
+  - optional GREEN JP sources: `green_japan`, `daijob`, `careercross`
+  - held sources: `doda`, `rikunabi_next`
+  - 기존 `job_operational_pipeline_v1` stages를 재사용
+- `jobOperationalPipeline` source scope를 KR 3개에서 current operational GREEN 7개로 확장
+- KR manual-run/scheduler는 `saramin`, `jobkorea`, `linkareer`만 받도록 타입 경계를 분리
+- scripts:
+  - `jobs:operational:jp-plan` 추가
+- 문서:
+  - 운영 계획 문서에 `Phase 15: JP Architecture Start` 추가
 - 검증:
-  - `python -m unittest scripts/job_crawler/test_contract.py scripts/job_crawler/test_runner.py`
-  - `python -m py_compile scripts/job_crawler/contract.py scripts/job_crawler/models.py scripts/job_crawler/run_source.py scripts/job_crawler/test_contract.py scripts/job_crawler/test_runner.py`
-  - `node node_modules/vitest/vitest.mjs run --configLoader runner --root apps/backend --config vitest.config.ts`
-  - `.\apps\backend\node_modules\.bin\tsc.CMD --noEmit`
-  - `DATABASE_URL` dummy + `.\node_modules\.bin\prisma.CMD validate`
-  - `corepack pnpm --filter @neet2work/backend run lint`
-  - `node node_modules\tsx\dist\cli.mjs apps/backend/src/scripts/jobCrawlerMatrixCheck.ts --continue-on-fail`
-- 제한: 실제 Supabase/공유 DB write는 이번 작업에서 실행하지 않았고, closed/inactive lifecycle 자동 전환은 아직 다음 slice로 남김
+  - RED: `jobOperationalJpPlan.ts` module missing으로 신규 test 실패 확인
+  - `corepack pnpm --filter @neet2work/backend test -- src/scripts/jobOperationalJpPlan.test.ts src/scripts/jobOperationalPipeline.test.ts src/scripts/jobOperationalManualRun.test.ts src/scripts/jobOperationalScheduler.test.ts` 통과: 12 files, 68 tests
+  - `.\apps\backend\node_modules\.bin\tsc.CMD --noEmit -p apps\backend\tsconfig.json` 통과
+  - `corepack pnpm --filter @neet2work/backend lint` 통과
+  - `corepack pnpm run jobs:operational:jp-plan` 통과
+  - `corepack pnpm run crawl:mynavi:check` 통과: dry-run 1 posting, source `mynavi_tenshoku`
+  - `git diff --check` 통과
 
-### Operational Collection IT Scope Narrowing
+### JP Architecture Close-Out Goal
 
-- 사용자 수정 요청에 따라 1차 운영 수집 범위를 IT 공고로 축소
-- IT 범위는 software engineering, data/AI, infrastructure/security, QA/testing, IT product planning/design, technical support, solution consulting으로 정의하고 일반 비IT 직군은 `non_it`로 제외
-- `scripts/job_crawler/contract.py`의 category classifier와 cap 적용 경로가 non-IT를 batch payload에서 제외하도록 변경
-- 운영 계획/스키마/source contract/README에서 "비IT 포함" 표현을 제거하고 "비IT는 추후 확장 후보"로 정리
+- 사용자 `/set goal` 기준 반영:
+  - JP 마무리를 목표로 설정
+  - DB write 없이 JP GREEN source 전체를 plan/check 수준에서 닫는 것을 완료 기준으로 삼음
+- `jobs:operational:jp-plan`에 `--all` 추가:
+  - `mynavi_tenshoku`
+  - `green_japan`
+  - `daijob`
+  - `careercross`
+- `job_operational_jp_plan_v1` 출력에 `architectureCloseout` 계약 추가:
+  - all-source plan일 때 `ready_for_manual_db_review`
+  - `doda`, `rikunabi_next`는 held source 유지
+  - JP import/lifecycle DB write는 승인 게이트 유지
+- 운영 계획 문서에 `Phase 16: JP Architecture Close-Out` 추가
 - 검증:
-  - `python -m unittest scripts/job_crawler/test_contract.py scripts/job_crawler/test_runner.py`
-  - `python -m py_compile scripts/job_crawler/contract.py scripts/job_crawler/run_source.py scripts/job_crawler/test_contract.py scripts/job_crawler/test_runner.py`
-  - `node node_modules\tsx\dist\cli.mjs apps/backend/src/scripts/jobCrawlerMatrixCheck.ts --continue-on-fail`
-  - `git diff --check`
-- 참고: matrix에서 `linkareer` 첫 샘플은 IT scope 필터 후 0건 batch가 되었고 dry-run import는 정상 통과
+  - RED: `--all` 및 `architectureCloseout` 없음으로 신규 test 실패 확인
+  - `corepack pnpm --filter @neet2work/backend test -- src/scripts/jobOperationalJpPlan.test.ts src/scripts/jobOperationalPipeline.test.ts src/scripts/jobOperationalManualRun.test.ts src/scripts/jobOperationalScheduler.test.ts` 통과: 12 files, 71 tests
+  - `.\apps\backend\node_modules\.bin\tsc.CMD --noEmit -p apps\backend\tsconfig.json` 통과
+  - `corepack pnpm --filter @neet2work/backend lint` 통과
+  - `corepack pnpm run jobs:operational:jp-plan -- --all` 통과: JP GREEN 4개 source, `nextSources: []`, `architectureCloseout.status=ready_for_manual_db_review`
+  - `corepack pnpm run crawl:mynavi:check` 통과: dry-run 1 posting
+  - `corepack pnpm run crawl:green:check` 통과: dry-run 1 posting
+  - `corepack pnpm run crawl:daijob:check` 통과: dry-run 0 posting, import check passed
+  - `corepack pnpm run crawl:careercross:check` 통과: dry-run 1 posting
+  - `git diff --check` 통과
+
+### Daijob JP Check Follow-Up
+
+- JP close-out 후 남은 `daijob` 0건 sample risk를 확인
+- 원인:
+  - 기존 Daijob 기본 list URL이 광범위한 글로벌 공고 목록이라 첫 후보가 비IT travel/real estate 공고로 잡힐 수 있음
+  - classifier가 영어 단독 `Network`를 IT 근거로 보면서 일부 real estate 공고가 false-positive 될 수 있음
+- 조치:
+  - Daijob 기본 list URL을 공개 IT industry 필터로 제한:
+    `Software Vendor(119)`, `IT - Other(122)`, `IT Consulting(124)`
+  - 영어 classifier에서 단독 `network`를 제거하고 `network engineer`, `networking`, `tcp/ip`, `ip-based`처럼 더 구체적인 근거만 사용
+  - `scripts/job_crawler/test_daijob.py` 추가
+  - source contract와 crawler README에 Daijob IT-filtered list 기준 반영
+- 검증:
+  - RED: Daijob default list URL과 real estate/Network false-positive 테스트 실패 확인
+  - `python -m unittest discover -s scripts/job_crawler -p "test*.py"` 통과: 22 tests
+  - `Get-ChildItem scripts/job_crawler -Filter *.py | ForEach-Object { python -B -m py_compile $_.FullName }` 통과
+  - `corepack pnpm run crawl:daijob:check` 통과: dry-run 1 posting, `sourceJobId=1526753`, Cloud/SaaS Sales Engineer
+  - `corepack pnpm run crawl:matrix:check` 통과: 7 sources checked
+  - `git diff --check` 통과
+
+### JP DB Import Preflight
+
+- JP 4개 source 실제 import 전 승인용 preflight를 수행
+- 실제 DB write는 하지 않음
+- batch review artifacts 생성:
+  - `tmp/mynavi_tenshoku_batch_review.json`: 20 rows
+  - `tmp/green_japan_batch_review.json`: 15 rows
+  - `tmp/daijob_batch_review.json`: 15 rows
+  - `tmp/careercross_batch_review.json`: 3 rows
+- 각 artifact는 warnings/errors 0건이며 dry-run import 통과
+- import SQL artifacts 생성:
+  - `tmp/job-operational-sql/mynavi_tenshoku_import_apply.sql`
+  - `tmp/job-operational-sql/green_japan_import_apply.sql`
+  - `tmp/job-operational-sql/daijob_import_apply.sql`
+  - `tmp/job-operational-sql/careercross_import_apply.sql`
+- Supabase read-only overlap 확인:
+  - 현재 `job_postings` total rows: 44
+  - JP rows without `source_job_id`: 0
+  - JP `job_category=non_it`: 0
+  - JP duplicate `(source, source_job_id)` keys: 0
+  - existing overlap: `mynavi_tenshoku` 1, `green_japan` 1, `daijob` 0, `careercross` 0
+  - expected write impact: 51 new rows, 2 updates, expected total 95 rows
+- 신규 runbook:
+  - `docs/runbooks/JP_BATCH_DB_WRITE_PREFLIGHT.md`
+- 운영 계획 문서에 `Phase 17: JP DB Import Preflight` 추가
+- 검증:
+  - `corepack pnpm run db:import:jobs --dry-run ../../tmp/<source>_batch_review.json` 4개 source 통과
+  - `corepack pnpm run jobs:operational:sql-artifacts -- --batch tmp/<source>_batch_review.json --output-dir tmp/job-operational-sql` 4개 source 통과
+  - Supabase plugin read-only SQL count/overlap query 통과
+
+### JP DB Import Apply Attempt
+
+- 사용자 승인 후 Supabase plugin SQL 경로로 JP import apply 착수
+- MCP payload 안정성을 위해 `tmp/job-operational-sql/*_import_apply_mcp*.sql`
+  compact/chunk SQL을 생성
+  - 새 insert의 `raw_text`, `raw_json`, `company_info`는 이번 compact 경로에서 제외
+  - canonical full SQL artifacts는 raw trace backfill 용도로 유지
+- 적용/검증 완료:
+  - `careercross`: batch 3건 적용, source rows 4, `non_it=0`
+  - `daijob`: batch 15건 적용, source rows 16, `non_it=0`
+- 부분 적용:
+  - `green_japan`: chunk01~chunk05 성공
+  - `green_japan` chunk06은 Supabase MCP transport deserialize error로 commit 여부 미확인
+  - chunk07~chunk08 및 `mynavi_tenshoku`는 미적용
+- 중단 사유:
+  - chunk06 이후 `select 1`도 Supabase MCP transport deserialize/upstream error로 실패
+  - blind write continuation 방지를 위해 DB write 중단
+- 재개 포인트:
+  - Supabase MCP 복구 후 `green_japan` chunk06 source ids
+    `10904-301763`, `11118-317495` commit 여부를 read-only로 확인
+  - chunk06 미반영이면 corrected chunk06부터, 반영이면 chunk07부터 재개
+
+### JP DB Import Apply Completion
+
+- Supabase plugin 연결을 재확인:
+  - `codex mcp get supabase`에서 server registration 확인
+  - Supabase plugin `_execute_sql` `select 1` 성공
+- `green_japan` 재개:
+  - read-only 확인 결과 `green_japan` batch rows 12, chunk06 ids 0
+  - chunk06 재실행 성공
+  - chunk07 payload 중계 오류는 DB 실행 전 실패로 확인
+  - 남은 3건은 1-row plugin payload로 적용
+  - 검증: `green_japan` batch rows 15, repaired rows 3
+- `mynavi_tenshoku` 적용:
+  - 2-row plugin payload 10개로 20건 적용
+  - 첫 chunk 재시도 중 `career_stage=excluded.crawl_batch_id` manual paste error가 tool reviewer에서 실행 전 거절됨
+  - corrected chunk 이후 chunk01~chunk10 적용 완료
+- 최종 Supabase read-only 검증:
+  - `careercross`: expected 4, verified 4
+  - `daijob`: expected 16, verified 16
+  - `green_japan`: expected 15, verified 15
+  - `mynavi_tenshoku`: expected 20, verified 20
+  - JP duplicate `(source, source_job_id)` key groups: 0
+  - JP `job_category=non_it`: 0
+  - 전체 `job_postings`: 95
+- 문서:
+  - `docs/runbooks/JP_BATCH_DB_WRITE_PREFLIGHT.md`를 completion/verification 상태로 갱신
+- 남은 일:
+  - raw trace backfill은 필요 시 별도 작업
+  - JP lifecycle dry-run/apply는 별도 승인 게이트 유지
+
+### JP Lifecycle Dry-Run And SQL Artifacts
+
+- 사용자 `/goal` 기준으로 JP 4개 source lifecycle snapshot/dry-run을 생성
+- 생성 snapshot:
+  - `tmp/mynavi_tenshoku_existing_lifecycle_snapshot.json`: 20 rows
+  - `tmp/green_japan_existing_lifecycle_snapshot.json`: 15 rows
+  - `tmp/daijob_existing_lifecycle_snapshot.json`: 16 rows
+  - `tmp/careercross_existing_lifecycle_snapshot.json`: 4 rows
+- dry-run reports:
+  - `tmp/mynavi_tenshoku_lifecycle_dry_run.json`: observed 20, closed 0, inactive 0, skipped 0
+  - `tmp/green_japan_lifecycle_dry_run.json`: observed 15, closed 0, inactive 0, skipped 0
+  - `tmp/daijob_lifecycle_dry_run.json`: observed 15, closed 0, inactive 0, skipped 1
+  - `tmp/careercross_lifecycle_dry_run.json`: observed 3, closed 0, inactive 0, skipped 1
+- 후보 리뷰:
+  - closed 후보는 0건
+  - inactive 후보는 0건
+  - `daijob` old sample `1463203`, `careercross` old sample `1592533`은 이번 batch에서 빠졌지만 missingCount 0 -> 1로 threshold 3 미만이라 `missing_threshold_not_met` skip이 합리적
+- lifecycle SQL artifacts:
+  - `tmp/job-operational-sql/mynavi_tenshoku_lifecycle_apply.sql`
+  - `tmp/job-operational-sql/green_japan_lifecycle_apply.sql`
+  - `tmp/job-operational-sql/daijob_lifecycle_apply.sql`
+  - `tmp/job-operational-sql/careercross_lifecycle_apply.sql`
+- 판단:
+  - status 전환이 필요한 closed/inactive 후보가 없으므로 lifecycle apply는 이번 pass에서 필수 아님
+  - apply 시 active rows lifecycle metadata reset 및 old sample 2건 missingCount 1 bookkeeping만 발생하므로 별도 승인 게이트 유지
+- 검증:
+  - `corepack pnpm run db:lifecycle:jobs:dry-run -- --batch tmp/<source>_batch_review.json --existing tmp/<source>_existing_lifecycle_snapshot.json --inactive-threshold 3 --output tmp/<source>_lifecycle_dry_run.json` 4개 source 통과
+  - `corepack pnpm run jobs:operational:sql-artifacts -- --lifecycle-report tmp/<source>_lifecycle_dry_run.json --output-dir tmp/job-operational-sql` 4개 source 통과
+  - lifecycle report summary check 통과
+  - `docs/runbooks/JP_BATCH_DB_WRITE_PREFLIGHT.md`에 lifecycle dry-run 결과 반영
+
+### Frontend Runtime Smoke
+
+- Vite frontend and backend API were started locally for browser smoke testing:
+  - backend: `http://localhost:3000`
+  - frontend: `http://localhost:5173`
+- Verified backend endpoints:
+  - `GET /health`: `ok=true`, `database=not_configured`, `ai=mock`, `storage=local`
+  - `GET /api/jobs`: 3 sample jobs, first source `sample`
+- Opened the app in the Codex in-app browser and confirmed:
+  - page title `일했음 청년`
+  - sample job cards render
+  - browser console errors: 0
+- Gap:
+  - local `.env` has no `DATABASE_URL`, so the running app is currently frontend -> backend -> sample JSON, not frontend -> backend -> Supabase DB rows
+  - Supabase plugin read re-check hit transport deserialize errors during this smoke pass
+
+### Frontend Supabase DB Wiring
+
+- User approved resetting the Supabase database password and filling local `.env`
+- Chrome extension backend confirmed:
+  - selected browser name: Chrome
+  - selected browser type: extension
+- Reset the Supabase database password through the Dashboard
+- Added Supabase Session Pooler `DATABASE_URL` to local `.env`
+  - `.env` remains gitignored
+  - connection uses `sslmode=verify-full`
+  - `sslmode=no-verify` was rejected and not stored
+- Added public Supabase CA certificate:
+  - `apps/backend/certs/prod-ca-2021.crt`
+- Verification:
+  - in-memory `pg` connection with Supabase CA: connected, `job_postings=95`
+  - restarted backend on `http://localhost:3000`
+  - `GET /health`: `database=connected`
+  - `GET /api/jobs`: 50 DB rows, sources `careercross,daijob,green_japan,mynavi_tenshoku`
+  - reloaded `http://localhost:5173` in the in-app browser and confirmed DB job cards render
+
+### Split Database Env
+
+- User requested separating the database URL and password for readability
+- Added backend DB URL resolver:
+  - `DATABASE_URL` may be passwordless
+  - `DATABASE_PASSWORD` is injected only at runtime
+  - full legacy `DATABASE_URL` remains supported
+- Updated runtime, Prisma config, seed/import, and lifecycle apply paths to use the resolver
+- Converted local `.env`:
+  - `DATABASE_URL` no longer contains the password
+  - `DATABASE_PASSWORD` holds the password separately
+  - `sslmode=verify-full` remains enabled
+- Verification:
+  - `cmd /c ""node_modules\.bin\vitest.cmd" run src/database/connection.test.ts"` passed
+  - `cmd /c ""node_modules\.bin\tsc.cmd" --noEmit"` passed
+  - restarted backend and confirmed `GET /health` returns `database=connected`
+  - `GET /api/jobs` returns 50 DB rows from JP sources
+  - reloaded in-app browser and confirmed DB job cards still render
+
+### API Contract Handoff
+
+- Added `docs/API_CONTRACT.md` for teammate frontend handoff
+- Documented current backend contract:
+  - `GET /health`
+  - `GET /api/jobs`
+  - `POST /api/analyze`
+- Captured current limitations:
+  - no pagination
+  - no search/filter params
+  - no `GET /api/jobs/:id`
+  - frontend should call backend via `VITE_API_BASE_URL`, not Supabase directly
+- Verification:
+  - `git diff --check -- docs/API_CONTRACT.md` passed
+  - `GET /health`: `database=connected`, `ai=mock`, `storage=local`
+  - `GET /api/jobs`: 50 rows, public fields only, no raw crawl/classifier fields
+  - `POST /api/analyze`: mock analysis response returned
+
+### Job Detail API
+
+- Added teammate-frontend detail endpoint:
+  - `GET /api/jobs/:id`
+- Behavior:
+  - returns the same public job field set as `GET /api/jobs`
+  - returns `404` with `채용공고를 찾을 수 없습니다.` when no row matches
+  - keeps sample fallback behavior when the database is not configured or unavailable
+- Tests:
+  - added `apps/backend/src/services/job.service.test.ts`
+  - verified Red first: `getJobById is not a function`
+  - verified Green after implementation
+- Updated `docs/API_CONTRACT.md` with detail endpoint contract
+- Verification:
+  - `cmd /c ""node_modules\.bin\vitest.cmd" run src/services/job.service.test.ts src/database/connection.test.ts"` passed
+  - `cmd /c ""node_modules\.bin\tsc.cmd" --noEmit"` passed
+  - `git diff --check` passed for touched files
+  - restarted backend and confirmed `GET /health` returns `database=connected`
+  - `GET /api/jobs/:id` returned the selected DB row without raw crawl/classifier fields
+  - missing id returned `404`
+
+### Job List Search Filters
+
+- Expanded `GET /api/jobs` for teammate frontend wiring:
+  - `q`: case-insensitive search over title, company, description
+  - `source`, `country`, `language`: exact filters
+  - `limit`: validated integer 1-100, default 50
+- Kept mock-first fallback behavior:
+  - DB rows are used when Supabase is configured
+  - local sample jobs still support the same filters when DB is unavailable
+- Updated `docs/API_CONTRACT.md` with the new query params and current limitations
+- Verification:
+  - verified Red first for fallback filtering/limit behavior
+  - `cmd /c ""node_modules\.bin\vitest.cmd" run src/services/job.service.test.ts"` passed
+  - `cmd /c ""node_modules\.bin\tsc.cmd" --noEmit"` passed
+  - restarted backend and confirmed `GET /health` returns `database=connected`
+  - live smoke passed for `limit`, `source`, `country/language`, positive `q`, empty `q`, and invalid `limit=abc` -> `400`
+  - `git diff --check` passed
+
+### Job Facets API
+
+- Added filter metadata endpoint for teammate frontend wiring:
+  - `GET /api/jobs/facets`
+- Response shape:
+  - `sources`: `{ value, count }[]`
+  - `countries`: `{ value, count }[]`
+  - `languages`: `{ value, count }[]`
+  - `total`: total jobs included in facet counts
+- Behavior:
+  - uses Prisma `groupBy` against Supabase when DB is configured
+  - falls back to local sample metadata when DB is unavailable
+  - sorts options by count desc, then value asc
+- Updated `docs/API_CONTRACT.md` with the facets endpoint contract
+- Verification:
+  - verified Red first: `getJobFacets is not a function`
+  - `cmd /c ""node_modules\.bin\vitest.cmd" run src/services/job.service.test.ts"` passed
+  - `cmd /c ""node_modules\.bin\tsc.cmd" --noEmit"` passed
+  - restarted backend and confirmed `GET /health` returns `database=connected`
+  - live `GET /api/jobs/facets` returned `total=95`, source/country/language facet arrays
+  - `git diff --check` passed
+
+### Review Fixes: Public Jobs And Work Log
+
+- Fixed code review findings:
+  - public jobs list, facets, and detail now expose only active lifecycle rows
+  - DB query/schema drift is no longer hidden behind sample fallback
+  - sample fallback remains only for unconfigured or unavailable DB cases
+  - Figma work log export has valid 2026-05-19 bullets again
+  - added reviewed migration artifact for active public job filters and trigram search indexes
+- Updated `docs/API_CONTRACT.md` with active-only public API behavior and fallback policy
+- Verification:
+  - verified Red first for active-only DB query/facets/detail and non-fallback schema drift
+  - `cmd /c ""node_modules\.bin\vitest.cmd" run src/services/job.service.test.ts"` passed
+  - `cmd /c ""node_modules\.bin\vitest.cmd" run"` passed: 14 files, 83 tests
+  - `cmd /c ""node_modules\.bin\tsc.cmd" --noEmit"` passed
+  - `corepack pnpm --filter @neet2work/backend lint` passed
+  - `cmd /c ""node_modules\.bin\prisma.cmd" validate"` passed
+  - `python -m unittest discover -s scripts\job_crawler -p "test*.py"` passed: 22 tests
+  - `corepack pnpm run worklog:export` passed
+  - restarted backend and confirmed `GET /health` returns `database=connected`
+  - live `GET /api/jobs?limit=3` returned 3 rows and `GET /api/jobs/facets` returned `total=95`
+  - `git diff --check` passed

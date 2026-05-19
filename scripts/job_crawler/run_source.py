@@ -4,6 +4,8 @@ import argparse
 import importlib
 import json
 import sys
+import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +29,12 @@ SUPPORTED_SOURCES = {
 }
 
 
+@dataclass(frozen=True)
+class CollectionResult:
+    postings: list[dict[str, Any]]
+    warnings: list[str]
+
+
 def load_source_module(source: str):
     if source not in SUPPORTED_SOURCES:
         raise ValueError(f"Unsupported source: {source}")
@@ -46,6 +54,7 @@ def build_payload(
     mode: str,
     source_cap: int | None = None,
     category_cap: int = DEFAULT_CATEGORY_CAP,
+    warnings: list[str] | None = None,
 ) -> Any:
     if output_format == "array":
         return raw_postings
@@ -67,7 +76,44 @@ def build_payload(
         capped,
         mode=mode,
         source_cap=payload_source_cap,
+        warnings=warnings,
     )
+
+
+def collect_raw_postings(
+    *,
+    module: Any,
+    list_url: str,
+    limit: int,
+    delay_seconds: float,
+    mode: str,
+) -> CollectionResult:
+    if mode != "batch":
+        return CollectionResult(module.run(list_url, limit, delay_seconds), [])
+
+    if limit < 1 or limit > DEFAULT_SOURCE_CAP:
+        raise ValueError(f"batch limit must be between 1 and {DEFAULT_SOURCE_CAP}")
+    if delay_seconds < 0:
+        raise ValueError("delay_seconds must be 0 or greater")
+
+    links = module.list_jobs(list_url, limit)
+    postings: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    consecutive_failures = 0
+    for index, link in enumerate(links):
+        if index > 0 and delay_seconds > 0:
+            time.sleep(delay_seconds)
+        try:
+            postings.append(module.collect_detail(link).to_json_dict())
+            consecutive_failures = 0
+        except Exception as error:
+            consecutive_failures += 1
+            warnings.append(
+                f"{link.source}/{link.source_job_id} skipped: {type(error).__name__}: {error}"
+            )
+            if consecutive_failures >= 5:
+                raise RuntimeError("5 consecutive detail failures") from error
+    return CollectionResult(postings, warnings)
 
 
 def run_source(
@@ -82,19 +128,25 @@ def run_source(
     category_cap: int,
 ) -> Any:
     module = load_source_module(source)
-    raw_postings = module.run(
-        list_url or module.DEFAULT_LIST_URL,
-        limit,
-        delay_seconds,
+    collection = collect_raw_postings(
+        module=module,
+        list_url=list_url or module.DEFAULT_LIST_URL,
+        limit=limit,
+        delay_seconds=delay_seconds,
+        mode=mode,
     )
-    return build_payload(
+    payload = build_payload(
         source=source,
-        raw_postings=raw_postings,
+        raw_postings=collection.postings,
         output_format=output_format,
         mode=mode,
         source_cap=source_cap,
         category_cap=category_cap,
+        warnings=collection.warnings,
     )
+    if mode == "batch" and output_format == "batch" and len(payload["postings"]) == 0:
+        raise RuntimeError("0 postings after filters")
+    return payload
 
 
 def main() -> int:

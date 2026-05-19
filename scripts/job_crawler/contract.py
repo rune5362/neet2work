@@ -101,16 +101,28 @@ def classify_job_category(
     has_it_context = _has_it_context(text)
 
     rules: list[tuple[str, list[str], list[str]]] = [
-        ("data_ai", ["데이터", "분석", "머신러닝", "인공지능", "BI"], ["data", "analytics", "ml", "ai", "bi"]),
+        ("data_ai", ["데이터", "데이터 분석", "머신러닝", "인공지능", "BI"], ["data", "analytics", "ml", "ai", "bi"]),
         (
             "software_engineering",
-            ["개발", "개발자", "프론트엔드", "백엔드", "풀스택", "모바일", "게임", "서버"],
+            ["소프트웨어 개발", "웹 개발", "앱 개발", "시스템 개발", "서버 개발", "개발자", "프론트엔드", "백엔드", "풀스택", "모바일", "게임", "서버"],
             ["software", "backend", "frontend", "developer", "react", "spring"],
         ),
         (
             "it_infrastructure_security",
             ["인프라", "클라우드", "네트워크", "보안", "시스템 운영", "서버 운영"],
-            ["cloud", "sre", "aws", "azure", "gcp", "network", "security", "sysadmin"],
+            [
+                "cloud",
+                "sre",
+                "aws",
+                "azure",
+                "gcp",
+                "network engineer",
+                "networking",
+                "tcp/ip",
+                "ip-based",
+                "security",
+                "sysadmin",
+            ],
         ),
         (
             "qa_testing",
@@ -142,11 +154,14 @@ def classify_job_category(
     for category, ko_keywords, en_keywords in rules:
         matched = _first_match(text, ko_keywords) or _first_match(lowered, en_keywords)
         if matched:
-            if (
-                category
-                in {"qa_testing", "product_planning", "product_design", "technical_support", "solution_consulting"}
-                and not has_it_context
-            ):
+            if category in {
+                "it_infrastructure_security",
+                "qa_testing",
+                "product_planning",
+                "product_design",
+                "technical_support",
+                "solution_consulting",
+            } and not has_it_context:
                 continue
             return category, [f"keyword:{matched}"]
 
@@ -299,7 +314,7 @@ def _has_it_context(text: str) -> bool:
     lowered = text.lower()
     ko_keywords = [
         "IT",
-        "개발",
+        "개발자",
         "웹",
         "앱",
         "플랫폼",
@@ -309,7 +324,8 @@ def _has_it_context(text: str) -> bool:
         "AI",
         "인공지능",
         "클라우드",
-        "보안",
+        "정보보안",
+        "사이버보안",
         "서버",
         "네트워크",
         "모바일",
@@ -327,25 +343,31 @@ def _has_it_context(text: str) -> bool:
         "cloud",
         "data",
         "ai",
-        "security",
+        "cybersecurity",
         "server",
-        "network",
+        "network engineer",
+        "networking",
+        "tcp/ip",
+        "ip-based",
+        "developer",
         "mobile",
         "game",
         "ux",
         "ui",
     ]
-    return _has_any(text, ko_keywords) or _has_any(lowered, en_keywords)
+    return _has_any(text, ko_keywords) or bool(_first_match(lowered, en_keywords))
 
 
 def _extract_years(text: str) -> int | None:
     range_match = re.search(r"([0-9]+)\s*[~\-]\s*([0-9]+)\s*년", text)
     if range_match:
-        return int(range_match.group(1))
+        years = int(range_match.group(1))
+        return years if years <= 40 else None
 
     match = re.search(r"([0-9]+)\s*(?:년|years?)", text, flags=re.IGNORECASE)
     if match:
-        return int(match.group(1))
+        years = int(match.group(1))
+        return years if years <= 40 else None
 
     return None
 

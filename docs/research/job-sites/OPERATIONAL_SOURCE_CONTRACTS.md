@@ -14,6 +14,8 @@ Date: 2026-05-15
 - 운영 import는 `(source, sourceJobId)`를 안정 키로 본다.
 - 1차 운영 수집은 IT 공고만 대상으로 하며, non-IT 후보는 batch payload에서 제외한다.
 - batch 수집 전에는 source별 계약이 현재 HTML과 맞는지 다시 확인한다.
+- 일시적인 HTTP timeout은 공통 client에서 재시도하되, 반복 실패는 warning/실패
+  threshold로 판정한다.
 - source drift가 확인되면 해당 source를 `YELLOW`로 내리고 batch matrix에서 제외한다.
 
 ## Current Operational GREEN Sources
@@ -22,9 +24,9 @@ Date: 2026-05-15
 | --- | --- | --- | --- | --- | --- |
 | `saramin` | KR | `https://www.saramin.co.kr/zf_user/jobs/list/job-category?cat_mcls=2` | `/zf_user/jobs/relay/view?rec_idx=<id>` | `rec_idx` query value | Korea IT collection |
 | `jobkorea` | KR | `https://www.jobkorea.co.kr/Search/?stext=<keyword>` | `/Recruit/GI_Read/<id>` | numeric `GI_Read` path id | Korea IT collection |
-| `linkareer` | KR | `https://linkareer.com/list/recruit`, `https://linkareer.com/list/intern` | `/activity/<id>` | numeric activity path id | Korean IT intern/junior/recruit collection |
+| `linkareer` | KR | `https://linkareer.com/list/intern`, `https://linkareer.com/list/recruit` | `/activity/<id>` | numeric activity path id | Korean IT intern/junior/recruit collection |
 | `mynavi_tenshoku` | JP | `https://tenshoku.mynavi.jp/list/o1G/` | `/jobinfo-<id-parts>/` | `jobinfo-...` path id parts | Japan IT/Web/Game collection |
-| `daijob` | JP | `https://www.daijob.com/en/jobs/search` | `/en/jobs/detail/<id>` | numeric detail path id | Japan/global IT bilingual collection |
+| `daijob` | JP | `https://www.daijob.com/en/jobs/search?il%5B%5D=119&il%5B%5D=122&il%5B%5D=124` | `/en/jobs/detail/<id>` | numeric detail path id | Japan/global IT bilingual collection |
 | `careercross` | JP | `https://www.careercross.com/en/` | `/en/job/detail-<id>` | numeric detail path id | Japan/global IT bilingual collection |
 | `green_japan` | JP | `https://www.green-japan.com/search_key/01` | `/company/<companyId>/job/<jobId>` | `<companyId>-<jobId>` | Japan startup/IT/Web collection |
 
@@ -65,11 +67,11 @@ of these appears in the current source behavior:
 
 ### `linkareer`
 
-- Active-list evidence: `/list/recruit` and `/list/intern` expose public activity/recruit rows.
+- Active-list evidence: `/list/intern` and `/list/recruit` expose public activity/recruit rows.
 - Required parsed fields: `sourceJobId`, `title`, `company`, `location`, `careerLevel`, `sourceUrl`.
 - Optional parsed fields: `skills`, `employmentType`, `deadlineText`, `rawJson.category`.
 - Closed-signal rules: Korean deadline/ended text such as `마감`, `접수종료`, `종료`.
-- Pagination rule: only `/list/recruit` and `/list/intern` are allowed until a new contract is approved.
+- Pagination rule: start operational dry-run review from `/list/intern`; `/list/recruit` remains allowed but is not the default when strict IT filtering yields 0 postings.
 - Request delay: detail requests use at least 1 second delay when collecting more than one posting.
 - Downgrade notes: if non-job activity categories dominate or category guard fails, downgrade or split source modes.
 
@@ -86,6 +88,9 @@ of these appears in the current source behavior:
 ### `daijob`
 
 - Active-list evidence: public search page exposes `/en/jobs/detail/<id>` links.
+- Public list scope: use Daijob's public industry filters for Software Vendor
+  (`119`), IT - Other (`122`), and IT Consulting (`124`) so sample checks do
+  not start from broad non-IT global postings.
 - Required parsed fields: `sourceJobId`, `title`, `company`, `location`, `careerLevel`, `sourceUrl`.
 - Optional parsed fields: `skills`, `employmentType`, `salaryText`, `deadlineText`, `companyInfo`, language/visa hints in `rawJson`.
 - Closed-signal rules: English/Japanese closed text such as `closed`, `expired`, `募集終了`, `掲載終了`.
