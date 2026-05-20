@@ -50,7 +50,6 @@ export type JobListQuery = {
   q?: string;
   source?: string;
   country?: string;
-  location?: string;
   language?: string;
   limit?: number;
 };
@@ -59,7 +58,6 @@ type NormalizedJobListQuery = {
   q?: string;
   source?: string;
   country?: string;
-  location?: string;
   language?: string;
   limit: number;
 };
@@ -112,14 +110,13 @@ function normalizeQuery(query: JobListQuery = {}): NormalizedJobListQuery {
     q: query.q?.trim() || undefined,
     source: query.source?.trim() || undefined,
     country: query.country?.trim() || undefined,
-    location: query.location?.trim() || undefined,
     language: query.language?.trim() || undefined,
     limit
   };
 }
 
 function hasFilters(query: NormalizedJobListQuery): boolean {
-  return Boolean(query.q || query.source || query.country || query.location || query.language);
+  return Boolean(query.q || query.source || query.country || query.language);
 }
 
 function buildJobWhere(query: NormalizedJobListQuery): Prisma.JobPostingWhereInput {
@@ -131,10 +128,6 @@ function buildJobWhere(query: NormalizedJobListQuery): Prisma.JobPostingWhereInp
 
   if (query.country) {
     where.country = query.country;
-  }
-
-  if (query.location) {
-    where.location = { contains: query.location, mode: "insensitive" };
   }
 
   if (query.language) {
@@ -162,10 +155,6 @@ function matchesJobQuery(job: JobPosting, query: NormalizedJobListQuery): boolea
   }
 
   if (query.country && job.country !== query.country) {
-    return false;
-  }
-
-  if (query.location && !includesText(job.location, query.location)) {
     return false;
   }
 

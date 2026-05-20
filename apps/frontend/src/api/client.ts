@@ -14,8 +14,6 @@ type ApiItemResponse<T> = {
 
 export type JobsQuery = {
   q?: string;
-  country?: string;
-  location?: string;
   limit?: number;
 };
 

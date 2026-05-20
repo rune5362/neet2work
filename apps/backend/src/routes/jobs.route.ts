@@ -28,7 +28,6 @@ const jobsQuerySchema = z.object({
   q: optionalStringQuery,
   source: optionalStringQuery,
   country: optionalStringQuery,
-  location: optionalStringQuery,
   language: optionalStringQuery,
   limit: optionalLimitQuery
 });

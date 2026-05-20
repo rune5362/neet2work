@@ -40,11 +40,6 @@ const fallbackJobs: JobPosting[] = [
   }
 ];
 
-const countryLabels: Record<string, string> = {
-  JP: "일본",
-  KR: "한국"
-};
-
 function getJobIcon(job: JobPosting): string {
   const source = job.skills[0] ?? job.title;
   return source.replace(/[^0-9A-Za-z가-힣]/g, "").slice(0, 3).toUpperCase() || "JOB";
@@ -75,19 +70,10 @@ function filterFallbackJobs(query: string): JobPosting[] {
   );
 }
 
-function uniqueSorted(values: Array<string | undefined>): string[] {
-  return Array.from(new Set(values.filter((value): value is string => Boolean(value)))).sort((a, b) =>
-    a.localeCompare(b)
-  );
-}
-
 export function Jobs() {
   const [jobs, setJobs] = useState<JobPosting[]>(fallbackJobs);
-  const [optionJobs, setOptionJobs] = useState<JobPosting[]>(fallbackJobs);
   const [searchInput, setSearchInput] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
-  const [selectedCountry, setSelectedCountry] = useState("");
-  const [selectedLocation, setSelectedLocation] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -101,26 +87,15 @@ export function Jobs() {
       try {
         const loadedJobs = await getJobs({
           q: submittedQuery || undefined,
-          country: selectedCountry || undefined,
-          location: selectedLocation || undefined,
-          limit: 100
+          limit: 24
         });
 
         if (isMounted) {
           setJobs(loadedJobs);
-          if (!submittedQuery && !selectedCountry && !selectedLocation) {
-            setOptionJobs(loadedJobs.length ? loadedJobs : fallbackJobs);
-          }
         }
       } catch (error) {
         if (isMounted) {
-          const fallback = filterFallbackJobs(submittedQuery).filter(
-            (job) =>
-              (!selectedCountry || job.country === selectedCountry) &&
-              (!selectedLocation || job.location.includes(selectedLocation))
-          );
-          setJobs(fallback);
-          setOptionJobs(fallbackJobs);
+          setJobs(filterFallbackJobs(submittedQuery));
           setErrorMessage(
             error instanceof Error
               ? `${error.message} 샘플 공고로 계속 표시합니다.`
@@ -139,19 +114,9 @@ export function Jobs() {
     return () => {
       isMounted = false;
     };
-  }, [selectedCountry, selectedLocation, submittedQuery]);
+  }, [submittedQuery]);
 
   const totalLabel = useMemo(() => jobs.length.toLocaleString("ko-KR"), [jobs.length]);
-  const countryOptions = useMemo(() => uniqueSorted(optionJobs.map((job) => job.country)), [optionJobs]);
-  const locationOptions = useMemo(
-    () =>
-      uniqueSorted(
-        optionJobs
-          .filter((job) => !selectedCountry || job.country === selectedCountry)
-          .map((job) => job.location)
-      ),
-    [optionJobs, selectedCountry]
-  );
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -175,34 +140,31 @@ export function Jobs() {
           </label>
           <div className="jobsFilterControls">
             <label>
-              <span>국가</span>
-              <select
-                onChange={(event) => {
-                  setSelectedCountry(event.target.value);
-                  setSelectedLocation("");
-                }}
-                value={selectedCountry}
-              >
-                <option value="">전체 국가</option>
-                {countryOptions.map((country) => (
-                  <option key={country} value={country}>
-                    {countryLabels[country] ? `${countryLabels[country]} (${country})` : country}
-                  </option>
-                ))}
+              <span>산업</span>
+              <select defaultValue="산업">
+                <option>산업</option>
+                <option>기술</option>
+                <option>금융</option>
+                <option>디자인</option>
+                <option>마케팅</option>
               </select>
             </label>
             <label>
-              <span>지역</span>
-              <select
-                onChange={(event) => setSelectedLocation(event.target.value)}
-                value={selectedLocation}
-              >
-                <option value="">전체 지역</option>
-                {locationOptions.map((location) => (
-                  <option key={location} value={location}>
-                    {location}
-                  </option>
-                ))}
+              <span>경력 수준</span>
+              <select defaultValue="경력 수준">
+                <option>경력 수준</option>
+                <option>신입 (0-2년)</option>
+                <option>주니어 (3-5년)</option>
+                <option>시니어 (6년 이상)</option>
+              </select>
+            </label>
+            <label>
+              <span>근무 형태</span>
+              <select defaultValue="근무 형태">
+                <option>근무 형태</option>
+                <option>상주</option>
+                <option>원격</option>
+                <option>하이브리드</option>
               </select>
             </label>
             <button disabled={isLoading} type="submit">
