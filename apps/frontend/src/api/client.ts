@@ -12,25 +12,8 @@ type ApiItemResponse<T> = {
   data: T;
 };
 
-export type JobsQuery = {
-  q?: string;
-  limit?: number;
-};
-
-function buildUrl(path: string, query?: Record<string, string | number | undefined>): string {
-  const url = new URL(path, API_BASE_URL);
-
-  for (const [key, value] of Object.entries(query ?? {})) {
-    if (value !== undefined && String(value).trim()) {
-      url.searchParams.set(key, String(value));
-    }
-  }
-
-  return url.toString();
-}
-
-export async function getJobs(query: JobsQuery = {}): Promise<JobPosting[]> {
-  const response = await fetch(buildUrl("/api/jobs", query));
+export async function getJobs(): Promise<JobPosting[]> {
+  const response = await fetch(`${API_BASE_URL}/api/jobs`);
 
   if (!response.ok) {
     throw new Error("채용공고 조회에 실패했습니다.");
