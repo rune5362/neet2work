@@ -33,3 +33,12 @@
   - `corepack pnpm --filter @neet2work/backend run test -- src/scripts/jobCrawlerMatrixCheck.test.ts` passed: 14 files, 86 tests
   - `corepack pnpm --filter @neet2work/backend run lint` passed
   - `corepack pnpm --filter @neet2work/backend run build` passed after sandbox-escalated rerun; initial sandbox run failed only on `dist/` write permission
+
+### Sungho Frontend Integration Branch
+
+- Created `sungho` from `playground`.
+- Applied only `apps/frontend` changes from `origin/daegyune/page/home` to avoid pulling unrelated backend, docs, and work-log deletions from that branch.
+- Verification:
+  - `git fetch origin playground daegyune/page/home` passed after sandbox-escalated rerun; initial run failed on `.git/FETCH_HEAD` permission.
+  - `corepack pnpm --filter @neet2work/frontend build` passed after sandbox-escalated rerun; initial run failed on `apps/frontend/node_modules/.tmp/tsconfig.app.tsbuildinfo` write permission.
+  - `corepack pnpm --filter @neet2work/frontend lint` passed.
