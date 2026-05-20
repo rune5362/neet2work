@@ -1,4 +1,5 @@
 import path from "node:path";
+import fs from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import {
   GREEN_MATRIX_SOURCES,
@@ -31,6 +32,13 @@ describe("parseJobCrawlerMatrixCheckArgs", () => {
   it("parses continue-on-fail mode", () => {
     expect(parseJobCrawlerMatrixCheckArgs(["--continue-on-fail"])).toEqual({
       continueOnFail: true
+    });
+  });
+
+  it("parses a matrix report output path", () => {
+    expect(parseJobCrawlerMatrixCheckArgs(["--output", "tmp/job-crawler-matrix/latest.json"])).toEqual({
+      continueOnFail: false,
+      outputPath: "tmp/job-crawler-matrix/latest.json"
     });
   });
 
@@ -77,5 +85,48 @@ describe("runJobCrawlerMatrixCheck", () => {
       { source: "saramin", ok: false, error: "network failed" },
       { source: "jobkorea", ok: true }
     ]);
+  });
+
+  it("writes one latest evidence report and overwrites it on the next run", async () => {
+    const outputDir = path.resolve("tmp", "job-crawler-matrix-test", `case-${Date.now()}`);
+    const outputPath = path.join(outputDir, "latest.json");
+
+    try {
+      await runJobCrawlerMatrixCheck({
+        repoRoot: path.resolve("C:/work/neet2work"),
+        outputPath,
+        generatedAt: new Date("2026-05-20T01:00:00.000Z"),
+        sources: ["saramin"],
+        runSource: async () => undefined
+      });
+
+      await runJobCrawlerMatrixCheck({
+        repoRoot: path.resolve("C:/work/neet2work"),
+        continueOnFail: true,
+        outputPath,
+        generatedAt: new Date("2026-05-20T02:00:00.000Z"),
+        sources: ["jobkorea"],
+        runSource: async () => {
+          throw new Error("network failed");
+        }
+      });
+
+      const files = await fs.readdir(outputDir);
+      const report = JSON.parse(await fs.readFile(outputPath, "utf-8")) as unknown;
+
+      expect(files).toEqual(["latest.json"]);
+      expect(report).toEqual({
+        schemaVersion: "job_crawler_matrix_report_v1",
+        generatedAt: "2026-05-20T02:00:00.000Z",
+        summary: {
+          total: 1,
+          passed: 0,
+          failed: 1
+        },
+        results: [{ source: "jobkorea", ok: false, error: "network failed" }]
+      });
+    } finally {
+      await fs.rm(outputDir, { recursive: true, force: true });
+    }
   });
 });

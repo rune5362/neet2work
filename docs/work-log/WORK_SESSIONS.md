@@ -20,3 +20,16 @@
 - Verification: Ran `git diff --check -- docs\AGENT_PROJECT_BRIEF.md`,
   `git diff --check`, `corepack pnpm run worklog:prepare`, and
   `corepack pnpm run worklog:export`.
+
+### Crawler Matrix Evidence Report
+
+- Added latest-only matrix evidence output for crawler/import checks:
+  - CLI default report path: `tmp/job-crawler-matrix/latest.json`
+  - `--output <path>` override for explicit report destinations
+  - report schema includes `generatedAt`, pass/fail summary, and per-source results
+- Kept the report lightweight by overwriting one `latest.json` instead of accumulating timestamped files.
+- Verification:
+  - verified RED first: missing `--output` parsing and missing report file failed the new tests
+  - `corepack pnpm --filter @neet2work/backend run test -- src/scripts/jobCrawlerMatrixCheck.test.ts` passed: 14 files, 86 tests
+  - `corepack pnpm --filter @neet2work/backend run lint` passed
+  - `corepack pnpm --filter @neet2work/backend run build` passed after sandbox-escalated rerun; initial sandbox run failed only on `dist/` write permission
