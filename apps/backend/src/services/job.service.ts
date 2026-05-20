@@ -234,13 +234,27 @@ function readErrorString(error: unknown, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+function redactSensitiveLogMessage(message: string): string {
+  return message
+    .replace(
+      /\b([a-z][a-z0-9+.-]*:\/\/[^:\s/@]+):([^@\s]+)@/gi,
+      "$1:[redacted]@"
+    )
+    .replace(
+      /\b(database_password|password|passwd|pwd|secret|token|api[_-]?key)\b\s*[:=]\s*("[^"]*"|'[^']*'|[^\s,;]+)/gi,
+      "$1=[redacted]"
+    );
+}
+
 function shouldFallbackToSamples(error: unknown, context: string): boolean {
   if (!isDatabaseUnavailableError(error)) {
     return false;
   }
 
   const message = error instanceof Error ? error.message : String(error);
-  console.warn(`${context} database unavailable; using sample fallback: ${message}`);
+  console.warn(
+    `${context} database unavailable; using sample fallback: ${redactSensitiveLogMessage(message)}`
+  );
   return true;
 }
 

@@ -82,6 +82,28 @@ describe("getJobs", () => {
 
     await expect(getJobs()).rejects.toThrow("column does not exist");
   });
+
+  it("redacts sensitive database details before logging fallback warnings", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const findMany = vi.fn().mockRejectedValue(
+      new Error(
+        "ENOTFOUND DATABASE_URL=postgresql://n2w:super-secret@db.example.com/postgres DATABASE_PASSWORD=super-secret"
+      )
+    );
+    getPrismaClientMock.mockReturnValue({
+      jobPosting: { findMany }
+    } as unknown as ReturnType<typeof getPrismaClient>);
+
+    await expect(getJobs()).resolves.toHaveLength(3);
+
+    const warning = String(warnSpy.mock.calls[0]?.[0] ?? "");
+    expect(warning).toContain("getJobs database unavailable");
+    expect(warning).toContain("[redacted]");
+    expect(warning).not.toContain("super-secret");
+    expect(warning).not.toContain("DATABASE_PASSWORD=super-secret");
+
+    warnSpy.mockRestore();
+  });
 });
 
 describe("getJobFacets", () => {
