@@ -49,6 +49,15 @@ describe("getJobs", () => {
     expect(jobs.map((job) => job.id)).toEqual(["job-002"]);
   });
 
+  it("filters fallback jobs by location text", async () => {
+    const jobs = await getJobs({
+      location: "경기",
+      limit: 5
+    });
+
+    expect(jobs.map((job) => job.id)).toEqual(["job-002"]);
+  });
+
   it("limits fallback jobs", async () => {
     const jobs = await getJobs({ limit: 2 });
 
@@ -68,6 +77,25 @@ describe("getJobs", () => {
         where: expect.objectContaining({
           status: "active",
           source: "careercross"
+        }),
+        take: 5
+      })
+    );
+  });
+
+  it("queries database jobs by location text", async () => {
+    const findMany = vi.fn().mockResolvedValue([dbJob]);
+    getPrismaClientMock.mockReturnValue({
+      jobPosting: { findMany }
+    } as unknown as ReturnType<typeof getPrismaClient>);
+
+    await getJobs({ location: "Tokyo", limit: 5 });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: "active",
+          location: { contains: "Tokyo", mode: "insensitive" }
         }),
         take: 5
       })
