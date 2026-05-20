@@ -42,3 +42,13 @@
   - `git fetch origin playground daegyune/page/home` passed after sandbox-escalated rerun; initial run failed on `.git/FETCH_HEAD` permission.
   - `corepack pnpm --filter @neet2work/frontend build` passed after sandbox-escalated rerun; initial run failed on `apps/frontend/node_modules/.tmp/tsconfig.app.tsbuildinfo` write permission.
   - `corepack pnpm --filter @neet2work/frontend lint` passed.
+
+### Frontend Backend API Wiring
+
+- Connected `/jobs` to the existing backend `GET /api/jobs` endpoint, keeping a local sample fallback when the API is unavailable.
+- Connected `/ai-analysis` to `POST /api/analyze`, saved the response in session storage, and rendered the selected job plus analysis result on `/ai-analysis/details`.
+- Started local frontend and backend dev servers and verified the flow in the Codex in-app browser.
+- Verification:
+  - `corepack pnpm --filter @neet2work/frontend lint` passed.
+  - `corepack pnpm --filter @neet2work/frontend build` passed after sandbox-escalated rerun; initial run failed only on `node_modules/.tmp` write permission.
+  - Browser checked `/jobs` rendering real backend job data and `/ai-analysis` submission navigating to `/ai-analysis/details` with match score and selected job shown.

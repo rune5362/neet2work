@@ -1,5 +1,9 @@
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { saveAnalysisSession } from "../analysisSession";
+import { analyzeResume, getJobs } from "../api/client";
 import { HomeFooter } from "../components/HomeFooter";
 import { HomeTopNav } from "../components/HomeTopNav";
+import type { JobPosting } from "../types/job";
 
 const beforeTags = ["모호한 표현", "자신감 부족"];
 const afterTags = ["강점 추출", "직무 키워드 최적화", "능동적 태도 강조"];
@@ -22,7 +26,119 @@ const supportFeatures = [
   }
 ];
 
+const fallbackJobs: JobPosting[] = [
+  {
+    id: "job-001",
+    title: "프론트엔드 개발자",
+    company: "샘플테크",
+    location: "서울",
+    careerLevel: "신입",
+    skills: ["React", "TypeScript", "JavaScript", "HTML", "CSS"],
+    description: "React 기반 웹 서비스 개발자를 채용합니다. API 연동과 사용자 경험 개선 역량을 중요하게 봅니다.",
+    sourceUrl: "https://example.com/jobs/1"
+  }
+];
+
+const defaultResumeText =
+  "React와 TypeScript를 활용한 개인 프로젝트에서 채용공고 데이터를 조회하고 API와 연동한 경험이 있습니다. 사용자 입력 흐름과 예외 상황을 고려해 화면을 구현했습니다.";
+
 export function AIAnalysisFront() {
+  const [jobs, setJobs] = useState<JobPosting[]>(fallbackJobs);
+  const [selectedJobId, setSelectedJobId] = useState("");
+  const [resumeText, setResumeText] = useState(defaultResumeText);
+  const [tone, setTone] = useState<"professional" | "friendly">("professional");
+  const [isLoadingJobs, setIsLoadingJobs] = useState(true);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+    const requestedJobId = new URLSearchParams(window.location.search).get("jobId") ?? "";
+
+    async function loadJobs() {
+      setIsLoadingJobs(true);
+
+      try {
+        const loadedJobs = await getJobs({ limit: 50 });
+
+        if (!isMounted) {
+          return;
+        }
+
+        const nextJobs = loadedJobs.length ? loadedJobs : fallbackJobs;
+        setJobs(nextJobs);
+        setSelectedJobId(
+          nextJobs.some((job) => job.id === requestedJobId) ? requestedJobId : nextJobs[0]?.id ?? ""
+        );
+      } catch (error) {
+        if (isMounted) {
+          setJobs(fallbackJobs);
+          setSelectedJobId(fallbackJobs[0]?.id ?? "");
+          setErrorMessage(
+            error instanceof Error
+              ? `${error.message} 샘플 공고로 분석을 계속할 수 있습니다.`
+              : "채용공고 조회에 실패해 샘플 공고로 분석을 계속할 수 있습니다."
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingJobs(false);
+        }
+      }
+    }
+
+    void loadJobs();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const selectedJob = useMemo(
+    () => jobs.find((job) => job.id === selectedJobId) ?? jobs[0],
+    [jobs, selectedJobId]
+  );
+
+  async function handleAnalyze(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedJob) {
+      setErrorMessage("분석할 채용공고를 먼저 선택해 주세요.");
+      return;
+    }
+
+    if (resumeText.trim().length < 10) {
+      setErrorMessage("자기소개서 내용을 10자 이상 입력해 주세요.");
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setErrorMessage("");
+
+    try {
+      const result = await analyzeResume({
+        jobId: selectedJob.id,
+        resumeText: resumeText.trim()
+      });
+
+      saveAnalysisSession({
+        result,
+        job: selectedJob,
+        resumeText: resumeText.trim(),
+        tone,
+        createdAt: new Date().toISOString()
+      });
+
+      window.location.href = "/ai-analysis/details";
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "자기소개서 분석에 실패했습니다."
+      );
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }
+
   return (
     <main className="aiAnalysisPage">
       <HomeTopNav active="analysis" />
@@ -124,26 +240,41 @@ export function AIAnalysisFront() {
             </div>
           </header>
 
-          <form className="aiExperienceForm">
+          {errorMessage ? <p className="aiFormStatus error">{errorMessage}</p> : null}
+
+          <form className="aiExperienceForm" onSubmit={handleAnalyze}>
             <div className="aiFormGrid">
               <label>
                 <span>희망 직무 선택</span>
-                <select defaultValue="">
-                  <option value="">직무를 선택하세요</option>
-                  <option value="frontend">프론트엔드 개발자</option>
-                  <option value="backend">백엔드 개발자</option>
-                  <option value="design">UI/UX 디자이너</option>
-                  <option value="marketing">디지털 마케팅</option>
-                  <option value="planning">서비스 기획</option>
+                <select
+                  disabled={isLoadingJobs}
+                  onChange={(event) => setSelectedJobId(event.target.value)}
+                  value={selectedJobId}
+                >
+                  {jobs.map((job) => (
+                    <option key={job.id} value={job.id}>
+                      {job.title} · {job.company}
+                    </option>
+                  ))}
                 </select>
               </label>
               <fieldset>
                 <legend>교정 톤(Tone)</legend>
                 <div>
-                  <button className="active" type="button">
+                  <button
+                    className={tone === "professional" ? "active" : ""}
+                    onClick={() => setTone("professional")}
+                    type="button"
+                  >
                     전문적인
                   </button>
-                  <button type="button">친근한</button>
+                  <button
+                    className={tone === "friendly" ? "active" : ""}
+                    onClick={() => setTone("friendly")}
+                    type="button"
+                  >
+                    친근한
+                  </button>
                 </div>
               </fieldset>
             </div>
@@ -151,18 +282,20 @@ export function AIAnalysisFront() {
             <label>
               <span>당신의 경험 (예: 공백기 동안 무엇을 했나요?)</span>
               <textarea
+                onChange={(event) => setResumeText(event.target.value)}
                 placeholder="예: 6개월 동안 학원을 다니지 않고 혼자서 유튜브를 보며 파이썬을 공부했습니다. 간단한 크롤링 프로그램도 만들어봤는데 어디에 활용할 수 있을지 모르겠습니다."
                 rows={6}
+                value={resumeText}
               />
             </label>
 
-            <a className="aiSubmitButton" href="/ai-analysis/details">
-              ✦ 내 자기소개서 생성하기
-            </a>
+            <button className="aiSubmitButton" disabled={isAnalyzing || isLoadingJobs} type="submit">
+              {isAnalyzing ? "분석 중..." : "✦ 내 자기소개서 생성하기"}
+            </button>
           </form>
 
           <aside className="aiWritingTip">
-            <span aria-hidden="true">💡</span>
+            <span aria-hidden="true">TIP</span>
             <p>
               <strong>작성 팁:</strong> 구체적인 성과나 수치가 없어도 괜찮습니다. 무언가를 시도했던 과정과
               동기를 적어주시면 AI가 그 안에서 직무 역량을 찾아냅니다.

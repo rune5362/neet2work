@@ -1351,7 +1351,8 @@ textarea:focus {
 }
 
 .jobsFilterControls button,
-.jobsCardActions button {
+.jobsCardActions button,
+.jobsAnalyzeLink {
   border: 0;
   border-radius: 8px;
   background: var(--home-primary-container);
@@ -1364,6 +1365,12 @@ textarea:focus {
 .jobsFilterControls button {
   min-height: 44px;
   padding: 0 24px;
+}
+
+.jobsFilterControls button:disabled,
+.aiSubmitButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.64;
 }
 
 .jobsHeading {
@@ -1502,6 +1509,27 @@ textarea:focus {
 
 .jobsCardActions button {
   padding: 10px 16px;
+}
+
+.jobsAnalyzeLink {
+  color: var(--home-on-primary-container);
+  padding: 10px 16px;
+  text-decoration: none;
+}
+
+.jobsAnalyzeLink:hover {
+  background: var(--home-primary);
+  text-decoration: none;
+}
+
+.jobsStatus {
+  margin: 24px 0 0;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  padding: 12px 16px;
+  background: white;
+  color: var(--home-body-muted);
+  font-size: 0.9rem;
 }
 
 .jobsPagination {
@@ -1951,6 +1979,22 @@ textarea:focus {
 .aiExperienceForm {
   display: grid;
   gap: 32px;
+}
+
+.aiFormStatus {
+  margin: 0 0 24px;
+  border: 1px solid rgba(0, 102, 255, 0.2);
+  border-radius: 8px;
+  padding: 12px 16px;
+  background: rgba(0, 102, 255, 0.06);
+  color: var(--home-primary);
+  font-size: 0.9rem;
+}
+
+.aiFormStatus.error {
+  border-color: rgba(186, 26, 26, 0.22);
+  background: rgba(186, 26, 26, 0.06);
+  color: #ba1a1a;
 }
 
 .aiFormGrid {

@@ -1,37 +1,66 @@
+import { useMemo, useState } from "react";
+import { readAnalysisSession, type StoredAnalysis } from "../analysisSession";
 import { HomeFooter } from "../components/HomeFooter";
 import { HomeTopNav } from "../components/HomeTopNav";
 
-const strengths = [
-  "대규모 트래픽 처리 경험",
-  "React 성능 최적화",
-  "CI/CD 파이프라인 구축",
-  "디자인 시스템 리딩",
-  "TypeScript 아키텍처"
-];
-
-const optimizations = [
-  {
-    before: "프론트엔드 성능 최적화를 통해 사이트 속도를 개선했습니다.",
-    after:
-      "Lighthouse 성능 점수를 65점에서 92점으로 41% 향상시켰으며, 코드 스플리팅 적용으로 초기 로딩 속도를 1.2초 단축했습니다."
+const fallbackAnalysis: StoredAnalysis = {
+  result: {
+    jobId: "fallback-frontend",
+    matchScore: 94,
+    strengths: [
+      "React 기반의 대규모 전환 프로젝트 경험은 가장 강력한 경쟁력입니다.",
+      "API 연동 경험을 통해 백엔드와 협업 가능한 역량을 보여줄 수 있습니다."
+    ],
+    weaknesses: ["테스트 코드 작성 경험 보완 권장"],
+    missingKeywords: ["Unit/E2E Testing", "Docker"],
+    rewriteGuides: [
+      "프로젝트 경험을 문제 상황, 해결 방법, 결과 중심으로 작성하세요.",
+      "채용공고의 기술 키워드를 자기소개서에 자연스럽게 반영하세요."
+    ],
+    suggestedSentences: [
+      "Lighthouse 성능 점수를 65점에서 92점으로 향상시키며 초기 로딩 속도를 개선했습니다.",
+      "주간 코드 리뷰 세션을 공식화하여 개발팀 코드 컨벤션 준수율을 높였습니다."
+    ],
+    mode: "mock"
   },
-  {
-    before: "팀 프로젝트의 코드 리뷰를 주도하여 퀄리티를 높였습니다.",
-    after:
-      "주간 코드 리뷰 세션을 공식화하여 개발팀 코드 컨벤션 준수율을 95%까지 끌어올렸으며, 런타임 에러 발생률을 20% 감소시켰습니다."
-  }
-];
+  job: {
+    id: "fallback-frontend",
+    title: "Senior Frontend Developer",
+    company: "TechFlow Inc.",
+    location: "서울",
+    careerLevel: "경력",
+    skills: ["React", "TypeScript", "Unit/E2E Testing", "Node.js"],
+    description: "시니어 프론트엔드 개발자를 찾습니다.",
+    sourceUrl: "https://example.com/jobs/frontend"
+  },
+  resumeText:
+    "React와 TypeScript를 활용한 프로젝트에서 사용자 입력 데이터를 API와 연동하여 분석 결과를 시각화한 경험이 있습니다.",
+  tone: "professional",
+  createdAt: new Date().toISOString()
+};
 
-const skillMetrics = [
-  { label: "React / Next.js", score: 100 },
-  { label: "TypeScript", score: 90 },
-  { label: "Unit/E2E Testing", score: 65, warning: "테스트 코드 작성 경험 보완 권장" },
-  { label: "Node.js / GraphQL", score: 40 }
-];
+function buildSkillMetrics(analysis: StoredAnalysis) {
+  const missing = new Set(analysis.result.missingKeywords.map((keyword) => keyword.toLowerCase()));
+  const skills = analysis.job.skills.length ? analysis.job.skills : ["React", "TypeScript", "API"];
 
-const keywords = ["SSR/SSG", "Webpack", "Recoil", "Docker"];
+  return skills.slice(0, 4).map((skill, index) => {
+    const isMissing = missing.has(skill.toLowerCase());
+    return {
+      label: skill,
+      score: isMissing ? 45 : Math.max(60, analysis.result.matchScore - index * 8),
+      warning: isMissing ? "자기소개서에서 보완 권장" : undefined
+    };
+  });
+}
 
 export function AIAnalysisDetails() {
+  const [analysis] = useState<StoredAnalysis>(() => readAnalysisSession() ?? fallbackAnalysis);
+  const skillMetrics = useMemo(() => buildSkillMetrics(analysis), [analysis]);
+  const { result, job } = analysis;
+  const weaknesses = result.weaknesses.length
+    ? result.weaknesses
+    : ["현재 분석에서 뚜렷한 약점은 발견되지 않았습니다."];
+
   return (
     <main className="aiDetailsPage">
       <HomeTopNav active="analysis" />
@@ -41,22 +70,28 @@ export function AIAnalysisDetails() {
           <div className="aiDetailsHeroCopy">
             <div className="aiDetailsStatus">
               <span aria-hidden="true">✓</span>
-              <strong>분석 완료</strong>
+              <strong>분석 완료 · {result.mode === "ai" ? "AI" : "Mock"}</strong>
             </div>
-            <h1>Senior Frontend Developer</h1>
+            <h1>{job.title}</h1>
             <p>
-              귀하의 현재 이력서는 목표하신 Senior Frontend Developer 직무의 요구사항과 매우 높은
-              일치도를 보이고 있습니다. 다만 일부 기술 스택과 테스트 경험 보완이 필요합니다.
+              {job.company} 공고 기준으로 자기소개서를 분석했습니다. 현재 이력서는 목표 직무와
+              {result.matchScore >= 80 ? " 높은 일치도를 보이고 있습니다." : " 연결할 수 있는 강점이 있습니다."}
+              {" "}아래 제안 문장을 활용해 직무 키워드를 더 선명하게 보강하세요.
             </p>
             <div className="aiDetailsActions">
               <button type="button">이력서 다운로드</button>
               <button type="button">즉시 지원하기</button>
             </div>
           </div>
-          <div className="aiMatchScore" aria-label="매칭 점수 94%">
-            <div className="aiCircularProgress" />
+          <div className="aiMatchScore" aria-label={`매칭 점수 ${result.matchScore}%`}>
+            <div
+              className="aiCircularProgress"
+              style={{
+                background: `radial-gradient(closest-side, #ffffff 80%, transparent 81% 100%), conic-gradient(var(--home-primary-container) ${result.matchScore}%, #f1f5f9 0)`
+              }}
+            />
             <div>
-              <strong>94%</strong>
+              <strong>{result.matchScore}%</strong>
               <span>Match Score</span>
             </div>
           </div>
@@ -71,13 +106,13 @@ export function AIAnalysisDetails() {
               핵심 강점 분석
             </h2>
             <div className="aiStrengthTags">
-              {strengths.map((strength) => (
+              {result.strengths.map((strength) => (
                 <span key={strength}>{strength}</span>
               ))}
             </div>
             <p>
-              공고에서 요구하는 시니어 수준의 아키텍처 설계 경험이 이력서 곳곳에 잘 녹아있습니다.
-              특히 React 기반의 대규모 전환 프로젝트 경험은 가장 강력한 경쟁력입니다.
+              선택한 공고의 핵심 역량은 {job.skills.slice(0, 3).join(", ") || "직무 경험"}입니다.
+              자기소개서에서 이 키워드가 문제 해결 경험과 함께 드러날수록 설득력이 높아집니다.
             </p>
           </article>
 
@@ -86,15 +121,15 @@ export function AIAnalysisDetails() {
               <span aria-hidden="true">AI</span>
               AI 문장 최적화 제안
             </h2>
-            {optimizations.map((item) => (
-              <article className="aiOptimizationCard" key={item.before}>
+            {result.rewriteGuides.slice(0, 2).map((guide, index) => (
+              <article className="aiOptimizationCard" key={guide}>
                 <div>
-                  <span>Before</span>
-                  <p>{item.before}</p>
+                  <span>Guide</span>
+                  <p>{guide}</p>
                 </div>
                 <div>
-                  <span>After (AI Optimized)</span>
-                  <p>{item.after}</p>
+                  <span>Suggested Sentence</span>
+                  <p>{result.suggestedSentences[index] ?? result.suggestedSentences[0]}</p>
                 </div>
               </article>
             ))}
@@ -128,17 +163,18 @@ export function AIAnalysisDetails() {
             <div className="aiKeywordBox">
               <span>Keyword Optimization Map</span>
               <div>
-                {keywords.map((keyword) => (
-                  <em className={keyword === "Docker" ? "muted" : ""} key={keyword}>
-                    {keyword}
-                  </em>
-                ))}
+                {(result.missingKeywords.length ? result.missingKeywords : job.skills.slice(0, 4)).map(
+                  (keyword) => (
+                    <em className={result.missingKeywords.includes(keyword) ? "muted" : ""} key={keyword}>
+                      {keyword}
+                    </em>
+                  )
+                )}
               </div>
             </div>
             <p>
               <strong>분석 엔진 비고:</strong>
-              사용자의 이력서에는 확장성에 대한 표현이 부족합니다. 시스템 아키텍처 설명 시 Scalable
-              또는 Robust와 관련된 키워드를 추가하면 ATS 통과 확률이 12% 증가할 것으로 예측됩니다.
+              {weaknesses[0]} {result.rewriteGuides[0]}
             </p>
           </section>
         </aside>
