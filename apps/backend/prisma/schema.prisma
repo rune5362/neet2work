@@ -29,6 +29,14 @@ model JobPosting {
   rawText         String?          @map("raw_text")
   rawJson         Json?            @map("raw_json")
   collectedAt     DateTime?        @map("collected_at")
+  status          JobPostingStatus @default(active)
+  firstSeenAt     DateTime         @default(now()) @map("first_seen_at")
+  lastSeenAt      DateTime?        @map("last_seen_at")
+  closedAt        DateTime?        @map("closed_at")
+  jobCategory     String?          @map("job_category")
+  careerStage     String?          @map("career_stage")
+  crawlBatchId    String?          @map("crawl_batch_id")
+  classifierMeta  Json?            @map("classifier_meta")
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
   analyses        ResumeAnalysis[]
@@ -36,6 +44,9 @@ model JobPosting {
   @@unique([source, sourceJobId])
   @@index([country])
   @@index([source, collectedAt])
+  @@index([status, lastSeenAt])
+  @@index([jobCategory])
+  @@index([careerStage])
   @@map("job_postings")
 }
 
@@ -59,4 +70,11 @@ model ResumeAnalysis {
 enum AnalysisMode {
   mock
   ai
+}
+
+enum JobPostingStatus {
+  active
+  closed
+  inactive
+  unknown
 }

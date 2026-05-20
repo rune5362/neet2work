@@ -52,7 +52,7 @@ Do you want to change the execution policy?
 - `winget` 확인
 - `nvm-windows` 설치 또는 확인
 - Node.js 24.14.0 설치 및 사용
-- npm 의존성 설치
+- pnpm 의존성 설치
 - `.env` 생성
 - Prisma Client 생성
 - Playwright Chromium 설치
@@ -101,35 +101,43 @@ git pull
 | 도구 | 권장 버전 |
 | --- | --- |
 | Node.js | 24.14.0 LTS |
-| npm | 11.9.0 |
+| pnpm | 11.x |
 | Git | 최신 안정 버전 |
-| Docker Desktop | 선택, PostgreSQL 컨테이너 실행 시 필요 |
+| Docker Desktop | 선택, 개인이 로컬 컨테이너 DB를 쓸 때만 필요 |
 
 Node 버전은 프로젝트 루트의 `.nvmrc`, `.node-version`, `package.json`에 맞춰 `24.14.0`을 사용합니다.
-프로젝트는 `.npmrc`에서 `engine-strict=true`를 사용하므로 Node 버전이 맞지 않으면 설치 단계에서 오류가 날 수 있습니다.
+프로젝트는 Corepack으로 `package.json`의 pnpm 11 버전을 고정하고, `.npmrc`에서 `engine-strict=true`를 사용하므로 Node 버전이 맞지 않으면 설치 단계에서 오류가 날 수 있습니다.
 
 ## 환경변수
 
 초기 세팅 후 루트에 `.env` 파일이 생성됩니다.
 
 ```bash
-npm run setup:env
+corepack pnpm run setup:env
 ```
 
 기본값은 로컬 개발용이며, 실제 API 키나 비밀번호는 GitHub에 올리지 않습니다.
 
-PostgreSQL을 Docker Compose로 실행할 경우 기본 `DATABASE_URL`은 아래 값을 사용합니다.
+DB 인스턴스 자체는 팀원 각자가 따로 사용합니다. `.env`의 `DATABASE_URL`에는 본인이 사용할 개인 개발 DB 주소를 넣습니다. Supabase, AWS RDS, 로컬 PostgreSQL, Docker PostgreSQL 중 어떤 방식이든 가능합니다.
 
 ```env
 DATABASE_URL=postgresql://neet2work:neet2work@localhost:5432/neet2work
 ```
+
+개인 DB는 PostgreSQL 17 호환이어야 하며, migration 실행 role에는 다음 권한이 필요합니다.
+
+- `public` schema의 테이블, enum, index 생성 권한
+- `pg_trgm` extension 생성 또는 이미 활성화된 extension 사용 권한
+- `job_postings`, `resume_analyses` 테이블에 RLS를 켤 수 있는 owner 권한
+
+권한이 부족한 managed DB에서는 `corepack pnpm run db:deploy`가 실패할 수 있습니다. 이 경우 DB 관리자 화면에서 `pg_trgm`을 먼저 활성화하거나, migration을 실행할 owner 계정의 권한을 확인합니다.
 
 ## 로컬 실행
 
 프론트엔드와 백엔드를 동시에 실행합니다.
 
 ```bash
-npm run dev
+corepack pnpm run dev
 ```
 
 접속 주소:
@@ -141,16 +149,25 @@ npm run dev
 각각 실행하려면 아래 명령을 사용합니다.
 
 ```bash
-npm run dev:frontend
-npm run dev:backend
+corepack pnpm run dev:frontend
+corepack pnpm run dev:backend
 ```
 
-## PostgreSQL 17 실행
+## 개발 DB 선택
 
-PostgreSQL까지 함께 실행하려면 Docker Compose를 사용합니다.
+공통으로 맞추는 것은 DB 서버가 아니라 Prisma 스키마입니다.
+
+- 공통 기준: `apps/backend/prisma/schema.prisma`
+- 공통 migration: `apps/backend/prisma/migrations/`
+- 공통 샘플 데이터: `apps/backend/prisma/seed.ts`
+- 개인 설정: 루트 `.env`의 `DATABASE_URL`
+
+Supabase나 AWS RDS를 개발 DB로 쓰는 경우 `.env`에 해당 PostgreSQL 연결 문자열을 넣고 아래 deploy/seed 명령을 실행합니다.
+
+Docker로 로컬 PostgreSQL 컨테이너를 쓰고 싶은 팀원만 Docker Compose를 사용합니다.
 
 ```bash
-npm run docker:up
+corepack pnpm run docker:up
 ```
 
 또는 직접 실행합니다.
@@ -165,7 +182,7 @@ Docker Compose는 다음 컨테이너를 실행합니다.
 - backend
 - PostgreSQL 17
 
-Docker가 없어도 기본 개발은 가능합니다. 이 경우 서버는 DB 연결 실패로 종료되지 않고 Mock fallback을 사용합니다.
+Docker가 없어도 기본 개발은 가능합니다. 이 경우 개인 원격 DB를 연결하거나, DB 연결 없이 Mock fallback으로 프론트엔드와 백엔드 기본 흐름을 개발합니다.
 
 ## DB 마이그레이션과 샘플 데이터
 
@@ -174,7 +191,7 @@ PostgreSQL 스키마는 Prisma Migrate로 관리합니다.
 Prisma Client 생성:
 
 ```bash
-npm run db:generate
+corepack pnpm run db:generate
 ```
 
 `db:generate`는 Prisma Client 파일만 생성하므로 PostgreSQL이 실행 중이지 않아도 됩니다.
@@ -182,32 +199,33 @@ npm run db:generate
 마이그레이션 적용:
 
 ```bash
-npm run db:migrate
+corepack pnpm run db:deploy
 ```
 
 공통 샘플 데이터 입력:
 
 ```bash
-npm run db:seed
+corepack pnpm run db:seed
 ```
 
 DB 화면 확인:
 
 ```bash
-npm run db:studio
+corepack pnpm run db:studio
 ```
 
 DB 연결 필요 여부:
 
 | 명령 | DB 필요 여부 | 설명 |
 | --- | --- | --- |
-| `npm run setup` | 필요 없음 | 의존성 설치, `.env` 생성, Prisma Client 생성, Playwright 설치 |
-| `npm run db:generate` | 필요 없음 | Prisma Client 생성 |
-| `npm run dev` | 필요 없음 | DB가 없어도 Mock fallback으로 서버 실행 |
-| `npm run db:migrate` | 필요 | PostgreSQL에 migration 적용 |
-| `npm run db:seed` | 필요 | PostgreSQL에 샘플 데이터 입력 |
-| `npm run db:reset` | 필요 | 로컬 DB 초기화 후 migration/seed 재실행 |
-| `npm run db:studio` | 필요 | DB GUI 접속 |
+| `corepack pnpm run setup` | 필요 없음 | 의존성 설치, `.env` 생성, Prisma Client 생성, Playwright 설치 |
+| `corepack pnpm run db:generate` | 필요 없음 | Prisma Client 생성 |
+| `corepack pnpm run dev` | 필요 없음 | DB가 없어도 Mock fallback으로 서버 실행 |
+| `corepack pnpm run db:deploy` | 필요 | 공유된 migration을 PostgreSQL에 적용 |
+| `corepack pnpm run db:migrate` | 필요 | 스키마 변경 작업자가 새 migration 생성/적용 |
+| `corepack pnpm run db:seed` | 필요 | PostgreSQL에 샘플 데이터 입력 |
+| `corepack pnpm run db:reset` | 필요 | 현재 `DATABASE_URL`의 개발 DB 초기화 후 migration/seed 재실행 |
+| `corepack pnpm run db:studio` | 필요 | DB GUI 접속 |
 
 자세한 흐름은 `apps/backend/prisma/README.md`를 참고합니다.
 
@@ -216,32 +234,31 @@ DB 연결 필요 여부:
 테스트:
 
 ```bash
-npm test
+corepack pnpm run test
 ```
 
 린트:
 
 ```bash
-npm run lint
+corepack pnpm run lint
 ```
 
 빌드:
 
 ```bash
-npm run build
+corepack pnpm run build
 ```
 
 전체 확인:
 
 ```bash
-npm run check
+corepack pnpm run check
 ```
 
 보안 점검:
 
 ```bash
-npm run security:audit
-npm run security:signatures
+corepack pnpm run security:audit
 ```
 
 ## Playwright RPA 준비
@@ -249,7 +266,7 @@ npm run security:signatures
 초기 세팅에서 Playwright Chromium이 설치됩니다.
 
 ```bash
-npm run setup:playwright
+corepack pnpm run setup:playwright
 ```
 
 브라우저가 누락되었다는 오류가 나오면 위 명령을 다시 실행합니다.
@@ -274,14 +291,14 @@ bash scripts/install-vscode-extensions.sh
 
 - ESLint
 - Prettier
-- Docker
+- Docker (선택)
 - Playwright
 - PostgreSQL
 - DotENV
 
 ## 자주 생기는 문제
 
-### npm 명령이 인식되지 않는 경우
+### pnpm 명령이 인식되지 않는 경우
 
 Windows는 [WINDOWS_SETUP.md](./WINDOWS_SETUP.md)의 문제 해결 섹션을 확인합니다.
 
@@ -326,12 +343,14 @@ git pull
 ### .env 파일이 없는 경우
 
 ```bash
-npm run setup:env
+corepack pnpm run setup:env
 ```
 
 ### PostgreSQL 연결이 안 되는 경우
 
-Docker Compose가 실행 중인지 확인합니다.
+먼저 `.env`의 `DATABASE_URL`이 본인 개인 개발 DB를 가리키는지 확인합니다. 실제 비밀번호나 전체 URL은 채팅, 문서, GitHub에 올리지 않습니다.
+
+Docker Compose를 쓰는 경우에만 컨테이너 실행 상태를 확인합니다.
 
 ```bash
 docker compose ps
