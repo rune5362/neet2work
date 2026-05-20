@@ -35,13 +35,27 @@ function fail(message) {
   process.exit(1);
 }
 
+function getPnpmRunCommand(scriptName) {
+  if (process.platform === "win32") {
+    return {
+      executable: process.env.ComSpec || "cmd.exe",
+      args: ["/d", "/s", "/c", `corepack pnpm run ${scriptName}`]
+    };
+  }
+
+  return {
+    executable: "corepack",
+    args: ["pnpm", "run", scriptName]
+  };
+}
+
 function runPnpmScript(scriptName, label) {
-  const executable = process.platform === "win32" ? "corepack.cmd" : "corepack";
+  const { executable, args } = getPnpmRunCommand(scriptName);
 
   console.log(`\n[team:db:setup] ${label}`);
 
   return new Promise((resolveRun, rejectRun) => {
-    const child = spawn(executable, ["pnpm", "run", scriptName], {
+    const child = spawn(executable, args, {
       cwd: rootDir,
       stdio: "inherit"
     });
