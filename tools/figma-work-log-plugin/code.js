@@ -136,6 +136,30 @@ function decorateAppendedText(_textNode, _startIndex, _endIndex) {
   return null;
 }
 
+function findContainingPage(node) {
+  let current = node;
+  while (current) {
+    if (current.type === 'PAGE') return current;
+    current = current.parent;
+  }
+
+  return null;
+}
+
+async function focusTextNode(textNode) {
+  const page = findContainingPage(textNode);
+  if (page && page.id !== figma.currentPage.id) {
+    if (typeof figma.setCurrentPageAsync === 'function') {
+      await figma.setCurrentPageAsync(page);
+    } else {
+      figma.currentPage = page;
+    }
+  }
+
+  figma.currentPage.selection = [textNode];
+  figma.viewport.scrollAndZoomIntoView([textNode]);
+}
+
 async function appendWorkLog({ targetNodeId = DEFAULT_TARGET_NODE_ID, textLayerName = DEFAULT_TEXT_LAYER_NAME, text }) {
   const normalizedTargetNodeId = targetNodeId || DEFAULT_TARGET_NODE_ID;
   const normalizedTextLayerName = textLayerName || DEFAULT_TEXT_LAYER_NAME;
@@ -177,8 +201,7 @@ async function appendWorkLog({ targetNodeId = DEFAULT_TARGET_NODE_ID, textLayerN
   const decorationWarning = decorateAppendedText(textNode, appendStartIndex, textNode.characters.length);
   const widthWarning = preserveCurrentTextWidth(textNode, currentTextWidth);
   const layoutWarning = [decorationWarning, widthWarning].filter(Boolean).join(' ');
-  figma.currentPage.selection = [textNode];
-  figma.viewport.scrollAndZoomIntoView([textNode]);
+  await focusTextNode(textNode);
   figma.notify(
     layoutWarning
       ? `Updated work log, but layout restore failed: ${layoutWarning}`

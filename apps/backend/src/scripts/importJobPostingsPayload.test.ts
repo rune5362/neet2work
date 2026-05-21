@@ -72,6 +72,15 @@ describe("parseJobPayload", () => {
       "중복 방지용 원본 ID가 비어 있습니다"
     );
   });
+
+  it("rejects canonical import keys with surrounding whitespace", () => {
+    expect(() => parseJobPayload([{ ...baseJob, source: " saramin" }])).toThrow(
+      "canonical key에 앞뒤 공백이 있습니다"
+    );
+    expect(() => parseJobPayload([{ ...baseJob, sourceJobId: "123 " }])).toThrow(
+      "canonical key에 앞뒤 공백이 있습니다"
+    );
+  });
 });
 
 describe("PUBLIC_JOB_SELECT", () => {

@@ -244,9 +244,10 @@ corepack pnpm run test
 PostgreSQL 스키마 공유는 Prisma Migrate를 사용합니다.
 
 DB 서버는 각자 따로 사용하고, 스키마와 샘플 데이터만 Git으로 통일합니다.
+팀원 DB/API 인수인계 기준은 [docs/DB_API_TEAM_HANDOFF.md](./docs/DB_API_TEAM_HANDOFF.md)를 참고합니다.
 
 ```bash
-corepack pnpm run db:migrate
+corepack pnpm run db:deploy
 corepack pnpm run db:seed
 ```
 
@@ -268,8 +269,11 @@ apps/backend/prisma/
 
 ```txt
 1. 00000000000000_init/migration.sql
-2. 20260513153000_add_users/migration.sql
-3. 20260514101000_add_resume_history/migration.sql
+2. 20260514000000_job_posting_collection_fields/migration.sql
+3. 20260514001000_array_defaults/migration.sql
+4. 20260514002000_enable_public_table_rls/migration.sql
+5. 20260515080000_job_posting_operational_lifecycle/migration.sql
+6. 20260519090000_public_job_search_indexes/migration.sql
 ```
 
 실제 작업에서는 Prisma가 보통 `20260513..._name` 형식의 migration 폴더를 자동 생성합니다.
@@ -284,7 +288,7 @@ corepack pnpm --filter @neet2work/backend run db:migrate -- --name add_feature_n
 
 ```bash
 git pull
-corepack pnpm run db:migrate
+corepack pnpm run db:deploy
 corepack pnpm run db:seed
 ```
 
@@ -301,7 +305,7 @@ corepack pnpm run db:seed
 - 실제 개발 DB 데이터는 Git으로 공유하지 않습니다.
 - 공유할 샘플 데이터는 `apps/backend/prisma/seed.ts`에 반영합니다.
 - `db:reset`은 현재 `.env`의 `DATABASE_URL` 대상 DB를 초기화하므로, 공용/운영 DB에서는 실행하지 않습니다.
-- 서버 실행은 DB 없이도 Mock fallback으로 가능하지만, `db:migrate`, `db:seed`는 실제 DB 연결이 필요합니다.
+- 서버 실행은 DB 없이도 Mock fallback으로 가능하지만, `db:deploy`, `db:migrate`, `db:seed`는 실제 DB 연결이 필요합니다.
 - `corepack pnpm run setup`, `corepack pnpm run db:generate`, `corepack pnpm run dev`는 DB 없이도 실행 가능하도록 유지합니다.
 
 ### 채용공고 JSON Import

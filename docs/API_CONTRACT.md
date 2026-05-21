@@ -1,15 +1,18 @@
 # Neet2Work API Contract
 
 This document is the current backend contract for the teammate frontend handoff.
-The frontend should call the backend through `VITE_API_BASE_URL`, not Supabase
-directly.
+The frontend should call the backend through `VITE_API_BASE_URL`, not a database
+provider directly.
 
 ## Runtime
 
 - Local backend base URL: `http://localhost:3000`
 - Local frontend env: `VITE_API_BASE_URL=http://localhost:3000`
-- Database path: frontend -> backend API -> Prisma/pg -> Supabase Postgres
-- Supabase browser keys are not required by the current frontend contract.
+- Database path: frontend -> backend API -> Prisma/pg -> personal PostgreSQL DB
+- Supported DB targets: PostgreSQL-compatible personal dev DBs such as
+  Supabase Postgres, AWS RDS PostgreSQL, Docker PostgreSQL, or local PostgreSQL.
+- Browser DB provider keys are not required by the current frontend contract.
+- DB/API handoff details live in `docs/DB_API_TEAM_HANDOFF.md`.
 
 ## Health
 
@@ -32,8 +35,8 @@ Fields:
 | --- | --- | --- | --- |
 | `ok` | boolean | `true` | Express process is responding. |
 | `database` | string | `connected`, `not_configured`, `unavailable` | `connected` means DB access is live. |
-| `ai` | string | `configured`, `mock` | Current analysis path is mock unless `AI_API_KEY` exists. |
-| `storage` | string | `configured`, `local` | R2 is optional for now. |
+| `ai` | string | `mock` | Current analysis path is mock. `AI_API_KEY` alone does not switch the backend to real AI. |
+| `storage` | string | `local` | R2 is optional and not wired into the current runtime path. |
 
 ## Jobs
 
@@ -42,7 +45,8 @@ Fields:
 Returns the public active job list. When DB is configured, the backend returns
 the latest matching rows whose lifecycle `status` is `active`. If DB is not
 configured or unavailable, it falls back to local sample jobs so the demo path
-still renders. Query/schema errors are not hidden behind sample fallback.
+still renders. If DB is connected but has no matching active rows, it returns an
+empty list. Query/schema errors are not hidden behind sample fallback.
 
 Query params:
 
@@ -78,7 +82,7 @@ Query params:
       "collectedAt": "2026-05-19T06:00:00.000Z"
     }
   ],
-  "count": 50
+  "count": 1
 }
 ```
 
@@ -287,7 +291,7 @@ Server error shape:
 When the teammate frontend arrives, check these first:
 
 - Uses `VITE_API_BASE_URL` for backend calls.
-- Does not require Supabase browser keys unless Auth/Realtime/Storage is added.
+- Does not require DB provider browser keys unless Auth/Realtime/Storage is added.
 - Handles optional/null public job fields.
 - Handles an empty or loading job list.
 - Uses `job.id` when calling `POST /api/analyze`.

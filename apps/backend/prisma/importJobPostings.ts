@@ -67,6 +67,14 @@ function assertString(value: unknown, field: string): asserts value is string {
   }
 }
 
+function assertCanonicalKey(value: unknown, field: string): asserts value is string {
+  assertString(value, field);
+
+  if (value !== value.trim()) {
+    throw new Error(`canonical key에 앞뒤 공백이 있습니다: ${field}`);
+  }
+}
+
 function assertOptionalStringArray(value: unknown, field: string) {
   if (value === undefined) {
     return;
@@ -122,9 +130,11 @@ export function validateJob(job: CollectedJobPosting, index: number, expectedSou
   assertString(job.description, `${prefix}.description`);
   assertString(job.sourceUrl, `${prefix}.sourceUrl`);
 
-  if (!job.source) {
+  if (!job.source || job.source.trim().length === 0) {
     throw new Error(`필수 출처 필드가 비어 있습니다: ${prefix}.source`);
   }
+
+  assertCanonicalKey(job.source, `${prefix}.source`);
 
   if (expectedSource && job.source !== expectedSource) {
     throw new Error(
@@ -132,9 +142,11 @@ export function validateJob(job: CollectedJobPosting, index: number, expectedSou
     );
   }
 
-  if (!job.sourceJobId) {
+  if (!job.sourceJobId || job.sourceJobId.trim().length === 0) {
     throw new Error(`중복 방지용 원본 ID가 비어 있습니다: ${prefix}.sourceJobId`);
   }
+
+  assertCanonicalKey(job.sourceJobId, `${prefix}.sourceJobId`);
 
   if (job.status && !JOB_POSTING_STATUSES.has(job.status)) {
     throw new Error(`지원하지 않는 공고 상태입니다: ${prefix}.status=${job.status}`);
@@ -163,7 +175,7 @@ export function parseJobPayload(parsed: unknown): ParsedJobPayload {
     throw new Error("표준 채용공고 JSON은 배열 또는 job_batch_v1 객체여야 합니다.");
   }
 
-  assertString(parsed.source, "batch.source");
+  assertCanonicalKey(parsed.source, "batch.source");
   assertString(parsed.mode, "batch.mode");
   assertString(parsed.crawlBatchId, "batch.crawlBatchId");
   assertString(parsed.collectedAt, "batch.collectedAt");

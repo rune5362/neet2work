@@ -8,7 +8,8 @@
 - 샘플 데이터는 `seed.ts`로 공유합니다.
 - DB 인스턴스 자체는 팀원이 각자 따로 사용합니다.
 - 각 팀원은 본인 `.env`의 `DATABASE_URL`에 개인 개발 DB를 연결합니다.
-- 개인 개발 DB는 Supabase, AWS RDS, 로컬 PostgreSQL, Docker PostgreSQL 중 무엇이든 가능합니다.
+- 개인 개발 DB는 PostgreSQL 17 호환이어야 하며 Supabase Postgres, AWS RDS PostgreSQL, 로컬 PostgreSQL, Docker PostgreSQL 중 하나를 권장합니다.
+- migration 실행 role에는 `pg_trgm` extension 생성 또는 사용 권한, `public` schema 객체 생성 권한, RLS 활성화 권한이 필요합니다.
 - 실제 개발 DB 데이터는 공유하지 않습니다.
 - migration 파일은 Git에 커밋합니다.
 - `src/generated/prisma/`는 `prisma generate`로 생성하므로 커밋하지 않습니다.
@@ -19,7 +20,7 @@
 
 ```bash
 corepack pnpm run db:generate
-corepack pnpm run db:migrate
+corepack pnpm run db:deploy
 corepack pnpm run db:seed
 corepack pnpm run db:import:jobs --dry-run ../../docs/research/job-sites/saramin_sample_2026-05-14.json
 corepack pnpm run db:studio
@@ -30,19 +31,20 @@ DB 연결 필요 여부:
 | 명령 | DB 필요 여부 | 설명 |
 | --- | --- | --- |
 | `corepack pnpm run db:generate` | 필요 없음 | Prisma Client 생성 |
-| `corepack pnpm run db:migrate` | 필요 | PostgreSQL에 migration 적용 |
+| `corepack pnpm run db:deploy` | 필요 | 공유된 migration을 PostgreSQL에 적용 |
+| `corepack pnpm run db:migrate` | 필요 | 스키마 변경 작업자가 새 migration 생성/적용 |
 | `corepack pnpm run db:seed` | 필요 | PostgreSQL에 샘플 데이터 입력 |
 | `corepack pnpm run db:import:jobs --dry-run <file>` | 필요 없음 | 표준 채용공고 JSON 형식 검증 |
 | `corepack pnpm run db:import:jobs -- <file>` | 필요 | 표준 채용공고 JSON upsert |
 | `corepack pnpm run db:reset` | 필요 | 현재 `DATABASE_URL`의 개발 DB 초기화 |
 | `corepack pnpm run db:studio` | 필요 | Prisma Studio 실행 |
 
-`corepack pnpm run setup`은 내부에서 `db:generate`만 실행하므로 PostgreSQL이 꺼져 있어도 통과해야 합니다. 반대로 `db:migrate`, `db:seed`는 실제 DB 연결이 없으면 실패하는 것이 정상입니다.
+`corepack pnpm run setup`은 내부에서 `db:generate`만 실행하므로 PostgreSQL이 꺼져 있어도 통과해야 합니다. 반대로 `db:deploy`, `db:migrate`, `db:seed`는 실제 DB 연결이 없으면 실패하는 것이 정상입니다.
 
 backend workspace에서 직접 실행해도 됩니다.
 
 ```bash
-corepack pnpm --filter @neet2work/backend run db:migrate
+corepack pnpm --filter @neet2work/backend run db:deploy
 ```
 
 ## 새 테이블/컬럼 추가 흐름
@@ -68,7 +70,7 @@ corepack pnpm run db:migrate -- --name add_some_feature
 
 ```bash
 git pull
-corepack pnpm run db:migrate
+corepack pnpm run db:deploy
 corepack pnpm run db:seed
 ```
 
@@ -88,7 +90,7 @@ corepack pnpm run db:import:jobs --dry-run ../../docs/research/job-sites/saramin
 corepack pnpm run db:import:jobs -- ../../docs/research/job-sites/saramin_sample_2026-05-14.json
 ```
 
-import는 `id` 기준 upsert라 같은 파일을 다시 넣어도 중복 행을 만들지 않습니다. `source`와 `sourceJobId`는 수집 중복 방지와 추적을 위해 필수로 둡니다.
+Import는 `(source, sourceJobId)` 기준 upsert라 같은 원본 공고를 다시 넣어도 중복 행을 만들지 않습니다. `source`와 `sourceJobId`는 수집 중복 방지와 추적을 위해 필수입니다.
 
 ## 개발 DB 초기화
 

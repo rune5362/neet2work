@@ -87,10 +87,12 @@ corepack pnpm run setup:playwright
 
 DB 서버는 팀원별로 따로 사용합니다. Supabase, AWS RDS, 로컬 PostgreSQL, Docker PostgreSQL 중 본인이 쓸 DB의 PostgreSQL 연결 문자열을 루트 `.env`의 `DATABASE_URL`에 넣습니다.
 
+개인 DB는 PostgreSQL 17 호환이어야 합니다. migration 실행 계정에는 `pg_trgm` extension 생성 또는 사용 권한, `public` schema 객체 생성 권한, `job_postings`와 `resume_analyses` RLS 활성화 권한이 필요합니다.
+
 DB를 연결한 뒤 공통 스키마와 샘플 데이터를 적용합니다.
 
 ```bash
-corepack pnpm run db:migrate
+corepack pnpm run db:deploy
 corepack pnpm run db:seed
 corepack pnpm run db:studio
 ```

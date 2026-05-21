@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { getPrismaClient } from "../database/prisma.js";
 import type { Prisma } from "../generated/prisma/client.js";
 import type { JobPosting } from "../types/job.js";
+import { redactSensitiveText } from "../utils/redact.js";
 
 const serviceDir = path.dirname(fileURLToPath(import.meta.url));
 const sampleJobsPath = path.resolve(serviceDir, "../../data/sampleJobs.json");
@@ -113,10 +114,6 @@ function normalizeQuery(query: JobListQuery = {}): NormalizedJobListQuery {
     language: query.language?.trim() || undefined,
     limit
   };
-}
-
-function hasFilters(query: NormalizedJobListQuery): boolean {
-  return Boolean(query.q || query.source || query.country || query.language);
 }
 
 function buildJobWhere(query: NormalizedJobListQuery): Prisma.JobPostingWhereInput {
@@ -234,18 +231,6 @@ function readErrorString(error: unknown, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-function redactSensitiveLogMessage(message: string): string {
-  return message
-    .replace(
-      /\b([a-z][a-z0-9+.-]*:\/\/[^:\s/@]+):([^@\s]+)@/gi,
-      "$1:[redacted]@"
-    )
-    .replace(
-      /\b(database_password|password|passwd|pwd|secret|token|api[_-]?key)\b\s*[:=]\s*("[^"]*"|'[^']*'|[^\s,;]+)/gi,
-      "$1=[redacted]"
-    );
-}
-
 function shouldFallbackToSamples(error: unknown, context: string): boolean {
   if (!isDatabaseUnavailableError(error)) {
     return false;
@@ -253,7 +238,7 @@ function shouldFallbackToSamples(error: unknown, context: string): boolean {
 
   const message = error instanceof Error ? error.message : String(error);
   console.warn(
-    `${context} database unavailable; using sample fallback: ${redactSensitiveLogMessage(message)}`
+    `${context} database unavailable; using sample fallback: ${redactSensitiveText(message)}`
   );
   return true;
 }
@@ -303,9 +288,7 @@ export async function getJobs(query: JobListQuery = {}): Promise<JobPosting[]> {
         take: normalizedQuery.limit
       });
 
-      if (jobs.length > 0 || hasFilters(normalizedQuery)) {
-        return jobs.map(toJobPosting);
-      }
+      return jobs.map(toJobPosting);
     } catch (error) {
       if (!shouldFallbackToSamples(error, "getJobs")) {
         throw error;
@@ -343,20 +326,18 @@ export async function getJobFacets(): Promise<JobFacets> {
         })
       ]);
 
-      if (total > 0) {
-        return {
-          sources: sources
-            .map((row) => ({ value: row.source, count: row._count._all }))
-            .sort(compareFacetOption),
-          countries: countries
-            .map((row) => ({ value: row.country, count: row._count._all }))
-            .sort(compareFacetOption),
-          languages: languages
-            .map((row) => ({ value: row.language, count: row._count._all }))
-            .sort(compareFacetOption),
-          total
-        };
-      }
+      return {
+        sources: sources
+          .map((row) => ({ value: row.source, count: row._count._all }))
+          .sort(compareFacetOption),
+        countries: countries
+          .map((row) => ({ value: row.country, count: row._count._all }))
+          .sort(compareFacetOption),
+        languages: languages
+          .map((row) => ({ value: row.language, count: row._count._all }))
+          .sort(compareFacetOption),
+        total
+      };
     } catch (error) {
       if (!shouldFallbackToSamples(error, "getJobFacets")) {
         throw error;

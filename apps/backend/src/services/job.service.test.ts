@@ -74,6 +74,15 @@ describe("getJobs", () => {
     );
   });
 
+  it("returns an empty database result instead of sample fallback when the database is connected", async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    getPrismaClientMock.mockReturnValue({
+      jobPosting: { findMany }
+    } as unknown as ReturnType<typeof getPrismaClient>);
+
+    await expect(getJobs()).resolves.toEqual([]);
+  });
+
   it("does not hide query or schema drift behind sample fallback", async () => {
     const findMany = vi.fn().mockRejectedValue(new Error("column does not exist"));
     getPrismaClientMock.mockReturnValue({
@@ -153,6 +162,21 @@ describe("getJobFacets", () => {
       expect.objectContaining({ where: { status: "active" } })
     );
     expect(count).toHaveBeenCalledWith({ where: { status: "active" } });
+  });
+
+  it("returns empty database facets instead of sample fallback when the database is connected", async () => {
+    const groupBy = vi.fn().mockResolvedValue([]);
+    const count = vi.fn().mockResolvedValue(0);
+    getPrismaClientMock.mockReturnValue({
+      jobPosting: { groupBy, count }
+    } as unknown as ReturnType<typeof getPrismaClient>);
+
+    await expect(getJobFacets()).resolves.toEqual({
+      sources: [],
+      countries: [],
+      languages: [],
+      total: 0
+    });
   });
 });
 

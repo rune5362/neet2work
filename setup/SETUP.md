@@ -124,6 +124,14 @@ DB 인스턴스 자체는 팀원 각자가 따로 사용합니다. `.env`의 `DA
 DATABASE_URL=postgresql://neet2work:neet2work@localhost:5432/neet2work
 ```
 
+개인 DB는 PostgreSQL 17 호환이어야 하며, migration 실행 role에는 다음 권한이 필요합니다.
+
+- `public` schema의 테이블, enum, index 생성 권한
+- `pg_trgm` extension 생성 또는 이미 활성화된 extension 사용 권한
+- `job_postings`, `resume_analyses` 테이블에 RLS를 켤 수 있는 owner 권한
+
+권한이 부족한 managed DB에서는 `corepack pnpm run db:deploy`가 실패할 수 있습니다. 이 경우 DB 관리자 화면에서 `pg_trgm`을 먼저 활성화하거나, migration을 실행할 owner 계정의 권한을 확인합니다.
+
 ## 로컬 실행
 
 프론트엔드와 백엔드를 동시에 실행합니다.
@@ -154,7 +162,7 @@ corepack pnpm run dev:backend
 - 공통 샘플 데이터: `apps/backend/prisma/seed.ts`
 - 개인 설정: 루트 `.env`의 `DATABASE_URL`
 
-Supabase나 AWS RDS를 개발 DB로 쓰는 경우 `.env`에 해당 PostgreSQL 연결 문자열을 넣고 아래 migration/seed 명령을 실행합니다.
+Supabase나 AWS RDS를 개발 DB로 쓰는 경우 `.env`에 해당 PostgreSQL 연결 문자열을 넣고 아래 deploy/seed 명령을 실행합니다.
 
 Docker로 로컬 PostgreSQL 컨테이너를 쓰고 싶은 팀원만 Docker Compose를 사용합니다.
 
@@ -191,7 +199,7 @@ corepack pnpm run db:generate
 마이그레이션 적용:
 
 ```bash
-corepack pnpm run db:migrate
+corepack pnpm run db:deploy
 ```
 
 공통 샘플 데이터 입력:
@@ -213,7 +221,8 @@ DB 연결 필요 여부:
 | `corepack pnpm run setup` | 필요 없음 | 의존성 설치, `.env` 생성, Prisma Client 생성, Playwright 설치 |
 | `corepack pnpm run db:generate` | 필요 없음 | Prisma Client 생성 |
 | `corepack pnpm run dev` | 필요 없음 | DB가 없어도 Mock fallback으로 서버 실행 |
-| `corepack pnpm run db:migrate` | 필요 | PostgreSQL에 migration 적용 |
+| `corepack pnpm run db:deploy` | 필요 | 공유된 migration을 PostgreSQL에 적용 |
+| `corepack pnpm run db:migrate` | 필요 | 스키마 변경 작업자가 새 migration 생성/적용 |
 | `corepack pnpm run db:seed` | 필요 | PostgreSQL에 샘플 데이터 입력 |
 | `corepack pnpm run db:reset` | 필요 | 현재 `DATABASE_URL`의 개발 DB 초기화 후 migration/seed 재실행 |
 | `corepack pnpm run db:studio` | 필요 | DB GUI 접속 |
