@@ -14,7 +14,12 @@ const DUMMY_JOBS: JobPosting[] = [
     skills: ["React", "Node.js", "TypeScript"],
     description: "AI 기반 SaaS 플랫폼 확장을 위한 기술 리더를 찾습니다. React, Node.js 및 클라우드 인프라 경험이 필요합니다.",
     source: "TechFlow",
-    sourceUrl: "/jobs"
+    sourceUrl: "/jobs",
+    employmentType: "정규직",
+    educationLevel: "학사 이상",
+    salaryText: "연봉 7,000만 ~ 9,000만원",
+    deadlineText: "채용 시 마감",
+    applyMethod: "간편 지원"
   },
   {
     id: "dummy-2",
@@ -25,7 +30,12 @@ const DUMMY_JOBS: JobPosting[] = [
     skills: ["Figma", "UI/UX", "Typography"],
     description: "생산성 도구의 미래를 설계하세요. 복잡한 시스템과 아름다운 타이포그래피를 사랑하는 디자이너를 환영합니다.",
     source: "Creative",
-    sourceUrl: "/jobs"
+    sourceUrl: "/jobs",
+    employmentType: "정규직",
+    educationLevel: "학력 무관",
+    salaryText: "연봉 4,500만 ~ 5,500만원",
+    deadlineText: "2026.06.30",
+    applyMethod: "포트폴리오 제출 지원"
   },
   {
     id: "dummy-3",
@@ -36,7 +46,12 @@ const DUMMY_JOBS: JobPosting[] = [
     skills: ["Python", "PyTorch", "ML"],
     description: "수백만 명에게 영향을 미치는 추천 엔진을 구축할 AI 팀에 합류하세요. Python 및 PyTorch 역량이 필수입니다.",
     source: "Insight",
-    sourceUrl: "/jobs"
+    sourceUrl: "/jobs",
+    employmentType: "정규직 / 파트타임",
+    educationLevel: "석사 이상",
+    salaryText: "회사 내규 (협의 가능)",
+    deadlineText: "상시 채용",
+    applyMethod: "홈페이지 지원"
   },
   {
     id: "dummy-4",
@@ -47,7 +62,12 @@ const DUMMY_JOBS: JobPosting[] = [
     skills: ["Growth Hacking", "SQL", "GA4"],
     description: "신흥 핀테크 스타트업을 위한 고영향력 성장 전략을 개발하세요. 데이터 중심 사고방식이 필수입니다.",
     source: "Growth",
-    sourceUrl: "/jobs"
+    sourceUrl: "/jobs",
+    employmentType: "계약직 (정규직 전환 가능)",
+    educationLevel: "전문대졸 이상",
+    salaryText: "연봉 3,800만원 ~",
+    deadlineText: "2026.07.15",
+    applyMethod: "이메일 지원"
   },
   {
     id: "dummy-5",
@@ -58,7 +78,12 @@ const DUMMY_JOBS: JobPosting[] = [
     skills: ["SIEM", "Pentesting", "Network Security"],
     description: "엔터프라이즈 고객의 디지털 인프라를 보호합니다. 모니터링, 위협 헌팅 및 사고 대응 업무를 수행합니다.",
     source: "CyberGuard",
-    sourceUrl: "/jobs"
+    sourceUrl: "/jobs",
+    employmentType: "정규직",
+    educationLevel: "학사 이상",
+    salaryText: "회사 내규에 따름",
+    deadlineText: "채용 시 마감",
+    applyMethod: "온라인 지원"
   },
   {
     id: "dummy-6",
@@ -69,7 +94,12 @@ const DUMMY_JOBS: JobPosting[] = [
     skills: ["Agile", "Scrum", "Jira"],
     description: "비즈니스 요구사항과 엔지니어링 우수성 사이의 가교 역할을 수행하세요. 소프트웨어 개발 배경을 가진 애자일 전문가를 찾습니다.",
     source: "ScaleUp",
-    sourceUrl: "/jobs"
+    sourceUrl: "/jobs",
+    employmentType: "정규직",
+    educationLevel: "학사 이상",
+    salaryText: "연봉 6,500만 ~ 8,000만원",
+    deadlineText: "2026.06.15",
+    applyMethod: "간편 지원"
   }
 ];
 
@@ -207,6 +237,7 @@ export function Jobs() {
                     <div className="jobsCardIcon">{getIconText(job)}</div>
                     {isFallbackMode && <span className="jobsNewBadge" style={{ background: "#adb5bd" }}>Demo</span>}
                   </div>
+                  
                   <div className="jobsCardBody">
                     <h2>{job.title}</h2>
                     <p className="jobsCompany">{job.company}</p>
@@ -216,7 +247,51 @@ export function Jobs() {
                       ))}
                     </div>
                     <p className="jobsDescription">{job.description}</p>
+                    
+                    {/* 데이터베이스 상세 컬럼 메타 정보 매핑 영역 */}
+                    <div className="jobsMetaInfo" style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "10px 16px",
+                      margin: "16px 0 0 0",
+                      fontSize: "0.8rem",
+                      color: "#495057",
+                      borderTop: "1px solid #f1f3f5",
+                      paddingTop: "14px"
+                    }}>
+                      {job.employmentType && (
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span style={{ filter: "grayscale(1)", fontSize: "0.9rem" }}>💼</span>
+                          <span style={{ fontWeight: "500" }}>{job.employmentType}</span>
+                        </div>
+                      )}
+                      {job.educationLevel && (
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span style={{ filter: "grayscale(1)", fontSize: "0.9rem" }}>🎓</span>
+                          <span>{job.educationLevel}</span>
+                        </div>
+                      )}
+                      {job.salaryText && (
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#2b8a3e", fontWeight: "600" }}>
+                          <span style={{ filter: "grayscale(0.2)", fontSize: "0.9rem" }}>💰</span>
+                          <span>{job.salaryText}</span>
+                        </div>
+                      )}
+                      {job.deadlineText && (
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#e03131", fontWeight: "500" }}>
+                          <span style={{ filter: "grayscale(0.2)", fontSize: "0.9rem" }}>📅</span>
+                          <span>{job.deadlineText}</span>
+                        </div>
+                      )}
+                      {job.applyMethod && (
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#1c7ed6" }}>
+                          <span style={{ filter: "grayscale(1)", fontSize: "0.9rem" }}>📨</span>
+                          <span>{job.applyMethod}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                  
                   <div className="jobsCardActions">
                     <a href={job.sourceUrl} target={isFallbackMode ? undefined : "_blank"} rel={isFallbackMode ? undefined : "noopener noreferrer"}>상세 보기</a>
                     <button type="button">AI 적합도 분석</button>
