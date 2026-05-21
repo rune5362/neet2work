@@ -4,10 +4,80 @@ import { HomeTopNav } from "../components/HomeTopNav";
 import { getJobs } from "../api/client";
 import type { JobPosting } from "../types/job";
 
+const DUMMY_JOBS: JobPosting[] = [
+  {
+    id: "dummy-1",
+    title: "시니어 풀스택 엔지니어",
+    company: "TechFlow Inc.",
+    location: "서울, KR",
+    careerLevel: "시니어 (6년 이상)",
+    skills: ["React", "Node.js", "TypeScript"],
+    description: "AI 기반 SaaS 플랫폼 확장을 위한 기술 리더를 찾습니다. React, Node.js 및 클라우드 인프라 경험이 필요합니다.",
+    source: "TechFlow",
+    sourceUrl: "/jobs"
+  },
+  {
+    id: "dummy-2",
+    title: "프로덕트 디자이너 (UX/UI)",
+    company: "Creative Logic",
+    location: "강남, 서울",
+    careerLevel: "주니어 (3-5년)",
+    skills: ["Figma", "UI/UX", "Typography"],
+    description: "생산성 도구의 미래를 설계하세요. 복잡한 시스템과 아름다운 타이포그래피를 사랑하는 디자이너를 환영합니다.",
+    source: "Creative",
+    sourceUrl: "/jobs"
+  },
+  {
+    id: "dummy-3",
+    title: "데이터 사이언티스트 (머신러닝)",
+    company: "Insight Data Co.",
+    location: "원격",
+    careerLevel: "시니어 (6년 이상)",
+    skills: ["Python", "PyTorch", "ML"],
+    description: "수백만 명에게 영향을 미치는 추천 엔진을 구축할 AI 팀에 합류하세요. Python 및 PyTorch 역량이 필수입니다.",
+    source: "Insight",
+    sourceUrl: "/jobs"
+  },
+  {
+    id: "dummy-4",
+    title: "마케팅 전략가",
+    company: "Growth Dynamics",
+    location: "부산, KR",
+    careerLevel: "주니어 (3-5년)",
+    skills: ["Growth Hacking", "SQL", "GA4"],
+    description: "신흥 핀테크 스타트업을 위한 고영향력 성장 전략을 개발하세요. 데이터 중심 사고방식이 필수입니다.",
+    source: "Growth",
+    sourceUrl: "/jobs"
+  },
+  {
+    id: "dummy-5",
+    title: "보안 운영 분석가",
+    company: "CyberGuard Global",
+    location: "원격",
+    careerLevel: "신입 (0-2년)",
+    skills: ["SIEM", "Pentesting", "Network Security"],
+    description: "엔터프라이즈 고객의 디지털 인프라를 보호합니다. 모니터링, 위협 헌팅 및 사고 대응 업무를 수행합니다.",
+    source: "CyberGuard",
+    sourceUrl: "/jobs"
+  },
+  {
+    id: "dummy-6",
+    title: "기술 프로젝트 매니저",
+    company: "ScaleUp Systems",
+    location: "서울, KR",
+    careerLevel: "시니어 (6년 이상)",
+    skills: ["Agile", "Scrum", "Jira"],
+    description: "비즈니스 요구사항과 엔지니어링 우수성 사이의 가교 역할을 수행하세요. 소프트웨어 개발 배경을 가진 애자일 전문가를 찾습니다.",
+    source: "ScaleUp",
+    sourceUrl: "/jobs"
+  }
+];
+
 export function Jobs() {
   const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFallbackMode, setIsFallbackMode] = useState<boolean>(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -20,7 +90,10 @@ export function Jobs() {
       })
       .catch((err) => {
         if (isMounted) {
-          setError(err instanceof Error ? err.message : "채용공고를 불러오는 중 오류가 발생했습니다.");
+          console.warn("API 페칭 실패, 폴백 더미 데이터 모드로 진입합니다.", err);
+          setError("서버 및 데이터베이스 연결에 실패했습니다. 현재 화면에 표시된 공고는 데모용 오프라인(더미) 데이터입니다.");
+          setJobs(DUMMY_JOBS);
+          setIsFallbackMode(true);
           setLoading(false);
         }
       });
@@ -77,9 +150,39 @@ export function Jobs() {
           </div>
         </div>
 
+        {/* DB 연결 실패 안내 배너 */}
+        {error && (
+          <div 
+            className="jobsErrorBanner" 
+            style={{
+              background: "linear-gradient(135deg, #fff5f5 0%, #ffe3e3 100%)",
+              border: "1px solid #ffa8a8",
+              borderRadius: "12px",
+              padding: "16px 20px",
+              margin: "0 0 24px 0",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              boxShadow: "0 4px 12px rgba(255, 107, 107, 0.08)",
+              animation: "fadeIn 0.3s ease-in-out"
+            }}
+          >
+            <span style={{ fontSize: "1.5rem" }}>⚠️</span>
+            <div>
+              <h4 style={{ margin: "0 0 4px 0", color: "#e03131", fontWeight: "700", fontSize: "0.95rem" }}>
+                데이터베이스 연결 지연 및 네트워크 장애 안내
+              </h4>
+              <p style={{ margin: "0", color: "#495057", fontSize: "0.85rem", lineHeight: "1.4" }}>
+                {error}
+              </p>
+            </div>
+          </div>
+        )}
+
         <header className="jobsHeading">
           <h1>
             총 <span>{jobs.length}</span>개의 공고가 당신을 기다리고 있습니다
+            {isFallbackMode && <span style={{ fontSize: "0.9rem", color: "#868e96", marginLeft: "10px", fontWeight: "normal" }}>(오프라인 데모 모드)</span>}
           </h1>
         </header>
 
@@ -89,13 +192,7 @@ export function Jobs() {
           </div>
         )}
 
-        {error && (
-          <div className="jobsError" style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "200px", fontSize: "1.1rem", fontWeight: "bold", color: "red" }}>
-            오류: {error}
-          </div>
-        )}
-
-        {!loading && !error && (
+        {!loading && (
           <section className="jobsGrid" aria-label="채용공고 목록">
             {jobs.map((job) => {
               const tags = [
@@ -108,6 +205,7 @@ export function Jobs() {
                 <article className="jobsCard" key={job.id || `${job.company}-${job.title}`}>
                   <div className="jobsCardTop">
                     <div className="jobsCardIcon">{getIconText(job)}</div>
+                    {isFallbackMode && <span className="jobsNewBadge" style={{ background: "#adb5bd" }}>Demo</span>}
                   </div>
                   <div className="jobsCardBody">
                     <h2>{job.title}</h2>
@@ -120,7 +218,7 @@ export function Jobs() {
                     <p className="jobsDescription">{job.description}</p>
                   </div>
                   <div className="jobsCardActions">
-                    <a href={job.sourceUrl} target="_blank" rel="noopener noreferrer">상세 보기</a>
+                    <a href={job.sourceUrl} target={isFallbackMode ? undefined : "_blank"} rel={isFallbackMode ? undefined : "noopener noreferrer"}>상세 보기</a>
                     <button type="button">AI 적합도 분석</button>
                   </div>
                 </article>
