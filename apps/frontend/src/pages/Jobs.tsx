@@ -1,59 +1,39 @@
+import { useState, useEffect } from "react";
 import { HomeFooter } from "../components/HomeFooter";
 import { HomeTopNav } from "../components/HomeTopNav";
-
-const jobs = [
-  {
-    icon: "DEV",
-    isNew: true,
-    title: "시니어 풀스택 엔지니어",
-    company: "TechFlow Inc.",
-    tags: ["원격", "서울, KR"],
-    description:
-      "AI 기반 SaaS 플랫폼 확장을 위한 기술 리더를 찾습니다. React, Node.js 및 클라우드 인프라 경험이 필요합니다."
-  },
-  {
-    icon: "UX",
-    title: "프로덕트 디자이너 (UX/UI)",
-    company: "Creative Logic",
-    tags: ["하이브리드", "강남"],
-    description:
-      "생산성 도구의 미래를 설계하세요. 복잡한 시스템과 아름다운 타이포그래피를 사랑하는 디자이너를 환영합니다."
-  },
-  {
-    icon: "ML",
-    title: "데이터 사이언티스트 (머신러닝)",
-    company: "Insight Data Co.",
-    tags: ["원격"],
-    description:
-      "수백만 명에게 영향을 미치는 추천 엔진을 구축할 AI 팀에 합류하세요. Python 및 PyTorch 역량이 필수입니다."
-  },
-  {
-    icon: "MKT",
-    title: "마케팅 전략가",
-    company: "Growth Dynamics",
-    tags: ["상주", "부산"],
-    description:
-      "신흥 핀테크 스타트업을 위한 고영향력 성장 전략을 개발하세요. 데이터 중심 사고방식이 필수입니다."
-  },
-  {
-    icon: "SEC",
-    title: "보안 운영 분석가",
-    company: "CyberGuard Global",
-    tags: ["원격"],
-    description:
-      "엔터프라이즈 고객의 디지털 인프라를 보호합니다. 모니터링, 위협 헌팅 및 사고 대응 업무를 수행합니다."
-  },
-  {
-    icon: "PM",
-    title: "기술 프로젝트 매니저",
-    company: "ScaleUp Systems",
-    tags: ["하이브리드", "서울"],
-    description:
-      "비즈니스 요구사항과 엔지니어링 우수성 사이의 가교 역할을 수행하세요. 소프트웨어 개발 배경을 가진 애자일 전문가를 찾습니다."
-  }
-];
+import { getJobs } from "../api/client";
+import type { JobPosting } from "../types/job";
 
 export function Jobs() {
+  const [jobs, setJobs] = useState<JobPosting[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    getJobs()
+      .then((data) => {
+        if (isMounted) {
+          setJobs(data);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : "채용공고를 불러오는 중 오류가 발생했습니다.");
+          setLoading(false);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const getIconText = (job: JobPosting) => {
+    const name = job.company || job.source || "JB";
+    return name.slice(0, 2).toUpperCase();
+  };
+
   return (
     <main className="jobsPage">
       <HomeTopNav active="jobs" />
@@ -99,34 +79,55 @@ export function Jobs() {
 
         <header className="jobsHeading">
           <h1>
-            총 <span>1,240</span>개의 공고가 당신을 기다리고 있습니다
+            총 <span>{jobs.length}</span>개의 공고가 당신을 기다리고 있습니다
           </h1>
         </header>
 
-        <section className="jobsGrid" aria-label="채용공고 목록">
-          {jobs.map((job) => (
-            <article className="jobsCard" key={`${job.company}-${job.title}`}>
-              <div className="jobsCardTop">
-                <div className="jobsCardIcon">{job.icon}</div>
-                {job.isNew ? <span className="jobsNewBadge">New</span> : null}
-              </div>
-              <div className="jobsCardBody">
-                <h2>{job.title}</h2>
-                <p className="jobsCompany">{job.company}</p>
-                <div className="jobsTags">
-                  {job.tags.map((tag) => (
-                    <span key={tag}>{tag}</span>
-                  ))}
-                </div>
-                <p className="jobsDescription">{job.description}</p>
-              </div>
-              <div className="jobsCardActions">
-                <a href="/jobs">상세 보기</a>
-                <button type="button">AI 적합도 분석</button>
-              </div>
-            </article>
-          ))}
-        </section>
+        {loading && (
+          <div className="jobsLoading" style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "200px", fontSize: "1.1rem", fontWeight: "bold", color: "var(--home-secondary)" }}>
+            채용공고를 불러오는 중입니다...
+          </div>
+        )}
+
+        {error && (
+          <div className="jobsError" style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "200px", fontSize: "1.1rem", fontWeight: "bold", color: "red" }}>
+            오류: {error}
+          </div>
+        )}
+
+        {!loading && !error && (
+          <section className="jobsGrid" aria-label="채용공고 목록">
+            {jobs.map((job) => {
+              const tags = [
+                job.location,
+                job.careerLevel,
+                ...(job.skills || [])
+              ].filter((tag) => typeof tag === "string" && tag.trim() !== "");
+
+              return (
+                <article className="jobsCard" key={job.id || `${job.company}-${job.title}`}>
+                  <div className="jobsCardTop">
+                    <div className="jobsCardIcon">{getIconText(job)}</div>
+                  </div>
+                  <div className="jobsCardBody">
+                    <h2>{job.title}</h2>
+                    <p className="jobsCompany">{job.company}</p>
+                    <div className="jobsTags">
+                      {tags.map((tag) => (
+                        <span key={tag}>{tag}</span>
+                      ))}
+                    </div>
+                    <p className="jobsDescription">{job.description}</p>
+                  </div>
+                  <div className="jobsCardActions">
+                    <a href={job.sourceUrl} target="_blank" rel="noopener noreferrer">상세 보기</a>
+                    <button type="button">AI 적합도 분석</button>
+                  </div>
+                </article>
+              );
+            })}
+          </section>
+        )}
 
         <nav className="jobsPagination" aria-label="채용공고 페이지">
           <button type="button" aria-label="이전 페이지">
