@@ -1,62 +1,35 @@
 import { Pool } from "pg";
+import { resolveDatabaseUrl } from "../database/connection.js";
 
 let pool: Pool | null = null;
 
 export type PostgresStatus = "not_configured" | "connected" | "unavailable";
 
-export type PostgresHealth = {
-  status: PostgresStatus;
-  error?: {
-    code?: string;
-    message: string;
-  };
-};
-
 export function getPostgresPool(): Pool | null {
-  if (!process.env.DATABASE_URL) {
+  const connectionString = resolveDatabaseUrl();
+
+  if (!connectionString) {
     return null;
   }
 
   pool ??= new Pool({
-    connectionString: process.env.DATABASE_URL
+    connectionString
   });
 
   return pool;
 }
 
-export async function checkPostgresConnection(): Promise<PostgresHealth> {
+export async function checkPostgresConnection(): Promise<PostgresStatus> {
   const currentPool = getPostgresPool();
 
   if (!currentPool) {
-    return {
-      status: "not_configured"
-    };
+    return "not_configured";
   }
 
   try {
     await currentPool.query("select 1");
-    return {
-      status: "connected"
-    };
-  } catch (error) {
-    return {
-      status: "unavailable",
-      error: normalizePostgresError(error)
-    };
+    return "connected";
+  } catch {
+    return "unavailable";
   }
-}
-
-function normalizePostgresError(error: unknown): PostgresHealth["error"] {
-  if (error instanceof Error) {
-    const maybeCode = "code" in error ? String(error.code) : undefined;
-
-    return {
-      code: maybeCode,
-      message: error.message
-    };
-  }
-
-  return {
-    message: "Unknown PostgreSQL connection error"
-  };
 }

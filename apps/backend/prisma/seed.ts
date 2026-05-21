@@ -3,13 +3,14 @@ import fs from "node:fs/promises";
 import { resolve } from "node:path";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { resolveDatabaseUrl } from "../src/database/connection.js";
 import { PrismaClient } from "../src/generated/prisma/client.js";
 import type { CollectedJobPosting } from "../src/types/job.js";
 
 config({ path: resolve(process.cwd(), "../../.env") });
 config({ path: resolve(process.cwd(), ".env"), override: true });
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString = resolveDatabaseUrl();
 
 if (!connectionString) {
   throw new Error("DATABASE_URL이 없어 Prisma seed를 실행할 수 없습니다.");
