@@ -184,22 +184,28 @@ model AuditLog {
 
 ## 6. 회원가입 기능 구현
 
-- [ ] 회원가입 API 엔드포인트 생성
-- [ ] 입력값 검증
-  - [ ] email 형식 검증
-  - [ ] password 길이 검증, 8자 이상
-  - [ ] password 복잡도 검증
-  - [ ] name 길이 검증, utf-8기준 02자~30자
-- [ ] 이메일 중복 확인
-- [ ] `deletedAt`이 있는 기존 계정 처리 정책 반영
-- [ ] 비밀번호 해싱 처리
+- [x] 회원가입 API 엔드포인트 생성
+- [x] 입력값 검증
+  - [x] email 형식 검증
+  - [x] password 길이 검증, 8자 이상
+  - [x] password 복잡도 검증
+  - [x] name 길이 검증, utf-8기준 02자~30자
+- [x] 이메일 중복 확인
+- [x] `deletedAt`이 있는 기존 계정 처리 정책 반영
+- [x] 비밀번호 해싱 처리
   - [ ] bcrypt 또는 argon2 사용
-- [ ] User 생성
-- [ ] `createdBy` 처리
-- [ ] 회원가입 성공 AuditLog 저장
-- [ ] 회원가입 실패 AuditLog 저장 여부 검토
-- [ ] 이메일 인증 기능 필요 여부 검토
-- [ ] 회원가입 응답에서 `passwordHash` 제외
+- [x] User 생성
+- [x] `createdBy` 처리
+- [x] 회원가입 성공 AuditLog 저장
+- [x] 회원가입 실패 AuditLog 저장 여부 검토
+- [x] 이메일 인증 기능 필요 여부 검토
+- [x] 회원가입 응답에서 `passwordHash` 제외
+
+> 회원가입 엔드포인트는 `POST /api/auth/signup`이다.
+> 비밀번호는 추가 의존성 없이 Node.js 내장 `crypto.scrypt`로 salt hash 처리한다. bcrypt/argon2 전환은 의존성 추가 승인 후 진행한다.
+> `users.email` 전역 unique 정책 때문에 soft delete된 기존 계정도 재가입을 차단한다.
+> 회원가입 실패 AuditLog는 실패 사유에 개인정보가 섞일 수 있어 rate limit/abuse 정책과 함께 확정한다.
+> 이메일 인증은 현재 필수 가입 플로우에서 제외하고 `emailVerifiedAt: null` 상태로 시작한다.
 
 ---
 

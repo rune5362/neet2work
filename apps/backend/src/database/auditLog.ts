@@ -1,5 +1,7 @@
 import { Prisma, type AuditAction, type PrismaClient } from "../generated/prisma/client.js";
 
+type AuditLogClient = Pick<PrismaClient, "auditLog">;
+
 type AuditLogInput = {
   actorId?: string | null;
   targetId?: string | null;
@@ -11,7 +13,7 @@ type AuditLogInput = {
   metadata?: Prisma.InputJsonValue | null;
 };
 
-export async function createAuditLog(prisma: PrismaClient, input: AuditLogInput) {
+export async function createAuditLog(prisma: AuditLogClient, input: AuditLogInput) {
   return prisma.auditLog.create({
     data: {
       actorId: input.actorId ?? null,

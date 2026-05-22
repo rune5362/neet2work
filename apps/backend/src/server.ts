@@ -4,7 +4,9 @@ import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ZodError } from "zod";
+import { HttpError } from "./errors/httpError.js";
 import { analyzeRouter } from "./routes/analyze.route.js";
+import { authRouter } from "./routes/auth.route.js";
 import { jobsRouter } from "./routes/jobs.route.js";
 import { checkPostgresConnection } from "./storage/postgres.js";
 
@@ -68,6 +70,7 @@ app.get("/health", async (_req, res, next) => {
 
 app.use("/api/jobs", jobsRouter);
 app.use("/api/analyze", analyzeRouter);
+app.use("/api/auth", authRouter);
 
 app.use(
   (
@@ -83,6 +86,13 @@ app.use(
         message: "요청 데이터 형식이 올바르지 않습니다.",
         issues: err.issues,
         fallback: true
+      });
+      return;
+    }
+
+    if (err instanceof HttpError) {
+      res.status(err.statusCode).json({
+        message: err.message
       });
       return;
     }
