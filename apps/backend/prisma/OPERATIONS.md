@@ -54,6 +54,10 @@ Current operational indexes:
 - `job_postings.deleted_at`: soft delete filtering.
 - `job_postings.country`: country filtering.
 - `job_postings.source, job_postings.collected_at`: source-based collection queries.
+- `job_postings.status, job_postings.last_seen_at`: lifecycle filtering and collection freshness review.
+- `job_postings.job_category`: category filtering.
+- `job_postings.career_stage`: career stage filtering.
+- `job_postings.active_*`: partial public search indexes for active postings.
 - `resume_analyses.created_at`: analysis history ordering.
 - `resume_analyses.deleted_at`: soft delete filtering.
 - `resume_analyses.job_id`: lookup by job posting.

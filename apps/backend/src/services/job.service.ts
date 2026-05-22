@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { JobPostingStatus } from "../generated/prisma/client.js";
 import { getPrismaClient } from "../database/prisma.js";
 import { activeRecordWhere } from "../database/softDelete.js";
 import type { JobPosting } from "../types/job.js";
@@ -44,6 +45,12 @@ type PublicJobRow = {
   deadlineText: string | null;
   applyMethod: string | null;
   collectedAt: Date | null;
+  status: JobPostingStatus;
+  firstSeenAt: Date;
+  lastSeenAt: Date | null;
+  closedAt: Date | null;
+  jobCategory: string | null;
+  careerStage: string | null;
 };
 
 function toJobPosting(job: PublicJobRow): JobPosting {
@@ -65,7 +72,13 @@ function toJobPosting(job: PublicJobRow): JobPosting {
     salaryText: job.salaryText,
     deadlineText: job.deadlineText,
     applyMethod: job.applyMethod,
-    collectedAt: job.collectedAt?.toISOString() ?? null
+    collectedAt: job.collectedAt?.toISOString() ?? null,
+    status: job.status,
+    firstSeenAt: job.firstSeenAt.toISOString(),
+    lastSeenAt: job.lastSeenAt?.toISOString() ?? null,
+    closedAt: job.closedAt?.toISOString() ?? null,
+    jobCategory: job.jobCategory,
+    careerStage: job.careerStage
   };
 }
 
@@ -75,7 +88,10 @@ export async function getJobs(): Promise<JobPosting[]> {
   if (prisma) {
     try {
       const jobs = await prisma.jobPosting.findMany({
-        where: activeRecordWhere,
+        where: {
+          ...activeRecordWhere,
+          status: JobPostingStatus.active
+        },
         select: {
           id: true,
           title: true,
@@ -94,7 +110,13 @@ export async function getJobs(): Promise<JobPosting[]> {
           salaryText: true,
           deadlineText: true,
           applyMethod: true,
-          collectedAt: true
+          collectedAt: true,
+          status: true,
+          firstSeenAt: true,
+          lastSeenAt: true,
+          closedAt: true,
+          jobCategory: true,
+          careerStage: true
         },
         orderBy: [{ collectedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
         take: 50
