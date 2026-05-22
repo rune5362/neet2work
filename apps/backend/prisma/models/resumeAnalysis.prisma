@@ -1,0 +1,16 @@
+model ResumeAnalysis {
+  id                 String       @id @default(cuid())
+  jobId              String       @map("job_id")
+  resumeText         String       @map("resume_text")
+  matchScore         Int          @map("match_score")
+  strengths          String[]     @default([])
+  weaknesses         String[]     @default([])
+  missingKeywords    String[]     @default([]) @map("missing_keywords")
+  rewriteGuides      String[]     @default([]) @map("rewrite_guides")
+  suggestedSentences String[]     @default([]) @map("suggested_sentences")
+  mode               AnalysisMode @default(mock)
+  createdAt          DateTime     @default(now()) @map("created_at")
+  job                JobPosting   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("resume_analyses")
+}
