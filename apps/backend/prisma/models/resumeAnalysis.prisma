@@ -10,9 +10,15 @@ model ResumeAnalysis {
   suggestedSentences String[]     @default([]) @map("suggested_sentences")
   mode               AnalysisMode @default(mock)
   createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @default(now()) @updatedAt @map("updated_at")
+  deletedAt          DateTime?    @map("deleted_at")
+  createdBy          String?      @map("created_by")
+  updatedBy          String?      @map("updated_by")
+  deletedBy          String?      @map("deleted_by")
   job                JobPosting   @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
+  @@index([deletedAt])
   @@index([jobId])
   @@map("resume_analyses")
 }

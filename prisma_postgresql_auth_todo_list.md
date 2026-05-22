@@ -28,19 +28,22 @@
 
 ## 2. 공통 컬럼 설계
 
-- [ ] 모든 주요 테이블에 공통 컬럼 포함, 단 기존 테이블에 칼럼을 추가 할 경우 nullable 적용
-  - [ ] `id`
-  - [ ] `createdAt`
-  - [ ] `updatedAt`
-  - [ ] `deletedAt`
-  - [ ] `createdBy`
-  - [ ] `updatedBy`
-  - [ ] `deletedBy`
-- [ ] Prisma schema에 공통 컬럼 반영
-- [ ] `createdAt` 기본값 설정
-- [ ] `updatedAt` 자동 갱신 설정
-- [ ] `deletedAt` nullable 처리
-- [ ] soft delete 대상 테이블 기준 정의
+- [x] 모든 주요 테이블에 공통 컬럼 포함, 단 기존 테이블에 칼럼을 추가 할 경우 nullable 적용
+  - [x] `id`
+  - [x] `createdAt`
+  - [x] `updatedAt`
+  - [x] `deletedAt`
+  - [x] `createdBy`
+  - [x] `updatedBy`
+  - [x] `deletedBy`
+- [x] Prisma schema에 공통 컬럼 반영
+- [x] `createdAt` 기본값 설정
+- [x] `updatedAt` 자동 갱신 설정
+- [x] `deletedAt` nullable 처리
+- [x] soft delete 대상 테이블 기준 정의
+
+> 공통 컬럼과 soft delete 적용 기준은 `apps/backend/prisma/OPERATIONS.md`에 정리한다.
+> 새 `User`, `AuditLog` 등 이후 모델은 생성 시점부터 공통 컬럼 기준을 따른다.
 
 ### 공통 컬럼 예시
 

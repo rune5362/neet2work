@@ -1,5 +1,5 @@
 model JobPosting {
-  id              String           @id
+  id              String           @id @default(uuid())
   title           String
   company         String
   location        String
@@ -21,12 +21,17 @@ model JobPosting {
   rawJson         Json?            @map("raw_json")
   collectedAt     DateTime?        @map("collected_at")
   createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at")
+  deletedAt       DateTime?        @map("deleted_at")
+  createdBy       String?          @map("created_by")
+  updatedBy       String?          @map("updated_by")
+  deletedBy       String?          @map("deleted_by")
   analyses        ResumeAnalysis[]
 
   @@unique([source, sourceJobId])
   @@index([country])
   @@index([createdAt])
+  @@index([deletedAt])
   @@index([source, collectedAt])
   @@map("job_postings")
 }

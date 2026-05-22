@@ -51,9 +51,11 @@ Before production deploy:
 Current operational indexes:
 
 - `job_postings.created_at`: job listing ordering and recent data review.
+- `job_postings.deleted_at`: soft delete filtering.
 - `job_postings.country`: country filtering.
 - `job_postings.source, job_postings.collected_at`: source-based collection queries.
 - `resume_analyses.created_at`: analysis history ordering.
+- `resume_analyses.deleted_at`: soft delete filtering.
 - `resume_analyses.job_id`: lookup by job posting.
 
 Planned authentication indexes:
@@ -61,6 +63,29 @@ Planned authentication indexes:
 - `users.email`: unique login identifier.
 - `users.deleted_at`: soft delete filtering.
 - `users.created_at`: user listing and audit review ordering.
+
+## Common Columns
+
+Major tables should use the same audit and lifecycle columns:
+
+- `id`: primary key.
+- `created_at`: creation timestamp.
+- `updated_at`: last update timestamp.
+- `deleted_at`: nullable soft delete marker.
+- `created_by`: nullable actor id for creation.
+- `updated_by`: nullable actor id for updates.
+- `deleted_by`: nullable actor id for soft delete.
+
+For existing tables, newly added actor and soft delete columns stay nullable to avoid unsafe backfills. New tables should include these columns from the first migration unless the table is append-only infrastructure data.
+
+## Soft Delete Scope
+
+Soft delete applies to user-owned or user-visible domain data. Current scope:
+
+- `job_postings`
+- `resume_analyses`
+
+Future authentication tables such as `users` should also include `deleted_at` and `deleted_by`. Append-only audit logs should not be soft deleted by default.
 
 ## Backup Policy
 
