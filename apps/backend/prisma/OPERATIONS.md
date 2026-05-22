@@ -60,6 +60,10 @@ Current operational indexes:
 - `users.email`: unique login identifier.
 - `users.deleted_at`: soft delete filtering.
 - `users.created_at`: user listing and audit review ordering.
+- `audit_logs.actor_id`: actor history lookup.
+- `audit_logs.target_id`: target history lookup.
+- `audit_logs.action`: event type filtering.
+- `audit_logs.created_at`: audit timeline ordering.
 
 ## Common Columns
 
@@ -95,6 +99,23 @@ Soft delete rules:
 - Deleted emails are not reusable while `users.email` remains globally unique.
 - Account recovery is allowed by clearing `deleted_at`/`deleted_by` and restoring a non-deleted status through an explicit recovery flow.
 - Personal data masking for deleted users is deferred until the withdrawal flow is implemented.
+
+## Audit Logs
+
+Audit logs are append-only security records. Do not store passwords, password hashes, access tokens, refresh tokens, raw credentials, or full request/response bodies in `audit_logs.metadata`.
+
+Required authentication events:
+
+- `USER_SIGNED_UP`
+- `LOGIN_SUCCEEDED`
+- `LOGIN_FAILED`
+- `LOGGED_OUT`
+- `PASSWORD_CHANGED`
+- `USER_WITHDREW`
+- `ACCOUNT_LOCKED`
+- `ACCOUNT_UNLOCKED`
+
+Use `actor_id` for the authenticated user performing an action. Use `target_id` for the affected user or record. For anonymous login failures, keep `actor_id` null and put only non-sensitive summary metadata, such as normalized reason codes.
 
 ## Backup Policy
 
