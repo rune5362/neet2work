@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getPrismaClient } from "../database/prisma.js";
+import { activeRecordWhere } from "../database/softDelete.js";
 import type { JobPosting } from "../types/job.js";
 
 const serviceDir = path.dirname(fileURLToPath(import.meta.url));
@@ -74,6 +75,7 @@ export async function getJobs(): Promise<JobPosting[]> {
   if (prisma) {
     try {
       const jobs = await prisma.jobPosting.findMany({
+        where: activeRecordWhere,
         select: {
           id: true,
           title: true,

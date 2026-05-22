@@ -85,6 +85,17 @@ Soft delete applies to user-owned or user-visible domain data. Current scope:
 
 Append-only audit logs should not be soft deleted by default.
 
+Soft delete rules:
+
+- Do not call Prisma `delete` or `deleteMany` for scoped tables in application code.
+- Set `deleted_at` and `deleted_by` instead.
+- Set `users.status` to `DELETED` when a user leaves.
+- Default user-facing reads must include `deleted_at IS NULL`.
+- Login lookup must require `users.deleted_at IS NULL` and `users.status = 'ACTIVE'`.
+- Deleted emails are not reusable while `users.email` remains globally unique.
+- Account recovery is allowed by clearing `deleted_at`/`deleted_by` and restoring a non-deleted status through an explicit recovery flow.
+- Personal data masking for deleted users is deferred until the withdrawal flow is implemented.
+
 ## Backup Policy
 
 Production PostgreSQL must have automated backups enabled before accepting user data.

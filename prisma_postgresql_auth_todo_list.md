@@ -117,16 +117,21 @@ enum UserStatus {
 
 ## 4. Soft Delete 적용
 
-- [ ] 실제 DELETE 대신 `deletedAt` 업데이트 방식 사용
-- [ ] 회원 탈퇴 시 `User` 레코드 물리 삭제 금지
-- [ ] `deletedAt`, `deletedBy` 값 저장
-- [ ] 탈퇴 회원 로그인 차단 처리
-- [ ] 기본 조회 조건에 `deletedAt: null` 적용
-- [ ] 이메일 재가입 정책 결정
-  - [ ] 기존 이메일 재사용 허용 여부
-  - [ ] 탈퇴 계정 복구 가능 여부
-- [ ] soft delete된 데이터의 개인정보 마스킹 여부 검토
-- [ ] Prisma query helper 또는 repository layer에서 soft delete 필터 공통화
+- [x] 실제 DELETE 대신 `deletedAt` 업데이트 방식 사용
+- [x] 회원 탈퇴 시 `User` 레코드 물리 삭제 금지
+- [x] `deletedAt`, `deletedBy` 값 저장
+- [x] 탈퇴 회원 로그인 차단 처리
+- [x] 기본 조회 조건에 `deletedAt: null` 적용
+- [x] 이메일 재가입 정책 결정
+  - [x] 기존 이메일 재사용 허용 여부
+  - [x] 탈퇴 계정 복구 가능 여부
+- [x] soft delete된 데이터의 개인정보 마스킹 여부 검토
+- [x] Prisma query helper 또는 repository layer에서 soft delete 필터 공통화
+
+> soft delete 기준은 `apps/backend/src/database/softDelete.ts`와 `apps/backend/prisma/OPERATIONS.md`에 둔다.
+> `users.email`은 전역 unique이므로 탈퇴 계정의 이메일 재가입은 기본 차단한다.
+> 탈퇴 계정 복구는 `deletedAt`, `deletedBy`를 비우고 `status`를 복구하는 별도 플로우에서만 허용한다.
+> 개인정보 마스킹은 회원 탈퇴 API 구현 시 실제 보존/파기 정책과 함께 적용한다.
 
 ---
 
