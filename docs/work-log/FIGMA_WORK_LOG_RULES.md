@@ -7,16 +7,24 @@ Use this file before editing or syncing the Figma work log.
 - `docs/work-log/WORK_SESSIONS.md` is the current-day detailed session-note source.
 - `docs/work-log/WORK_LOG.md` is the current-day short Figma-facing summary source.
 - `docs/work-log/archive/YYYY-MM-DD/` stores archived daily snapshots.
+- The canonical work log root is the main `sungho` worktree. Work log scripts
+  resolve that root automatically even when they are run from linked worktrees
+  such as `neet2work-codex`, `neet2work-antigravity`, or Codex app worktrees.
+- Override the root only when needed with `NEET2WORK_WORK_LOG_ROOT` or
+  `--work-log-root <repo-root>`.
 - The Figma text layer is named `WORK_LOG`.
 - The helper plugin lives in `tools/figma-work-log-plugin`.
 
 ## Recording Workflow
 
 - Use KST dates.
+- Write work session notes and Figma summaries in Korean.
 - Before writing session notes, run `corepack pnpm run worklog:prepare`.
 - Active `docs/work-log/WORK_SESSIONS.md` and `docs/work-log/WORK_LOG.md`
   should contain only the current KST date. Older date sections belong in
   `docs/work-log/archive/`.
+- If manually editing from a linked worktree, edit the canonical main worktree
+  work log files, not the local worktree copy.
 - Before the final response after any meaningful repo work, append a concise
   record of what changed and what was verified to
   `docs/work-log/WORK_SESSIONS.md`, unless the user explicitly asks not to.
@@ -36,6 +44,8 @@ Use this file before editing or syncing the Figma work log.
 
 ## Figma Summary Budget
 
+- Write bullets in Korean. `worklog:export` rejects Figma summary bullets that
+  contain no Korean text.
 - Default to the number of bullets needed to capture the actual day, usually
   3-6 bullets for meaningful work and fewer for tiny updates.
 - Do not force the summary into exactly 3 lines.

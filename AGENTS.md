@@ -71,6 +71,14 @@ Prefer source and helper files over generated output. Do not edit
 
 - For Figma work log tasks, read `docs/work-log/FIGMA_WORK_LOG_RULES.md` first.
 - Before writing work session notes, run `corepack pnpm run worklog:prepare`.
+- Write work session notes and Figma-facing summaries in Korean.
+- Work log scripts resolve the canonical main `sungho` worktree automatically.
+  When working from linked worktrees such as `neet2work-codex`,
+  `neet2work-antigravity`, or Codex app worktrees, do not keep separate local
+  worktree logs; record work in the canonical `docs/work-log` files.
+- If a manual edit is unavoidable from a linked worktree, edit
+  `C:\lsh\git\neet2work\docs\work-log`, or set `NEET2WORK_WORK_LOG_ROOT` to
+  the canonical repo root before running work log commands.
 - Before the final response after any meaningful repo work, append a concise
   record of what changed and what was verified to
   `docs/work-log/WORK_SESSIONS.md`, unless the user explicitly asks not to.

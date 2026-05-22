@@ -2,9 +2,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { todayKstIso } from './export-work-log.mjs';
+import { resolveWorkLogDir } from './work-log-paths.mjs';
 
-const DOCS_DIR = resolve(process.cwd(), 'docs');
-const WORK_LOG_DIR = resolve(DOCS_DIR, 'work-log');
+const WORK_LOG_DIR = resolveWorkLogDir();
 const ARCHIVE_DIR = resolve(WORK_LOG_DIR, 'archive');
 
 const FILES = [
@@ -34,7 +34,7 @@ const FILES = [
         '',
         '### Figma Summary',
         '',
-        '<!-- Keep this concise; use as many bullets as the day needs. Details stay in WORK_SESSIONS.md. -->',
+        '<!-- 피그마에는 짧은 한국어 요약만 남긴다. 자세한 내용은 WORK_SESSIONS.md에 기록한다. -->',
         '',
       ].join('\n');
     },

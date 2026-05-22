@@ -1,12 +1,14 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveWorkLogDir } from './work-log-paths.mjs';
 
 const KST_TIME_ZONE = 'Asia/Seoul';
-const WORK_LOG_DIR = resolve(process.cwd(), 'docs', 'work-log');
+const WORK_LOG_DIR = resolveWorkLogDir();
 const DEFAULT_WORK_LOG_PATH = resolve(WORK_LOG_DIR, 'WORK_LOG.md');
 const MAX_FIGMA_BULLETS = 10;
 const MAX_FIGMA_BULLET_LENGTH = 100;
+const HANGUL_PATTERN = /[가-힣]/;
 
 function readArg(name) {
   const prefix = `--${name}=`;
@@ -125,6 +127,13 @@ function validateFigmaLines({ date, figmaLines, sourcePath }) {
   if (longLine) {
     throw new Error(
       `Figma Summary bullet for ${date} is too long in ${sourcePath}; keep each bullet under ${MAX_FIGMA_BULLET_LENGTH} characters: ${longLine}`,
+    );
+  }
+
+  const nonKoreanLine = figmaLines.find((line) => !HANGUL_PATTERN.test(line));
+  if (nonKoreanLine) {
+    throw new Error(
+      `Figma Summary bullet for ${date} must be written in Korean in ${sourcePath}: ${nonKoreanLine}`,
     );
   }
 }
