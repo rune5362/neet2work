@@ -2111,6 +2111,234 @@ textarea:focus {
   color: white;
 }
 
+.authPage {
+  --home-canvas: #f8fafc;
+  --home-surface-low: #f2f3ff;
+  --home-surface-container: #ecedfa;
+  --home-primary: #0050cb;
+  --home-primary-container: #0066ff;
+  --home-on-primary-container: #f8f7ff;
+  --home-ink: #0a1128;
+  --home-secondary: #575d78;
+  --home-body-muted: #64748b;
+  --home-hairline: #e2e8f0;
+  min-height: 100vh;
+  background: var(--home-canvas);
+  color: #191b24;
+  font-family:
+    Inter,
+    "Pretendard",
+    "Malgun Gothic",
+    Arial,
+    sans-serif;
+}
+
+.authChoiceSection,
+.signupSection {
+  width: min(960px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 136px 0 96px;
+}
+
+.authHeader {
+  max-width: 720px;
+  margin-bottom: 32px;
+}
+
+.authHeader > span {
+  display: inline-flex;
+  margin-bottom: 12px;
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: var(--home-surface-container);
+  color: var(--home-primary);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.authHeader h1 {
+  margin: 0 0 12px;
+  color: var(--home-ink);
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.authHeader p {
+  margin: 0;
+  color: var(--home-secondary);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.authChoiceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.authChoiceCard,
+.signupForm {
+  border: 1px solid var(--home-hairline);
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.authChoiceCard {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-height: 280px;
+  padding: 32px;
+}
+
+.authChoiceCard.muted {
+  background: var(--home-surface-low);
+  color: var(--home-body-muted);
+}
+
+.authChoiceIcon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--home-primary-container);
+  color: white;
+  font-size: 1.4rem;
+  font-weight: 900;
+}
+
+.authChoiceCard.muted .authChoiceIcon {
+  background: var(--home-surface-container);
+  color: var(--home-secondary);
+}
+
+.authChoiceCard h2 {
+  margin: 8px 0 0;
+  color: var(--home-ink);
+  font-size: 1.35rem;
+}
+
+.authChoiceCard p {
+  margin: 0;
+  color: var(--home-secondary);
+  line-height: 1.6;
+}
+
+.authPrimaryButton,
+.authSecondaryButton,
+.signupForm button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 24px;
+  font-weight: 900;
+}
+
+.authPrimaryButton {
+  width: fit-content;
+  margin-top: auto;
+  background: var(--home-primary-container);
+  color: var(--home-on-primary-container);
+}
+
+.authSecondaryButton {
+  width: fit-content;
+  margin-top: auto;
+  background: #d9deeb;
+  color: var(--home-secondary);
+}
+
+.signupForm {
+  display: grid;
+  gap: 20px;
+  max-width: 720px;
+  padding: 32px;
+}
+
+.signupFormGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.signupForm label {
+  display: grid;
+  gap: 8px;
+}
+
+.signupForm label > span {
+  color: var(--home-body-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.signupForm input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  padding: 0 14px;
+  background: var(--home-surface-low);
+  color: #191b24;
+}
+
+.signupForm input:focus {
+  outline: 0;
+  border-color: var(--home-primary-container);
+  box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.14);
+}
+
+.signupForm em {
+  color: #b3262b;
+  font-size: 0.78rem;
+  font-style: normal;
+}
+
+.signupForm button {
+  width: 100%;
+  margin-top: 4px;
+  background: var(--home-primary-container);
+  color: var(--home-on-primary-container);
+  cursor: pointer;
+}
+
+.signupForm button:disabled {
+  cursor: wait;
+  background: #9fb8ef;
+}
+
+.authError,
+.authSuccess {
+  border-radius: 8px;
+  padding: 14px 16px;
+  line-height: 1.5;
+}
+
+.authError {
+  border: 1px solid #f1aeb5;
+  background: #fff5f5;
+  color: #b3262b;
+}
+
+.authSuccess {
+  display: grid;
+  gap: 2px;
+  border: 1px solid #b7ebcc;
+  background: #f0fff4;
+  color: #166534;
+}
+
+.authSuccess span {
+  font-size: 0.86rem;
+}
+
 @keyframes homePulse {
   0%,
   100% {
@@ -2247,6 +2475,23 @@ textarea:focus {
   .homeFooter {
     padding-right: 24px;
     padding-left: 24px;
+  }
+
+  .authChoiceSection,
+  .signupSection {
+    width: min(100% - 24px, 1280px);
+    padding-top: 96px;
+    padding-bottom: 64px;
+  }
+
+  .authChoiceGrid,
+  .signupFormGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .authChoiceCard,
+  .signupForm {
+    padding: 24px;
   }
 
   .jobsContent {
