@@ -80,7 +80,7 @@ Docker를 쓰지 않는 경우에는 로컬 PostgreSQL 17을 설치하고 `.env`
 
 ## DB 변경 규칙
 
-스키마 변경은 `apps/backend/prisma/schema.prisma`에서 시작합니다.
+스키마 변경은 `apps/backend/prisma/schema.prisma` 또는 `apps/backend/prisma/models/*.prisma`에서 시작합니다.
 
 ```bash
 corepack pnpm --filter @neet2work/backend run db:migrate -- --name add_feature_name
@@ -90,6 +90,7 @@ corepack pnpm run db:seed
 커밋 대상:
 
 - `apps/backend/prisma/schema.prisma`
+- `apps/backend/prisma/models/*.prisma`
 - `apps/backend/prisma/migrations/`
 - 필요한 경우 `apps/backend/prisma/seed.ts`
 

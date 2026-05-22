@@ -26,6 +26,7 @@ model JobPosting {
 
   @@unique([source, sourceJobId])
   @@index([country])
+  @@index([createdAt])
   @@index([source, collectedAt])
   @@map("job_postings")
 }

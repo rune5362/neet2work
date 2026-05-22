@@ -127,6 +127,8 @@ neet2work/
 │     │  └─ sampleAnalysis.json
 │     ├─ prisma/
 │     │  ├─ migrations/
+│     │  ├─ models/
+│     │  ├─ OPERATIONS.md
 │     │  ├─ schema.prisma
 │     │  └─ seed.ts
 │     ├─ package.json
@@ -247,6 +249,11 @@ Prisma migration은 아래 구조로 관리합니다.
 ```txt
 apps/backend/prisma/
 ├─ schema.prisma
+├─ models/
+│  ├─ analysisMode.prisma
+│  ├─ jobPosting.prisma
+│  └─ resumeAnalysis.prisma
+├─ OPERATIONS.md
 ├─ seed.ts
 └─ migrations/
    ├─ migration_lock.toml

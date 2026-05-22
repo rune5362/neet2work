@@ -4,10 +4,11 @@
 
 ## 핵심 원칙
 
-- DB 구조는 `schema.prisma`와 `migrations/`로 공유합니다.
+- DB 구조는 `schema.prisma`, `models/*.prisma`, `migrations/`로 공유합니다.
 - 샘플 데이터는 `seed.ts`로 공유합니다.
 - 각 팀원의 실제 로컬 DB 데이터는 공유하지 않습니다.
 - migration 파일은 Git에 커밋합니다.
+- 개발/스테이징/운영 DB 운영 절차는 `OPERATIONS.md`를 따릅니다.
 - `src/generated/prisma/`는 `prisma generate`로 생성하므로 커밋하지 않습니다.
 
 ## 자주 쓰는 명령
@@ -41,7 +42,7 @@ npm run db:migrate -w apps/backend
 
 ## 새 테이블/컬럼 추가 흐름
 
-1. `apps/backend/prisma/schema.prisma` 수정
+1. `apps/backend/prisma/schema.prisma` 또는 `apps/backend/prisma/models/*.prisma` 수정
 2. migration 생성 및 로컬 DB 적용
 
 ```bash
@@ -56,7 +57,7 @@ npm run db:migrate -- --name add_some_feature
 
 3. 생성된 `prisma/migrations/` 폴더 확인
 4. 필요한 seed 데이터가 있으면 `prisma/seed.ts` 수정
-5. `schema.prisma`, migration, seed 변경사항을 함께 커밋
+5. `schema.prisma`, `models/*.prisma`, migration, seed 변경사항을 함께 커밋
 
 ## 동료가 만든 migration 받기
 

@@ -6,26 +6,29 @@
 
 ## 1. 운영용 DB 설계
 
-- [ ] PostgreSQL 운영용 DB 스키마 설계
-- [ ] 개발 / 스테이징 / 운영 DB 환경 분리
-- [ ] Prisma datasource 설정
-- [ ] DATABASE_URL 환경변수 구성
-- [ ] 운영 DB 접근 권한 최소화
-- [ ] DB 마이그레이션 전략 수립
-  - [ ] 개발 환경: `prisma migrate dev`
-  - [ ] 운영 환경: `prisma migrate deploy`
+- [x] PostgreSQL 운영용 DB 스키마 설계
+- [x] 개발 / 스테이징 / 운영 DB 환경 분리
+- [x] Prisma datasource 설정
+- [x] DATABASE_URL 환경변수 구성
+- [x] 운영 DB 접근 권한 최소화
+- [x] DB 마이그레이션 전략 수립
+  - [x] 개발 환경: `prisma migrate dev`
+  - [x] 운영 환경: `prisma migrate deploy`
 - [ ] 주요 테이블 인덱스 설계
   - [ ] `email` unique index
   - [ ] `deletedAt` 조회용 index
-  - [ ] `createdAt` 정렬용 index
-- [ ] 운영 환경 백업 정책 수립
-- [ ] DB 장애 복구 시나리오 정리
+  - [x] `createdAt` 정렬용 index
+- [x] 운영 환경 백업 정책 수립
+- [x] DB 장애 복구 시나리오 정리
+
+> 운영 DB 절차와 인덱스 정책은 `apps/backend/prisma/OPERATIONS.md`에 정리한다.
+> `email` unique index와 `deletedAt` 조회용 index는 `User` 모델 및 soft delete 컬럼 추가 시점에 함께 적용한다.
 
 ---
 
 ## 2. 공통 컬럼 설계
 
-- [ ] 모든 주요 테이블에 공통 컬럼 포함
+- [ ] 모든 주요 테이블에 공통 컬럼 포함, 단 기존 테이블에 칼럼을 추가 할 경우 nullable 적용
   - [ ] `id`
   - [ ] `createdAt`
   - [ ] `updatedAt`

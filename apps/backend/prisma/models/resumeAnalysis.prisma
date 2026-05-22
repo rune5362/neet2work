@@ -12,5 +12,7 @@ model ResumeAnalysis {
   createdAt          DateTime     @default(now()) @map("created_at")
   job                JobPosting   @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
+  @@index([createdAt])
+  @@index([jobId])
   @@map("resume_analyses")
 }
