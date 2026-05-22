@@ -187,9 +187,9 @@ model AuditLog {
 - [ ] 회원가입 API 엔드포인트 생성
 - [ ] 입력값 검증
   - [ ] email 형식 검증
-  - [ ] password 길이 검증
+  - [ ] password 길이 검증, 8자 이상
   - [ ] password 복잡도 검증
-  - [ ] name 길이 검증
+  - [ ] name 길이 검증, utf-8기준 02자~30자
 - [ ] 이메일 중복 확인
 - [ ] `deletedAt`이 있는 기존 계정 처리 정책 반영
 - [ ] 비밀번호 해싱 처리
