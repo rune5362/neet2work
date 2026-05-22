@@ -57,9 +57,6 @@ Current operational indexes:
 - `resume_analyses.created_at`: analysis history ordering.
 - `resume_analyses.deleted_at`: soft delete filtering.
 - `resume_analyses.job_id`: lookup by job posting.
-
-Planned authentication indexes:
-
 - `users.email`: unique login identifier.
 - `users.deleted_at`: soft delete filtering.
 - `users.created_at`: user listing and audit review ordering.
@@ -84,8 +81,9 @@ Soft delete applies to user-owned or user-visible domain data. Current scope:
 
 - `job_postings`
 - `resume_analyses`
+- `users`
 
-Future authentication tables such as `users` should also include `deleted_at` and `deleted_by`. Append-only audit logs should not be soft deleted by default.
+Append-only audit logs should not be soft deleted by default.
 
 ## Backup Policy
 

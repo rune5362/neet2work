@@ -14,9 +14,9 @@
 - [x] DB 마이그레이션 전략 수립
   - [x] 개발 환경: `prisma migrate dev`
   - [x] 운영 환경: `prisma migrate deploy`
-- [ ] 주요 테이블 인덱스 설계
-  - [ ] `email` unique index
-  - [ ] `deletedAt` 조회용 index
+- [x] 주요 테이블 인덱스 설계
+  - [x] `email` unique index
+  - [x] `deletedAt` 조회용 index
   - [x] `createdAt` 정렬용 index
 - [x] 운영 환경 백업 정책 수립
 - [x] DB 장애 복구 시나리오 정리
@@ -61,20 +61,24 @@ deletedBy String?
 
 ## 3. 사용자 테이블 설계
 
-- [ ] `User` 모델 설계
-- [ ] 이메일 로그인 기준 확정
-- [ ] `email` unique 제약조건 추가
-- [ ] `passwordHash` 컬럼 추가
-- [ ] 이름 / 닉네임 / 프로필 정보 컬럼 검토
-- [ ] 사용자 상태값 설계
-  - [ ] `ACTIVE`
-  - [ ] `INACTIVE`
-  - [ ] `SUSPENDED`
-  - [ ] `DELETED`
-- [ ] 이메일 인증 여부 컬럼 추가
-- [ ] 마지막 로그인 시간 컬럼 추가
-- [ ] 로그인 실패 횟수 컬럼 추가
-- [ ] 계정 잠금 관련 컬럼 추가 여부 검토
+- [x] `User` 모델 설계
+- [x] 이메일 로그인 기준 확정
+- [x] `email` unique 제약조건 추가
+- [x] `passwordHash` 컬럼 추가
+- [x] 이름 / 닉네임 / 프로필 정보 컬럼 검토
+- [x] 사용자 상태값 설계
+  - [x] `ACTIVE`
+  - [x] `INACTIVE`
+  - [x] `SUSPENDED`
+  - [x] `DELETED`
+- [x] 이메일 인증 여부 컬럼 추가
+- [x] 마지막 로그인 시간 컬럼 추가
+- [x] 로그인 실패 횟수 컬럼 추가
+- [x] 계정 잠금 관련 컬럼 추가 여부 검토
+
+> 로그인 식별자는 `users.email`로 고정하고 unique index를 둔다.
+> 프로필 정보는 `name`, `nickname`, `profileImageUrl` nullable 컬럼으로 시작한다.
+> 계정 잠금은 `lockedUntil` nullable 컬럼으로 설계하고, 실제 잠금 정책은 로그인 기능 구현 시 확정한다.
 
 ### User 모델 예시
 
