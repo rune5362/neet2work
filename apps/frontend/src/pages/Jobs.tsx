@@ -121,7 +121,7 @@ export function Jobs() {
       .catch((err) => {
         if (isMounted) {
           console.warn("API 페칭 실패, 폴백 더미 데이터 모드로 진입합니다.", err);
-          setError("서버 및 데이터베이스 연결에 실패했습니다. 현재 화면에 표시된 공고는 데모용 오프라인(더미) 데이터입니다.");
+          setError("API 서버 연결에 실패했습니다. 현재 화면에 표시된 공고는 데모용 오프라인(더미) 데이터입니다.");
           setJobs(DUMMY_JOBS);
           setIsFallbackMode(true);
           setLoading(false);
@@ -200,7 +200,7 @@ export function Jobs() {
             <span style={{ fontSize: "1.5rem" }}>⚠️</span>
             <div>
               <h4 style={{ margin: "0 0 4px 0", color: "#e03131", fontWeight: "700", fontSize: "0.95rem" }}>
-                데이터베이스 연결 지연 및 네트워크 장애 안내
+                API 서버 연결 지연 및 네트워크 장애 안내
               </h4>
               <p style={{ margin: "0", color: "#495057", fontSize: "0.85rem", lineHeight: "1.4" }}>
                 {error}

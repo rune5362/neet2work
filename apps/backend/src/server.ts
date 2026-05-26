@@ -21,12 +21,13 @@ const app = express();
 
 const PORT = Number(process.env.PORT) || 3000;
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+const allowedClientOrigins = CLIENT_URL.split(",").map((origin) => origin.trim());
 const NODE_ENV = process.env.NODE_ENV || "development";
 const isDevelopment = NODE_ENV === "development";
 
 app.use(
   cors({
-    origin: CLIENT_URL,
+    origin: allowedClientOrigins,
     credentials: true
   })
 );
