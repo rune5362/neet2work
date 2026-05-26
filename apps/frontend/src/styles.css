@@ -715,6 +715,90 @@ textarea:focus {
   width: auto;
 }
 
+.homeNavMenu {
+  position: relative;
+  display: none;
+}
+
+.homeMenuButton {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.homeMenuButton:hover,
+.homeMenuButton[aria-expanded="true"] {
+  background: var(--home-surface-container);
+}
+
+.homeMenuButton span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--home-secondary);
+}
+
+.homeNavDropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 60;
+  display: grid;
+  min-width: 148px;
+  overflow: hidden;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+}
+
+.homeNavDropdown a,
+.homeNavDropdown button {
+  border: 0;
+  padding: 12px 14px;
+  background: white;
+  color: var(--home-ink);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.homeNavDropdown a:hover,
+.homeNavDropdown a.active,
+.homeNavDropdown button:hover {
+  background: var(--home-surface-low);
+  color: var(--home-primary);
+}
+
+.homeNavDropdownMobileOnly {
+  display: none;
+  border-top: 1px solid var(--home-hairline);
+}
+
+.homeNavDropdownMobileOnly a,
+.homeNavDropdownMobileOnly button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.homeNavDropdownMobileOnly svg {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
 .homeNavLinks {
   gap: 24px;
 }
@@ -2526,6 +2610,10 @@ textarea:focus {
     display: none;
   }
 
+  .homeNavMenu {
+    display: block;
+  }
+
   .homeHero {
     grid-template-columns: 1fr;
     padding-top: 112px;
@@ -2591,8 +2679,13 @@ textarea:focus {
     gap: 8px;
   }
 
-  .homeIconButton {
+  .homeIconButton,
+  .homeAccountMenu {
     display: none;
+  }
+
+  .homeNavDropdownMobileOnly {
+    display: grid;
   }
 
   .homeStartButton {

@@ -26,6 +26,7 @@ function getStoredAuthUser(): AuthUser | null {
 export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => getStoredAuthUser());
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
   const [profileImageFailed, setProfileImageFailed] = useState(false);
   const displayName = authUser?.nickname || authUser?.name || authUser?.email;
   const shouldShowProfileImage = Boolean(authUser?.profileImageUrl && !profileImageFailed);
@@ -47,6 +48,62 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
           <a href="/" aria-label="Neet2Work 홈">
             <img src={logoUrl} alt="Neet2Work Logo" />
           </a>
+          <div className="homeNavMenu">
+            <button
+              className="homeMenuButton"
+              type="button"
+              aria-expanded={isNavMenuOpen}
+              aria-haspopup="menu"
+              aria-label="메뉴 열기"
+              onClick={() => setIsNavMenuOpen((current) => !current)}
+            >
+              <span aria-hidden="true" />
+              <span aria-hidden="true" />
+              <span aria-hidden="true" />
+            </button>
+
+            {isNavMenuOpen && (
+              <div className="homeNavDropdown" role="menu">
+                <a className={active === "home" ? "active" : ""} href="/#home" role="menuitem">
+                  홈
+                </a>
+                <a className={active === "jobs" ? "active" : ""} href="/jobs" role="menuitem">
+                  채용공고
+                </a>
+                <a className={active === "analysis" ? "active" : ""} href="/ai-analysis" role="menuitem">
+                  AI 분석
+                </a>
+                <div className="homeNavDropdownMobileOnly" role="none">
+                  <a href="/#support" role="menuitem">
+                    <svg aria-hidden="true" height="20" viewBox="0 -960 960 960" width="20">
+                      <path d="M160-200v-80h80v-280q0-83 50-147.5T420-792v-28q0-25 17.5-42.5T480-880q25 0 42.5 17.5T540-820v28q80 20 130 84.5T720-560v280h80v80H160Zm320 120q-33 0-56.5-23.5T400-160h160q0 33-23.5 56.5T480-80Z" />
+                    </svg>
+                    알림
+                  </a>
+                  {authUser ? (
+                    <>
+                      <button type="button" role="menuitem" onClick={() => setIsNavMenuOpen(false)}>
+                        <svg aria-hidden="true" height="20" viewBox="0 -960 960 960" width="20">
+                          <path d="M480-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z" />
+                        </svg>
+                        내 정보
+                      </button>
+                      <button type="button" role="menuitem" onClick={handleLogout}>
+                        로그아웃
+                      </button>
+                    </>
+                  ) : (
+                    <a href="/auth" role="menuitem">
+                      <svg aria-hidden="true" height="20" viewBox="0 -960 960 960" width="20">
+                        <path d="M480-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z" />
+                      </svg>
+                      계정
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
           <div className="homeNavLinks">
             <a className={active === "home" ? "active" : ""} href="/#home">
               홈
