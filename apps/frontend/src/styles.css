@@ -756,6 +756,94 @@ textarea:focus {
   fill: currentColor;
 }
 
+.homeAccountMenu {
+  position: relative;
+}
+
+.homeAccountButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  max-width: 180px;
+  border: 0;
+  border-radius: 999px;
+  padding: 4px 10px 4px 4px;
+  background: transparent;
+  color: var(--home-secondary);
+  cursor: pointer;
+}
+
+.homeAccountButton:hover,
+.homeAccountButton[aria-expanded="true"] {
+  background: var(--home-surface-container);
+}
+
+.homeAccountButton img,
+.homeAccountFallbackIcon {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+}
+
+.homeAccountButton img {
+  object-fit: cover;
+}
+
+.homeAccountFallbackIcon {
+  display: grid;
+  place-items: center;
+  background: var(--home-surface-low);
+  color: var(--home-secondary);
+}
+
+.homeAccountFallbackIcon svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.homeAccountButton > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--home-ink);
+  font-size: 0.9rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.homeAccountDropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  display: grid;
+  min-width: 132px;
+  overflow: hidden;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+}
+
+.homeAccountDropdown button {
+  border: 0;
+  padding: 12px 14px;
+  background: white;
+  color: var(--home-ink);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.homeAccountDropdown button:hover {
+  background: var(--home-surface-low);
+}
+
 .homeStartButton,
 .homePrimaryAction,
 .homeSecondaryAction,
@@ -2228,9 +2316,49 @@ textarea:focus {
   line-height: 1.6;
 }
 
+.authChoiceLoginForm {
+  display: grid;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.authChoiceLoginForm label {
+  display: grid;
+  gap: 8px;
+}
+
+.authChoiceLoginForm label > span {
+  color: var(--home-body-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.authChoiceLoginForm input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  padding: 0 14px;
+  background: var(--home-surface-low);
+  color: #191b24;
+}
+
+.authChoiceLoginForm input:focus {
+  outline: 0;
+  border-color: var(--home-primary-container);
+  box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.14);
+}
+
+.authChoiceLoginForm em {
+  color: #b3262b;
+  font-size: 0.78rem;
+  font-style: normal;
+}
+
 .authPrimaryButton,
 .authSecondaryButton,
-.signupForm button {
+.signupForm button,
+.authChoiceLoginForm button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2314,6 +2442,19 @@ textarea:focus {
   background: #9fb8ef;
 }
 
+.authChoiceLoginForm button {
+  width: 100%;
+  margin-top: 2px;
+  background: var(--home-primary-container);
+  color: var(--home-on-primary-container);
+  cursor: pointer;
+}
+
+.authChoiceLoginForm button:disabled {
+  cursor: wait;
+  background: #9fb8ef;
+}
+
 .authError,
 .authSuccess {
   border-radius: 8px;
@@ -2337,6 +2478,26 @@ textarea:focus {
 
 .authSuccess span {
   font-size: 0.86rem;
+}
+
+.authSuccess a,
+.authFormFooter a {
+  color: var(--home-primary);
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.authSuccess a:hover,
+.authFormFooter a:hover {
+  text-decoration: underline;
+}
+
+.authFormFooter {
+  margin: -4px 0 0;
+  color: var(--home-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-align: center;
 }
 
 @keyframes homePulse {

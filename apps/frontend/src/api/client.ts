@@ -20,6 +20,11 @@ export type SignUpPayload = {
   profileImageUrl?: string;
 };
 
+export type LoginPayload = {
+  email: string;
+  password: string;
+};
+
 export type AuthUser = {
   id: string;
   email: string;
@@ -30,6 +35,14 @@ export type AuthUser = {
   emailVerifiedAt: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type LoginResult = {
+  user: AuthUser;
+  accessToken: string;
+  tokenType: "Bearer";
+  expiresIn: number;
+  refreshToken: null;
 };
 
 export async function getJobs(): Promise<JobPosting[]> {
@@ -79,5 +92,24 @@ export async function signUp(payload: SignUpPayload): Promise<AuthUser> {
   }
 
   const result = (await response.json()) as ApiItemResponse<AuthUser>;
+  return result.data;
+}
+
+export async function login(payload: LoginPayload): Promise<LoginResult> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const fallbackMessage = "로그인에 실패했습니다.";
+    const result = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(result?.message ?? fallbackMessage);
+  }
+
+  const result = (await response.json()) as ApiItemResponse<LoginResult>;
   return result.data;
 }

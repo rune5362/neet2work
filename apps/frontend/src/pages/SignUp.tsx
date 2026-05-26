@@ -118,7 +118,7 @@ export function SignUp() {
         <div className="authHeader">
           <span>회원가입</span>
           <h1 id="signup-title">Neet2Work 계정을 만드세요</h1>
-          <p>이메일 인증은 아직 요구하지 않으며, 로그인 기능은 다음 단계에서 연결합니다.</p>
+          <p>이메일 인증은 아직 요구하지 않으며, 가입 후 바로 로그인할 수 있습니다.</p>
         </div>
 
         <form className="signupForm" onSubmit={handleSubmit} noValidate>
@@ -126,6 +126,7 @@ export function SignUp() {
             <div className="authSuccess" role="status">
               <strong>회원가입이 완료되었습니다.</strong>
               <span>{successEmail}</span>
+              <a href="/login">로그인하러 가기</a>
             </div>
           )}
 
@@ -205,6 +206,10 @@ export function SignUp() {
           <button disabled={submitting} type="submit">
             {submitting ? "처리 중" : "회원가입"}
           </button>
+
+          <p className="authFormFooter">
+            이미 계정이 있나요? <a href="/login">로그인</a>
+          </p>
         </form>
       </section>
 
