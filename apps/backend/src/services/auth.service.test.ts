@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { AuditAction, UserStatus, type PrismaClient, type User } from "../generated/prisma/client.js";
 import { HttpError } from "../errors/httpError.js";
-import { hashPassword } from "./password.service.js";
-import { loginWithClient, logoutWithClient, refreshAccessTokenWithClient } from "./auth.service.js";
+import { hashPassword, verifyPassword } from "./password.service.js";
+import {
+  loginWithClient,
+  logoutWithClient,
+  refreshAccessTokenWithClient,
+  signUpSchema,
+  signUpWithClient
+} from "./auth.service.js";
 
 type MockRefreshToken = {
   id: string;
@@ -42,11 +48,22 @@ function createMockPrisma(user: User | null) {
   const auditLogs: unknown[] = [];
   const refreshTokens: MockRefreshToken[] = [];
   const state = {
+    findFirstArgs: null as unknown,
+    findUniqueArgs: null as unknown,
     user,
     refreshTokens
   };
   const tx = {
     user: {
+      create: async ({ data }: { data: Partial<User> }) => {
+        const createdUser = createUser({
+          ...data,
+          createdAt: new Date("2026-01-02T00:00:00.000Z"),
+          updatedAt: new Date("2026-01-02T00:00:00.000Z")
+        });
+        state.user = createdUser;
+        return createdUser;
+      },
       update: async ({ data }: { data: Partial<User> & { failedLoginCount?: number | { increment: number } } }) => {
         if (!state.user) {
           throw new Error("Missing user");
@@ -100,7 +117,14 @@ function createMockPrisma(user: User | null) {
   };
   const prisma = {
     user: {
-      findFirst: async () => state.user
+      findFirst: async (args: unknown) => {
+        state.findFirstArgs = args;
+        return state.user;
+      },
+      findUnique: async (args: unknown) => {
+        state.findUniqueArgs = args;
+        return state.user;
+      }
     },
     auditLog: tx.auditLog,
     refreshToken: {
@@ -122,6 +146,67 @@ function createMockPrisma(user: User | null) {
     state
   };
 }
+
+describe("auth service signup", () => {
+  it("creates a user, hashes the password, omits passwordHash, and writes an audit log", async () => {
+    const mock = createMockPrisma(null);
+
+    const result = await signUpWithClient(
+      mock.prisma,
+      {
+        email: "new.user@example.com",
+        password: "StrongPass1",
+        name: "새사용자"
+      },
+      {
+        ipAddress: "127.0.0.1",
+        userAgent: "vitest"
+      }
+    );
+
+    expect(result.email).toBe("new.user@example.com");
+    expect("passwordHash" in result).toBe(false);
+    expect(mock.state.user?.passwordHash).not.toBe("StrongPass1");
+    await expect(verifyPassword("StrongPass1", mock.state.user?.passwordHash ?? "")).resolves.toBe(true);
+    expect(mock.state.user?.createdBy).toBe(mock.state.user?.id);
+    expect(mock.auditLogs).toMatchObject([{ action: AuditAction.USER_SIGNED_UP }]);
+  });
+
+  it("rejects duplicate email signup", async () => {
+    const mock = createMockPrisma(createUser({ email: "user@example.com" }));
+
+    await expect(
+      signUpWithClient(mock.prisma, {
+        email: "user@example.com",
+        password: "StrongPass1",
+        name: "사용자"
+      })
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "이미 가입된 이메일입니다."
+    });
+  });
+
+  it("rejects invalid email input", () => {
+    const result = signUpSchema.safeParse({
+      email: "invalid-email",
+      password: "StrongPass1",
+      name: "사용자"
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects weak password input", () => {
+    const result = signUpSchema.safeParse({
+      email: "user@example.com",
+      password: "weakpass",
+      name: "사용자"
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
 
 describe("auth service login", () => {
   beforeEach(() => {
@@ -166,6 +251,71 @@ describe("auth service login", () => {
 
     expect(mock.state.user?.failedLoginCount).toBe(1);
     expect(mock.auditLogs).toMatchObject([{ action: AuditAction.LOGIN_FAILED }]);
+  });
+
+  it("rejects missing users with a generic message and audit log", async () => {
+    const mock = createMockPrisma(null);
+
+    await expect(
+      loginWithClient(mock.prisma, {
+        email: "missing@example.com",
+        password: "StrongPass1"
+      })
+    ).rejects.toMatchObject({
+      statusCode: 401,
+      message: "이메일 또는 비밀번호가 올바르지 않습니다."
+    });
+
+    expect(mock.auditLogs).toMatchObject([{ action: AuditAction.LOGIN_FAILED }]);
+  });
+
+  it("applies deletedAt null filter when looking up a login user", async () => {
+    const passwordHash = await hashPassword("StrongPass1");
+    const mock = createMockPrisma(createUser({ passwordHash }));
+
+    await loginWithClient(mock.prisma, {
+      email: "user@example.com",
+      password: "StrongPass1"
+    });
+
+    expect(mock.state.findFirstArgs).toMatchObject({
+      where: {
+        email: "user@example.com",
+        deletedAt: null
+      }
+    });
+  });
+
+  it("blocks soft deleted users when the lookup returns no active row", async () => {
+    const mock = createMockPrisma(null);
+
+    await expect(
+      loginWithClient(mock.prisma, {
+        email: "deleted@example.com",
+        password: "StrongPass1"
+      })
+    ).rejects.toMatchObject({
+      statusCode: 401,
+      message: "이메일 또는 비밀번호가 올바르지 않습니다."
+    });
+  });
+
+  it("blocks suspended users with a generic message and audit log", async () => {
+    const passwordHash = await hashPassword("StrongPass1");
+    const mock = createMockPrisma(createUser({ passwordHash, status: UserStatus.SUSPENDED }));
+
+    await expect(
+      loginWithClient(mock.prisma, {
+        email: "user@example.com",
+        password: "StrongPass1"
+      })
+    ).rejects.toMatchObject({
+      statusCode: 401,
+      message: "이메일 또는 비밀번호가 올바르지 않습니다."
+    });
+
+    expect(mock.auditLogs).toMatchObject([{ action: AuditAction.LOGIN_FAILED }]);
+    expect(mock.state.refreshTokens).toHaveLength(0);
   });
 
   it("locks an account after too many failed logins", async () => {

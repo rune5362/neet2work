@@ -193,7 +193,7 @@ model AuditLog {
 - [x] 이메일 중복 확인
 - [x] `deletedAt`이 있는 기존 계정 처리 정책 반영
 - [x] 비밀번호 해싱 처리
-  - [ ] bcrypt 또는 argon2 사용
+  - [항목제외] argon2 사용
 - [x] User 생성
 - [x] `createdBy` 처리
 - [x] 회원가입 성공 AuditLog 저장
@@ -202,7 +202,7 @@ model AuditLog {
 - [x] 회원가입 응답에서 `passwordHash` 제외
 
 > 회원가입 엔드포인트는 `POST /api/auth/signup`이다.
-> 비밀번호는 추가 의존성 없이 Node.js 내장 `crypto.scrypt`로 salt hash 처리한다. bcrypt/argon2 전환은 의존성 추가 승인 후 진행한다.
+> 비밀번호는 추가 의존성 없이 Node.js 내장 `crypto.scrypt`로 salt hash 처리한다. argon2 전환은 의존성 추가 승인 후 진행한다.
 > `users.email` 전역 unique 정책 때문에 soft delete된 기존 계정도 재가입을 차단한다.
 > 회원가입 실패 AuditLog는 실패 사유에 개인정보가 섞일 수 있어 rate limit/abuse 정책과 함께 확정한다.
 > 이메일 인증은 현재 필수 가입 플로우에서 제외하고 `emailVerifiedAt: null` 상태로 시작한다.
@@ -293,34 +293,48 @@ model AuditLog {
 
 ## 10. Prisma 설정 및 마이그레이션
 
-- [ ] Prisma schema 작성
-- [ ] User 모델 추가
-- [ ] AuditLog 모델 추가
+- [x] Prisma schema 작성
+- [x] User 모델 추가
+- [x] AuditLog 모델 추가
 - [x] RefreshToken 모델 필요 시 추가
-- [ ] Prisma migration 생성
-- [ ] 로컬 DB 마이그레이션 테스트
-- [ ] 스테이징 DB 마이그레이션 테스트
-- [ ] 운영 DB 마이그레이션 적용 절차 문서화
-- [ ] Prisma Client generate 확인
-- [ ] Seed 데이터 필요 여부 검토
+- [x] Prisma migration 생성
+- [x] 로컬 DB 마이그레이션 테스트
+- [항목제외] 스테이징 DB 마이그레이션 테스트
+- [x] 운영 DB 마이그레이션 적용 절차 문서화
+- [x] Prisma Client generate 확인
+- [x] Seed 데이터 필요 여부 검토
+
+> Prisma schema는 `apps/backend/prisma/schema.prisma`와 `apps/backend/prisma/models/*.prisma`로 관리한다.
+> `User`, `AuditLog`, `RefreshToken` 모델과 관련 migration은 `apps/backend/prisma/migrations/`에 존재한다.
+> RefreshToken migration은 기존 migration 이후 순서로 `20260522080000_create_refresh_tokens`에 둔다.
+> 로컬 DB는 `corepack pnpm run db:migrate`로 pending migration을 적용했고, `corepack pnpm run db:status`에서 `Database schema is up to date!`를 확인했다.
+> 스테이징 DB 마이그레이션 테스트는 스테이징 `DATABASE_URL`과 적용 승인이 필요하므로 현재 로컬 작업에서는 실행하지 않는다. 스테이징에서는 `corepack pnpm run db:deploy`로 검증한다.
+> 운영 적용 절차는 `apps/backend/prisma/OPERATIONS.md`의 Migration Strategy를 따른다.
+> Prisma Client generate는 `corepack pnpm run db:generate`로 확인했다.
+> Seed는 현재 채용공고 샘플만 다루며, User/AuditLog/RefreshToken 인증 데이터는 샘플 seed 대상이 아니므로 변경하지 않는다.
 
 ---
 
 ## 11. 테스트
 
-- [ ] 회원가입 성공 테스트
-- [ ] 이메일 중복 회원가입 실패 테스트
-- [ ] 잘못된 이메일 형식 테스트
-- [ ] 약한 비밀번호 테스트
-- [ ] 로그인 성공 테스트
-- [ ] 비밀번호 불일치 로그인 실패 테스트
-- [ ] 존재하지 않는 이메일 로그인 실패 테스트
-- [ ] soft delete된 사용자 로그인 차단 테스트
-- [ ] SUSPENDED 사용자 로그인 차단 테스트
-- [ ] AuditLog 생성 여부 테스트
-- [ ] passwordHash 응답 제외 테스트
-- [ ] `deletedAt: null` 필터 적용 테스트
-- [ ] rate limit 테스트
+- [x] 회원가입 성공 테스트
+- [x] 이메일 중복 회원가입 실패 테스트
+- [x] 잘못된 이메일 형식 테스트
+- [x] 약한 비밀번호 테스트
+- [x] 로그인 성공 테스트
+- [x] 비밀번호 불일치 로그인 실패 테스트
+- [x] 존재하지 않는 이메일 로그인 실패 테스트
+- [x] soft delete된 사용자 로그인 차단 테스트
+- [x] SUSPENDED 사용자 로그인 차단 테스트
+- [x] AuditLog 생성 여부 테스트
+- [x] passwordHash 응답 제외 테스트
+- [x] `deletedAt: null` 필터 적용 테스트
+- [x] rate limit 테스트
+
+> 인증 서비스 테스트는 `apps/backend/src/services/auth.service.test.ts`에 둔다.
+> 회원가입, 중복 이메일, 잘못된 이메일/약한 비밀번호 schema 검증, 로그인 성공/실패, 존재하지 않는 사용자, soft delete 필터, SUSPENDED 차단, AuditLog 생성, `passwordHash` 응답 제외를 검증한다.
+> rate limit 테스트는 `apps/backend/src/middleware/rateLimit.test.ts`에 둔다.
+> 현재 검증 명령은 `corepack pnpm --filter @neet2work/backend test`이며 4개 test file, 17개 test가 통과한다.
 
 ---
 
