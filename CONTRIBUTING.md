@@ -5,10 +5,18 @@
 - Node.js는 24.14.0 LTS를 사용합니다.
 - 패키지 매니저는 Corepack으로 고정된 pnpm 11만 사용합니다.
 - 의존성은 프로젝트 루트에서 설치합니다.
+- AI 에이전트 작업은 루트 [AGENTS.md](./AGENTS.md)와 [docs/AI_WORKFLOW.md](./docs/AI_WORKFLOW.md)를 먼저 따릅니다.
 - `pnpm-lock.yaml`은 팀원 간 동일 의존성 설치를 위해 커밋합니다.
 - API 키, DB 비밀번호, 개인 설정은 `.env`에만 저장하고 커밋하지 않습니다.
 - 기능을 추가할 때는 Mock fallback이 깨지지 않도록 유지합니다.
 - DB 스키마 변경은 Prisma migration으로 남기고 `prisma/migrations`를 커밋합니다.
+
+## AI 작업 기준
+
+- 상시 개발 원칙은 `AGENTS.md`에 둡니다.
+- 프로젝트 구조와 도메인 사실은 `docs/ARCHITECTURE.md`, `README.md`, `DESIGN.md`를 기준으로 합니다.
+- 반복 가능한 절차는 `.codex/skills/`의 프로젝트 스킬을 사용합니다.
+- 작업별 구체 범위, 우선순위, MVP 수준은 이슈나 사용자 요청에 명시합니다.
 
 ## 처음 참여할 때
 
