@@ -17,6 +17,8 @@ model User {
   updatedBy        String?    @map("updated_by")
   deletedBy        String?    @map("deleted_by")
 
+  refreshTokens    RefreshToken[]
+
   @@unique([email])
   @@index([createdAt])
   @@index([deletedAt])

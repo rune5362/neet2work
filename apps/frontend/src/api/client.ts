@@ -42,7 +42,8 @@ export type LoginResult = {
   accessToken: string;
   tokenType: "Bearer";
   expiresIn: number;
-  refreshToken: null;
+  refreshToken: string;
+  refreshTokenExpiresIn: number;
 };
 
 export async function getJobs(): Promise<JobPosting[]> {
@@ -111,5 +112,43 @@ export async function login(payload: LoginPayload): Promise<LoginResult> {
   }
 
   const result = (await response.json()) as ApiItemResponse<LoginResult>;
+  return result.data;
+}
+
+export async function refreshSession(refreshToken: string): Promise<LoginResult> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ refreshToken })
+  });
+
+  if (!response.ok) {
+    const fallbackMessage = "세션 갱신에 실패했습니다.";
+    const result = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(result?.message ?? fallbackMessage);
+  }
+
+  const result = (await response.json()) as ApiItemResponse<LoginResult>;
+  return result.data;
+}
+
+export async function logout(refreshToken: string): Promise<{ revoked: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ refreshToken })
+  });
+
+  if (!response.ok) {
+    const fallbackMessage = "로그아웃에 실패했습니다.";
+    const result = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(result?.message ?? fallbackMessage);
+  }
+
+  const result = (await response.json()) as ApiItemResponse<{ revoked: boolean }>;
   return result.data;
 }

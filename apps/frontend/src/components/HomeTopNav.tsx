@@ -1,6 +1,6 @@
 import { useState } from "react";
 import logoUrl from "../assets/logo/neet2work_logo_lockup_reference_curve 1.png";
-import type { AuthUser } from "../api/client";
+import { logout, type AuthUser } from "../api/client";
 
 type HomeTopNavProps = {
   active?: "home" | "jobs" | "analysis" | "community";
@@ -31,13 +31,21 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
   const displayName = authUser?.nickname || authUser?.name || authUser?.email;
   const shouldShowProfileImage = Boolean(authUser?.profileImageUrl && !profileImageFailed);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const refreshToken = window.localStorage.getItem("neet2work.auth.refreshToken");
+    if (refreshToken) {
+      await logout(refreshToken).catch(() => null);
+    }
+
     window.localStorage.removeItem("neet2work.auth.user");
     window.localStorage.removeItem("neet2work.auth.accessToken");
+    window.localStorage.removeItem("neet2work.auth.refreshToken");
     window.localStorage.removeItem("neet2work.auth.tokenType");
     window.localStorage.removeItem("neet2work.auth.expiresAt");
+    window.localStorage.removeItem("neet2work.auth.refreshExpiresAt");
     setAuthUser(null);
     setIsAccountMenuOpen(false);
+    setIsNavMenuOpen(false);
     window.location.href = "/auth";
   };
 

@@ -230,24 +230,33 @@ model AuditLog {
 
 > 로그인 엔드포인트는 `POST /api/auth/login`이다.
 > Access Token은 `JWT_SECRET` 기반 HS256 토큰으로 발급하며 기본 만료 시간은 `ACCESS_TOKEN_EXPIRES_IN_SECONDS=3600`이다.
-> Refresh Token은 8번 세션/토큰 관리에서 저장 방식 결정 후 구현한다. 현재 로그인 응답은 `refreshToken: null`을 반환한다.
+> Refresh Token은 8번 세션/토큰 관리에서 DB 저장 방식으로 구현한다. 로그인 응답은 원문 refresh token을 1회 반환하고 DB에는 해시만 저장한다.
 > 로그인 실패 메시지는 인증 정보 노출을 줄이기 위해 일반화한다.
 
 ---
 
 ## 8. 세션 / 토큰 관리
 
-- [ ] JWT 기반 인증 방식 검토
-- [ ] Refresh Token 저장 방식 결정
-  - [ ] DB 저장
-  - [ ] Redis 저장
-  - [ ] HttpOnly Cookie 저장
-- [ ] `RefreshToken` 모델 필요 여부 검토
-- [ ] 로그아웃 시 Refresh Token 무효화
-- [ ] 다중 기기 로그인 허용 여부 결정
-- [ ] 토큰 탈취 대응 정책 수립
-- [ ] Access Token 만료 시간 설정
-- [ ] Refresh Token 만료 시간 설정
+- [x] JWT 기반 인증 방식 검토
+- [x] Refresh Token 저장 방식 결정
+  - [x] DB 저장
+  - [x] Redis 저장
+  - [x] HttpOnly Cookie 저장
+- [x] `RefreshToken` 모델 필요 여부 검토
+- [x] 로그아웃 시 Refresh Token 무효화
+- [x] 다중 기기 로그인 허용 여부 결정
+- [x] 토큰 탈취 대응 정책 수립
+- [x] Access Token 만료 시간 설정
+- [x] Refresh Token 만료 시간 설정
+
+> Access Token은 `JWT_SECRET` 기반 HS256 JWT로 유지하며, 기본 만료 시간은 `ACCESS_TOKEN_EXPIRES_IN_SECONDS=3600`이다.
+> Refresh Token은 Redis나 HttpOnly Cookie가 아니라 `refresh_tokens` 테이블에 SHA-256 해시로 저장한다.
+> 로그인 응답 본문으로 원문 refresh token을 1회 전달하고, DB에는 원문을 저장하지 않는다.
+> Refresh Token 기본 만료 시간은 `REFRESH_TOKEN_EXPIRES_IN_SECONDS=2592000`(30일)이다.
+> `/api/auth/refresh`는 refresh token을 회전한다. 사용된 token은 `revokedAt`을 기록하고 새 refresh token을 발급한다.
+> `/api/auth/logout`은 전달된 refresh token을 무효화하고 `LOGGED_OUT` 감사 로그를 남긴다.
+> 다중 기기 로그인은 허용하며, 로그인마다 별도 refresh token 레코드를 만든다.
+> 탈취 대응은 해시 저장, 만료 시간, refresh token rotation, revoked/expired/deleted token 재사용 차단을 기준으로 한다.
 
 ---
 
@@ -275,7 +284,7 @@ model AuditLog {
 - [ ] Prisma schema 작성
 - [ ] User 모델 추가
 - [ ] AuditLog 모델 추가
-- [ ] RefreshToken 모델 필요 시 추가
+- [x] RefreshToken 모델 필요 시 추가
 - [ ] Prisma migration 생성
 - [ ] 로컬 DB 마이그레이션 테스트
 - [ ] 스테이징 DB 마이그레이션 테스트

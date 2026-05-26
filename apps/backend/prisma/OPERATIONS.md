@@ -121,6 +121,16 @@ Required authentication events:
 
 Use `actor_id` for the authenticated user performing an action. Use `target_id` for the affected user or record. For anonymous login failures, keep `actor_id` null and put only non-sensitive summary metadata, such as normalized reason codes.
 
+## Session and token policy
+
+Access tokens are HS256 JWTs signed with `JWT_SECRET`. The default access token TTL is `ACCESS_TOKEN_EXPIRES_IN_SECONDS=3600`.
+
+Refresh tokens are stored in PostgreSQL in `refresh_tokens`. The API returns the raw refresh token only once in the login or refresh response. The database stores only a SHA-256 hash in `refresh_tokens.token_hash`.
+
+The default refresh token TTL is `REFRESH_TOKEN_EXPIRES_IN_SECONDS=2592000` (30 days). Each refresh operation rotates the refresh token by revoking the current row with `revoked_at` and creating a new row. Logout revokes the provided refresh token and writes a `LOGGED_OUT` audit log.
+
+Multiple devices are allowed. Each login creates an independent refresh token row. A revoked, expired, deleted, or unknown refresh token must be treated as invalid and must not issue a new access token.
+
 ## Backup Policy
 
 Production PostgreSQL must have automated backups enabled before accepting user data.

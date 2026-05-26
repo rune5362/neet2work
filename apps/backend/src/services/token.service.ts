@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 
 type AccessTokenPayload = {
   sub: string;
@@ -7,6 +7,7 @@ type AccessTokenPayload = {
 };
 
 const defaultAccessTokenTtlSeconds = 60 * 60;
+const defaultRefreshTokenTtlSeconds = 60 * 60 * 24 * 30;
 
 function base64UrlEncode(value: string | Buffer) {
   return Buffer.from(value)
@@ -21,12 +22,33 @@ function getAccessTokenTtlSeconds() {
   return Number.isFinite(value) && value > 0 ? value : defaultAccessTokenTtlSeconds;
 }
 
+export function getRefreshTokenTtlSeconds() {
+  const value = Number(process.env.REFRESH_TOKEN_EXPIRES_IN_SECONDS);
+  return Number.isFinite(value) && value > 0 ? value : defaultRefreshTokenTtlSeconds;
+}
+
 function getJwtSecret() {
   if (!process.env.JWT_SECRET) {
     throw new Error("JWT_SECRET이 설정되어 있지 않습니다.");
   }
 
   return process.env.JWT_SECRET;
+}
+
+export function issueRefreshToken() {
+  const refreshToken = base64UrlEncode(randomBytes(48));
+  const expiresIn = getRefreshTokenTtlSeconds();
+
+  return {
+    refreshToken,
+    refreshTokenHash: hashRefreshToken(refreshToken),
+    refreshTokenExpiresIn: expiresIn,
+    refreshTokenExpiresAt: new Date(Date.now() + expiresIn * 1000)
+  };
+}
+
+export function hashRefreshToken(refreshToken: string) {
+  return createHash("sha256").update(refreshToken).digest("hex");
 }
 
 export function issueAccessToken(payload: AccessTokenPayload) {
