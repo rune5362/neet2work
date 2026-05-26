@@ -131,6 +131,25 @@ The default refresh token TTL is `REFRESH_TOKEN_EXPIRES_IN_SECONDS=2592000` (30 
 
 Multiple devices are allowed. Each login creates an independent refresh token row. A revoked, expired, deleted, or unknown refresh token must be treated as invalid and must not issue a new access token.
 
+## Authentication security policy
+
+Passwords must never be stored or returned in plaintext. User-facing auth responses must never include `password_hash`.
+
+Login failures use the generic message `이메일 또는 비밀번호가 올바르지 않습니다.` for invalid credentials and inactive statuses. The account lock message does not reveal whether an email exists.
+
+Brute force protection has two layers:
+
+- Per-route auth rate limiting in memory, controlled by `AUTH_RATE_LIMIT_WINDOW_SECONDS` and `AUTH_RATE_LIMIT_MAX_REQUESTS`.
+- Per-account failed login locking, controlled by `LOGIN_MAX_FAILED_ATTEMPTS` and `LOGIN_LOCK_MINUTES`.
+
+Production traffic must be served over HTTPS. In production, the Express app trusts the first reverse proxy and requires `req.secure` or `x-forwarded-proto: https` unless `REQUIRE_HTTPS=false` is explicitly configured for a non-public environment. HTTPS responses set HSTS.
+
+CORS is restricted to the comma-separated `CLIENT_URL` allowlist. Do not use wildcard origins for authenticated endpoints.
+
+CSRF protection is not required for the current bearer-token/body-token flow because authentication tokens are not stored in cookies. If refresh tokens move to HttpOnly cookies later, add SameSite cookie settings and CSRF tokens before enabling that flow.
+
+Use Prisma query builders for database access. Avoid `$queryRaw` and `$executeRaw`; if raw SQL is unavoidable, use Prisma parameter binding and never interpolate user input.
+
 ## Backup Policy
 
 Production PostgreSQL must have automated backups enabled before accepting user data.

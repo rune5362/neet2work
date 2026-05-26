@@ -262,20 +262,32 @@ model AuditLog {
 
 ## 9. 보안 처리
 
-- [ ] 비밀번호 평문 저장 금지
-- [ ] `passwordHash` 응답 제외
-- [ ] 로그인 실패 메시지 일반화
-  - [ ] “이메일 또는 비밀번호가 올바르지 않습니다”
-- [ ] brute force 방지 정책 적용
-- [ ] 로그인 실패 횟수 제한
-- [ ] 계정 잠금 정책 검토
-- [ ] rate limit 적용
-- [ ] HTTPS 환경 전제
-- [ ] CORS 설정
-- [ ] CSRF 대응 필요 여부 검토
-- [ ] SQL Injection 방지
-- [ ] Prisma raw query 사용 시 주의
-- [ ] 환경변수로 `JWT_SECRET` 관리
+- [x] 비밀번호 평문 저장 금지
+- [x] `passwordHash` 응답 제외
+- [x] 로그인 실패 메시지 일반화
+  - [x] “이메일 또는 비밀번호가 올바르지 않습니다”
+- [x] brute force 방지 정책 적용
+- [x] 로그인 실패 횟수 제한
+- [x] 계정 잠금 정책 검토
+- [x] rate limit 적용
+- [x] HTTPS 환경 전제
+- [x] CORS 설정
+- [x] CSRF 대응 필요 여부 검토
+- [x] SQL Injection 방지
+- [x] Prisma raw query 사용 시 주의
+- [x] 환경변수로 `JWT_SECRET` 관리
+
+> 비밀번호는 `crypto.scrypt` 기반 salt hash로 저장하고 평문은 저장하지 않는다.
+> 로그인 응답과 회원가입 응답은 `toPublicUser`를 통해 `passwordHash`를 제외한다.
+> 인증 실패 메시지는 기본적으로 `이메일 또는 비밀번호가 올바르지 않습니다.`로 일반화한다.
+> 로그인 실패 제한은 `LOGIN_MAX_FAILED_ATTEMPTS=5`, 잠금 시간은 `LOGIN_LOCK_MINUTES=15`를 기본값으로 사용한다.
+> 잠금 기준 도달 시 `users.locked_until`을 설정하고 `ACCOUNT_LOCKED` 감사 로그를 남긴다.
+> 인증 API rate limit은 in-memory 방식으로 적용하며 `AUTH_RATE_LIMIT_WINDOW_SECONDS=60`, `AUTH_RATE_LIMIT_MAX_REQUESTS=30`을 기본값으로 사용한다.
+> 운영 환경은 HTTPS를 전제로 하며, reverse proxy의 `x-forwarded-proto: https` 또는 `req.secure`를 요구한다. 예외는 비공개 환경에서 `REQUIRE_HTTPS=false`로만 허용한다.
+> CORS는 `CLIENT_URL` allowlist 기반으로만 허용하고 wildcard origin은 사용하지 않는다.
+> 현재 refresh token은 Cookie가 아니라 응답 body/localStorage 흐름이므로 CSRF 토큰은 필수 적용하지 않는다. HttpOnly Cookie로 전환할 경우 SameSite/CSRF 토큰을 함께 적용한다.
+> DB 접근은 Prisma query builder를 기준으로 하고, raw query는 사용자 입력 문자열 보간 없이 parameter binding으로만 허용한다.
+> `JWT_SECRET`은 환경변수로만 관리하며 `.env.example`에는 생성 명령과 placeholder만 둔다.
 
 ---
 

@@ -54,6 +54,11 @@ type RequestContext = {
   userAgent?: string | null;
 };
 
+const invalidLoginMessage = "이메일 또는 비밀번호가 올바르지 않습니다.";
+const lockedLoginMessage = "로그인 실패 횟수가 초과되었습니다. 잠시 후 다시 시도해 주세요.";
+const defaultMaxFailedLoginAttempts = 5;
+const defaultLoginLockMinutes = 15;
+
 type PublicUser = Pick<
   User,
   | "id"
@@ -66,6 +71,17 @@ type PublicUser = Pick<
   | "createdAt"
   | "updatedAt"
 >;
+
+function getMaxFailedLoginAttempts() {
+  const value = Number(process.env.LOGIN_MAX_FAILED_ATTEMPTS);
+  return Number.isInteger(value) && value > 0 ? value : defaultMaxFailedLoginAttempts;
+}
+
+function getLoginLockDurationMs() {
+  const value = Number(process.env.LOGIN_LOCK_MINUTES);
+  const minutes = Number.isFinite(value) && value > 0 ? value : defaultLoginLockMinutes;
+  return minutes * 60 * 1000;
+}
 
 function toPublicUser(user: User): PublicUser {
   return {
@@ -178,7 +194,26 @@ export async function loginWithClient(
         reason: "invalid_credentials"
       }
     });
-    throw new HttpError(401, "이메일 또는 비밀번호가 올바르지 않습니다.");
+    throw new HttpError(401, invalidLoginMessage);
+  }
+
+  const now = new Date();
+
+  if (user.lockedUntil && user.lockedUntil > now) {
+    await createAuditLog(prisma, {
+      actorId: user.id,
+      targetId: user.id,
+      action: AuditAction.LOGIN_FAILED,
+      entity: "User",
+      entityId: user.id,
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+      metadata: {
+        reason: "locked",
+        lockedUntil: user.lockedUntil.toISOString()
+      }
+    });
+    throw new HttpError(423, lockedLoginMessage);
   }
 
   if (user.status !== UserStatus.ACTIVE) {
@@ -195,21 +230,24 @@ export async function loginWithClient(
         status: user.status
       }
     });
-    throw new HttpError(403, "로그인할 수 없는 계정입니다.");
+    throw new HttpError(401, invalidLoginMessage);
   }
 
   const passwordMatches = await verifyPassword(input.password, user.passwordHash);
 
   if (!passwordMatches) {
+    const failedLoginCount = user.failedLoginCount + 1;
+    const shouldLockAccount = failedLoginCount >= getMaxFailedLoginAttempts();
+    const lockedUntil = shouldLockAccount ? new Date(Date.now() + getLoginLockDurationMs()) : null;
+
     await prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: {
           id: user.id
         },
         data: {
-          failedLoginCount: {
-            increment: 1
-          }
+          failedLoginCount,
+          lockedUntil
         }
       });
 
@@ -225,9 +263,26 @@ export async function loginWithClient(
           reason: "invalid_credentials"
         }
       });
+
+      if (shouldLockAccount) {
+        await createAuditLog(tx, {
+          actorId: user.id,
+          targetId: user.id,
+          action: AuditAction.ACCOUNT_LOCKED,
+          entity: "User",
+          entityId: user.id,
+          ipAddress: context.ipAddress,
+          userAgent: context.userAgent,
+          metadata: {
+            reason: "failed_login_limit",
+            failedLoginCount,
+            lockedUntil: lockedUntil?.toISOString() ?? null
+          }
+        });
+      }
     });
 
-    throw new HttpError(401, "이메일 또는 비밀번호가 올바르지 않습니다.");
+    throw new HttpError(401, invalidLoginMessage);
   }
 
   const { accessToken, expiresIn } = issueAccessToken({
@@ -244,9 +299,10 @@ export async function loginWithClient(
       },
       data: {
         failedLoginCount: 0,
+        lockedUntil: null,
         lastLoginAt: new Date()
-        }
-      });
+      }
+    });
 
     await tx.refreshToken.create({
       data: {

@@ -62,6 +62,10 @@ function createMockPrisma(user: User | null) {
           state.user.lastLoginAt = data.lastLoginAt;
         }
 
+        if (data.lockedUntil !== undefined) {
+          state.user.lockedUntil = data.lockedUntil;
+        }
+
         return state.user;
       }
     },
@@ -123,6 +127,8 @@ describe("auth service login", () => {
   beforeEach(() => {
     process.env.JWT_SECRET = "test-secret";
     process.env.ACCESS_TOKEN_EXPIRES_IN_SECONDS = "3600";
+    process.env.LOGIN_MAX_FAILED_ATTEMPTS = "5";
+    process.env.LOGIN_LOCK_MINUTES = "15";
   });
 
   it("issues an access token and omits passwordHash on successful login", async () => {
@@ -141,6 +147,7 @@ describe("auth service login", () => {
     expect(result.refreshTokenExpiresIn).toBe(60 * 60 * 24 * 30);
     expect("passwordHash" in result.user).toBe(false);
     expect(mock.state.user?.failedLoginCount).toBe(0);
+    expect(mock.state.user?.lockedUntil).toBeNull();
     expect(mock.state.user?.lastLoginAt).toBeInstanceOf(Date);
     expect(mock.state.refreshTokens).toHaveLength(1);
     expect(mock.auditLogs).toMatchObject([{ action: AuditAction.LOGIN_SUCCEEDED }]);
@@ -158,6 +165,51 @@ describe("auth service login", () => {
     ).rejects.toBeInstanceOf(HttpError);
 
     expect(mock.state.user?.failedLoginCount).toBe(1);
+    expect(mock.auditLogs).toMatchObject([{ action: AuditAction.LOGIN_FAILED }]);
+  });
+
+  it("locks an account after too many failed logins", async () => {
+    const passwordHash = await hashPassword("StrongPass1");
+    const mock = createMockPrisma(createUser({ passwordHash, failedLoginCount: 4 }));
+
+    await expect(
+      loginWithClient(mock.prisma, {
+        email: "user@example.com",
+        password: "WrongPass1"
+      })
+    ).rejects.toMatchObject({
+      statusCode: 401,
+      message: "이메일 또는 비밀번호가 올바르지 않습니다."
+    });
+
+    expect(mock.state.user?.failedLoginCount).toBe(5);
+    expect(mock.state.user?.lockedUntil).toBeInstanceOf(Date);
+    expect(mock.auditLogs).toMatchObject([
+      { action: AuditAction.LOGIN_FAILED },
+      { action: AuditAction.ACCOUNT_LOCKED }
+    ]);
+  });
+
+  it("blocks login while the account is locked", async () => {
+    const passwordHash = await hashPassword("StrongPass1");
+    const mock = createMockPrisma(
+      createUser({
+        passwordHash,
+        lockedUntil: new Date(Date.now() + 60_000)
+      })
+    );
+
+    await expect(
+      loginWithClient(mock.prisma, {
+        email: "user@example.com",
+        password: "StrongPass1"
+      })
+    ).rejects.toMatchObject({
+      statusCode: 423,
+      message: "로그인 실패 횟수가 초과되었습니다. 잠시 후 다시 시도해 주세요."
+    });
+
+    expect(mock.state.refreshTokens).toHaveLength(0);
     expect(mock.auditLogs).toMatchObject([{ action: AuditAction.LOGIN_FAILED }]);
   });
 
