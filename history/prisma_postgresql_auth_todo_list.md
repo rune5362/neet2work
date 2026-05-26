@@ -1,4 +1,6 @@
 # TODO_LIST - Prisma + PostgreSQL 회원가입 및 로그인 기능 구현
+<!-- 최초 작업 시작일짜 : 2026_05_22_Fri_1441 -->
+<!-- 마지막 작업일짜 : 2026_05_26_Tue_1740  -->
 
 > 적용 요구사항: 운영용 DB 설계, 감사 로그 필요, soft delete 적용, 공통 컬럼 포함
 
@@ -345,9 +347,19 @@ model AuditLog {
 - [ ] `JWT_SECRET` 설정
 - [ ] DB 마이그레이션 적용
 - [ ] 로그 수집 시스템 연동
-- [ ] AuditLog 저장 확인
+- [x] AuditLog 저장 확인
 - [ ] 에러 모니터링 연동
-- [ ] 회원가입 / 로그인 API health check
+- [x] 회원가입 / 로그인 API health check
 - [ ] 백업 정책 확인
-- [ ] 개인정보 보관 및 파기 정책 검토
-- [ ] 탈퇴 회원 데이터 처리 정책 검토
+- [x] 개인정보 보관 및 파기 정책 검토
+- [x] 탈퇴 회원 데이터 처리 정책 검토
+
+> 로컬 확인 결과, `GET /health`는 `database: "connected"`를 반환한다.
+> `corepack pnpm run db:status`에서 로컬 PostgreSQL schema는 최신 migration과 일치한다.
+> 운영 DB 연결 확인, 운영 환경변수 설정, 운영 `JWT_SECRET` 설정, 운영 DB 마이그레이션 적용은 실제 운영 `DATABASE_URL`과 배포 secret 접근 권한이 있어야 확인할 수 있으므로 현재 로컬 작업에서는 체크하지 않는다.
+> `JWT_SECRET`은 `.env.example`에 Bash/PowerShell 생성 명령과 placeholder만 두고, 실제 값은 운영 secret으로 주입해야 한다.
+> 로그 수집 시스템과 에러 모니터링은 현재 Sentry/OpenTelemetry/logger transport 등 외부 연동 설정이 없어서 미구현 상태다.
+> AuditLog 저장은 회원가입, 로그인 성공/실패, 계정 잠금, 로그아웃 서비스 테스트에서 확인한다.
+> 회원가입/로그인 API는 `POST /api/auth/signup`, `POST /api/auth/login`이며, 서비스 테스트와 backend test suite로 정상/실패 흐름을 확인한다.
+> 백업 정책은 `apps/backend/prisma/OPERATIONS.md`에 문서화되어 있지만, 실제 운영 DB 자동 백업 설정은 관리형 DB 콘솔 또는 인프라 설정에서 별도 확인해야 한다.
+> 개인정보 보관/파기와 탈퇴 회원 처리 정책은 soft delete, 이메일 재사용 차단, 복구 플로우 기준까지 검토했다. 실제 개인정보 마스킹/물리 파기는 회원 탈퇴 API 구현 시 정책 확정 후 적용한다.
