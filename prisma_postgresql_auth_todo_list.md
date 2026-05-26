@@ -211,22 +211,27 @@ model AuditLog {
 
 ## 7. 로그인 기능 구현
 
-- [ ] 로그인 API 엔드포인트 생성
-- [ ] email / password 입력값 검증
-- [ ] User 조회 시 `deletedAt: null` 조건 적용
-- [ ] 계정 상태 확인
-  - [ ] `ACTIVE` 상태만 로그인 허용
-  - [ ] `SUSPENDED` / `DELETED` / `INACTIVE` 로그인 차단
-- [ ] `passwordHash` 비교
-- [ ] 로그인 실패 시 `failedLoginCount` 증가
-- [ ] 로그인 실패 AuditLog 저장
-- [ ] 로그인 성공 시 `failedLoginCount` 초기화
-- [ ] `lastLoginAt` 업데이트
-- [ ] 로그인 성공 AuditLog 저장
-- [ ] Access Token 발급
-- [ ] Refresh Token 발급 여부 결정
-- [ ] 토큰 만료 시간 설정
-- [ ] 로그인 응답에서 민감정보 제외
+- [x] 로그인 API 엔드포인트 생성
+- [x] email / password 입력값 검증
+- [x] User 조회 시 `deletedAt: null` 조건 적용
+- [x] 계정 상태 확인
+  - [x] `ACTIVE` 상태만 로그인 허용
+  - [x] `SUSPENDED` / `DELETED` / `INACTIVE` 로그인 차단
+- [x] `passwordHash` 비교
+- [x] 로그인 실패 시 `failedLoginCount` 증가
+- [x] 로그인 실패 AuditLog 저장
+- [x] 로그인 성공 시 `failedLoginCount` 초기화
+- [x] `lastLoginAt` 업데이트
+- [x] 로그인 성공 AuditLog 저장
+- [x] Access Token 발급
+- [x] Refresh Token 발급 여부 결정
+- [x] 토큰 만료 시간 설정
+- [x] 로그인 응답에서 민감정보 제외
+
+> 로그인 엔드포인트는 `POST /api/auth/login`이다.
+> Access Token은 `JWT_SECRET` 기반 HS256 토큰으로 발급하며 기본 만료 시간은 `ACCESS_TOKEN_EXPIRES_IN_SECONDS=3600`이다.
+> Refresh Token은 8번 세션/토큰 관리에서 저장 방식 결정 후 구현한다. 현재 로그인 응답은 `refreshToken: null`을 반환한다.
+> 로그인 실패 메시지는 인증 정보 노출을 줄이기 위해 일반화한다.
 
 ---
 

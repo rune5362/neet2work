@@ -4,7 +4,8 @@ import { createAuditLog } from "../database/auditLog.js";
 import { getPrismaClient } from "../database/prisma.js";
 import { AuditAction, UserStatus, type PrismaClient, type User } from "../generated/prisma/client.js";
 import { HttpError } from "../errors/httpError.js";
-import { hashPassword } from "./password.service.js";
+import { hashPassword, verifyPassword } from "./password.service.js";
+import { issueAccessToken } from "./token.service.js";
 
 const passwordSchema = z
   .string()
@@ -30,6 +31,13 @@ export const signUpSchema = z.object({
 });
 
 export type SignUpInput = z.infer<typeof signUpSchema>;
+
+export const loginSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+  password: z.string().min(1)
+});
+
+export type LoginInput = z.infer<typeof loginSchema>;
 
 type RequestContext = {
   ipAddress?: string | null;
@@ -126,4 +134,130 @@ export async function signUpWithClient(
   });
 
   return toPublicUser(user);
+}
+
+export async function login(input: LoginInput, context: RequestContext = {}) {
+  const prisma = getPrismaClient();
+
+  if (!prisma) {
+    throw new HttpError(503, "데이터베이스가 설정되어 있지 않습니다.");
+  }
+
+  return loginWithClient(prisma, input, context);
+}
+
+export async function loginWithClient(
+  prisma: PrismaClient,
+  input: LoginInput,
+  context: RequestContext = {}
+) {
+  const user = await prisma.user.findFirst({
+    where: {
+      email: input.email,
+      deletedAt: null
+    }
+  });
+
+  if (!user) {
+    await createAuditLog(prisma, {
+      action: AuditAction.LOGIN_FAILED,
+      entity: "User",
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+      metadata: {
+        reason: "invalid_credentials"
+      }
+    });
+    throw new HttpError(401, "이메일 또는 비밀번호가 올바르지 않습니다.");
+  }
+
+  if (user.status !== UserStatus.ACTIVE) {
+    await createAuditLog(prisma, {
+      actorId: user.id,
+      targetId: user.id,
+      action: AuditAction.LOGIN_FAILED,
+      entity: "User",
+      entityId: user.id,
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+      metadata: {
+        reason: "blocked_status",
+        status: user.status
+      }
+    });
+    throw new HttpError(403, "로그인할 수 없는 계정입니다.");
+  }
+
+  const passwordMatches = await verifyPassword(input.password, user.passwordHash);
+
+  if (!passwordMatches) {
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: {
+          id: user.id
+        },
+        data: {
+          failedLoginCount: {
+            increment: 1
+          }
+        }
+      });
+
+      await createAuditLog(tx, {
+        actorId: user.id,
+        targetId: user.id,
+        action: AuditAction.LOGIN_FAILED,
+        entity: "User",
+        entityId: user.id,
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent,
+        metadata: {
+          reason: "invalid_credentials"
+        }
+      });
+    });
+
+    throw new HttpError(401, "이메일 또는 비밀번호가 올바르지 않습니다.");
+  }
+
+  const { accessToken, expiresIn } = issueAccessToken({
+    sub: user.id,
+    email: user.email,
+    status: user.status
+  });
+
+  const loggedInUser = await prisma.$transaction(async (tx) => {
+    const updatedUser = await tx.user.update({
+      where: {
+        id: user.id
+      },
+      data: {
+        failedLoginCount: 0,
+        lastLoginAt: new Date()
+      }
+    });
+
+    await createAuditLog(tx, {
+      actorId: user.id,
+      targetId: user.id,
+      action: AuditAction.LOGIN_SUCCEEDED,
+      entity: "User",
+      entityId: user.id,
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+      metadata: {
+        tokenType: "access"
+      }
+    });
+
+    return updatedUser;
+  });
+
+  return {
+    user: toPublicUser(loggedInUser),
+    accessToken,
+    tokenType: "Bearer" as const,
+    expiresIn,
+    refreshToken: null
+  };
 }
