@@ -3,111 +3,159 @@
 오늘 작업 상세 기록 원장이다.
 지난 날짜 기록은 `docs/work-log/archive/`에 보관한다.
 
-## 2026-05-22
+## 2026-05-26
 
-### Worktree 작업일지 중앙화와 한국어 규칙 보강
+### jobs 필터 컨트롤 폭 정리
 
-- 문제:
-  - linked worktree가 생긴 뒤 `process.cwd()` 기준으로 worklog 스크립트가 실행되면서 `neet2work-codex`, `neet2work-antigravity`, Codex app worktree마다 작업일지가 따로 생겼다.
-  - 일부 worktree 작업기록이 영어로 작성되어 Figma/작업일지 형식과 맞지 않았다.
+- 브라우저 주석에 따라 `/jobs` 필터바의 기본 필터 컨트롤 폭을 데스크톱 기준 116px로 통일했다.
 - 수정:
-  - `scripts/work-log-paths.mjs`를 추가해 Git worktree 목록에서 대표 worktree를 찾고, 기본적으로 `sungho` worktree의 `docs/work-log`를 canonical 작업일지 루트로 사용하게 했다.
-  - `scripts/prepare-work-log-day.mjs`와 `scripts/export-work-log.mjs`가 worktree 안에서 실행돼도 중앙 작업일지 루트를 보도록 수정했다.
-  - Figma Summary bullet에 한국어가 없으면 `worklog:export`가 실패하도록 검증을 추가했다.
-  - `AGENTS.md`와 `docs/work-log/FIGMA_WORK_LOG_RULES.md`에 작업기록은 한국어로 작성하고, linked worktree에서는 별도 로컬 로그를 만들지 말라는 규칙을 추가했다.
-  - 같은 스크립트와 규칙 파일을 `neet2work-codex`, `neet2work-antigravity`, Codex app worktree에도 동기화했다.
-  - `neet2work-codex`와 `neet2work-antigravity`에 흩어져 있던 2026-05-21 작업기록을 중앙 `docs/work-log/archive/2026-05-21/`로 회수하고 한국어로 정리했다.
-- 검증:
-  - `node --check scripts\work-log-paths.mjs`, `scripts\prepare-work-log-day.mjs`, `scripts\export-work-log.mjs` 통과.
-  - `corepack pnpm run worklog:export` 통과.
-  - `git diff --check` 통과.
-  - `neet2work-codex`, `neet2work-antigravity`, Codex app worktree에서 `resolveCanonicalRepoRoot()`가 모두 `C:\lsh\git\neet2work`를 반환했다.
-  - 세 worktree에서 `node scripts\export-work-log.mjs --json`이 모두 중앙 5/22 작업일지를 읽었다.
-
-### 2026-05-21 회수 작업일지 요약 보강
-
-- `docs/work-log/archive/2026-05-21/WORK_LOG.md`의 Figma Summary를 회수된 프론트 작업 중심으로 다시 정리했다.
-- `docs/work-log/archive/2026-05-21/WORK_SESSIONS.md`의 영어 섹션을 한국어로 고치고, Codex/Antigravity worktree 회수분에 읽기 쉬운 요약 단락을 추가했다.
-- 검증:
-  - `node scripts\export-work-log.mjs --date=2026-05-21` 통과.
-  - `node scripts\export-work-log.mjs --date=2026-05-22` 통과.
-  - `git diff --check -- docs\work-log\archive\2026-05-21\WORK_LOG.md docs\work-log\archive\2026-05-21\WORK_SESSIONS.md docs\work-log\WORK_SESSIONS.md` 통과.
-
-### Figma 작업일지 5/21 누락분 반영
-
-- 2026-05-21 Figma Summary를 먼저 export하고 Figma `WORK_LOG`에 반영했다.
-- 이어서 2026-05-22 Figma Summary도 같은 bridge를 통해 반영했다.
-- 검증:
-  - `corepack pnpm run worklog:prepare` 통과.
-  - `node scripts\export-work-log.mjs --date=2026-05-21` 통과.
-  - `node scripts\export-work-log.mjs --date=2026-05-22` 통과.
-  - bridge health check가 HTTP 200을 반환했다.
-  - `corepack pnpm run figma:apply-log -- --date=2026-05-21 --timeout-ms=60000` 완료: `Figma WORK_LOG appended`.
-  - `corepack pnpm run figma:apply-log -- --date=2026-05-22 --timeout-ms=60000` 완료: `Figma WORK_LOG appended`.
-
-### job_postings 백업
-
-- 루트 `.env`의 `DATABASE_URL`과 `DATABASE_PASSWORD` 존재 여부만 확인하고 값은 출력하지 않았다.
-- `public.job_postings` 전체 내용을 읽어 `tmp/db-backups/job_postings_2026-05-22_155217_KST.json`에 JSON 백업으로 저장했다.
-- `tmp/`는 `.gitignore` 대상이라 백업 파일과 임시 export 스크립트는 커밋 대상이 아니다.
-- 같은 JSON 백업을 기준으로 `docs/db-backups/job_postings_2026-05-22_155217_KST.sql`을 생성했다.
-- SQL 백업은 Prisma migration 적용 후 재실행 가능한 `insert ... on conflict ("id") do update` 형식이다.
-- 검증:
-  - `node --check tmp\backup-job-postings.mjs` 통과.
-  - `corepack pnpm --filter @neet2work/backend exec node ..\..\tmp\backup-job-postings.mjs` 실행 결과 `95`건 백업.
-  - 백업 파일 메타데이터 확인: `table=public.job_postings`, `rowCount=95`, `columnCount=31`.
-  - `node --check tmp\generate-job-postings-sql.mjs` 통과.
-  - `node tmp\generate-job-postings-sql.mjs` 실행 결과 SQL에 `95`건 작성.
-  - SQL 백업에서 `DATABASE_URL`, `DATABASE_PASSWORD`, `postgresql://`, 비밀번호/토큰 패턴이 검출되지 않음.
-
-### jobs 페이지 Antigravity 변경 선별 병합
-
-- `neet2work-antigravity` 작업트리의 `/jobs` 화면 변경 중 jobs 전용 범위만 현재 `codex/frontend-ui` 작업트리에 반영했다.
-- 수정:
-  - `apps/frontend/src/pages/Jobs.tsx`를 확장 mock 공고, 검색/필터, 활성 필터 칩, 로딩/에러 상태, 상세 drawer, AI 분석 링크가 있는 화면으로 교체했다.
-  - `apps/frontend/src/styles.css`에는 jobs 카드, 필터, 스켈레톤, 빈 상태, drawer, 반응형 스타일만 추가했다.
-  - Antigravity의 홈/AI 분석/채팅 빌더 관련 변경은 병합하지 않았다.
+  - `apps/frontend/src/styles.css`에서 필터 label, select, `근무 지역`, `상세 필터`, `필터 초기화` 컨트롤의 데스크톱 폭을 116px로 맞췄다.
+  - 기존 모바일 구간에서는 `width: 100%` 규칙을 유지해 작은 화면에서는 세로로 넓게 쌓이게 했다.
 - 검증:
   - `corepack pnpm --filter @neet2work/frontend lint` 통과.
   - `corepack pnpm --filter @neet2work/frontend build` 통과.
-  - `corepack pnpm --filter @neet2work/frontend test`는 테스트 파일이 없어 `No test files found`로 종료됐다.
-  - `http://127.0.0.1:5174/jobs` HTTP 200 확인.
-  - Playwright Chrome 채널로 `/jobs` 렌더링 스크린샷을 저장했고, 초기 카드 7개, `Python` 검색 후 2개, 상세 drawer 표시를 확인했다.
+  - 인앱 브라우저 1680x838 뷰포트에서 `경력`, `근무 지역`, `고용형태`, `상세 필터`가 모두 `116px`로 계산되는 것을 확인했다.
+  - `/jobs` 화면에 `전체` 문구가 남아있지 않은 것을 확인했다.
 
-### jobs 페이지 리뷰 주석 반영
+### jobs 필터 컨트롤 화살표 정렬
 
-- 브라우저 주석 3건을 반영해 jobs 화면의 액션 링크와 필터 구성을 정리했다.
+- 브라우저 주석에 따라 `/jobs` 필터바의 드롭다운 화살표 위치와 버튼별 컨트롤 구조를 통일했다.
 - 수정:
-  - 카드의 `상세 보기` 액션은 파란 버튼 박스를 제거하고 파란 텍스트 링크처럼 보이게 조정했다.
-  - drawer 하단 `원문 공고 열기`는 테두리 박스를 제거하고 텍스트 옆에 SVG 외부 링크 아이콘만 표시하게 했다.
-  - 필터바에서 사용자 의사결정 기준으로 약한 `수집처` 필터를 제거하고 `직무` 필터를 추가했다. 수집처는 공고 출처 메타정보로 카드와 상세 drawer에만 남겼다.
+  - `apps/frontend/src/pages/Jobs.tsx`에 `FilterSelect` 공통 컴포넌트를 추가해 `직무`, `경력`, `고용형태` select를 같은 구조로 렌더링했다.
+  - `근무 지역`과 `상세 필터` 버튼도 같은 `jobsFilterControl` 스타일과 `jobsFilterChevron` 화살표를 사용하게 맞췄다.
+  - `apps/frontend/src/styles.css`에서 native select 화살표를 숨기고 커스텀 화살표를 오른쪽 12px, 수직 중앙 위치로 통일했다.
 - 검증:
   - `corepack pnpm --filter @neet2work/frontend lint` 통과.
   - `corepack pnpm --filter @neet2work/frontend build` 통과.
-  - Playwright Chrome 채널로 필터 옵션이 `직무/국가/언어/경력/근무형태` 순서인지 확인했다.
-  - `상세 보기`의 배경과 테두리가 제거되고 파란 텍스트만 남은 것을 computed style로 확인했다.
-  - `원문 공고 열기`의 배경과 테두리가 제거되고 SVG 아이콘 1개가 붙은 것을 확인했다.
-  - `직무=개발` 필터 적용 후 카드 2개가 남는 것을 확인했다.
+  - 인앱 브라우저 1680x838 뷰포트에서 `직무`, `경력`, `근무 지역`, `고용형태`, `상세 필터`가 모두 `116x44px`이고 화살표가 오른쪽 12~13px, 수직 중앙에 놓인 것을 확인했다.
 
-### jobs drawer 원문 공고 버튼 크기 복구
+### jobs 필터 화살표 SVG 교체
 
-- 브라우저 주석에 따라 drawer 하단 `원문 공고 열기` 버튼이 텍스트 링크 크기로 줄어든 문제를 수정했다.
+- `/jobs` 필터바의 텍스트 화살표 `⌄`를 SVG 아이콘으로 교체하고 y축 중앙 정렬을 재확인했다.
 - 수정:
-  - `drawerOriginalLink`를 원래 버튼형 크기와 레이아웃으로 되돌려 `이 공고로 AI 분석하기` 버튼과 같은 48px 높이를 유지하게 했다.
-  - 외부 링크 아이콘은 `24x24` viewBox의 inline SVG로 교체했다.
+  - `apps/frontend/src/pages/Jobs.tsx`에 `FilterChevronIcon` SVG 컴포넌트를 추가하고 `FilterSelect`, `근무 지역`, `상세 필터`가 같은 아이콘을 사용하게 했다.
+  - `apps/frontend/src/styles.css`에서 화살표 SVG를 `14x14px`, 오른쪽 12px 기준으로 고정하고 중앙 정렬을 유지했다.
 - 검증:
   - `corepack pnpm --filter @neet2work/frontend lint` 통과.
   - `corepack pnpm --filter @neet2work/frontend build` 통과.
-  - Playwright Chrome 채널로 `원문 공고 열기` 버튼이 `height=48`, `min-height=48px`, `border=1px`, `svgCount=1`, `viewBox=0 0 24 24`인지 확인했다.
+  - 인앱 브라우저 `http://localhost:5174/jobs`에서 필터 컨트롤 5개의 SVG 화살표가 모두 표시되고 텍스트 화살표가 0개인 것을 확인했다.
+  - 각 화살표가 `14x14px`, 오른쪽 12~13px, y축 중앙 오차 0px로 계산되는 것을 확인했다.
+  - `근무 지역` 버튼 열기/닫기와 `직무` select 선택/초기화 동작이 유지되는 것을 확인했다.
 
-### jobs 프론트 변경 원본 브랜치 반영
+### jobs 필터 컨트롤 120px 조정
 
-- Codex 작업트리 `codex/frontend-ui`의 jobs 프론트 변경을 원본 체크아웃 `C:\lsh\git\neet2work`의 `sungho` 브랜치 작업트리로 가져왔다.
+- 브라우저 주석에 따라 `/jobs` 필터바 내부 컨트롤 크기를 `120x44px`로 조정했다.
 - 수정:
-  - `apps/frontend/src/pages/Jobs.tsx`를 현재 작업트리 버전으로 반영했다.
-  - `apps/frontend/src/styles.css`를 현재 작업트리 버전으로 반영했다.
-  - 프론트 외 `AGENTS.md`, work-log 스크립트, 디자인 문서 변경은 가져오지 않았다.
+  - `apps/frontend/src/styles.css`에서 `직무`, `경력`, `근무 지역`, `고용형태`, `상세 필터`의 기준 폭을 120px로 변경했다.
+  - 같은 줄에 나타나는 `필터 초기화` 버튼도 같은 기준 크기를 쓰도록 맞췄다.
+  - 컨트롤 높이는 `44px`로 고정해 hover, 선택 상태, SVG 화살표가 레이아웃을 흔들지 않게 했다.
 - 검증:
-  - 원본 체크아웃 기준 `apps/frontend` 변경 파일이 위 2개뿐인지 확인했다.
   - `corepack pnpm --filter @neet2work/frontend lint` 통과.
   - `corepack pnpm --filter @neet2work/frontend build` 통과.
+  - 인앱 브라우저 `http://localhost:5174/jobs`에서 필터 컨트롤 5개가 모두 `120x44px`로 계산되는 것을 확인했다.
+  - SVG 화살표 y축 중앙 오차가 0px로 유지되는 것을 확인했다.
+
+### jobs 근무 지역 선택지 확장
+
+- 브라우저 주석에 따라 `/jobs` 근무 지역 팝오버의 지역 데이터가 너무 적어 보이는 문제를 보강했다.
+- 수정:
+  - `apps/frontend/src/pages/Jobs.tsx`의 `locationTree`를 확장해 한국은 17개 광역 지역, 일본은 10개 주요 도도부현, 미국은 8개 주요 주를 선택할 수 있게 했다.
+  - 한국 주요 광역시/도에는 대표 시/구와 일부 세부 구를 추가했다.
+  - `apps/frontend/src/styles.css`에서 지역 컬럼에 `max-height: 260px`와 `overflow-y: auto`를 적용해 선택지가 많아져도 팝오버 레이아웃이 유지되게 했다.
+- 검증:
+  - `corepack pnpm --filter @neet2work/frontend lint` 통과.
+  - `corepack pnpm --filter @neet2work/frontend build` 통과.
+  - Playwright Chrome 채널로 `/jobs`에서 근무 지역 팝오버를 열고 한국 17개, 일본 10개, 미국 8개 광역 선택지가 렌더링되는 것을 확인했다.
+  - 지역 컬럼의 `max-height: 260px`, `overflow-y: auto` 적용을 확인했다.
+
+### jobs 카드 국가/언어 메타 제거
+
+- 브라우저 주석에 따라 `/jobs` 카드 메타에서 국가와 언어 조합을 제거했다.
+- 수정:
+  - `apps/frontend/src/pages/Jobs.tsx`에서 카드 메타의 `{country} · {language}` 표시와 양쪽 구분자를 제거했다.
+  - 카드에는 회사명과 실제 근무지만 남겨 시각 정보를 더 간단하게 정리했다.
+  - 더 이상 사용하지 않는 `.jobsCardGeo` 스타일을 제거했다.
+- 검증:
+  - `corepack pnpm --filter @neet2work/frontend lint` 통과.
+  - `corepack pnpm --filter @neet2work/frontend build` 통과.
+  - 인앱 브라우저 `http://localhost:5174/jobs`에서 카드 메타 7개가 모두 회사명과 근무지만 표시하고, `한국 · 한국어`, `일본 · 일본어`, `미국 · 영어` 패턴이 남아있지 않은 것을 확인했다.
+
+### jobs 상세 필터 패널 구현
+
+- 브라우저 주석에 따라 비어 있던 `/jobs` 상세 필터 버튼에 실제 필터 패널과 결과 반영 로직을 추가했다.
+- 수정:
+  - `apps/frontend/src/pages/Jobs.tsx`에 상세 필터 상태를 추가하고 `New 공고`, `기술 스택`, `급여 공개 여부`, `마감 유형` 조건을 결과 필터링에 연결했다.
+  - 선택된 상세 조건은 기존 필터 칩에 함께 표시되고, `필터 초기화`와 상세 패널의 `조건 지우기`로 해제되게 했다.
+  - `apps/frontend/src/styles.css`에 상세 필터 팝오버, 기술 스택 칩, 세그먼트 버튼, 액션 영역 스타일을 추가했다.
+- 검증:
+  - `corepack pnpm --filter @neet2work/frontend lint` 통과.
+  - `corepack pnpm --filter @neet2work/frontend build` 통과.
+  - Playwright Chrome 채널로 `/jobs`에서 상세 필터 패널이 열리고 `New 공고만` 선택 시 공고가 3개로 줄어드는 것을 확인했다.
+  - `Python` 기술 스택 선택 시 공고가 2개로 줄고 필터 칩이 `기술: Python`으로 표시되는 것을 확인했다.
+
+### jobs 근무 지역 초기 선택지 보강
+
+- 브라우저 주석에 따라 `/jobs` 근무 지역 팝오버를 열었을 때 국가 3개만 보여 지역이 적어 보이는 문제를 수정했다.
+- 수정:
+  - `apps/frontend/src/pages/Jobs.tsx`의 `locationTree`에 캐나다, 호주, 싱가포르, 영국, 독일, 프랑스, 네덜란드, 베트남, 태국, 대만, 홍콩, 인도를 추가했다.
+  - 국가를 먼저 누르지 않아도 광역 지역 컬럼에 전체 주요 지역이 `서울특별시 · 한국`처럼 국가와 함께 표시되게 했다.
+  - 지역명 검색을 국가, 광역 지역, 시/구, 세부 지역 전체에 연결했다.
+- 검증:
+  - `corepack pnpm --filter @neet2work/frontend lint` 통과.
+  - `corepack pnpm --filter @neet2work/frontend build` 통과.
+  - Playwright Chrome 채널로 `/jobs`에서 근무 지역 팝오버를 열고 국가 15개, 광역 지역 68개가 초기 표시되는 것을 확인했다.
+  - `도쿄` 검색 시 국가 `일본`, 광역 지역 `도쿄도 · 일본`만 남는 것을 확인했다.
+  - `서울특별시 · 한국` 선택 시 `한국 > 서울특별시`가 선택되고 시/구 25개가 표시되는 것을 확인했다.
+
+### jobs 근무 지역 국가 범위 재조정
+
+- 사용자 정정에 따라 `/jobs` 근무 지역 필터의 국가는 한국/일본만 유지하고, 내부 도시/시구 선택지를 확장하는 방향으로 재조정했다.
+- 수정:
+  - `apps/frontend/src/pages/Jobs.tsx`의 `locationTree`에서 미국과 기타 국가 확장분을 제거했다.
+  - 한국은 전국 광역 지역 안의 시군구를 크게 늘리고, 경기도/주요 광역시/도에는 실제 시군구와 일부 세부 구를 보강했다.
+  - 일본은 주요 도도부현과 도쿄 23구/주요 시, 오사카/가나가와/아이치 등 주요 도시를 보강했다.
+- 검증:
+  - `corepack pnpm --filter @neet2work/frontend lint` 통과.
+  - `corepack pnpm --filter @neet2work/frontend build` 통과.
+  - Playwright Chrome 채널로 `/jobs` 근무 지역 팝오버의 국가가 `한국`, `일본` 2개만 표시되는 것을 확인했다.
+  - 초기 광역 지역 51개, 경기도 시군 31개, 도쿄도 구/시 28개가 표시되는 것을 확인했다.
+  - `치바` 검색 시 국가 `일본`, 광역 지역 `치바현`만 남는 것을 확인했다.
+
+### jobs 근무 지역 세부 지역 컬럼 제거
+
+- 브라우저 주석에 따라 `/jobs` 근무 지역 팝오버의 `세부 지역` 컬럼을 제거했다.
+- 수정:
+  - `apps/frontend/src/pages/Jobs.tsx`에서 세부 지역 선택 상태, 필터링 메모, 체크박스 렌더링을 제거했다.
+  - `apps/frontend/src/styles.css`에서 지역 선택 그리드를 3열로 조정하고 세부 지역 체크박스 전용 스타일을 정리했다.
+  - 시/구 안의 세부 지역 데이터는 검색 보조용으로 유지해 `분당구` 같은 검색어가 상위 도시를 찾는 동작은 살렸다.
+- 검증:
+  - `corepack pnpm --filter @neet2work/frontend lint` 통과.
+  - `corepack pnpm --filter @neet2work/frontend build` 통과. 최초 샌드박스 실행은 `tsbuildinfo` 쓰기 권한 때문에 실패했고, 승인된 빌드 검증으로 재실행해 통과했다.
+  - 인앱 브라우저에서 근무 지역 팝오버가 `국가`, `광역 지역`, `시/구` 3개 컬럼만 렌더링되고 `세부 지역` 문구가 사라진 것을 확인했다.
+  - Playwright Chrome 채널 1680x838 뷰포트에서 3열 폭이 `307px`대로 균등 계산되고 `한국 > 경기도 > 성남시` 선택이 정상 반영되는 것을 확인했다.
+
+### 공통 상단 네비 휠 스크롤 보정
+
+- 사용자 제보에 따라 상단 네비게이션 위에서 휠 스크롤이 페이지로 전달되지 않는 문제를 수정했다.
+- 수정:
+  - `apps/frontend/src/components/HomeTopNav.tsx`에 세로 휠 입력을 감지해 `window.scrollBy`로 넘기는 핸들러를 추가했다.
+  - 공통 네비 컴포넌트에 적용해 홈과 jobs 화면 모두 같은 동작을 쓰게 했다.
+- 검증:
+  - `corepack pnpm --filter @neet2work/frontend lint` 통과.
+  - `corepack pnpm --filter @neet2work/frontend build` 통과. 최초 샌드박스 실행은 `tsbuildinfo` 쓰기 권한 때문에 실패했고, 승인된 빌드 검증으로 재실행해 통과했다.
+  - 인앱 브라우저에서 `http://localhost:5174/#home` 상단 네비 위 휠 입력 후 `scrollY`가 `0`에서 `900`으로 이동하는 것을 확인했다.
+  - `http://localhost:5174/jobs`에서도 같은 상단 네비 휠 입력 후 `scrollY`가 `0`에서 `900`으로 이동하는 것을 확인했다.
+
+### jobs 필터 바깥 클릭 닫힘 처리
+
+- 브라우저 주석에 따라 `/jobs` 상세 필터 드롭다운이 바깥 클릭으로 닫히도록 수정했다.
+- 수정:
+  - `apps/frontend/src/pages/Jobs.tsx`에서 근무 지역 또는 상세 필터 팝오버가 열려 있을 때 문서 `pointerdown`을 감지하도록 했다.
+  - 팝오버 자체와 해당 버튼을 제외한 클릭이면 열린 팝오버를 닫도록 처리했다.
+  - 검색창이나 다른 필터 컨트롤처럼 필터바 안이지만 드롭다운 바깥인 영역을 눌러도 근무 지역 팝오버가 닫히게 했다.
+- 검증:
+  - `corepack pnpm --filter @neet2work/frontend lint` 통과.
+  - `corepack pnpm --filter @neet2work/frontend build` 통과. 최초 샌드박스 실행은 `tsbuildinfo` 쓰기 권한 때문에 실패했고, 승인된 빌드 검증으로 재실행해 통과했다.
+  - Playwright Chrome 채널 1680x838 뷰포트에서 `상세 필터` 클릭 시 `.jobsAdvancedPopover`가 1개 열리고, 카드 영역 바깥 클릭 후 0개로 닫히는 것을 확인했다.
+  - 인앱 브라우저에서 `근무 지역` 클릭 시 `.jobsLocationPopover`가 열리고, 카드 영역 바깥 클릭 후 닫히는 것을 확인했다.
+  - 인앱 브라우저에서 `근무 지역`을 연 뒤 검색창을 클릭하면 팝오버가 닫히는 것을 확인했다.
