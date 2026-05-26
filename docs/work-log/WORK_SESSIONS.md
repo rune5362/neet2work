@@ -159,3 +159,13 @@
   - Playwright Chrome 채널 1680x838 뷰포트에서 `상세 필터` 클릭 시 `.jobsAdvancedPopover`가 1개 열리고, 카드 영역 바깥 클릭 후 0개로 닫히는 것을 확인했다.
   - 인앱 브라우저에서 `근무 지역` 클릭 시 `.jobsLocationPopover`가 열리고, 카드 영역 바깥 클릭 후 닫히는 것을 확인했다.
   - 인앱 브라우저에서 `근무 지역`을 연 뒤 검색창을 클릭하면 팝오버가 닫히는 것을 확인했다.
+
+### Figma 작업일지 5/26 정리
+
+- `docs/work-log/WORK_SESSIONS.md`의 5/26 상세 기록을 기준으로 `docs/work-log/WORK_LOG.md` Figma Summary를 작성했다.
+- 피그마 요약은 jobs 필터 컨트롤, 근무 지역 필터, 상세 필터, 카드/drawer UI, 네비/팝오버 동작 보정 중심으로 압축했다.
+- 검증:
+  - `corepack pnpm run worklog:export` 통과.
+  - bridge health check가 HTTP 200을 반환했다.
+  - `git diff --check -- docs\work-log\WORK_LOG.md docs\work-log\WORK_SESSIONS.md` 통과.
+  - `corepack pnpm run figma:apply-log -- --date=2026-05-26 --timeout-ms=60000` 완료: `Figma WORK_LOG appended`.
