@@ -946,6 +946,12 @@ textarea:focus {
   background: var(--home-surface-container);
 }
 
+.homeAccountButton.active > span:last-child {
+  border-bottom: 2px solid var(--home-primary);
+  color: var(--home-primary);
+  font-weight: 900;
+}
+
 .homeAccountButton img,
 .homeAccountFallbackIcon {
   flex: 0 0 auto;
@@ -1009,8 +1015,10 @@ textarea:focus {
 }
 
 .homeAccountDropdown a:hover,
+.homeAccountDropdown a.active,
 .homeAccountDropdown button:hover {
   background: var(--home-surface-low);
+  color: var(--home-primary);
 }
 
 .homeStartButton,

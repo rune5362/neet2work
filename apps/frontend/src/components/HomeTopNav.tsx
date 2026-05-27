@@ -3,7 +3,7 @@ import logoUrl from "../assets/logo/neet2work_logo_lockup_reference_curve 1.png"
 import { logout, type AuthUser } from "../api/client";
 
 type HomeTopNavProps = {
-  active?: "home" | "jobs" | "analysis" | "community";
+  active?: "home" | "jobs" | "analysis" | "community" | "account";
 };
 
 function getStoredAuthUser(): AuthUser | null {
@@ -31,6 +31,9 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const displayName = authUser?.nickname || authUser?.name || authUser?.email;
   const shouldShowProfileImage = Boolean(authUser?.profileImageUrl && !profileImageFailed);
+  const currentPath = typeof window === "undefined" ? "" : window.location.pathname;
+  const isAccountSection = currentPath === "/myaccount" || currentPath === "/documents";
+  const effectiveActive = isAccountSection ? "account" : active;
 
   useEffect(() => {
     const syncStoredAuthUser = () => {
@@ -135,7 +138,7 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
                     <strong>메뉴</strong>
                   </button>
                   <a
-                    className={active === "home" ? "active" : ""}
+                    className={effectiveActive === "home" ? "active" : ""}
                     href="/#home"
                     role="menuitem"
                     onClick={() => setIsNavMenuOpen(false)}
@@ -143,7 +146,7 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
                     홈
                   </a>
                   <a
-                    className={active === "jobs" ? "active" : ""}
+                    className={effectiveActive === "jobs" ? "active" : ""}
                     href="/jobs"
                     role="menuitem"
                     onClick={() => setIsNavMenuOpen(false)}
@@ -151,7 +154,7 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
                     채용공고
                   </a>
                   <a
-                    className={active === "analysis" ? "active" : ""}
+                    className={effectiveActive === "analysis" ? "active" : ""}
                     href="/ai-analysis"
                     role="menuitem"
                     onClick={() => setIsNavMenuOpen(false)}
@@ -167,13 +170,23 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
                     </a>
                     {authUser ? (
                       <>
-                        <a href="/myaccount" role="menuitem" onClick={() => setIsNavMenuOpen(false)}>
+                        <a
+                          className={currentPath === "/myaccount" ? "active" : ""}
+                          href="/myaccount"
+                          role="menuitem"
+                          onClick={() => setIsNavMenuOpen(false)}
+                        >
                           <svg aria-hidden="true" height="20" viewBox="0 -960 960 960" width="20">
                             <path d="M480-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z" />
                           </svg>
                           계정 정보
                         </a>
-                        <a href="/documents" role="menuitem" onClick={() => setIsNavMenuOpen(false)}>
+                        <a
+                          className={currentPath === "/documents" ? "active" : ""}
+                          href="/documents"
+                          role="menuitem"
+                          onClick={() => setIsNavMenuOpen(false)}
+                        >
                           <svg aria-hidden="true" height="20" viewBox="0 -960 960 960" width="20">
                             <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h240l80 80h240q33 0 56.5 23.5T840-680v480q0 33-23.5 56.5T760-120H200Zm0-80h560v-480H487l-80-80H200v560Zm0 0v-560 560Z" />
                           </svg>
@@ -204,13 +217,13 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
             <img src={logoUrl} alt="Neet2Work Logo" />
           </a>
           <div className="homeNavLinks">
-            <a className={active === "home" ? "active" : ""} href="/#home">
+            <a className={effectiveActive === "home" ? "active" : ""} href="/#home">
               홈
             </a>
-            <a className={active === "jobs" ? "active" : ""} href="/jobs">
+            <a className={effectiveActive === "jobs" ? "active" : ""} href="/jobs">
               채용공고
             </a>
-            <a className={active === "analysis" ? "active" : ""} href="/ai-analysis">
+            <a className={effectiveActive === "analysis" ? "active" : ""} href="/ai-analysis">
               AI 분석
             </a>
             {/* <a className={active === "community" ? "active" : ""} href="/#home">
@@ -227,7 +240,7 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
           {authUser ? (
             <div className="homeAccountMenu" ref={accountMenuRef}>
               <button
-                className="homeAccountButton"
+                className={`homeAccountButton${effectiveActive === "account" ? " active" : ""}`}
                 type="button"
                 aria-expanded={isAccountMenuOpen}
                 aria-haspopup="menu"
@@ -247,10 +260,20 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
 
               {isAccountMenuOpen && (
                 <div className="homeAccountDropdown" role="menu">
-                  <a href="/myaccount" role="menuitem" onClick={() => setIsAccountMenuOpen(false)}>
+                  <a
+                    className={currentPath === "/myaccount" ? "active" : ""}
+                    href="/myaccount"
+                    role="menuitem"
+                    onClick={() => setIsAccountMenuOpen(false)}
+                  >
                     계정 정보
                   </a>
-                  <a href="/documents" role="menuitem" onClick={() => setIsAccountMenuOpen(false)}>
+                  <a
+                    className={currentPath === "/documents" ? "active" : ""}
+                    href="/documents"
+                    role="menuitem"
+                    onClick={() => setIsAccountMenuOpen(false)}
+                  >
                     보관함
                   </a>
                   <button type="button" role="menuitem" onClick={handleLogout}>
