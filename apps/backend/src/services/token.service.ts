@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 type AccessTokenPayload = {
   sub: string;
@@ -15,6 +15,12 @@ function base64UrlEncode(value: string | Buffer) {
     .replaceAll("+", "-")
     .replaceAll("/", "_")
     .replace(/=+$/u, "");
+}
+
+function base64UrlDecode(value: string) {
+  const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
+  const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+  return Buffer.from(padded, "base64").toString("utf8");
 }
 
 function getAccessTokenTtlSeconds() {
@@ -74,5 +80,44 @@ export function issueAccessToken(payload: AccessTokenPayload) {
   return {
     accessToken: `${encodedHeader}.${encodedClaims}.${signature}`,
     expiresIn
+  };
+}
+
+export function verifyAccessToken(accessToken: string): AccessTokenPayload {
+  const [encodedHeader, encodedClaims, signature] = accessToken.split(".");
+
+  if (!encodedHeader || !encodedClaims || !signature) {
+    throw new Error("Invalid access token");
+  }
+
+  const expectedSignature = base64UrlEncode(
+    createHmac("sha256", getJwtSecret()).update(`${encodedHeader}.${encodedClaims}`).digest()
+  );
+  const actualSignature = Buffer.from(signature);
+  const expectedSignatureBuffer = Buffer.from(expectedSignature);
+
+  if (
+    actualSignature.length !== expectedSignatureBuffer.length ||
+    !timingSafeEqual(actualSignature, expectedSignatureBuffer)
+  ) {
+    throw new Error("Invalid access token signature");
+  }
+
+  const claims = JSON.parse(base64UrlDecode(encodedClaims)) as AccessTokenPayload & {
+    exp?: number;
+  };
+
+  if (!claims.sub || !claims.email || !claims.status || !claims.exp) {
+    throw new Error("Invalid access token claims");
+  }
+
+  if (claims.exp <= Math.floor(Date.now() / 1000)) {
+    throw new Error("Expired access token");
+  }
+
+  return {
+    sub: claims.sub,
+    email: claims.email,
+    status: claims.status
   };
 }

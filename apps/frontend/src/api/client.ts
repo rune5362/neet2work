@@ -33,6 +33,7 @@ export type AuthUser = {
   profileImageUrl: string | null;
   status: string;
   emailVerifiedAt: string | null;
+  lastLoginAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -150,5 +151,28 @@ export async function logout(refreshToken: string): Promise<{ revoked: boolean }
   }
 
   const result = (await response.json()) as ApiItemResponse<{ revoked: boolean }>;
+  return result.data;
+}
+
+export async function updateProfile(
+  accessToken: string,
+  payload: Partial<Pick<AuthUser, "name" | "nickname" | "profileImageUrl">>
+): Promise<AuthUser> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const fallbackMessage = "프로필 수정에 실패했습니다.";
+    const result = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(result?.message ?? fallbackMessage);
+  }
+
+  const result = (await response.json()) as ApiItemResponse<AuthUser>;
   return result.data;
 }

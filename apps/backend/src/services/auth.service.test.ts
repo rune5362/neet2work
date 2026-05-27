@@ -7,7 +7,8 @@ import {
   logoutWithClient,
   refreshAccessTokenWithClient,
   signUpSchema,
-  signUpWithClient
+  signUpWithClient,
+  updateProfileWithClient
 } from "./auth.service.js";
 
 type MockRefreshToken = {
@@ -83,6 +84,22 @@ function createMockPrisma(user: User | null) {
           state.user.lockedUntil = data.lockedUntil;
         }
 
+        if (data.name !== undefined) {
+          state.user.name = data.name;
+        }
+
+        if (data.nickname !== undefined) {
+          state.user.nickname = data.nickname;
+        }
+
+        if (data.profileImageUrl !== undefined) {
+          state.user.profileImageUrl = data.profileImageUrl;
+        }
+
+        if (data.updatedBy !== undefined) {
+          state.user.updatedBy = data.updatedBy;
+        }
+
         return state.user;
       }
     },
@@ -124,7 +141,8 @@ function createMockPrisma(user: User | null) {
       findUnique: async (args: unknown) => {
         state.findUniqueArgs = args;
         return state.user;
-      }
+      },
+      update: tx.user.update
     },
     auditLog: tx.auditLog,
     refreshToken: {
@@ -399,5 +417,30 @@ describe("auth service login", () => {
       { action: AuditAction.LOGIN_SUCCEEDED },
       { action: AuditAction.LOGGED_OUT }
     ]);
+  });
+});
+
+describe("auth service profile", () => {
+  it("updates editable profile fields and omits passwordHash", async () => {
+    const mock = createMockPrisma(createUser({ name: "이전이름", nickname: "old" }));
+
+    const result = await updateProfileWithClient(mock.prisma, "user-1", {
+      name: "새이름",
+      nickname: "new",
+      profileImageUrl: "https://example.com/profile.png"
+    });
+
+    expect(result.name).toBe("새이름");
+    expect(result.nickname).toBe("new");
+    expect(result.profileImageUrl).toBe("https://example.com/profile.png");
+    expect("passwordHash" in result).toBe(false);
+    expect(mock.state.findFirstArgs).toMatchObject({
+      where: {
+        id: "user-1",
+        deletedAt: null,
+        status: UserStatus.ACTIVE
+      }
+    });
+    expect(mock.state.user?.updatedBy).toBe("user-1");
   });
 });

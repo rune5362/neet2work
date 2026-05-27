@@ -49,6 +49,14 @@ export const logoutSchema = refreshTokenSchema;
 
 export type LogoutInput = z.infer<typeof logoutSchema>;
 
+export const updateProfileSchema = z.object({
+  name: nameSchema.nullable().optional(),
+  nickname: z.string().trim().max(30).nullable().optional(),
+  profileImageUrl: z.string().trim().url().nullable().optional()
+});
+
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
 type RequestContext = {
   ipAddress?: string | null;
   userAgent?: string | null;
@@ -68,6 +76,7 @@ type PublicUser = Pick<
   | "profileImageUrl"
   | "status"
   | "emailVerifiedAt"
+  | "lastLoginAt"
   | "createdAt"
   | "updatedAt"
 >;
@@ -92,9 +101,52 @@ function toPublicUser(user: User): PublicUser {
     profileImageUrl: user.profileImageUrl,
     status: user.status,
     emailVerifiedAt: user.emailVerifiedAt,
+    lastLoginAt: user.lastLoginAt,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt
   };
+}
+
+export async function updateProfile(userId: string, input: UpdateProfileInput) {
+  const prisma = getPrismaClient();
+
+  if (!prisma) {
+    throw new HttpError(503, "데이터베이스가 설정되어 있지 않습니다.");
+  }
+
+  return updateProfileWithClient(prisma, userId, input);
+}
+
+export async function updateProfileWithClient(
+  prisma: PrismaClient,
+  userId: string,
+  input: UpdateProfileInput
+) {
+  const user = await prisma.user.findFirst({
+    where: {
+      id: userId,
+      deletedAt: null,
+      status: UserStatus.ACTIVE
+    }
+  });
+
+  if (!user) {
+    throw new HttpError(404, "사용자를 찾을 수 없습니다.");
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: {
+      id: user.id
+    },
+    data: {
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.nickname !== undefined ? { nickname: input.nickname } : {}),
+      ...(input.profileImageUrl !== undefined ? { profileImageUrl: input.profileImageUrl } : {}),
+      updatedBy: user.id
+    }
+  });
+
+  return toPublicUser(updatedUser);
 }
 
 export async function signUp(input: SignUpInput, context: RequestContext = {}) {
