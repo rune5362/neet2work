@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import logoUrl from "../assets/logo/neet2work_logo_lockup_reference_curve 1.png";
 import { logout, type AuthUser } from "../api/client";
 
@@ -28,8 +28,38 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
   const [profileImageFailed, setProfileImageFailed] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const displayName = authUser?.nickname || authUser?.name || authUser?.email;
   const shouldShowProfileImage = Boolean(authUser?.profileImageUrl && !profileImageFailed);
+
+  useEffect(() => {
+    if (!isAccountMenuOpen) {
+      return;
+    }
+
+    const closeOnOutsidePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && accountMenuRef.current?.contains(target)) {
+        return;
+      }
+
+      setIsAccountMenuOpen(false);
+    };
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsAccountMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", closeOnOutsidePointerDown);
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointerDown);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isAccountMenuOpen]);
 
   const handleLogout = async () => {
     const refreshToken = window.localStorage.getItem("neet2work.auth.refreshToken");
@@ -53,9 +83,6 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
     <nav className="homeTopNav" aria-label="주요 메뉴">
       <div className="homeNavInner">
         <div className="homeNavLeft">
-          <a href="/" aria-label="Neet2Work 홈">
-            <img src={logoUrl} alt="Neet2Work Logo" />
-          </a>
           <div className="homeNavMenu">
             <button
               className="homeMenuButton"
@@ -71,47 +98,90 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
             </button>
 
             {isNavMenuOpen && (
-              <div className="homeNavDropdown" role="menu">
-                <a className={active === "home" ? "active" : ""} href="/#home" role="menuitem">
-                  홈
-                </a>
-                <a className={active === "jobs" ? "active" : ""} href="/jobs" role="menuitem">
-                  채용공고
-                </a>
-                <a className={active === "analysis" ? "active" : ""} href="/ai-analysis" role="menuitem">
-                  AI 분석
-                </a>
-                <div className="homeNavDropdownMobileOnly" role="none">
-                  <a href="/#support" role="menuitem">
-                    <svg aria-hidden="true" height="20" viewBox="0 -960 960 960" width="20">
-                      <path d="M160-200v-80h80v-280q0-83 50-147.5T420-792v-28q0-25 17.5-42.5T480-880q25 0 42.5 17.5T540-820v28q80 20 130 84.5T720-560v280h80v80H160Zm320 120q-33 0-56.5-23.5T400-160h160q0 33-23.5 56.5T480-80Z" />
-                    </svg>
-                    알림
+              <>
+                <button
+                  className="homeNavDrawerBackdrop"
+                  type="button"
+                  aria-label="메뉴 닫기"
+                  onClick={() => setIsNavMenuOpen(false)}
+                />
+                <div className="homeNavDropdown" role="menu" aria-label="Navigation drawer">
+                  <button
+                    className="homeNavDrawerHeader"
+                    type="button"
+                    aria-label="메뉴 닫기"
+                    onClick={() => setIsNavMenuOpen(false)}
+                  >
+                    <span className="homeNavDrawerMenuIcon" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                    <strong>메뉴</strong>
+                  </button>
+                  <a
+                    className={active === "home" ? "active" : ""}
+                    href="/#home"
+                    role="menuitem"
+                    onClick={() => setIsNavMenuOpen(false)}
+                  >
+                    홈
                   </a>
-                  {authUser ? (
-                    <>
-                      <button type="button" role="menuitem" onClick={() => setIsNavMenuOpen(false)}>
+                  <a
+                    className={active === "jobs" ? "active" : ""}
+                    href="/jobs"
+                    role="menuitem"
+                    onClick={() => setIsNavMenuOpen(false)}
+                  >
+                    채용공고
+                  </a>
+                  <a
+                    className={active === "analysis" ? "active" : ""}
+                    href="/ai-analysis"
+                    role="menuitem"
+                    onClick={() => setIsNavMenuOpen(false)}
+                  >
+                    AI 분석
+                  </a>
+                  <div className="homeNavDropdownMobileOnly" role="none">
+                    <a href="/#support" role="menuitem" onClick={() => setIsNavMenuOpen(false)}>
+                      <svg aria-hidden="true" height="20" viewBox="0 -960 960 960" width="20">
+                        <path d="M160-200v-80h80v-280q0-83 50-147.5T420-792v-28q0-25 17.5-42.5T480-880q25 0 42.5 17.5T540-820v28q80 20 130 84.5T720-560v280h80v80H160Zm320 120q-33 0-56.5-23.5T400-160h160q0 33-23.5 56.5T480-80Z" />
+                      </svg>
+                      알림
+                    </a>
+                    {authUser ? (
+                      <>
+                        <button type="button" role="menuitem" onClick={() => setIsNavMenuOpen(false)}>
+                          <svg aria-hidden="true" height="20" viewBox="0 -960 960 960" width="20">
+                            <path d="M480-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z" />
+                          </svg>
+                          내 정보
+                        </button>
+                      </>
+                    ) : (
+                      <a href="/auth" role="menuitem" onClick={() => setIsNavMenuOpen(false)}>
                         <svg aria-hidden="true" height="20" viewBox="0 -960 960 960" width="20">
                           <path d="M480-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z" />
                         </svg>
-                        내 정보
-                      </button>
+                        계정
+                      </a>
+                    )}
+                  </div>
+                  {authUser && (
+                    <div className="homeNavDrawerFooter" role="none">
                       <button type="button" role="menuitem" onClick={handleLogout}>
                         로그아웃
                       </button>
-                    </>
-                  ) : (
-                    <a href="/auth" role="menuitem">
-                      <svg aria-hidden="true" height="20" viewBox="0 -960 960 960" width="20">
-                        <path d="M480-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z" />
-                      </svg>
-                      계정
-                    </a>
+                    </div>
                   )}
                 </div>
-              </div>
+              </>
             )}
           </div>
+          <a href="/" aria-label="Neet2Work 홈">
+            <img src={logoUrl} alt="Neet2Work Logo" />
+          </a>
           <div className="homeNavLinks">
             <a className={active === "home" ? "active" : ""} href="/#home">
               홈
@@ -134,7 +204,7 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
             </svg>
           </a>
           {authUser ? (
-            <div className="homeAccountMenu">
+            <div className="homeAccountMenu" ref={accountMenuRef}>
               <button
                 className="homeAccountButton"
                 type="button"

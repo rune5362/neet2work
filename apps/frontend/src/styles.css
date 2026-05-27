@@ -721,10 +721,13 @@ textarea:focus {
 }
 
 .homeMenuButton {
-  display: grid;
-  width: 40px;
-  height: 40px;
-  place-items: center;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -738,34 +741,85 @@ textarea:focus {
 
 .homeMenuButton span {
   display: block;
-  width: 20px;
+  width: 22px;
   height: 2px;
   border-radius: 999px;
   background: var(--home-secondary);
 }
 
 .homeNavDropdown {
-  position: absolute;
-  top: calc(100% + 10px);
+  position: fixed;
+  top: 0;
+  bottom: 0;
   left: 0;
   z-index: 60;
-  display: grid;
-  min-width: 148px;
-  overflow: hidden;
-  border: 1px solid var(--home-hairline);
-  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  width: min(320px, calc(100vw - 48px));
+  overflow-y: auto;
+  border-right: 1px solid var(--home-hairline);
   background: white;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+  box-shadow: 18px 0 42px rgba(15, 23, 42, 0.18);
+}
+
+.homeNavDrawerBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  border: 0;
+  background: rgba(10, 17, 40, 0.28);
+  cursor: pointer;
+}
+
+.homeNavDrawerHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 70px;
+  border-bottom: 1px solid var(--home-hairline);
+  padding: 0 20px;
+  background: white;
+  cursor: pointer;
+}
+
+.homeNavDrawerHeader strong {
+  color: var(--home-ink);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.homeNavDrawerHeader:hover {
+  background: var(--home-surface-container);
+}
+
+.homeNavDrawerMenuIcon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+}
+
+.homeNavDrawerMenuIcon span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--home-secondary);
 }
 
 .homeNavDropdown a,
 .homeNavDropdown button {
   border: 0;
-  padding: 12px 14px;
+  padding: 16px 20px;
   background: white;
   color: var(--home-ink);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 800;
   text-align: left;
   text-decoration: none;
@@ -797,6 +851,35 @@ textarea:focus {
   width: 20px;
   height: 20px;
   fill: currentColor;
+}
+
+.homeNavDrawerFooter {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  margin-top: auto;
+  border-top: 1px solid var(--home-hairline);
+  padding: 12px;
+  background: white;
+}
+
+.homeNavDrawerFooter button {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 16px 20px;
+  background: var(--home-surface-low);
+  color: var(--home-ink);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.homeNavDrawerFooter button:hover {
+  background: var(--home-surface-container);
+  color: var(--home-primary);
 }
 
 .homeNavLinks {
@@ -2608,6 +2691,10 @@ textarea:focus {
 
   .homeNavLinks {
     display: none;
+  }
+
+  .homeNavLeft {
+    gap: 12px;
   }
 
   .homeNavMenu {
