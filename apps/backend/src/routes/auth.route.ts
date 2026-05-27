@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  getAccountSecuritySummary,
   login,
   loginSchema,
   logout,
@@ -88,6 +89,19 @@ authRouter.post("/logout", async (req, res, next) => {
 
     res.json({
       data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.get("/me/security", async (req, res, next) => {
+  try {
+    const userId = getAuthenticatedUserId(req.get("authorization"));
+    const summary = await getAccountSecuritySummary(userId);
+
+    res.json({
+      data: summary
     });
   } catch (error) {
     next(error);

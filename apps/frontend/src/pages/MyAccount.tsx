@@ -1,5 +1,12 @@
-import { useMemo, useState } from "react";
-import { refreshSession, updateProfile, type AuthUser, type LoginResult } from "../api/client";
+import { useEffect, useMemo, useState } from "react";
+import {
+  getAccountSecuritySummary,
+  refreshSession,
+  updateProfile,
+  type AccountSecuritySummary,
+  type AuthUser,
+  type LoginResult
+} from "../api/client";
 import { HomeFooter } from "../components/HomeFooter";
 import { HomeTopNav } from "../components/HomeTopNav";
 
@@ -146,11 +153,42 @@ export function MyAccount() {
   }));
   const [imageFailed, setImageFailed] = useState(false);
   const [savingField, setSavingField] = useState<EditableField | null>(null);
+  const [securitySummary, setSecuritySummary] = useState<AccountSecuritySummary | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const displayName = useMemo(() => user?.nickname || user?.name || user?.email || "사용자", [user]);
   const shouldShowProfileImage = Boolean(user?.profileImageUrl && !imageFailed);
+
+  useEffect(() => {
+    if (!user) {
+      setSecuritySummary(null);
+      return;
+    }
+
+    let isMounted = true;
+
+    async function loadSecuritySummary() {
+      try {
+        const accessToken = await getUsableAccessToken();
+        const summary = await getAccountSecuritySummary(accessToken);
+
+        if (isMounted) {
+          setSecuritySummary(summary);
+        }
+      } catch {
+        if (isMounted) {
+          setSecuritySummary(null);
+        }
+      }
+    }
+
+    void loadSecuritySummary();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
 
   const startEditing = (field: EditableField) => {
     setEditingField(field);
@@ -190,16 +228,12 @@ export function MyAccount() {
       const updatedUser = await updateProfile(accessToken, {
         [field]: normalizeProfileValue(field, value)
       });
-      const mergedUser = {
-        ...updatedUser,
-        lastLoginIpAddress: updatedUser.lastLoginIpAddress ?? user?.lastLoginIpAddress ?? null
-      };
-      setUser(mergedUser);
-      saveStoredAuthUser(mergedUser);
+      setUser(updatedUser);
+      saveStoredAuthUser(updatedUser);
       setForm({
-        name: mergedUser.name,
-        nickname: mergedUser.nickname,
-        profileImageUrl: mergedUser.profileImageUrl
+        name: updatedUser.name,
+        nickname: updatedUser.nickname,
+        profileImageUrl: updatedUser.profileImageUrl
       });
       setImageFailed(false);
       setEditingField(null);
@@ -307,7 +341,7 @@ export function MyAccount() {
               </div>
               <div>
                 <dt>이전 로그인 위치</dt>
-                <dd>{user.lastLoginIpAddress || "기록 없음"}</dd>
+                <dd>{securitySummary?.previousLoginIpAddress || "기록 없음"}</dd>
               </div>
               <div>
                 <dt>현재 환경</dt>

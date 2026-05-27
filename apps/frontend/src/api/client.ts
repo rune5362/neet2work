@@ -34,9 +34,12 @@ export type AuthUser = {
   status: string;
   emailVerifiedAt: string | null;
   lastLoginAt: string | null;
-  lastLoginIpAddress: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type AccountSecuritySummary = {
+  previousLoginIpAddress: string | null;
 };
 
 export type LoginResult = {
@@ -175,5 +178,22 @@ export async function updateProfile(
   }
 
   const result = (await response.json()) as ApiItemResponse<AuthUser>;
+  return result.data;
+}
+
+export async function getAccountSecuritySummary(accessToken: string): Promise<AccountSecuritySummary> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/me/security`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+
+  if (!response.ok) {
+    const fallbackMessage = "계정 보안 정보를 불러오지 못했습니다.";
+    const result = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(result?.message ?? fallbackMessage);
+  }
+
+  const result = (await response.json()) as ApiItemResponse<AccountSecuritySummary>;
   return result.data;
 }

@@ -3,6 +3,7 @@ import { AuditAction, UserStatus, type PrismaClient, type User } from "../genera
 import { HttpError } from "../errors/httpError.js";
 import { hashPassword, verifyPassword } from "./password.service.js";
 import {
+  getAccountSecuritySummaryWithClient,
   loginWithClient,
   logoutWithClient,
   refreshAccessTokenWithClient,
@@ -253,7 +254,6 @@ describe("auth service login", () => {
     expect(result.expiresIn).toBe(3600);
     expect(result.refreshToken).toEqual(expect.any(String));
     expect(result.refreshTokenExpiresIn).toBe(60 * 60 * 24 * 30);
-    expect(result.user.lastLoginIpAddress).toBe(mock.priorLoginIpAddress);
     expect("passwordHash" in result.user).toBe(false);
     expect(mock.state.user?.failedLoginCount).toBe(0);
     expect(mock.state.user?.lockedUntil).toBeNull();
@@ -448,5 +448,22 @@ describe("auth service profile", () => {
       }
     });
     expect(mock.state.user?.updatedBy).toBe("user-1");
+  });
+});
+
+describe("auth service account security summary", () => {
+  it("returns the previous login IP address from audit logs", async () => {
+    const mock = createMockPrisma(createUser());
+
+    const result = await getAccountSecuritySummaryWithClient(mock.prisma, "user-1");
+
+    expect(result.previousLoginIpAddress).toBe(mock.priorLoginIpAddress);
+    expect(mock.state.findFirstArgs).toMatchObject({
+      where: {
+        id: "user-1",
+        deletedAt: null,
+        status: UserStatus.ACTIVE
+      }
+    });
   });
 });

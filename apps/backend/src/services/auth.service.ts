@@ -79,11 +79,13 @@ type PublicUser = Pick<
   | "lastLoginAt"
   | "createdAt"
   | "updatedAt"
-> & {
-  lastLoginIpAddress: string | null;
-};
+>;
 
 type LoginAuditLogReader = Pick<PrismaClient, "auditLog">;
+
+export type AccountSecuritySummary = {
+  previousLoginIpAddress: string | null;
+};
 
 function getMaxFailedLoginAttempts() {
   const value = Number(process.env.LOGIN_MAX_FAILED_ATTEMPTS);
@@ -96,12 +98,7 @@ function getLoginLockDurationMs() {
   return minutes * 60 * 1000;
 }
 
-function toPublicUser(
-  user: User,
-  options: {
-    lastLoginIpAddress?: string | null;
-  } = {}
-): PublicUser {
+function toPublicUser(user: User): PublicUser {
   return {
     id: user.id,
     email: user.email,
@@ -111,7 +108,6 @@ function toPublicUser(
     status: user.status,
     emailVerifiedAt: user.emailVerifiedAt,
     lastLoginAt: user.lastLoginAt,
-    lastLoginIpAddress: options.lastLoginIpAddress ?? null,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt
   };
@@ -147,6 +143,40 @@ export async function updateProfile(userId: string, input: UpdateProfileInput) {
   }
 
   return updateProfileWithClient(prisma, userId, input);
+}
+
+export async function getAccountSecuritySummary(userId: string) {
+  const prisma = getPrismaClient();
+
+  if (!prisma) {
+    throw new HttpError(503, "데이터베이스가 설정되어 있지 않습니다.");
+  }
+
+  return getAccountSecuritySummaryWithClient(prisma, userId);
+}
+
+export async function getAccountSecuritySummaryWithClient(
+  prisma: PrismaClient,
+  userId: string
+): Promise<AccountSecuritySummary> {
+  const user = await prisma.user.findFirst({
+    where: {
+      id: userId,
+      deletedAt: null,
+      status: UserStatus.ACTIVE
+    },
+    select: {
+      id: true
+    }
+  });
+
+  if (!user) {
+    throw new HttpError(404, "사용자를 찾을 수 없습니다.");
+  }
+
+  return {
+    previousLoginIpAddress: await findPreviousLoginIpAddress(prisma, user.id)
+  };
 }
 
 export async function updateProfileWithClient(
@@ -376,8 +406,7 @@ export async function loginWithClient(
   });
   const { refreshToken, refreshTokenHash, refreshTokenExpiresIn, refreshTokenExpiresAt } = issueRefreshToken();
 
-  const { previousLoginIpAddress, loggedInUser } = await prisma.$transaction(async (tx) => {
-    const priorLoginIpAddress = await findPreviousLoginIpAddress(tx, user.id);
+  const loggedInUser = await prisma.$transaction(async (tx) => {
     const updatedUser = await tx.user.update({
       where: {
         id: user.id
@@ -414,16 +443,11 @@ export async function loginWithClient(
       }
     });
 
-    return {
-      previousLoginIpAddress: priorLoginIpAddress,
-      loggedInUser: updatedUser
-    };
+    return updatedUser;
   });
 
   return {
-    user: toPublicUser(loggedInUser, {
-      lastLoginIpAddress: previousLoginIpAddress
-    }),
+    user: toPublicUser(loggedInUser),
     accessToken,
     tokenType: "Bearer" as const,
     expiresIn,
@@ -501,12 +525,8 @@ export async function refreshAccessTokenWithClient(
     });
   });
 
-  const previousLoginIpAddress = await findPreviousLoginIpAddress(prisma, storedToken.user.id);
-
   return {
-    user: toPublicUser(storedToken.user, {
-      lastLoginIpAddress: previousLoginIpAddress
-    }),
+    user: toPublicUser(storedToken.user),
     accessToken,
     tokenType: "Bearer" as const,
     expiresIn,
