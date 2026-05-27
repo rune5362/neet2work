@@ -253,26 +253,34 @@ export function MyAccount() {
         <dt>{label}</dt>
         <dd>
           {isEditing ? (
-            <div className="myAccountEditControl">
+            <div className="myAccountEditingContainer">
               <input
-                autoFocus
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    [field]: event.target.value
-                  }))
-                }
-                placeholder={field === "profileImageUrl" ? "https://example.com/profile.png" : "미입력"}
-                type={field === "profileImageUrl" ? "url" : "text"}
-                value={form[field] ?? ""}
+                className="myAccountOriginalInput"
+                disabled
+                type="text"
+                value={value ? `기존 값: ${value}` : "기존 값: 미입력"}
               />
-              <div>
-                <button disabled={savingField === field} type="button" onClick={() => saveField(field)}>
-                  {savingField === field ? "저장 중" : "저장"}
-                </button>
-                <button type="button" onClick={cancelEditing}>
-                  취소
-                </button>
+              <div className="myAccountEditControl">
+                <input
+                  autoFocus
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      [field]: event.target.value
+                    }))
+                  }
+                  placeholder={field === "profileImageUrl" ? "https://example.com/profile.png" : "미입력"}
+                  type={field === "profileImageUrl" ? "url" : "text"}
+                  value={form[field] ?? ""}
+                />
+                <div>
+                  <button disabled={savingField === field} type="button" onClick={() => saveField(field)}>
+                    {savingField === field ? "저장 중" : "저장"}
+                  </button>
+                  <button type="button" onClick={cancelEditing}>
+                    취소
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
