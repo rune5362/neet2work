@@ -258,7 +258,7 @@ export function MyAccount() {
                 className="myAccountOriginalInput"
                 disabled
                 type="text"
-                value={value ? `기존 값: ${value}` : "기존 값: 미입력"}
+                value={value ? `${value}` : "미입력"}
               />
               <div className="myAccountEditControl">
                 <input
