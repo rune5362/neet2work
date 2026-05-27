@@ -248,7 +248,7 @@ export function MyAccount() {
 
       <section className="myAccountContent">
         <header className="myAccountHeader">
-          <span>내 정보</span>
+          <span>계정 정보</span>
           <h1>계정 정보</h1>
         </header>
 
