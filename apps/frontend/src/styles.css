@@ -2264,6 +2264,34 @@ textarea:focus {
 }
 
 @media (max-width: 900px) {
+  .myAccountContent {
+    width: min(100% - 32px, 960px);
+  }
+
+  .myAccountPanel {
+    padding: 24px;
+  }
+
+  .myAccountProfile {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .myAccountUpdatedAt {
+    align-self: flex-end;
+    margin-left: 0;
+  }
+
+  .myAccountDetails div {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .myAccountDetails dd {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .myAccountEditingContainer {
     flex-direction: column;
     align-items: stretch;
@@ -2287,10 +2315,12 @@ textarea:focus {
 
   .myAccountEditControl > div {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
+  .myAccountEditableRow button,
   .myAccountEditControl button {
+    width: 100%;
     min-width: 0;
   }
 }
@@ -3404,39 +3434,6 @@ textarea:focus {
     width: min(100% - 24px, 960px);
     padding-top: 96px;
     padding-bottom: 64px;
-  }
-
-  .myAccountPanel {
-    padding: 24px;
-  }
-
-  .myAccountProfile {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .myAccountUpdatedAt {
-    align-self: flex-end;
-    margin-left: 0;
-  }
-
-  .myAccountDetails div {
-    grid-template-columns: 1fr;
-    gap: 6px;
-  }
-
-  .myAccountDetails dd {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .myAccountEditableRow button,
-  .myAccountEditControl button {
-    width: 100%;
-  }
-
-  .myAccountEditControl > div {
-    grid-template-columns: 1fr;
   }
 
   .documentsHeader button {
