@@ -2062,6 +2062,14 @@ textarea:focus {
   padding-bottom: 24px;
 }
 
+.myAccountUpdatedAt {
+  align-self: flex-end;
+  margin-left: auto;
+  color: var(--home-body-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .myAccountProfile img,
 .myAccountDefaultIcon {
   flex: 0 0 auto;
@@ -2224,6 +2232,24 @@ textarea:focus {
 .myAccountEditControl button:disabled {
   cursor: wait;
   background: #9fb8ef;
+}
+
+@media (max-width: 900px) {
+  .myAccountEditControl {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+  }
+
+  .myAccountEditControl > div {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .myAccountEditControl button {
+    min-width: 0;
+  }
 }
 
 .myAccountEmpty {
@@ -3346,6 +3372,11 @@ textarea:focus {
     flex-direction: column;
   }
 
+  .myAccountUpdatedAt {
+    align-self: flex-end;
+    margin-left: 0;
+  }
+
   .myAccountDetails div {
     grid-template-columns: 1fr;
     gap: 6px;
@@ -3359,6 +3390,10 @@ textarea:focus {
   .myAccountEditableRow button,
   .myAccountEditControl button {
     width: 100%;
+  }
+
+  .myAccountEditControl > div {
+    grid-template-columns: 1fr;
   }
 
   .documentsHeader button {
