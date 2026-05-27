@@ -1,6 +1,6 @@
 import { Home } from "./pages/Home";
 import { AIAnalysisDetails } from "./pages/AIAnalysisDetails";
-import { AIAnalysisFront } from "./pages/AIAnalysisFront";
+import { AIDraftChatBuilder } from "./pages/AIDraftChatBuilder";
 import { Jobs } from "./pages/Jobs";
 
 export default function App() {
@@ -9,7 +9,7 @@ export default function App() {
   }
 
   if (window.location.pathname === "/ai-analysis") {
-    return <AIAnalysisFront />;
+    return <AIDraftChatBuilder />;
   }
 
   if (window.location.pathname === "/jobs") {

@@ -1,23 +1,12 @@
 import logoUrl from "../assets/logo/neet2work_logo_lockup_reference_curve 1.png";
-import type { WheelEvent } from "react";
 
 type HomeTopNavProps = {
   active?: "home" | "jobs" | "analysis" | "community";
 };
 
 export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
-  const handleNavWheel = (event: WheelEvent<HTMLElement>) => {
-    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
-
-    event.preventDefault();
-    window.scrollBy({
-      top: event.deltaY,
-      behavior: "auto"
-    });
-  };
-
   return (
-    <nav className="homeTopNav" aria-label="주요 메뉴" onWheel={handleNavWheel}>
+    <nav className="homeTopNav" aria-label="주요 메뉴">
       <div className="homeNavInner">
         <div className="homeNavLeft">
           <a href="/" aria-label="Neet2Work 홈">
