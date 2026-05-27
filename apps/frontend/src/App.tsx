@@ -2,6 +2,7 @@ import { Home } from "./pages/Home";
 import { AIAnalysisDetails } from "./pages/AIAnalysisDetails";
 import { AIAnalysisFront } from "./pages/AIAnalysisFront";
 import { AuthChoice } from "./pages/AuthChoice";
+import { Documents } from "./pages/Documents";
 import { Jobs } from "./pages/Jobs";
 import { Login } from "./pages/Login";
 import { SignUp } from "./pages/SignUp";
@@ -29,6 +30,10 @@ export default function App() {
 
   if (window.location.pathname === "/jobs") {
     return <Jobs />;
+  }
+
+  if (window.location.pathname === "/documents") {
+    return <Documents />;
   }
 
   return <Home />;
