@@ -34,6 +34,7 @@ export type AuthUser = {
   status: string;
   emailVerifiedAt: string | null;
   lastLoginAt: string | null;
+  lastLoginIpAddress: string | null;
   createdAt: string;
   updatedAt: string;
 };

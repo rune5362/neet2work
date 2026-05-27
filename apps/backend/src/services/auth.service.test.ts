@@ -47,6 +47,7 @@ function createUser(overrides: Partial<User> = {}): User {
 
 function createMockPrisma(user: User | null) {
   const auditLogs: unknown[] = [];
+  const priorLoginIpAddress = "192.168.0.10";
   const refreshTokens: MockRefreshToken[] = [];
   const state = {
     findFirstArgs: null as unknown,
@@ -107,6 +108,9 @@ function createMockPrisma(user: User | null) {
       create: async ({ data }: { data: unknown }) => {
         auditLogs.push(data);
         return data;
+      },
+      findMany: async () => {
+        return [{ ipAddress: priorLoginIpAddress }];
       }
     },
     refreshToken: {
@@ -161,6 +165,7 @@ function createMockPrisma(user: User | null) {
   return {
     auditLogs,
     prisma,
+    priorLoginIpAddress,
     state
   };
 }
@@ -248,6 +253,7 @@ describe("auth service login", () => {
     expect(result.expiresIn).toBe(3600);
     expect(result.refreshToken).toEqual(expect.any(String));
     expect(result.refreshTokenExpiresIn).toBe(60 * 60 * 24 * 30);
+    expect(result.user.lastLoginIpAddress).toBe(mock.priorLoginIpAddress);
     expect("passwordHash" in result.user).toBe(false);
     expect(mock.state.user?.failedLoginCount).toBe(0);
     expect(mock.state.user?.lockedUntil).toBeNull();

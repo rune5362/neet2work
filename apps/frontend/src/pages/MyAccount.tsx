@@ -81,6 +81,14 @@ function formatDateTime(value: string | null | undefined) {
   }).format(date);
 }
 
+function getCurrentUserAgent() {
+  if (typeof window === "undefined") {
+    return "확인 불가";
+  }
+
+  return window.navigator.userAgent || "확인 불가";
+}
+
 function normalizeProfileValue(field: EditableField, value: string) {
   const trimmedValue = value.trim();
   if (!trimmedValue) {
@@ -182,12 +190,16 @@ export function MyAccount() {
       const updatedUser = await updateProfile(accessToken, {
         [field]: normalizeProfileValue(field, value)
       });
-      setUser(updatedUser);
-      saveStoredAuthUser(updatedUser);
+      const mergedUser = {
+        ...updatedUser,
+        lastLoginIpAddress: updatedUser.lastLoginIpAddress ?? user?.lastLoginIpAddress ?? null
+      };
+      setUser(mergedUser);
+      saveStoredAuthUser(mergedUser);
       setForm({
-        name: updatedUser.name,
-        nickname: updatedUser.nickname,
-        profileImageUrl: updatedUser.profileImageUrl
+        name: mergedUser.name,
+        nickname: mergedUser.nickname,
+        profileImageUrl: mergedUser.profileImageUrl
       });
       setImageFailed(false);
       setEditingField(null);
@@ -290,8 +302,16 @@ export function MyAccount() {
                 <dd>{formatDateTime(user.createdAt)}</dd>
               </div>
               <div>
-                <dt>마지막 로그인</dt>
+                <dt>이전 로그인</dt>
                 <dd>{formatDateTime(user.lastLoginAt)}</dd>
+              </div>
+              <div>
+                <dt>이전 로그인 위치</dt>
+                <dd>{user.lastLoginIpAddress || "기록 없음"}</dd>
+              </div>
+              <div>
+                <dt>현재 환경</dt>
+                <dd>{getCurrentUserAgent()}</dd>
               </div>
               <div>
                 <dt>계정 ID</dt>

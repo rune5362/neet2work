@@ -79,7 +79,11 @@ type PublicUser = Pick<
   | "lastLoginAt"
   | "createdAt"
   | "updatedAt"
->;
+> & {
+  lastLoginIpAddress: string | null;
+};
+
+type LoginAuditLogReader = Pick<PrismaClient, "auditLog">;
 
 function getMaxFailedLoginAttempts() {
   const value = Number(process.env.LOGIN_MAX_FAILED_ATTEMPTS);
@@ -92,7 +96,12 @@ function getLoginLockDurationMs() {
   return minutes * 60 * 1000;
 }
 
-function toPublicUser(user: User): PublicUser {
+function toPublicUser(
+  user: User,
+  options: {
+    lastLoginIpAddress?: string | null;
+  } = {}
+): PublicUser {
   return {
     id: user.id,
     email: user.email,
@@ -102,9 +111,32 @@ function toPublicUser(user: User): PublicUser {
     status: user.status,
     emailVerifiedAt: user.emailVerifiedAt,
     lastLoginAt: user.lastLoginAt,
+    lastLoginIpAddress: options.lastLoginIpAddress ?? null,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt
   };
+}
+
+async function findPreviousLoginIpAddress(prisma: LoginAuditLogReader, userId: string) {
+  const loginLogs = await prisma.auditLog.findMany({
+    where: {
+      targetId: userId,
+      action: AuditAction.LOGIN_SUCCEEDED,
+      ipAddress: {
+        not: null
+      }
+    },
+    orderBy: {
+      createdAt: "desc"
+    },
+    select: {
+      ipAddress: true
+    },
+    skip: 1,
+    take: 1
+  });
+
+  return loginLogs[0]?.ipAddress ?? null;
 }
 
 export async function updateProfile(userId: string, input: UpdateProfileInput) {
@@ -344,7 +376,8 @@ export async function loginWithClient(
   });
   const { refreshToken, refreshTokenHash, refreshTokenExpiresIn, refreshTokenExpiresAt } = issueRefreshToken();
 
-  const loggedInUser = await prisma.$transaction(async (tx) => {
+  const { previousLoginIpAddress, loggedInUser } = await prisma.$transaction(async (tx) => {
+    const priorLoginIpAddress = await findPreviousLoginIpAddress(tx, user.id);
     const updatedUser = await tx.user.update({
       where: {
         id: user.id
@@ -381,11 +414,16 @@ export async function loginWithClient(
       }
     });
 
-    return updatedUser;
+    return {
+      previousLoginIpAddress: priorLoginIpAddress,
+      loggedInUser: updatedUser
+    };
   });
 
   return {
-    user: toPublicUser(loggedInUser),
+    user: toPublicUser(loggedInUser, {
+      lastLoginIpAddress: previousLoginIpAddress
+    }),
     accessToken,
     tokenType: "Bearer" as const,
     expiresIn,
@@ -463,8 +501,12 @@ export async function refreshAccessTokenWithClient(
     });
   });
 
+  const previousLoginIpAddress = await findPreviousLoginIpAddress(prisma, storedToken.user.id);
+
   return {
-    user: toPublicUser(storedToken.user),
+    user: toPublicUser(storedToken.user, {
+      lastLoginIpAddress: previousLoginIpAddress
+    }),
     accessToken,
     tokenType: "Bearer" as const,
     expiresIn,
