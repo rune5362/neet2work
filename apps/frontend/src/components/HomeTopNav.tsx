@@ -158,6 +158,12 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
                           </svg>
                           내 정보
                         </button>
+                        <button type="button" role="menuitem" onClick={() => setIsNavMenuOpen(false)}>
+                          <svg aria-hidden="true" height="20" viewBox="0 -960 960 960" width="20">
+                            <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h240l80 80h240q33 0 56.5 23.5T840-680v480q0 33-23.5 56.5T760-120H200Zm0-80h560v-480H487l-80-80H200v560Zm0 0v-560 560Z" />
+                          </svg>
+                          보관함
+                        </button>
                       </>
                     ) : (
                       <a href="/auth" role="menuitem" onClick={() => setIsNavMenuOpen(false)}>
@@ -228,6 +234,9 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
                 <div className="homeAccountDropdown" role="menu">
                   <button type="button" role="menuitem" onClick={() => setIsAccountMenuOpen(false)}>
                     내 정보
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => setIsAccountMenuOpen(false)}>
+                    보관함
                   </button>
                   <button type="button" role="menuitem" onClick={handleLogout}>
                     로그아웃
