@@ -905,22 +905,135 @@ textarea:focus {
 }
 
 .homeIconButton {
+  position: relative;
   display: grid;
   place-items: center;
   width: 40px;
   height: 40px;
+  border: 0;
   border-radius: 999px;
+  background: transparent;
   color: var(--home-secondary);
+  cursor: pointer;
 }
 
-.homeIconButton:hover {
+.homeIconButton:hover,
+.homeIconButton[aria-expanded="true"] {
   background: var(--home-surface-container);
+}
+
+.homeIconButton.active {
+  color: var(--home-primary);
 }
 
 .homeIconButton svg {
   width: 24px;
   height: 24px;
   fill: currentColor;
+}
+
+.homeNotificationMenu {
+  position: relative;
+}
+
+.homeNotificationBadge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  min-width: 16px;
+  height: 16px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--home-primary-container);
+  color: var(--home-on-primary-container);
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.homeNotificationDropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  display: grid;
+  width: min(340px, calc(100vw - 32px));
+  overflow: hidden;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+}
+
+.homeNotificationHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--home-hairline);
+}
+
+.homeNotificationHeader strong {
+  color: var(--home-ink);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.homeNotificationHeader span {
+  color: var(--home-primary);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.homeNotificationList {
+  display: grid;
+}
+
+.homeNotificationList a,
+.homeNotificationAllLink {
+  display: grid;
+  gap: 5px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--home-hairline);
+  color: var(--home-ink);
+  text-decoration: none;
+}
+
+.homeNotificationList a:hover,
+.homeNotificationAllLink:hover {
+  background: var(--home-surface-low);
+}
+
+.homeNotificationList span {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: var(--home-surface-low);
+  color: var(--home-primary);
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.homeNotificationList strong {
+  font-size: 0.9rem;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.homeNotificationList small {
+  color: var(--home-body-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.homeNotificationAllLink {
+  border-bottom: 0;
+  color: var(--home-primary);
+  font-size: 0.88rem;
+  font-weight: 900;
+  text-align: center;
 }
 
 .homeAccountMenu {
@@ -1799,7 +1912,8 @@ textarea:focus {
   color: var(--home-on-primary-container);
 }
 
-.documentsPage {
+.documentsPage,
+.notificationsPage {
   --home-canvas: #f8fafc;
   --home-surface-low: #f2f3ff;
   --home-surface-container: #ecedfa;
@@ -1821,13 +1935,15 @@ textarea:focus {
     sans-serif;
 }
 
-.documentsContent {
+.documentsContent,
+.notificationsContent {
   width: min(1280px, calc(100% - 48px));
   margin: 0 auto;
   padding: 126px 0 96px;
 }
 
-.documentsHeader {
+.documentsHeader,
+.notificationsHeader {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 24px;
@@ -1835,7 +1951,8 @@ textarea:focus {
   margin-bottom: 28px;
 }
 
-.documentsHeader > span {
+.documentsHeader > span,
+.notificationsHeader > span {
   grid-column: 1 / -1;
   width: fit-content;
   border-radius: 999px;
@@ -1846,7 +1963,8 @@ textarea:focus {
   font-weight: 900;
 }
 
-.documentsHeader h1 {
+.documentsHeader h1,
+.notificationsHeader h1 {
   max-width: 760px;
   margin: 0 0 12px;
   color: var(--home-ink);
@@ -1856,13 +1974,24 @@ textarea:focus {
   letter-spacing: 0;
 }
 
-.documentsHeader p {
+.documentsHeader p,
+.notificationsHeader p {
   max-width: 720px;
   margin: 0;
   color: var(--home-secondary);
   font-size: 1rem;
   font-weight: 600;
   line-height: 1.6;
+}
+
+.notificationsHeader strong {
+  justify-self: end;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: var(--home-primary-container);
+  color: var(--home-on-primary-container);
+  font-size: 0.9rem;
+  font-weight: 900;
 }
 
 .documentsHeader button,
@@ -1978,6 +2107,73 @@ textarea:focus {
   gap: 12px;
   justify-items: end;
   text-align: right;
+}
+
+.notificationsList {
+  display: grid;
+  gap: 14px;
+}
+
+.notificationsItem {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: start;
+  border: 1px solid var(--home-hairline);
+  border-radius: 12px;
+  padding: 22px;
+  background: white;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.notificationsItem.unread {
+  border-color: rgba(0, 102, 255, 0.28);
+}
+
+.notificationsItemMarker {
+  width: 10px;
+  height: 10px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: var(--home-hairline);
+}
+
+.notificationsItem.unread .notificationsItemMarker {
+  background: var(--home-primary-container);
+}
+
+.notificationsItem span {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: var(--home-surface-low);
+  color: var(--home-primary);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.notificationsItem h2 {
+  margin: 10px 0 8px;
+  color: var(--home-ink);
+  font-size: 1.08rem;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.notificationsItem p {
+  margin: 0;
+  color: var(--home-body-muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.notificationsItem time {
+  color: var(--home-secondary);
+  font-size: 0.84rem;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .documentsCardMeta > span {
@@ -3292,7 +3488,8 @@ textarea:focus {
     width: min(100% - 32px, 1280px);
   }
 
-  .documentsContent {
+  .documentsContent,
+  .notificationsContent {
     width: min(100% - 32px, 1280px);
   }
 
@@ -3301,13 +3498,23 @@ textarea:focus {
   }
 
   .documentsHeader,
-  .documentsCard {
+  .documentsCard,
+  .notificationsHeader,
+  .notificationsItem {
     grid-template-columns: 1fr;
   }
 
   .documentsCardMeta {
     justify-items: stretch;
     text-align: left;
+  }
+
+  .notificationsHeader strong {
+    justify-self: start;
+  }
+
+  .notificationsItem time {
+    white-space: normal;
   }
 
   .jobsPage .jobsGrid {
@@ -3358,6 +3565,7 @@ textarea:focus {
   }
 
   .homeIconButton,
+  .homeNotificationMenu,
   .homeAccountMenu {
     display: none;
   }
@@ -3432,7 +3640,8 @@ textarea:focus {
     padding-bottom: 64px;
   }
 
-  .documentsContent {
+  .documentsContent,
+  .notificationsContent {
     width: min(100% - 24px, 1280px);
     padding-top: 96px;
     padding-bottom: 64px;
@@ -3448,7 +3657,8 @@ textarea:focus {
     width: 100%;
   }
 
-  .documentsCard {
+  .documentsCard,
+  .notificationsItem {
     padding: 20px;
   }
 

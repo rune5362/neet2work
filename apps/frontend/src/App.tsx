@@ -6,6 +6,7 @@ import { Documents } from "./pages/Documents";
 import { Jobs } from "./pages/Jobs";
 import { Login } from "./pages/Login";
 import { MyAccount } from "./pages/MyAccount";
+import { Notifications } from "./pages/Notifications";
 import { SignUp } from "./pages/SignUp";
 
 export default function App() {
@@ -35,6 +36,10 @@ export default function App() {
 
   if (window.location.pathname === "/documents") {
     return <Documents />;
+  }
+
+  if (window.location.pathname === "/notifications") {
+    return <Notifications />;
   }
 
   if (window.location.pathname === "/myaccount") {
