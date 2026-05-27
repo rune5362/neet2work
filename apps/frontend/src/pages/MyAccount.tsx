@@ -253,15 +253,18 @@ export function MyAccount() {
         <dt>{label}</dt>
         <dd>
           {isEditing ? (
-            <div className="myAccountEditingContainer">
+            <p className="myAccountEditingContainer">
               <input
+                style={{ minWidth:'170px' , flex:0.5 }}
                 className="myAccountOriginalInput"
                 disabled
                 type="text"
                 value={value ? `${value}` : "미입력"}
               />
-              <div className="myAccountEditControl">
+              <p style={{ minWidth:'8px' }} />
+              <p className="myAccountEditControl">
                 <input
+                style={{ minWidth:'170px', flex:1 }}
                   autoFocus
                   onChange={(event) =>
                     setForm((current) => ({
@@ -273,7 +276,8 @@ export function MyAccount() {
                   type={field === "profileImageUrl" ? "url" : "text"}
                   value={form[field] ?? ""}
                 />
-                <div>
+                <p style={{ minWidth:'8px' }} />
+                <div style={{ minWidth:'200px', flex:1 }} >
                   <button disabled={savingField === field} type="button" onClick={() => saveField(field)}>
                     {savingField === field ? "저장 중" : "저장"}
                   </button>
@@ -281,8 +285,8 @@ export function MyAccount() {
                     취소
                   </button>
                 </div>
-              </div>
-            </div>
+              </p>
+            </p>
           ) : (
             <>
               <span>{value || "미입력"}</span>
