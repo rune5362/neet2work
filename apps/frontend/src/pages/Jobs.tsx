@@ -1,22 +1,39 @@
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { Bot, CodeXml, ListChecks, Megaphone, PenTool, Shield } from "lucide-react";
+import {
+  type DeadlineTypeFilterValue,
+  type EmploymentTypeFilterValue,
+  type SalaryVisibilityFilterValue,
+  getJobById,
+  getJobs
+} from "../api/client";
 import { HomeFooter } from "../components/HomeFooter";
 import { HomeTopNav } from "../components/HomeTopNav";
+import type { CareerStage, EmploymentTypeCategory, JobPosting } from "../types/job";
 
 type JobListing = {
   id: string;
-  icon: string;
+  icon?: string;
   isNew: boolean;
   title: string;
   company: string;
   source: string;
+  sourceUrl: string;
+  sourceValue?: string;
   category: string;
   country: string;
+  countryValue?: string;
   language: string;
+  languageValue?: string;
   workLocation: WorkLocation;
   location: string;
   salary?: string;
+  educationLevel?: string;
+  applyMethod?: string;
   experience: string;
+  careerStage?: CareerStage | null;
   jobType: string;
+  jobTypeCategory?: EmploymentTypeCategory | null;
   deadline: string;
   skills: string[];
   description: string;
@@ -30,6 +47,7 @@ type ActiveFilter = {
 
 type WorkLocation = {
   country: string;
+  countryValue?: string;
   region1?: string;
   region2?: string;
   region3?: string;
@@ -51,6 +69,29 @@ type FilterSelectProps = {
   value: string;
   onChange: (value: string) => void;
   children: ReactNode;
+};
+
+type FilterOption = {
+  value: string;
+  label: string;
+};
+
+type PaginationItem = number | "ellipsis";
+
+type JobsUrlState = {
+  q: string;
+  jobCategory: string;
+  countryCode: string;
+  region1: string;
+  region2: string;
+  region3: string;
+  careerStage: CareerStage | "";
+  employmentTypeCategory: EmploymentTypeFilterValue | "";
+  skill: string;
+  salaryVisibility: SalaryVisibilityFilterValue | "";
+  deadlineType: DeadlineTypeFilterValue | "";
+  newOnly: boolean;
+  page: number;
 };
 
 function FilterSelect({ label, value, onChange, children }: FilterSelectProps) {
@@ -87,6 +128,39 @@ function FilterChevronIcon() {
       />
     </svg>
   );
+}
+
+function JobCategoryIcon({ category }: { category: string }) {
+  if (category === "AI/데이터") {
+    return <Bot aria-hidden="true" className="jobsCardIconSvg" strokeWidth={1.9} />;
+  }
+
+  if (category === "디자인") {
+    return <PenTool aria-hidden="true" className="jobsCardIconSvg" strokeWidth={1.9} />;
+  }
+
+  if (category === "마케팅") {
+    return <Megaphone aria-hidden="true" className="jobsCardIconSvg" strokeWidth={1.9} />;
+  }
+
+  if (category === "보안") {
+    return <Shield aria-hidden="true" className="jobsCardIconSvg" strokeWidth={1.9} />;
+  }
+
+  if (category === "PM") {
+    return <ListChecks aria-hidden="true" className="jobsCardIconSvg" strokeWidth={1.9} />;
+  }
+
+  return <CodeXml aria-hidden="true" className="jobsCardIconSvg" strokeWidth={1.9} />;
+}
+
+function jobCategoryIconClass(category: string) {
+  if (category === "AI/데이터") return "is-ai";
+  if (category === "디자인") return "is-design";
+  if (category === "마케팅") return "is-marketing";
+  if (category === "보안") return "is-security";
+  if (category === "PM") return "is-pm";
+  return "is-development";
 }
 
 const locationTree: LocationTree[] = [
@@ -652,6 +726,627 @@ const deadlineFilterLabels: Record<string, string> = {
   rolling: "상시 채용"
 };
 
+const careerStageOptions: Array<FilterOption & { value: CareerStage }> = [
+  { value: "entry", label: "신입 (0-2년)" },
+  { value: "junior", label: "주니어 (3-5년)" },
+  { value: "senior", label: "시니어 (6년 이상)" }
+];
+
+const careerStageLabels = Object.fromEntries(
+  careerStageOptions.map((option) => [option.value, option.label])
+) as Record<CareerStage, string>;
+
+const employmentTypeOptions: Array<FilterOption & { value: EmploymentTypeFilterValue }> = [
+  { value: "permanent", label: "정규직" },
+  { value: "contract", label: "계약직" },
+  { value: "intern", label: "인턴" },
+  { value: "freelance", label: "프리랜서" },
+  { value: "unspecified", label: "미기재" }
+];
+
+const employmentTypeLabels = Object.fromEntries(
+  employmentTypeOptions.map((option) => [option.value, option.label])
+) as Record<EmploymentTypeFilterValue, string>;
+
+const careerStageOptionValues = new Set<CareerStage>(careerStageOptions.map((option) => option.value));
+const employmentTypeOptionValues = new Set<EmploymentTypeFilterValue>(
+  employmentTypeOptions.map((option) => option.value)
+);
+const salaryVisibilityOptionValues = new Set<SalaryVisibilityFilterValue>(["disclosed", "undisclosed"]);
+const deadlineTypeOptionValues = new Set<DeadlineTypeFilterValue>(["dated", "rolling"]);
+
+const countryLabels: Record<string, string> = {
+  KR: "한국",
+  JP: "일본",
+  US: "미국"
+};
+
+const japaneseLocationEntries = [
+  ["北海道", "홋카이도"],
+  ["青森県", "아오모리현"],
+  ["岩手県", "이와테현"],
+  ["宮城県", "미야기현"],
+  ["秋田県", "아키타현"],
+  ["山形県", "야마가타현"],
+  ["福島県", "후쿠시마현"],
+  ["茨城県", "이바라키현"],
+  ["栃木県", "도치기현"],
+  ["群馬県", "군마현"],
+  ["埼玉県", "사이타마현"],
+  ["千葉県", "치바현"],
+  ["東京都", "도쿄도"],
+  ["神奈川県", "가나가와현"],
+  ["富山県", "도야마현"],
+  ["石川県", "이시카와현"],
+  ["福井県", "후쿠이현"],
+  ["新潟県", "니가타현"],
+  ["山梨県", "야마나시현"],
+  ["長野県", "나가노현"],
+  ["岐阜県", "기후현"],
+  ["静岡県", "시즈오카현"],
+  ["愛知県", "아이치현"],
+  ["三重県", "미에현"],
+  ["滋賀県", "시가현"],
+  ["京都府", "교토부"],
+  ["大阪府", "오사카부"],
+  ["兵庫県", "효고현"],
+  ["奈良県", "나라현"],
+  ["和歌山県", "와카야마현"],
+  ["鳥取県", "돗토리현"],
+  ["島根県", "시마네현"],
+  ["岡山県", "오카야마현"],
+  ["広島県", "히로시마현"],
+  ["山口県", "야마구치현"],
+  ["徳島県", "도쿠시마현"],
+  ["香川県", "가가와현"],
+  ["愛媛県", "에히메현"],
+  ["高知県", "고치현"],
+  ["福岡県", "후쿠오카현"],
+  ["佐賀県", "사가현"],
+  ["長崎県", "나가사키현"],
+  ["熊本県", "구마모토현"],
+  ["大分県", "오이타현"],
+  ["宮崎県", "미야자키현"],
+  ["鹿児島県", "가고시마현"],
+  ["沖縄県", "오키나와현"],
+  ["Minato", "미나토구"],
+  ["Chiyoda", "치요다구"],
+  ["Shibuya", "시부야구"],
+  ["Taito", "다이토구"],
+  ["Tokyo", "도쿄도"],
+  ["Tochigi", "도치기현"],
+  ["Ibaraki", "이바라키현"],
+  ["Philippines", "필리핀"],
+  ["海外", "해외"]
+] as const;
+
+const languageLabels: Record<string, string> = {
+  ko: "한국어",
+  ja: "일본어",
+  en: "영어"
+};
+
+function countryCodeFromLabel(label?: string) {
+  if (!label) return "";
+
+  return Object.entries(countryLabels).find(([, display]) => display === label)?.[0] ?? label;
+}
+
+function displayCountry(value?: string | null) {
+  if (!value) return "국가 미기재";
+  return countryLabels[value] ?? value;
+}
+
+function displayLanguage(value?: string | null) {
+  if (!value) return "언어 미기재";
+  return languageLabels[value] ?? value;
+}
+
+function normalizeCareerStage(stage?: string | null): CareerStage | null {
+  if (stage === "entry" || stage === "junior" || stage === "senior") {
+    return stage;
+  }
+
+  return null;
+}
+
+function normalizeQueryParam(value: string | null) {
+  return value?.trim() ?? "";
+}
+
+function parsePositivePageParam(value: string | null) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return 1;
+  }
+
+  return Math.floor(parsed);
+}
+
+function readJobsUrlState(): JobsUrlState {
+  if (typeof window === "undefined") {
+    return {
+      q: "",
+      jobCategory: "",
+      countryCode: "",
+      region1: "",
+      region2: "",
+      region3: "",
+      careerStage: "",
+      employmentTypeCategory: "",
+      skill: "",
+      salaryVisibility: "",
+      deadlineType: "",
+      newOnly: false,
+      page: 1
+    };
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const countryCode = normalizeQueryParam(params.get("country"));
+  const careerStage = normalizeQueryParam(params.get("careerStage"));
+  const employmentTypeCategory = normalizeQueryParam(params.get("employmentTypeCategory"));
+  const salaryVisibility = normalizeQueryParam(params.get("salaryVisibility"));
+  const deadlineType = normalizeQueryParam(params.get("deadlineType"));
+
+  return {
+    q: normalizeQueryParam(params.get("q")),
+    jobCategory: normalizeQueryParam(params.get("jobCategory")),
+    countryCode: countryCode && countryCode in countryLabels ? countryCode : "",
+    region1: normalizeQueryParam(params.get("region1")),
+    region2: normalizeQueryParam(params.get("region2")),
+    region3: normalizeQueryParam(params.get("region3")),
+    careerStage: careerStageOptionValues.has(careerStage as CareerStage)
+      ? (careerStage as CareerStage)
+      : "",
+    employmentTypeCategory: employmentTypeOptionValues.has(
+      employmentTypeCategory as EmploymentTypeFilterValue
+    )
+      ? (employmentTypeCategory as EmploymentTypeFilterValue)
+      : "",
+    skill: normalizeQueryParam(params.get("skill")),
+    salaryVisibility: salaryVisibilityOptionValues.has(
+      salaryVisibility as SalaryVisibilityFilterValue
+    )
+      ? (salaryVisibility as SalaryVisibilityFilterValue)
+      : "",
+    deadlineType: deadlineTypeOptionValues.has(deadlineType as DeadlineTypeFilterValue)
+      ? (deadlineType as DeadlineTypeFilterValue)
+      : "",
+    newOnly: params.get("newOnly") === "1",
+    page: parsePositivePageParam(params.get("page"))
+  };
+}
+
+function buildJobsUrlSearch(state: JobsUrlState) {
+  const params = new URLSearchParams();
+
+  if (state.q) params.set("q", state.q);
+  if (state.jobCategory) params.set("jobCategory", state.jobCategory);
+  if (state.countryCode) params.set("country", state.countryCode);
+  if (state.region1) params.set("region1", state.region1);
+  if (state.region2) params.set("region2", state.region2);
+  if (state.region3) params.set("region3", state.region3);
+  if (state.careerStage) params.set("careerStage", state.careerStage);
+  if (state.employmentTypeCategory) {
+    params.set("employmentTypeCategory", state.employmentTypeCategory);
+  }
+  if (state.skill) params.set("skill", state.skill);
+  if (state.salaryVisibility) params.set("salaryVisibility", state.salaryVisibility);
+  if (state.deadlineType) params.set("deadlineType", state.deadlineType);
+  if (state.newOnly) params.set("newOnly", "1");
+  if (state.page > 1) params.set("page", String(state.page));
+
+  return params.toString();
+}
+
+function classifyCareerStageFromCareerLevel(careerLevel: string): CareerStage | null {
+  const raw = careerLevel.trim();
+  if (!raw) return null;
+
+  if (/experience not specified|경력 확인 필요|経験条件一部ログイン後|즉시 지원|홈페이지 지원/i.test(raw)) {
+    return null;
+  }
+
+  const yearMatches = [...raw.matchAll(/(\d+)\s*(?:년|年|years?|yrs?)/gi)].map((match) =>
+    Number(match[1])
+  );
+  const maxYear = yearMatches.length > 0 ? Math.max(...yearMatches) : undefined;
+
+  if (maxYear !== undefined) {
+    if (maxYear >= 6) return "senior";
+    if (maxYear >= 3) return "junior";
+    return "entry";
+  }
+
+  if (/(senior|lead|시니어)/i.test(raw)) return "senior";
+  if (/(mid career|experience welcome|junior|주니어)/i.test(raw)) return "junior";
+  if (/(未経験|entry level|신입|인턴|intern|新卒)/i.test(raw)) return "entry";
+
+  return null;
+}
+
+function normalizeEmploymentTypeCategory(category?: string | null): EmploymentTypeCategory | null {
+  if (
+    category === "permanent" ||
+    category === "contract" ||
+    category === "intern" ||
+    category === "freelance"
+  ) {
+    return category;
+  }
+
+  return null;
+}
+
+function classifyEmploymentTypeCategoryFromEmploymentSignals(
+  employmentType?: string | null,
+  title?: string,
+  careerLevel?: string,
+  description?: string
+): EmploymentTypeCategory | null {
+  const rawEmploymentType = employmentType?.trim() ?? "";
+  const explicitEmploymentTypeCategory = classifyEmploymentTypeSignalText(rawEmploymentType);
+  if (explicitEmploymentTypeCategory) {
+    return explicitEmploymentTypeCategory;
+  }
+
+  const fallbackSignalText = [title, careerLevel, description]
+    .map((value) => value?.trim() ?? "")
+    .filter(Boolean)
+    .join(" ");
+  return classifyEmploymentTypeSignalText(fallbackSignalText);
+}
+
+function classifyEmploymentTypeSignalText(signalText: string): EmploymentTypeCategory | null {
+  if (!signalText) return null;
+  if (/(freelance|フリーランス|業務委託|프리랜서)/i.test(signalText)) return "freelance";
+  if (/(\binternship\b|\bintern\b|インターン|인턴십|체험형 인턴|채용연계형 인턴|인턴)/i.test(signalText)) {
+    return "intern";
+  }
+  if (/(契約社員|\bcontract employee\b|\bcontract-based\b|\bcontractual\b|\bfixed-term\b|계약직)/i.test(signalText)) {
+    return "contract";
+  }
+  if (/(正社員|\bfull-time employee\b|\bfull time\b|\bfull-time\b|\bpermanent\b|정규직)/i.test(signalText)) {
+    return "permanent";
+  }
+
+  return null;
+}
+
+function formatCareerDisplayValue(careerStage?: CareerStage | null): string {
+  if (careerStage === "entry") return "신입 (0-2년)";
+  if (careerStage === "junior") return "주니어 (3-5년)";
+  if (careerStage === "senior") return "시니어 (6년 이상)";
+  return "경력 미기재";
+}
+
+function formatEmploymentDisplayValue(
+  employmentTypeCategory?: EmploymentTypeCategory | null
+): string {
+  if (employmentTypeCategory === "permanent") return "정규직";
+  if (employmentTypeCategory === "contract") return "계약직";
+  if (employmentTypeCategory === "intern") return "인턴";
+  if (employmentTypeCategory === "freelance") return "프리랜서";
+  return "고용 미기재";
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function extractMappedLocationLabels(
+  text: string,
+  entries: ReadonlyArray<readonly [string, string]>
+): string[] {
+  const matches = entries.flatMap(([needle, label]) => {
+    const isAsciiToken = /^[A-Za-z]+$/.test(needle);
+    const pattern = isAsciiToken
+      ? new RegExp(`\\b${escapeRegExp(needle)}\\b`, "gi")
+      : new RegExp(escapeRegExp(needle), "g");
+
+    return Array.from(text.matchAll(pattern)).map((match) => ({
+      index: match.index ?? Number.MAX_SAFE_INTEGER,
+      label
+    }));
+  });
+
+  const seen = new Set<string>();
+  return matches
+    .sort((left, right) => left.index - right.index)
+    .map((match) => match.label)
+    .filter((label) => {
+      if (seen.has(label)) return false;
+      seen.add(label);
+      return true;
+    });
+}
+
+function formatKoreanCardLocation(rawLocation: string, hasRemoteSignal: boolean): string {
+  const normalized = rawLocation.replace(/\s+/g, " ").trim();
+  if (!normalized || normalized === "지역 확인 필요") {
+    return hasRemoteSignal ? "지역 확인 필요 · 풀리모트 가능" : "지역 확인 필요";
+  }
+
+  const multipleMatch = normalized.match(/(.+?)\s*외\s*(\d+)/);
+  if (multipleMatch) {
+    const base = `${multipleMatch[1].trim()} 외 ${multipleMatch[2]}곳`;
+    return hasRemoteSignal ? `${base} · 풀리모트 가능` : base;
+  }
+
+  if (!/(서울|경기|부산|대구|인천|광주|대전|울산|세종|강원|충북|충남|전북|전남|경북|경남|제주)/.test(normalized)) {
+    return hasRemoteSignal ? "지역 확인 필요 · 풀리모트 가능" : "지역 확인 필요";
+  }
+
+  return hasRemoteSignal ? `${normalized} · 풀리모트 가능` : normalized;
+}
+
+function formatJapaneseCardLocation(rawLocation: string, hasRemoteSignal: boolean): string {
+  const normalized = rawLocation.replace(/\s+/g, " ").trim();
+  if (!normalized || /勤務地確認必要/.test(normalized)) {
+    return hasRemoteSignal ? "지역 확인 필요 · 풀리모트 가능" : "지역 확인 필요";
+  }
+
+  if (/Available across Japan/i.test(normalized)) {
+    return hasRemoteSignal ? "일본 전국 · 풀리모트 가능" : "일본 전국";
+  }
+
+  if (/Tokyo\s*-\s*23\s*Wards/i.test(normalized)) {
+    return hasRemoteSignal ? "도쿄 23구 · 풀리모트 가능" : "도쿄 23구";
+  }
+
+  if (/フルリモート/i.test(normalized) && !/[都道府県市区郡]|Tokyo|Minato|Chiyoda|Shibuya|Taito/i.test(normalized)) {
+    return "풀리모트 가능";
+  }
+
+  const labels = extractMappedLocationLabels(normalized, japaneseLocationEntries);
+  if (labels.length >= 5) {
+    return hasRemoteSignal ? "일본 전국 · 풀리모트 가능" : "일본 전국";
+  }
+  if (
+    labels.length === 2 &&
+    /(?:도|현|부)$/.test(labels[0]) &&
+    /(?:구|시)$/.test(labels[1])
+  ) {
+    const base = `${labels[0]} ${labels[1]}`;
+    return hasRemoteSignal ? `${base} · 풀리모트 가능` : base;
+  }
+  if (labels.length >= 2) {
+    const base = `${labels[0]} 외 ${labels.length - 1}곳`;
+    return hasRemoteSignal ? `${base} · 풀리모트 가능` : base;
+  }
+  if (labels.length === 1) {
+    return hasRemoteSignal ? `${labels[0]} · 풀리모트 가능` : labels[0];
+  }
+
+  return hasRemoteSignal ? "일본 전국 · 풀리모트 가능" : normalized;
+}
+
+function formatCardLocation(job: JobListing): string {
+  const normalizedLocation = job.location.replace(/\s+/g, " ").trim();
+  if (!normalizedLocation) {
+    return "지역 확인 필요";
+  }
+
+  const hasRemoteSignal = [job.location, job.title, job.description].some((value) =>
+    /(フルリモ|풀리모트|full remote|remote|원격)/i.test(value)
+  );
+
+  if (job.countryValue === "JP") {
+    return formatJapaneseCardLocation(normalizedLocation, hasRemoteSignal);
+  }
+
+  if (job.countryValue === "KR") {
+    return formatKoreanCardLocation(normalizedLocation, hasRemoteSignal);
+  }
+
+  return normalizedLocation;
+}
+
+function formatMillionYenValue(value: string): string {
+  const amount = Number(value);
+  if (Number.isNaN(amount)) {
+    return `${value}만 엔`;
+  }
+
+  return `${new Intl.NumberFormat("ko-KR", {
+    maximumFractionDigits: 1
+  }).format(amount * 100)}만 엔`;
+}
+
+function formatTenThousandValue(value: number, unit: "엔" | "원"): string {
+  return `${new Intl.NumberFormat("ko-KR", {
+    maximumFractionDigits: 1
+  }).format(value)}만 ${unit}`;
+}
+
+function parseNumericValue(value: string): number {
+  return Number(value.replace(/,/g, "").trim());
+}
+
+function formatSalaryDisplayValue(salary?: string): string {
+  const normalized = salary?.replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return "급여 미기재";
+  }
+
+  const negotiableCapMatch = normalized.match(
+    /(negotiable|depends on experience|based on experience).*?(\d+(?:\.\d+)?)\s*million\s*yen/i
+  );
+  if (negotiableCapMatch) {
+    return `최대 ${formatMillionYenValue(negotiableCapMatch[2])} (협의)`;
+  }
+
+  const jpyKRangeMatch = normalized.match(
+    /JPY\s*(\d+(?:\.\d+)?)K\s*[~-]\s*JPY\s*(\d+(?:\.\d+)?)K/i
+  );
+  if (jpyKRangeMatch) {
+    return `${formatTenThousandValue(parseNumericValue(jpyKRangeMatch[1]) / 10, "엔")} ~ ${formatTenThousandValue(parseNumericValue(jpyKRangeMatch[2]) / 10, "엔")}`;
+  }
+
+  const jpyKOverMatch = normalized.match(/JPY\s*(\d+(?:\.\d+)?)K\s*(?:Over|Above|Up|以上)/i);
+  if (jpyKOverMatch) {
+    return `${formatTenThousandValue(parseNumericValue(jpyKOverMatch[1]) / 10, "엔")} 이상`;
+  }
+
+  const millionYenRangeMatch = normalized.match(
+    /(\d+(?:\.\d+)?)\s*million\s*yen\s*[~-]\s*(\d+(?:\.\d+)?)\s*million\s*yen/i
+  );
+  if (millionYenRangeMatch) {
+    return `${formatMillionYenValue(millionYenRangeMatch[1])} ~ ${formatMillionYenValue(millionYenRangeMatch[2])}`;
+  }
+
+  const japaneseManRangeMatch = normalized.match(
+    /(\d[\d,]*)\s*万(?:円)?\s*[〜～~-]\s*(\d[\d,]*)\s*万(?:円)?/i
+  );
+  if (japaneseManRangeMatch) {
+    return `${formatTenThousandValue(parseNumericValue(japaneseManRangeMatch[1]), "엔")} ~ ${formatTenThousandValue(parseNumericValue(japaneseManRangeMatch[2]), "엔")}`;
+  }
+
+  const koreanManRangeMatch = normalized.match(
+    /(\d[\d,]*)\s*[~-]\s*(\d[\d,]*)\s*만원/i
+  );
+  if (koreanManRangeMatch) {
+    return `${formatTenThousandValue(parseNumericValue(koreanManRangeMatch[1]), "원")} ~ ${formatTenThousandValue(parseNumericValue(koreanManRangeMatch[2]), "원")}`;
+  }
+
+  const koreanManOverMatch = normalized.match(/(\d[\d,]*)\s*만원\s*이상/i);
+  if (koreanManOverMatch) {
+    return `${formatTenThousandValue(parseNumericValue(koreanManOverMatch[1]), "원")} 이상`;
+  }
+
+  const rawManEnRangeMatch = normalized.match(
+    /(\d[\d,]*)\s*[~-]\s*(\d[\d,]*)\s*만\s*엔/i
+  );
+  if (rawManEnRangeMatch) {
+    return `${formatTenThousandValue(parseNumericValue(rawManEnRangeMatch[1]), "엔")} ~ ${formatTenThousandValue(parseNumericValue(rawManEnRangeMatch[2]), "엔")}`;
+  }
+
+  const singleMillionYenMatch = normalized.match(/(\d+(?:\.\d+)?)\s*million\s*yen/i);
+  if (singleMillionYenMatch) {
+    return formatMillionYenValue(singleMillionYenMatch[1]);
+  }
+
+  if (
+    /회사\s*내규에\s*따름|면접\s*후\s*결정|negotiable|depends on experience|based on experience|応相談/i.test(
+      normalized
+    )
+  ) {
+    return "급여 협의";
+  }
+
+  return normalized;
+}
+
+function extractSalarySupplementaryNote(salary?: string): string | null {
+  const normalized = salary?.replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const notes: string[] = [];
+
+  if (/면접\s*후\s*결정/i.test(normalized)) {
+    notes.push("면접 후 결정");
+  }
+
+  if (/회사\s*내규에\s*따름/i.test(normalized)) {
+    notes.push("회사 내규 기준");
+  }
+
+  if (/negotiable|depends on experience|based on experience|応相談/i.test(normalized)) {
+    notes.push("경력 및 협의에 따라 조정");
+  }
+
+  return notes.length > 0 ? notes.join(" / ") : null;
+}
+
+function formatDeadlineDisplayValue(deadline?: string): string {
+  const normalized = deadline?.trim();
+  if (!normalized || normalized === "마감일 미기재") {
+    return "마감 미기재";
+  }
+
+  return normalized;
+}
+
+function sourceIcon(source?: string | null) {
+  const normalized = source?.toLowerCase() ?? "";
+
+  if (normalized.includes("green")) return "GR";
+  if (normalized.includes("mynavi")) return "MY";
+  if (normalized.includes("daijob")) return "DJ";
+  if (normalized.includes("career")) return "CC";
+  if (normalized.includes("saramin")) return "SA";
+  if (normalized.includes("jobkorea")) return "JK";
+  return "JOB";
+}
+
+function inferCategory(job: JobPosting) {
+  const text = `${job.title} ${job.description} ${job.skills.join(" ")}`.toLowerCase();
+
+  if (/(ai|data|ml|llm|machine|python|sql|데이터|머신러닝|인공지능)/.test(text)) {
+    return "AI/데이터";
+  }
+  if (/(design|ui|ux|figma|디자인)/.test(text)) return "디자인";
+  if (/(marketing|growth|seo|마케팅)/.test(text)) return "마케팅";
+  if (/(security|secops|보안)/.test(text)) return "보안";
+  if (/(project manager|product manager|pm|기획)/.test(text)) return "PM";
+  return "개발";
+}
+
+function isNewlyPosted(postedAt?: string | null) {
+  if (!postedAt) return false;
+
+  const postedTime = new Date(postedAt).getTime();
+  if (Number.isNaN(postedTime)) return false;
+
+  const threeDays = 3 * 24 * 60 * 60 * 1000;
+  return Date.now() - postedTime <= threeDays;
+}
+
+function toJobListing(job: JobPosting): JobListing {
+  const country = displayCountry(job.country);
+  const employmentTypeCategory =
+    normalizeEmploymentTypeCategory(job.employmentTypeCategory) ??
+    classifyEmploymentTypeCategoryFromEmploymentSignals(
+      job.employmentType,
+      job.title,
+      job.careerLevel,
+      job.description
+    );
+
+  return {
+    id: job.id,
+    icon: sourceIcon(job.source),
+    isNew: isNewlyPosted(job.postedAt),
+    title: job.title,
+    company: job.company,
+    source: job.source ?? "unknown",
+    sourceUrl: job.sourceUrl,
+    sourceValue: job.source,
+    category: inferCategory(job),
+    country,
+    countryValue: job.country,
+    language: displayLanguage(job.language),
+    languageValue: job.language,
+    workLocation: {
+      country
+    },
+    location: job.location,
+    salary: job.salaryText ?? undefined,
+    educationLevel: job.educationLevel ?? undefined,
+    applyMethod: job.applyMethod ?? undefined,
+    experience: job.careerLevel || "경력 무관",
+    careerStage: normalizeCareerStage(job.careerStage) ?? classifyCareerStageFromCareerLevel(job.careerLevel),
+    jobType: job.employmentType ?? "고용형태 미기재",
+    jobTypeCategory: employmentTypeCategory,
+    deadline: job.deadlineText ?? "마감일 미기재",
+    skills: job.skills,
+    description: job.description
+  };
+}
+
 const matchesLocationSearch = (
   query: string,
   ...values: Array<string | undefined>
@@ -673,7 +1368,7 @@ const regionMatchesLocationSearch = (
   );
 };
 
-const jobsData: JobListing[] = [
+const fallbackJobsData: JobListing[] = [
   {
     id: "job-1",
     icon: "DEV",
@@ -681,9 +1376,13 @@ const jobsData: JobListing[] = [
     title: "시니어 풀스택 엔지니어 (SaaS)",
     company: "TechFlow Inc.",
     source: "Saramin",
+    sourceUrl: "https://example.com/jobs/job-1",
+    sourceValue: "saramin",
     category: "개발",
     country: "한국",
+    countryValue: "KR",
     language: "한국어",
+    languageValue: "ko",
     workLocation: {
       country: "한국",
       region1: "서울특별시",
@@ -692,7 +1391,9 @@ const jobsData: JobListing[] = [
     location: "서울특별시 강남구 (하이브리드)",
     salary: "6,000 - 8,000만 원",
     experience: "시니어 (6년 이상)",
-    jobType: "정규직",
+      careerStage: "senior",
+      jobType: "정규직",
+    jobTypeCategory: "permanent",
     deadline: "2026-06-30",
     skills: ["React", "TypeScript", "Node.js", "AWS", "Docker"],
     description:
@@ -705,9 +1406,13 @@ const jobsData: JobListing[] = [
     title: "글로벌 프로덕트 디자이너 (UI/UX Mobile App Designer)",
     company: "Creative Logic",
     source: "JobKorea",
+    sourceUrl: "https://example.com/jobs/job-2",
+    sourceValue: "jobkorea",
     category: "디자인",
     country: "일본",
+    countryValue: "JP",
     language: "일본어",
+    languageValue: "ja",
     workLocation: {
       country: "일본",
       region1: "도쿄도",
@@ -716,7 +1421,9 @@ const jobsData: JobListing[] = [
     location: "도쿄도 세타가와구",
     salary: "550 - 700만 엔",
     experience: "주니어 (3-5년)",
-    jobType: "정규직",
+      careerStage: "junior",
+      jobType: "정규직",
+    jobTypeCategory: "permanent",
     deadline: "2026-07-15",
     skills: ["Figma", "Sketch", "Prototyping", "Japanese"],
     description:
@@ -729,9 +1436,13 @@ const jobsData: JobListing[] = [
     title: "머신러닝 및 데이터 사이언티스트 (NLP/LLM)",
     company: "Insight Data Co.",
     source: "Wanted",
+    sourceUrl: "https://example.com/jobs/job-3",
+    sourceValue: "wanted",
     category: "AI/데이터",
     country: "미국",
+    countryValue: "US",
     language: "영어",
+    languageValue: "en",
     workLocation: {
       country: "미국",
       region1: "캘리포니아주",
@@ -740,7 +1451,9 @@ const jobsData: JobListing[] = [
     location: "캘리포니아주 샌프란시스코 (원격 근무 가능)",
     salary: "$120k - $150k",
     experience: "시니어 (6년 이상)",
-    jobType: "정규직",
+      careerStage: "senior",
+      jobType: "정규직",
+    jobTypeCategory: "permanent",
     deadline: "상시 채용",
     skills: ["Python", "PyTorch", "LLM", "Transformers", "SQL"],
     description:
@@ -753,9 +1466,13 @@ const jobsData: JobListing[] = [
     title: "성장 마케팅 전략가 (Growth Hacker)",
     company: "Growth Dynamics",
     source: "Mynavi",
+    sourceUrl: "https://example.com/jobs/job-4",
+    sourceValue: "mynavi_tenshoku",
     category: "마케팅",
     country: "일본",
+    countryValue: "JP",
     language: "일본어",
+    languageValue: "ja",
     workLocation: {
       country: "일본",
       region1: "오사카부",
@@ -764,7 +1481,9 @@ const jobsData: JobListing[] = [
     location: "오사카부 오사카시",
     salary: "450 - 600만 엔",
     experience: "주니어 (3-5년)",
-    jobType: "계약직",
+      careerStage: "junior",
+      jobType: "계약직",
+    jobTypeCategory: "contract",
     deadline: "2026-06-15",
     skills: ["Google Analytics", "SQL", "SEO", "Growth Hacking"],
     description:
@@ -777,9 +1496,13 @@ const jobsData: JobListing[] = [
     title: "보안 운영 및 침해 대응 분석가 (SecOps Analyst)",
     company: "CyberGuard Global",
     source: "Green",
+    sourceUrl: "https://example.com/jobs/job-5",
+    sourceValue: "green_japan",
     category: "보안",
     country: "한국",
+    countryValue: "KR",
     language: "한국어",
+    languageValue: "ko",
     workLocation: {
       country: "한국",
       region1: "서울특별시",
@@ -788,7 +1511,9 @@ const jobsData: JobListing[] = [
     location: "서울특별시 마포구",
     salary: "5,000 - 7,000만 원",
     experience: "주니어 (3-5년)",
-    jobType: "정규직",
+      careerStage: "junior",
+      jobType: "정규직",
+    jobTypeCategory: "permanent",
     deadline: "2026-08-31",
     skills: ["Firewall", "IDS/IPS", "Vulnerability Check", "Python"],
     description:
@@ -801,9 +1526,13 @@ const jobsData: JobListing[] = [
     title: "Technical Project Manager (AI/Data Platform)",
     company: "ScaleUp Systems",
     source: "Saramin",
+    sourceUrl: "https://example.com/jobs/job-6",
+    sourceValue: "saramin",
     category: "PM",
     country: "미국",
+    countryValue: "US",
     language: "영어",
+    languageValue: "en",
     workLocation: {
       country: "미국",
       region1: "워싱턴주",
@@ -811,7 +1540,9 @@ const jobsData: JobListing[] = [
     },
     location: "워싱턴주 시애틀",
     experience: "시니어 (6년 이상)",
-    jobType: "정규직",
+      careerStage: "senior",
+      jobType: "정규직",
+    jobTypeCategory: "permanent",
     deadline: "2026-06-30",
     skills: ["Agile", "Scrum", "Jira", "Software Architecture"],
     description:
@@ -824,9 +1555,13 @@ const jobsData: JobListing[] = [
     title: "프론트엔드 개발자 (React/Next.js)",
     company: "PixelPerfect Inc.",
     source: "Wanted",
+    sourceUrl: "https://example.com/jobs/job-7",
+    sourceValue: "wanted",
     category: "개발",
     country: "한국",
+    countryValue: "KR",
     language: "한국어",
+    languageValue: "ko",
     workLocation: {
       country: "한국",
       region1: "경기도",
@@ -836,32 +1571,232 @@ const jobsData: JobListing[] = [
     location: "경기도 성남시 분당구",
     salary: "4,000 - 6,000만 원",
     experience: "신입 (0-2년)",
+    careerStage: "entry",
     jobType: "정규직",
+    jobTypeCategory: "permanent",
     deadline: "2026-07-31",
     skills: ["React", "Next.js", "TypeScript", "Vanilla CSS"],
     description:
       "인터랙티브 웹 서비스를 구현하고 웹 성능 최적화를 진행할 신입 개발자를 모집합니다. 수준 높은 UX와 정교한 애니메이션 구현에 관심 있는 분을 찾습니다. 디자이너 및 기획자와의 긴밀한 커뮤니케이션 능력이 필요합니다."
   }
 ];
+const JOBS_PER_PAGE = 9;
+const fallbackSkillOptions = Array.from(new Set(fallbackJobsData.flatMap((job) => job.skills))).sort(
+  (a, b) => a.localeCompare(b)
+);
+
+function buildPaginationItems(totalPages: number, currentPage: number): PaginationItem[] {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  if (currentPage <= 3) {
+    return [1, 2, 3, 4, "ellipsis", totalPages];
+  }
+
+  if (currentPage >= totalPages - 2) {
+    return [1, "ellipsis", totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+  }
+
+  return [1, "ellipsis", currentPage - 1, currentPage, currentPage + 1, "ellipsis", totalPages];
+}
 
 export function Jobs() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedWorkLocation, setSelectedWorkLocation] =
-    useState<WorkLocation>(emptyWorkLocation);
-  const [selectedExperience, setSelectedExperience] = useState("");
-  const [selectedJobType, setSelectedJobType] = useState("");
+  const initialUrlStateRef = useRef<JobsUrlState | null>(null);
+  if (!initialUrlStateRef.current) {
+    initialUrlStateRef.current = readJobsUrlState();
+  }
+
+  const initialUrlState = initialUrlStateRef.current;
+  const [searchQuery, setSearchQuery] = useState(() => initialUrlState.q);
+  const [selectedCategory, setSelectedCategory] = useState(() => initialUrlState.jobCategory);
+  const [selectedWorkLocation, setSelectedWorkLocation] = useState<WorkLocation>(() => ({
+    country: initialUrlState.countryCode ? displayCountry(initialUrlState.countryCode) : "",
+    countryValue: initialUrlState.countryCode || undefined,
+    region1: initialUrlState.region1,
+    region2: initialUrlState.region2,
+    region3: initialUrlState.region3
+  }));
+  const [selectedExperience, setSelectedExperience] = useState(() => initialUrlState.careerStage);
+  const [selectedJobType, setSelectedJobType] = useState<EmploymentTypeFilterValue | "">(
+    () => initialUrlState.employmentTypeCategory
+  );
   const [isLocationPopoverOpen, setIsLocationPopoverOpen] = useState(false);
   const [isAdvancedFilterOpen, setIsAdvancedFilterOpen] = useState(false);
   const [locationSearch, setLocationSearch] = useState("");
-  const [selectedSkill, setSelectedSkill] = useState("");
-  const [selectedSalaryFilter, setSelectedSalaryFilter] = useState("");
-  const [selectedDeadlineFilter, setSelectedDeadlineFilter] = useState("");
-  const [isNewOnly, setIsNewOnly] = useState(false);
+  const [selectedSkill, setSelectedSkill] = useState(() => initialUrlState.skill);
+  const [selectedSalaryFilter, setSelectedSalaryFilter] = useState<
+    SalaryVisibilityFilterValue | ""
+  >(() => initialUrlState.salaryVisibility);
+  const [selectedDeadlineFilter, setSelectedDeadlineFilter] = useState<
+    DeadlineTypeFilterValue | ""
+  >(() => initialUrlState.deadlineType);
+  const [isNewOnly, setIsNewOnly] = useState(() => initialUrlState.newOnly);
+  const [currentPage, setCurrentPage] = useState(() => initialUrlState.page);
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
+  const [retryVersion, setRetryVersion] = useState(0);
+  const [jobs, setJobs] = useState<JobListing[]>(fallbackJobsData.slice(0, JOBS_PER_PAGE));
+  const [totalJobs, setTotalJobs] = useState(fallbackJobsData.length);
+  const [availableSkills, setAvailableSkills] = useState<string[]>(fallbackSkillOptions);
+  const [selectedJobDetail, setSelectedJobDetail] = useState<JobListing | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const hasMountedPaginationRef = useRef(false);
+  const previousFilterKeyRef = useRef<string | null>(null);
+  const selectedCountryCode = selectedWorkLocation.countryValue ?? "";
+  const jobListFilterKey = useMemo(
+    () =>
+      JSON.stringify({
+        query: searchQuery.trim(),
+        jobCategory: selectedCategory,
+        country: selectedCountryCode,
+        region1: selectedWorkLocation.region1 ?? "",
+        region2: selectedWorkLocation.region2 ?? "",
+        region3: selectedWorkLocation.region3 ?? "",
+        careerStage: selectedExperience,
+        employmentTypeCategory: selectedJobType,
+        newOnly: isNewOnly,
+        skill: selectedSkill,
+        salaryVisibility: selectedSalaryFilter,
+        deadlineType: selectedDeadlineFilter
+      }),
+    [
+      searchQuery,
+      selectedCategory,
+      selectedCountryCode,
+      selectedWorkLocation.region1,
+      selectedWorkLocation.region2,
+      selectedWorkLocation.region3,
+      selectedExperience,
+      selectedJobType,
+      isNewOnly,
+      selectedSkill,
+      selectedSalaryFilter,
+      selectedDeadlineFilter
+    ]
+  );
+
+  const jobsUrlSearch = useMemo(
+    () =>
+      buildJobsUrlSearch({
+        q: searchQuery.trim(),
+        jobCategory: selectedCategory,
+        countryCode: selectedCountryCode,
+        region1: selectedWorkLocation.region1 ?? "",
+        region2: selectedWorkLocation.region2 ?? "",
+        region3: selectedWorkLocation.region3 ?? "",
+        careerStage: (selectedExperience as CareerStage | "") ?? "",
+        employmentTypeCategory: selectedJobType,
+        skill: selectedSkill,
+        salaryVisibility: selectedSalaryFilter,
+        deadlineType: selectedDeadlineFilter,
+        newOnly: isNewOnly,
+        page: currentPage
+      }),
+    [
+      currentPage,
+      isNewOnly,
+      searchQuery,
+      selectedCategory,
+      selectedCountryCode,
+      selectedDeadlineFilter,
+      selectedExperience,
+      selectedJobType,
+      selectedSalaryFilter,
+      selectedSkill,
+      selectedWorkLocation.region1,
+      selectedWorkLocation.region2,
+      selectedWorkLocation.region3
+    ]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const nextUrl = `${window.location.pathname}${jobsUrlSearch ? `?${jobsUrlSearch}` : ""}${window.location.hash}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+    if (nextUrl !== currentUrl) {
+      window.history.replaceState(window.history.state, "", nextUrl);
+    }
+  }, [jobsUrlSearch]);
+
+  useEffect(() => {
+    const filtersChanged =
+      previousFilterKeyRef.current !== null && previousFilterKeyRef.current !== jobListFilterKey;
+    if (filtersChanged && currentPage !== 1) {
+      previousFilterKeyRef.current = jobListFilterKey;
+      setCurrentPage(1);
+      return;
+    }
+
+    previousFilterKeyRef.current = jobListFilterKey;
+    let isCurrent = true;
+
+    setIsLoading(true);
+    setIsError(false);
+
+    getJobs({
+      q: searchQuery.trim() || undefined,
+      jobCategory: selectedCategory || undefined,
+      country: selectedCountryCode || undefined,
+      region1: selectedWorkLocation.region1 || undefined,
+      region2: selectedWorkLocation.region2 || undefined,
+      region3: selectedWorkLocation.region3 || undefined,
+      careerStage: selectedExperience ? (selectedExperience as CareerStage) : undefined,
+      employmentTypeCategory: selectedJobType || undefined,
+      skill: selectedSkill || undefined,
+      salaryVisibility: selectedSalaryFilter || undefined,
+      deadlineType: selectedDeadlineFilter || undefined,
+      newOnly: isNewOnly || undefined,
+      page: currentPage,
+      limit: JOBS_PER_PAGE
+    })
+      .then((response) => {
+        if (!isCurrent) return;
+
+        setJobs(response.data.map(toJobListing));
+        setTotalJobs(response.total);
+        setAvailableSkills(response.availableSkills);
+        if (response.page !== currentPage) {
+          setCurrentPage(response.page);
+        }
+      })
+      .catch(() => {
+        if (!isCurrent) return;
+
+        setIsError(true);
+        setJobs(fallbackJobsData.slice(0, JOBS_PER_PAGE));
+        setTotalJobs(fallbackJobsData.length);
+        setAvailableSkills(fallbackSkillOptions);
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [
+    currentPage,
+    isNewOnly,
+    jobListFilterKey,
+    searchQuery,
+    selectedCategory,
+    selectedCountryCode,
+    selectedDeadlineFilter,
+    selectedExperience,
+    selectedJobType,
+    selectedSalaryFilter,
+    selectedSkill,
+    selectedWorkLocation.region1,
+    selectedWorkLocation.region2,
+    selectedWorkLocation.region3,
+    retryVersion
+  ]);
 
   const selectedCountryNode = useMemo(() => {
     return locationTree.find((country) => country.country === selectedWorkLocation.country);
@@ -919,101 +1854,13 @@ export function Jobs() {
     selectedWorkLocation.region1
   ]);
 
-  const skillOptions = useMemo(() => {
-    return Array.from(new Set(jobsData.flatMap((job) => job.skills))).sort((a, b) =>
-      a.localeCompare(b)
-    );
-  }, []);
+  const skillOptions = useMemo(() => availableSkills, [availableSkills]);
 
   const hasAdvancedFilters =
     isNewOnly ||
     selectedSkill !== "" ||
     selectedSalaryFilter !== "" ||
     selectedDeadlineFilter !== "";
-
-  const filteredJobs = useMemo(() => {
-    return jobsData.filter((job) => {
-      if (searchQuery.trim() !== "") {
-        const query = searchQuery.toLowerCase();
-        const matchesText =
-          job.title.toLowerCase().includes(query) ||
-          job.company.toLowerCase().includes(query) ||
-          job.category.toLowerCase().includes(query) ||
-          formatWorkLocation(job.workLocation).toLowerCase().includes(query) ||
-          job.description.toLowerCase().includes(query) ||
-          job.skills.some((skill) => skill.toLowerCase().includes(query));
-
-        if (!matchesText) {
-          return false;
-        }
-      }
-
-      if (selectedCategory && job.category !== selectedCategory) return false;
-      if (
-        selectedWorkLocation.country &&
-        job.workLocation.country !== selectedWorkLocation.country
-      ) {
-        return false;
-      }
-      if (
-        selectedWorkLocation.region1 &&
-        job.workLocation.region1 !== selectedWorkLocation.region1
-      ) {
-        return false;
-      }
-      if (
-        selectedWorkLocation.region2 &&
-        job.workLocation.region2 !== selectedWorkLocation.region2
-      ) {
-        return false;
-      }
-      if (
-        selectedWorkLocation.region3 &&
-        job.workLocation.region3 !== selectedWorkLocation.region3
-      ) {
-        return false;
-      }
-      if (selectedExperience && job.experience !== selectedExperience) return false;
-      if (selectedJobType && job.jobType !== selectedJobType) return false;
-      if (isNewOnly && !job.isNew) return false;
-      if (selectedSkill && !job.skills.includes(selectedSkill)) return false;
-      if (selectedSalaryFilter === "disclosed" && !job.salary) return false;
-      if (selectedSalaryFilter === "undisclosed" && job.salary) return false;
-      if (selectedDeadlineFilter === "dated" && job.deadline === "상시 채용") return false;
-      if (selectedDeadlineFilter === "rolling" && job.deadline !== "상시 채용") return false;
-
-      return true;
-    });
-  }, [
-    searchQuery,
-    selectedCategory,
-    selectedWorkLocation,
-    selectedExperience,
-    selectedJobType,
-    isNewOnly,
-    selectedSkill,
-    selectedSalaryFilter,
-    selectedDeadlineFilter
-  ]);
-
-  useEffect(() => {
-    setIsLoading(true);
-    const timer = window.setTimeout(() => {
-      setIsLoading(false);
-    }, 400);
-
-    return () => window.clearTimeout(timer);
-  }, [
-    searchQuery,
-    selectedCategory,
-    selectedWorkLocation,
-    selectedExperience,
-    selectedJobType,
-    isNewOnly,
-    selectedSkill,
-    selectedSalaryFilter,
-    selectedDeadlineFilter
-  ]);
 
   useEffect(() => {
     if (!isLocationPopoverOpen && !isAdvancedFilterOpen) return;
@@ -1070,14 +1917,14 @@ export function Jobs() {
     if (selectedExperience) {
       list.push({
         key: "experience",
-        value: `경력: ${selectedExperience}`,
+        value: `경력: ${careerStageLabels[selectedExperience as CareerStage]}`,
         onClear: () => setSelectedExperience("")
       });
     }
     if (selectedJobType) {
       list.push({
         key: "jobType",
-        value: `고용형태: ${selectedJobType}`,
+        value: `고용형태: ${employmentTypeLabels[selectedJobType as EmploymentTypeFilterValue]}`,
         onClear: () => setSelectedJobType("")
       });
     }
@@ -1124,15 +1971,42 @@ export function Jobs() {
   ]);
 
   const selectedJob = useMemo(() => {
-    return jobsData.find((job) => job.id === selectedJobId) ?? null;
-  }, [selectedJobId]);
+    return selectedJobDetail ?? jobs.find((job) => job.id === selectedJobId) ?? null;
+  }, [jobs, selectedJobDetail, selectedJobId]);
 
-  const handleOpenDetail = (id: string) => {
+  const totalPages = Math.max(1, Math.ceil(totalJobs / JOBS_PER_PAGE));
+  const visibleJobs = jobs;
+  const paginationItems = useMemo(
+    () => buildPaginationItems(totalPages, currentPage),
+    [currentPage, totalPages]
+  );
+
+  useEffect(() => {
+    if (!hasMountedPaginationRef.current) {
+      hasMountedPaginationRef.current = true;
+      return;
+    }
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
+  }, [currentPage]);
+
+  const handleOpenDetail = async (id: string) => {
+    const listJob = jobs.find((job) => job.id === id) ?? null;
     setSelectedJobId(id);
+    setSelectedJobDetail(listJob);
     setIsDetailLoading(true);
-    window.setTimeout(() => {
+
+    try {
+      const detail = await getJobById(id);
+      setSelectedJobDetail(toJobListing(detail));
+    } catch {
+      setSelectedJobDetail(listJob);
+    } finally {
       setIsDetailLoading(false);
-    }, 300);
+    }
   };
 
   const handleResetFilters = () => {
@@ -1154,12 +2028,19 @@ export function Jobs() {
   };
 
   const handleSelectCountry = (country: string) => {
-    setSelectedWorkLocation({ country, region1: "", region2: "", region3: "" });
+    setSelectedWorkLocation({
+      country,
+      countryValue: countryCodeFromLabel(country),
+      region1: "",
+      region2: "",
+      region3: ""
+    });
   };
 
   const handleSelectRegion = (region1: string, country = selectedWorkLocation.country) => {
     setSelectedWorkLocation({
       country,
+      countryValue: countryCodeFromLabel(country),
       region1,
       region2: "",
       region3: ""
@@ -1169,6 +2050,7 @@ export function Jobs() {
   const handleSelectCity = (region2: string) => {
     setSelectedWorkLocation((current) => ({
       country: current.country,
+      countryValue: current.countryValue,
       region1: current.region1,
       region2,
       region3: ""
@@ -1180,24 +2062,6 @@ export function Jobs() {
       <HomeTopNav active="jobs" />
 
       <section className="jobsContent">
-        <div className="jobsStateSimulators">
-          <span className="simLabel">기능 상태 리뷰</span>
-          <button
-            type="button"
-            className={`simBtn ${isLoading ? "active" : ""}`}
-            onClick={() => setIsLoading((current) => !current)}
-          >
-            로딩 {isLoading ? "OFF" : "ON"}
-          </button>
-          <button
-            type="button"
-            className={`simBtn ${isError ? "active" : ""}`}
-            onClick={() => setIsError((current) => !current)}
-          >
-            에러 {isError ? "OFF" : "ON"}
-          </button>
-        </div>
-
         <div className="jobsFilterArea">
           <div className="jobsFilterBar" aria-label="채용공고 검색과 필터">
             <label className="jobsSearchField">
@@ -1226,12 +2090,14 @@ export function Jobs() {
               <FilterSelect
                 label="경력 수준"
                 value={selectedExperience}
-                onChange={setSelectedExperience}
+                onChange={(value) => setSelectedExperience(value as CareerStage | "")}
               >
                 <option value="">경력</option>
-                <option value="신입 (0-2년)">신입 (0-2년)</option>
-                <option value="주니어 (3-5년)">주니어 (3-5년)</option>
-                <option value="시니어 (6년 이상)">시니어 (6년 이상)</option>
+                {careerStageOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </FilterSelect>
               <button
                 aria-expanded={isLocationPopoverOpen}
@@ -1250,12 +2116,14 @@ export function Jobs() {
               <FilterSelect
                 label="고용형태"
                 value={selectedJobType}
-                onChange={setSelectedJobType}
+                onChange={(value) => setSelectedJobType(value as EmploymentTypeFilterValue | "")}
               >
                 <option value="">고용형태</option>
-                <option value="정규직">정규직</option>
-                <option value="계약직">계약직</option>
-                <option value="인턴">인턴</option>
+                {employmentTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </FilterSelect>
               <button
                 aria-expanded={isAdvancedFilterOpen}
@@ -1271,15 +2139,6 @@ export function Jobs() {
                 <span>상세 필터</span>
                 <FilterChevronIcon />
               </button>
-              {activeFilters.length > 0 ? (
-                <button
-                  type="button"
-                  className="jobsFilterResetBtn"
-                  onClick={handleResetFilters}
-                >
-                  필터 초기화
-                </button>
-              ) : null}
             </div>
           </div>
 
@@ -1514,7 +2373,7 @@ export function Jobs() {
 
         <header className="jobsHeading">
           <h1>
-            총 <span>{filteredJobs.length}</span>개의 공고가 당신을 기다리고 있습니다
+            총 <span>{totalJobs}</span>개의 공고가 당신을 기다리고 있습니다
           </h1>
           {activeFilters.length > 0 ? (
             <p className="jobsFilterSummary">
@@ -1529,11 +2388,17 @@ export function Jobs() {
             <span className="material-symbols-outlined errorIcon">warning</span>
             <h3>서버와의 연결이 원활하지 않습니다</h3>
             <p>데이터를 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.</p>
-            <button className="errorRetryBtn" type="button" onClick={() => setIsError(false)}>
+            <button
+              className="errorRetryBtn"
+              type="button"
+              onClick={() => setRetryVersion((version) => version + 1)}
+            >
               다시 시도하기
             </button>
           </div>
-        ) : isLoading ? (
+        ) : null}
+
+        {isLoading ? (
           <section className="jobsGrid skeletonGrid" aria-label="채용공고를 불러오는 중">
             {[1, 2, 3].map((item) => (
               <article className="jobsCard skeletonCard" key={`skeleton-${item}`}>
@@ -1562,10 +2427,16 @@ export function Jobs() {
         ) : (
           <>
             <section className="jobsGrid" aria-label="채용공고 목록">
-              {filteredJobs.map((job) => (
+              {visibleJobs.map((job) => (
                 <article className="jobsCard" key={job.id}>
                   <div className="jobsCardTop">
-                    <div className="jobsCardIcon">{job.icon}</div>
+                    <div
+                      aria-label={`${job.category} 직무`}
+                      className={`jobsCardIcon ${jobCategoryIconClass(job.category)}`}
+                      role="img"
+                    >
+                      <JobCategoryIcon category={job.category} />
+                    </div>
                     <div className="jobsCardBadges">
                       {job.isNew ? <span className="jobsNewBadge">New</span> : null}
                       <span className="jobsSourceBadge">{job.source}</span>
@@ -1576,22 +2447,32 @@ export function Jobs() {
                     <div className="jobsCardMeta">
                       <span className="jobsCardCompany">{job.company}</span>
                       <span className="jobsCardDivider">|</span>
-                      <span className="jobsCardLoc">{job.location}</span>
+                      <span className="jobsCardLoc">{formatCardLocation(job)}</span>
                     </div>
                     <div className="jobsConditions">
                       <span className="jobsConditionItem">
-                        <strong>경력:</strong> {job.experience}
-                      </span>
-                      <span className="jobsConditionItem">
-                        <strong>고용:</strong> {job.jobType}
-                      </span>
-                      {job.salary ? (
-                        <span className="jobsConditionItem">
-                          <strong>급여:</strong> {job.salary}
+                        <strong>경력:</strong>
+                        <span className="jobsConditionValue">
+                          {formatCareerDisplayValue(job.careerStage)}
                         </span>
-                      ) : null}
+                      </span>
                       <span className="jobsConditionItem">
-                        <strong>마감:</strong> {job.deadline}
+                        <strong>고용:</strong>
+                        <span className="jobsConditionValue">
+                          {formatEmploymentDisplayValue(job.jobTypeCategory)}
+                        </span>
+                      </span>
+                      <span className="jobsConditionItem">
+                        <strong>급여:</strong>
+                        <span className="jobsConditionValue">
+                          {formatSalaryDisplayValue(job.salary)}
+                        </span>
+                      </span>
+                      <span className="jobsConditionItem">
+                        <strong>마감:</strong>
+                        <span className="jobsConditionValue">
+                          {formatDeadlineDisplayValue(job.deadline)}
+                        </span>
                       </span>
                     </div>
                     <div className="jobsCardSkills">
@@ -1619,7 +2500,7 @@ export function Jobs() {
               ))}
             </section>
 
-            {filteredJobs.length === 0 ? (
+            {totalJobs === 0 ? (
               <div className="jobsEmptyState">
                 <span className="material-symbols-outlined">search_off</span>
                 <h3>일치하는 채용공고가 없습니다</h3>
@@ -1632,27 +2513,41 @@ export function Jobs() {
           </>
         )}
 
-        <nav className="jobsPagination" aria-label="채용공고 페이지">
-          <button aria-label="이전 페이지" disabled type="button">
-            ‹
-          </button>
-          <button className="active" type="button">
-            1
-          </button>
-          <button disabled type="button">
-            2
-          </button>
-          <button disabled type="button">
-            3
-          </button>
-          <span>...</span>
-          <button disabled type="button">
-            12
-          </button>
-          <button aria-label="다음 페이지" disabled type="button">
-            ›
-          </button>
-        </nav>
+        {totalJobs > 0 && totalPages > 1 ? (
+          <nav className="jobsPagination" aria-label="채용공고 페이지">
+            <button
+              aria-label="이전 페이지"
+              disabled={currentPage === 1}
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            >
+              ‹
+            </button>
+            {paginationItems.map((item, index) =>
+              item === "ellipsis" ? (
+                <span key={`ellipsis-${index}`}>...</span>
+              ) : (
+                <button
+                  aria-current={item === currentPage ? "page" : undefined}
+                  className={item === currentPage ? "active" : ""}
+                  key={item}
+                  type="button"
+                  onClick={() => setCurrentPage(item)}
+                >
+                  {item}
+                </button>
+              )
+            )}
+            <button
+              aria-label="다음 페이지"
+              disabled={currentPage === totalPages}
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+            >
+              ›
+            </button>
+          </nav>
+        ) : null}
       </section>
 
       {selectedJobId ? (
@@ -1708,22 +2603,38 @@ export function Jobs() {
                     <tbody>
                       <tr>
                         <th>필요 경력</th>
-                        <td>{selectedJob.experience}</td>
+                        <td>{formatCareerDisplayValue(selectedJob.careerStage)}</td>
                       </tr>
                       <tr>
                         <th>고용 형태</th>
-                        <td>{selectedJob.jobType}</td>
+                        <td>{formatEmploymentDisplayValue(selectedJob.jobTypeCategory)}</td>
                       </tr>
-                      {selectedJob.salary ? (
+                      <tr>
+                        <th>제시 급여</th>
+                        <td>{formatSalaryDisplayValue(selectedJob.salary)}</td>
+                      </tr>
+                      {extractSalarySupplementaryNote(selectedJob.salary) ? (
                         <tr>
-                          <th>제시 급여</th>
-                          <td>{selectedJob.salary}</td>
+                          <th>급여 참고</th>
+                          <td>{extractSalarySupplementaryNote(selectedJob.salary)}</td>
+                        </tr>
+                      ) : null}
+                      {selectedJob.educationLevel ? (
+                        <tr>
+                          <th>학력</th>
+                          <td>{selectedJob.educationLevel}</td>
                         </tr>
                       ) : null}
                       <tr>
                         <th>지원 마감</th>
-                        <td>{selectedJob.deadline}</td>
+                        <td>{formatDeadlineDisplayValue(selectedJob.deadline)}</td>
                       </tr>
+                      {selectedJob.applyMethod ? (
+                        <tr>
+                          <th>지원 방식</th>
+                          <td>{selectedJob.applyMethod}</td>
+                        </tr>
+                      ) : null}
                       <tr>
                         <th>수집 출처</th>
                         <td>{selectedJob.source} 플랫폼 연동</td>
@@ -1759,7 +2670,7 @@ export function Jobs() {
                 <div className="drawerActions">
                   <a
                     className="drawerOriginalLink"
-                    href="https://wanted.co.kr"
+                    href={selectedJob.sourceUrl}
                     rel="noopener noreferrer"
                     target="_blank"
                   >

@@ -90,6 +90,7 @@ desktop.ini
 .parcel-cache/
 .eslintcache
 .stylelintcache
+.o11y/
 
 # Temporary files
 tmp/

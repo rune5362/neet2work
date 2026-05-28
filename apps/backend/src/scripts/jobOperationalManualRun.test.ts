@@ -19,6 +19,7 @@ describe("buildJobOperationalManualRunPlan", () => {
       schemaVersion: "job_operational_manual_run_v1",
       scope: "kr",
       mode: "manual",
+      targetRefreshCadenceHours: 6,
       sources: ["saramin", "jobkorea", "linkareer"],
       requiresSupabasePlugin: true,
       executionPolicy: "manual_steps_with_approval_gates"

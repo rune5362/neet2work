@@ -1,7 +1,9 @@
 import path from "node:path";
+import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   buildJobCrawlerImportCheckCommands,
+  findRepoRoot,
   parseJobCrawlerImportCheckArgs
 } from "./jobCrawlerImportCheck.js";
 
@@ -169,6 +171,20 @@ describe("buildJobCrawlerImportCheckCommands", () => {
     expect(plan.commands[1]?.args[0]).toBe(
       path.join(repoRoot, "node_modules", "tsx", "dist", "cli.mjs")
     );
+  });
+
+  it("resolves the installed pnpm tsx CLI in the current workspace", () => {
+    const repoRoot = findRepoRoot();
+
+    const plan = buildJobCrawlerImportCheckCommands({ repoRoot, source: "jobkorea" });
+
+    expect(plan.commands[1]).toMatchObject({
+      label: "Validate JobPosting import payload",
+      command: process.execPath,
+      cwd: repoRoot
+    });
+    expect(plan.commands[1]?.args[0]).toMatch(/node_modules[/\\]tsx[/\\]dist[/\\]cli\.mjs$/);
+    expect(existsSync(plan.commands[1]?.args[0] ?? "")).toBe(true);
   });
 });
 

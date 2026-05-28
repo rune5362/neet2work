@@ -19,6 +19,7 @@ describe("buildJobOperationalPipelinePlan", () => {
     expect(plan).toMatchObject({
       source: "saramin",
       mode: "review",
+      targetRefreshCadenceHours: 6,
       artifacts: {
         batchReviewPath: path.join(repoRoot, "tmp", "saramin_batch_review.json"),
         importApplySqlPath: path.join(
@@ -87,6 +88,10 @@ describe("buildJobOperationalPipelinePlan", () => {
         "--output",
         path.join(repoRoot, "tmp", "jobkorea_batch_review.json")
       ]
+    });
+    expect(plan.stages[5]).toMatchObject({
+      id: "lifecycle_plan",
+      args: expect.arrayContaining(["--inactive-threshold", "2"])
     });
   });
 

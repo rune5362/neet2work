@@ -44,6 +44,7 @@ export type JobOperationalPipelinePlan = {
   schemaVersion: "job_operational_pipeline_v1";
   source: JobOperationalSource;
   mode: JobOperationalPipelineMode;
+  targetRefreshCadenceHours: number;
   executionPolicy: "plan_only_no_db_writes" | "approval_gated_db_writes";
   artifacts: {
     batchReviewPath: string;
@@ -85,7 +86,8 @@ const RUNNER_SCRIPT = path.join("scripts", "job_crawler", "run_source.py");
 const DEFAULT_LIMIT = 50;
 const DEFAULT_DELAY_SECONDS = 1;
 const DEFAULT_SOURCE_CAP = 20;
-const DEFAULT_INACTIVE_THRESHOLD = 3;
+const DEFAULT_INACTIVE_THRESHOLD = 2;
+const TARGET_REFRESH_CADENCE_HOURS = 6;
 
 export function buildJobOperationalPipelinePlan(
   options: JobOperationalPipelineOptions
@@ -155,6 +157,7 @@ export function buildJobOperationalPipelinePlan(
     schemaVersion: "job_operational_pipeline_v1",
     source: options.source,
     mode,
+    targetRefreshCadenceHours: TARGET_REFRESH_CADENCE_HOURS,
     executionPolicy: mode === "review" ? "plan_only_no_db_writes" : "approval_gated_db_writes",
     artifacts: {
       batchReviewPath,

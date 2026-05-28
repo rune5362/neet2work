@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { CollectedJobBatch, CollectedJobPosting, JobPostingStatus } from "../types/job.js";
 
 const REPORT_SCHEMA_VERSION = "job_lifecycle_dry_run_v1";
-const DEFAULT_INACTIVE_THRESHOLD = 3;
+const DEFAULT_INACTIVE_THRESHOLD = 2;
 const CLOSED_SIGNAL_PATTERNS = [
   "접수마감",
   "채용마감",
@@ -105,6 +105,7 @@ export function buildLifecycleDryRunReport(
   const observedBySourceJobId = new Map(
     options.batch.postings.map((posting) => [posting.sourceJobId ?? "", posting])
   );
+  const warningsBySourceJobId = groupWarningsBySourceJobId(options.batch);
   const partialReasons = getPartialReasons(options.batch, existingJobs.length);
   const partial = partialReasons.length > 0;
   const activeObservations: LifecycleDecision[] = [];
@@ -179,6 +180,31 @@ export function buildLifecycleDryRunReport(
     }
 
     const currentStatus = normalizeStatus(existing.status);
+    const warningClosedEvidence = findWarningClosedEvidence(
+      warningsBySourceJobId.get(existing.sourceJobId)
+    );
+
+    if (warningClosedEvidence) {
+      if (currentStatus === "closed") {
+        skipped.push({
+          source: existing.source,
+          sourceJobId: existing.sourceJobId,
+          currentStatus,
+          reason: "already_closed"
+        });
+        continue;
+      }
+
+      closedCandidates.push({
+        source: existing.source,
+        sourceJobId: existing.sourceJobId,
+        currentStatus,
+        proposedStatus: "closed",
+        reason: "source_visible_closed_signal",
+        evidence: warningClosedEvidence
+      });
+      continue;
+    }
 
     if (partial) {
       skipped.push({
@@ -418,6 +444,23 @@ function getPartialReasons(batch: CollectedJobBatch, existingCount: number) {
   return reasons;
 }
 
+function groupWarningsBySourceJobId(batch: CollectedJobBatch) {
+  const grouped = new Map<string, string[]>();
+
+  for (const warning of batch.warnings ?? []) {
+    const parsed = parseBatchWarning(warning);
+    if (!parsed || parsed.source !== batch.source) {
+      continue;
+    }
+
+    const warnings = grouped.get(parsed.sourceJobId) ?? [];
+    warnings.push(parsed.detail);
+    grouped.set(parsed.sourceJobId, warnings);
+  }
+
+  return grouped;
+}
+
 function findClosedEvidence(posting: CollectedJobPosting) {
   const candidates = [
     posting.deadlineText,
@@ -444,9 +487,37 @@ function findClosedEvidence(posting: CollectedJobPosting) {
   return undefined;
 }
 
+function findWarningClosedEvidence(warnings: string[] | undefined) {
+  if (!warnings?.length) {
+    return undefined;
+  }
+
+  for (const warning of warnings) {
+    const evidence = findClosedSignal(warning);
+    if (evidence) {
+      return evidence;
+    }
+  }
+
+  return undefined;
+}
+
 function findClosedSignal(text: string) {
   const lowerText = text.toLowerCase();
   return CLOSED_SIGNAL_PATTERNS.find((pattern) => lowerText.includes(pattern.toLowerCase()));
+}
+
+function parseBatchWarning(warning: string) {
+  const match = /^(?<source>[^/]+)\/(?<sourceJobId>\S+)\s+skipped:\s+(?<detail>.+)$/u.exec(warning);
+  if (!match?.groups) {
+    return undefined;
+  }
+
+  return {
+    source: match.groups.source,
+    sourceJobId: match.groups.sourceJobId,
+    detail: match.groups.detail
+  };
 }
 
 function resolveMissingCount(job: ExistingLifecycleJob) {

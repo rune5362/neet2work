@@ -143,3 +143,13 @@
 - 검증:
   - `corepack pnpm --filter @neet2work/frontend run lint` 통과.
   - `corepack pnpm --filter @neet2work/frontend run build`는 샌드박스 권한 제한으로 1회 실패 후, 동일 명령을 권한 상승으로 재실행해 통과했다.
+
+### ai-analysis 채팅 빌더 100vh 맞춤
+- 브라우저 코멘트에 따라 `/ai-analysis`의 `aiDraftShell` 섹션이 데스크톱 viewport 100vh 안에 들어오도록 조정했다.
+- 수정:
+  - `apps/frontend/src/styles.css`에서 `aiDraftShell`을 `height: 100vh`로 고정하고 상단 네비 여백을 포함한 box sizing을 적용했다.
+  - `aiDraftWorkspace`, `aiDraftChatPanel`, `aiDraftSidePanel`이 shell 높이 안에서 늘어나도록 바꾸고, 채팅 타임라인과 오른쪽 패널은 내부 스크롤로 처리했다.
+  - 1180px 이하 1열 레이아웃에서는 기존 세로 흐름을 유지하도록 높이 고정을 해제했다.
+- 검증:
+  - 인앱 브라우저 `http://localhost:5175/ai-analysis?fit-check=1`의 1680x838 viewport에서 `aiDraftShell` 높이와 bottom이 각각 838px로 계산되고 footer top도 838px로 내려간 것을 확인했다.
+  - `AI 설정` 팝오버를 열어도 shell 높이와 footer 위치가 유지되고 콘솔 오류/경고가 0건인 것을 확인했다.

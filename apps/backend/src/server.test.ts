@@ -28,10 +28,11 @@ const dbJob = {
   sourceUrl: "https://example.com/jobs/1590000",
   country: "JP",
   language: "en",
-  employmentType: null,
+  employmentType: "正社員",
+  careerStage: null,
   educationLevel: null,
   salaryText: null,
-  deadlineText: null,
+  deadlineText: "2026.05.19 ~ 2026.06.30",
   applyMethod: null,
   collectedAt: new Date("2026-05-19T06:00:00.000Z")
 };
@@ -87,6 +88,17 @@ describe("server HTTP contract", () => {
     });
   });
 
+  it("allows localhost frontend origins on alternate Vite ports", async () => {
+    const response = await request(createApp(), "/api/jobs", {
+      headers: {
+        Origin: "http://localhost:5174"
+      }
+    });
+
+    expect(response.headers.get("access-control-allow-origin")).toBe("http://localhost:5174");
+    expect(response.headers.get("access-control-allow-credentials")).toBe("true");
+  });
+
   it("keeps the analyze route envelope stable", async () => {
     const response = await request(createApp(), "/api/analyze", {
       method: "POST",
@@ -108,12 +120,15 @@ describe("server HTTP contract", () => {
   });
 
   it("keeps the jobs list route envelope stable", async () => {
-    const findMany = vi.fn().mockResolvedValue([dbJob]);
+    const count = vi.fn().mockResolvedValue(1);
+    const findMany = vi.fn()
+      .mockResolvedValueOnce([dbJob])
+      .mockResolvedValueOnce([{ skills: ["TypeScript"] }]);
     getPrismaClientMock.mockReturnValue({
-      jobPosting: { findMany }
+      jobPosting: { findMany, count }
     } as unknown as ReturnType<typeof getPrismaClient>);
 
-    const response = await request(createApp(), "/api/jobs?source=careercross&limit=1");
+    const response = await request(createApp(), "/api/jobs?source=careercross&page=2&limit=1");
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -121,17 +136,27 @@ describe("server HTTP contract", () => {
       data: [
         {
           ...dbJob,
+          careerStage: "junior",
+          employmentTypeCategory: "permanent",
+          postedAt: "2026-05-19T00:00:00.000Z",
           collectedAt: "2026-05-19T06:00:00.000Z"
         }
       ],
-      count: 1
+      count: 1,
+      total: 1,
+      page: 1,
+      limit: 1,
+      availableSkills: ["TypeScript"]
     });
   });
 
   it("keeps empty connected database job lists empty", async () => {
-    const findMany = vi.fn().mockResolvedValue([]);
+    const count = vi.fn().mockResolvedValue(0);
+    const findMany = vi.fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
     getPrismaClientMock.mockReturnValue({
-      jobPosting: { findMany }
+      jobPosting: { findMany, count }
     } as unknown as ReturnType<typeof getPrismaClient>);
 
     const response = await request(createApp(), "/api/jobs");
@@ -140,7 +165,11 @@ describe("server HTTP contract", () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({
       data: [],
-      count: 0
+      count: 0,
+      total: 0,
+      page: 1,
+      limit: 9,
+      availableSkills: []
     });
   });
 
@@ -184,6 +213,9 @@ describe("server HTTP contract", () => {
     expect(foundBody).toEqual({
       data: {
         ...dbJob,
+        careerStage: "junior",
+        employmentTypeCategory: "permanent",
+        postedAt: "2026-05-19T00:00:00.000Z",
         collectedAt: "2026-05-19T06:00:00.000Z"
       }
     });
