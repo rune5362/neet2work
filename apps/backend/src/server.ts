@@ -8,7 +8,9 @@ import { HttpError } from "./errors/httpError.js";
 import { createRateLimit } from "./middleware/rateLimit.js";
 import { analyzeRouter } from "./routes/analyze.route.js";
 import { authRouter } from "./routes/auth.route.js";
+import { documentRouter } from "./routes/document.route.js";
 import { jobsRouter } from "./routes/jobs.route.js";
+import { profileRouter } from "./routes/profile.route.js";
 import { checkPostgresConnection } from "./storage/postgres.js";
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
@@ -101,6 +103,8 @@ app.get("/health", async (_req, res, next) => {
 app.use("/api/jobs", jobsRouter);
 app.use("/api/analyze", analyzeRouter);
 app.use("/api/auth", authRateLimit, authRouter);
+app.use("/api/profiles", profileRouter);
+app.use("/api/documents", documentRouter);
 
 app.use(
   (

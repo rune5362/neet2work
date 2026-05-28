@@ -357,22 +357,22 @@ db:migrate는 PostgreSQL 연결이 필요하므로 로컬 DB가 없으면 실패
 
 ## 2-1. 프로필 관련 파일 생성
 
-* [ ] `apps/backend/src/routes/profile.route.ts`
-* [ ] `apps/backend/src/services/profile.service.ts`
-* [ ] `apps/backend/src/types/profile.ts`
-* [ ] `apps/backend/src/utils/profile.ts`
-* [ ] `apps/backend/data/sampleProfiles.json`
-* [ ] `apps/backend/data/sampleProfileVersions.json`
+* [x] `apps/backend/src/routes/profile.route.ts`
+* [x] `apps/backend/src/services/profile.service.ts`
+* [x] `apps/backend/src/types/profile.ts`
+* [x] `apps/backend/src/utils/profile.ts`
+* [x] `apps/backend/data/sampleProfiles.json`
+* [x] `apps/backend/data/sampleProfileVersions.json`
 
 ---
 
 ## 2-2. 문서 관련 파일 생성
 
-* [ ] `apps/backend/src/routes/document.route.ts`
-* [ ] `apps/backend/src/services/document.service.ts`
-* [ ] `apps/backend/src/types/document.ts`
-* [ ] `apps/backend/data/sampleDocuments.json`
-* [ ] `apps/backend/data/sampleDocumentVersions.json`
+* [x] `apps/backend/src/routes/document.route.ts`
+* [x] `apps/backend/src/services/document.service.ts`
+* [x] `apps/backend/src/types/document.ts`
+* [x] `apps/backend/data/sampleDocuments.json`
+* [x] `apps/backend/data/sampleDocumentVersions.json`
 
 ---
 
@@ -392,6 +392,9 @@ import { documentRouter } from "./routes/document.route.js";
 app.use("/api/profiles", profileRouter);
 app.use("/api/documents", documentRouter);
 ```
+
+* [x] `profileRouter`, `documentRouter` import 추가.
+* [x] `/api/profiles`, `/api/documents` 라우터 등록.
 
 ---
 
