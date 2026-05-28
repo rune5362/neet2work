@@ -2070,6 +2070,12 @@ textarea:focus {
   color: #15803d;
 }
 
+.documentsNotice.info {
+  border-color: rgba(0, 102, 255, 0.18);
+  background: var(--home-surface-low);
+  color: var(--home-primary);
+}
+
 .documentsEmpty {
   display: grid;
   gap: 8px;
@@ -2278,6 +2284,7 @@ textarea:focus {
 }
 
 .profileForm input,
+.profileForm select,
 .profileForm textarea {
   width: 100%;
   border: 1px solid var(--home-hairline);
@@ -2296,6 +2303,7 @@ textarea:focus {
 }
 
 .profileForm input:focus,
+.profileForm select:focus,
 .profileForm textarea:focus {
   outline: 3px solid rgba(0, 102, 255, 0.18);
   border-color: var(--home-primary-container);

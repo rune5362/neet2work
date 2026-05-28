@@ -1081,19 +1081,19 @@ archived 버전은 "현재 버전으로 적용" disabled
 
 ## 12-1. `/documents/new` 생성 화면
 
-* [ ] 문서 유형 선택.
+* [x] 문서 유형 선택.
 
 ```text
 이력서
 자기소개서
 ```
 
-* [ ] 사용할 지원 프로필 선택.
-* [ ] 사용할 프로필 버전 선택.
-* [ ] 연결할 채용공고 선택 또는 `jobId` 선택.
-* [ ] 문서 제목 입력.
-* [ ] 문서 본문 입력.
-* [ ] 저장 시 `POST /api/documents`.
+* [x] 사용할 지원 프로필 선택.
+* [x] 사용할 프로필 버전 선택.
+* [x] 연결할 채용공고 선택 또는 `jobId` 선택.
+* [x] 문서 제목 입력.
+* [x] 문서 본문 입력.
+* [x] 저장 시 `POST /api/documents`.
 
 초기 구현에서는 **AI 생성이 아니라 사용자가 입력한 본문 저장**으로 처리합니다.
 
@@ -1101,20 +1101,20 @@ archived 버전은 "현재 버전으로 적용" disabled
 
 ## 12-2. `/documents/:documentId` 상세/편집 화면
 
-* [ ] `getDocument(documentId)` 호출.
-* [ ] 현재 문서 버전 본문 표시.
-* [ ] 본문 편집.
-* [ ] 저장 버튼은 “새 버전으로 저장”.
-* [ ] 저장 시 `POST /api/documents/:documentId/versions`.
-* [ ] `makeCurrent = true`.
+* [x] `getDocument(documentId)` 호출.
+* [x] 현재 문서 버전 본문 표시.
+* [x] 본문 편집.
+* [x] 저장 버튼은 “새 버전으로 저장”.
+* [x] 저장 시 `POST /api/documents/:documentId/versions`.
+* [x] `makeCurrent = true`.
 
 ---
 
 ## 12-3. `/documents/:documentId/versions` 버전 관리 화면
 
-* [ ] `getDocumentVersions(documentId)` 호출.
-* [ ] 버전 목록 표시.
-* [ ] 버튼:
+* [x] `getDocumentVersions(documentId)` 호출.
+* [x] 버전 목록 표시.
+* [x] 버튼:
 
 ```text
 보기
