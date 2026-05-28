@@ -578,21 +578,21 @@ currentVersionId가 가리키는 버전은 보관 불가
 현재 `analyze.route.ts`는 route 파일 안에서 zod schema로 body를 검증합니다. 
 같은 패턴으로 작성합니다.
 
-* [ ] `createProfileSchema`
-* [ ] `updateProfileMetaSchema`
-* [ ] `createProfileVersionSchema`
-* [ ] `candidateKeyQuerySchema`
-* [ ] `candidateKeyBodySchema`
+* [x] `createProfileSchema`
+* [x] `updateProfileMetaSchema`
+* [x] `createProfileVersionSchema`
+* [x] `candidateKeyQuerySchema`
+* [x] `candidateKeyBodySchema`
 
 ---
 
 ## 4-2. 프로필 API 라우트 구현
 
-* [ ] `GET /api/profiles?candidateKey=...`
-* [ ] `POST /api/profiles`
-* [ ] `GET /api/profiles/:profileId?candidateKey=...`
-* [ ] `PATCH /api/profiles/:profileId`
-* [ ] `DELETE /api/profiles/:profileId?candidateKey=...`
+* [x] `GET /api/profiles?candidateKey=...`
+* [x] `POST /api/profiles`
+* [x] `GET /api/profiles/:profileId?candidateKey=...`
+* [x] `PATCH /api/profiles/:profileId`
+* [x] `DELETE /api/profiles/:profileId?candidateKey=...`
 
 `PATCH` body에는 `candidateKey`를 포함한다.
 
@@ -600,12 +600,12 @@ currentVersionId가 가리키는 버전은 보관 불가
 
 ## 4-3. 프로필 버전 API 라우트 구현
 
-* [ ] `GET /api/profiles/:profileId/versions?candidateKey=...`
-* [ ] `POST /api/profiles/:profileId/versions`
-* [ ] `GET /api/profiles/:profileId/versions/:versionId?candidateKey=...`
-* [ ] `POST /api/profiles/:profileId/versions/:versionId/apply`
-* [ ] `POST /api/profiles/:profileId/versions/:versionId/restore`
-* [ ] `DELETE /api/profiles/:profileId/versions/:versionId`
+* [x] `GET /api/profiles/:profileId/versions?candidateKey=...`
+* [x] `POST /api/profiles/:profileId/versions`
+* [x] `GET /api/profiles/:profileId/versions/:versionId?candidateKey=...`
+* [x] `POST /api/profiles/:profileId/versions/:versionId/apply`
+* [x] `POST /api/profiles/:profileId/versions/:versionId/restore`
+* [x] `DELETE /api/profiles/:profileId/versions/:versionId`
 
 `POST apply`, `POST restore`, `DELETE` body에는 `candidateKey`를 포함한다.
 
