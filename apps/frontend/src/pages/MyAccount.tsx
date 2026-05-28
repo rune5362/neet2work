@@ -308,7 +308,7 @@ export function MyAccount() {
         <header className="myAccountHeader">
           <span>계정 정보</span>
             <div>
-              <p>계정 정보 및 접속정보를 확인 할 수 있습니다.</p>
+              <p>계정 정보 및 접속 정보를 확인 할 수 있습니다.</p>
             </div>
         </header>
 
