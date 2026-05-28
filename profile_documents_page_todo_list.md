@@ -416,8 +416,8 @@ app.use("/api/documents", documentRouter);
 
 ## 3-1. `profileJson` 기본 구조 정의
 
-* [ ] `apps/backend/src/types/profile.ts`에 `CandidateProfileJson` 타입 작성.
-* [ ] `apps/backend/src/utils/profile.ts`에 기본 구조 작성.
+* [x] `apps/backend/src/types/profile.ts`에 `CandidateProfileJson` 타입 작성.
+* [x] `apps/backend/src/utils/profile.ts`에 기본 구조 작성.
 
 ```ts
 export const defaultProfileJson = {
@@ -459,7 +459,7 @@ export const defaultProfileJson = {
 
 ## 3-2. `buildProfileText` 구현
 
-* [ ] `apps/backend/src/utils/profile.ts`에 작성.
+* [x] `apps/backend/src/utils/profile.ts`에 작성.
 * [ ] 포함 항목:
 
 ```text
@@ -472,13 +472,13 @@ export const defaultProfileJson = {
 프로젝트 성과
 ```
 
-* [ ] 빈 값은 문장에 포함하지 않도록 처리.
+* [x] 빈 값은 문장에 포함하지 않도록 처리.
 
 ---
 
 ## 3-3. `extractProfileSummaryFields` 구현
 
-* [ ] `profileJson`에서 목록 표시용 필드를 추출한다.
+* [x] `profileJson`에서 목록 표시용 필드를 추출한다.
 
 ```text
 basics.name       → CandidateProfile.name
@@ -491,10 +491,10 @@ skills            → CandidateProfile.skills
 
 ## 3-4. `getProfiles(candidateKey)` 구현
 
-* [ ] `getPrismaClient()`를 사용한다.
-* [ ] Prisma client가 없거나 DB 조회 실패 시 sample fallback을 사용한다.
-* [ ] 기본 조회 조건은 `isArchived = false`.
-* [ ] current version 번호도 응답에 포함한다.
+* [x] `getPrismaClient()`를 사용한다.
+* [x] Prisma client가 없거나 DB 조회 실패 시 sample fallback을 사용한다.
+* [x] 기본 조회 조건은 `isArchived = false`.
+* [x] current version 번호도 응답에 포함한다.
 
 이 브랜치의 `job.service.ts`는 DB가 없거나 조회 실패 시 sample JSON/fallback을 사용하는 구조이므로 같은 패턴을 따르면 됩니다. 
 
@@ -502,21 +502,21 @@ skills            → CandidateProfile.skills
 
 ## 3-5. `createProfile(input)` 구현
 
-* [ ] Prisma transaction으로 처리한다.
-* [ ] `CandidateProfile` 생성.
-* [ ] `CandidateProfileVersion` v1 생성.
-* [ ] `currentVersionId` 갱신.
-* [ ] `isDefault = true`면 같은 `candidateKey`의 다른 프로필은 `isDefault = false`.
-* [ ] `profileText` 자동 생성.
-* [ ] 목록 표시용 필드 동기화.
+* [x] Prisma transaction으로 처리한다.
+* [x] `CandidateProfile` 생성.
+* [x] `CandidateProfileVersion` v1 생성.
+* [x] `currentVersionId` 갱신.
+* [x] `isDefault = true`면 같은 `candidateKey`의 다른 프로필은 `isDefault = false`.
+* [x] `profileText` 자동 생성.
+* [x] 목록 표시용 필드 동기화.
 
 ---
 
 ## 3-6. `getProfile(profileId)` 구현
 
-* [ ] 프로필 카드 조회.
-* [ ] `currentVersionId` 기준 현재 버전 조회.
-* [ ] current version이 없으면 최신 active version fallback.
+* [x] 프로필 카드 조회.
+* [x] `currentVersionId` 기준 현재 버전 조회.
+* [x] current version이 없으면 최신 active version fallback.
 
 ---
 
@@ -544,19 +544,19 @@ profileJson 수정은 새 버전 생성 API에서 처리
 
 ## 3-8. `archiveProfile(profileId)` 구현
 
-* [ ] 실제 삭제 대신 `isArchived = true`.
-* [ ] 연결된 버전은 유지.
+* [x] 실제 삭제 대신 `isArchived = true`.
+* [x] 연결된 버전은 유지.
 
 ---
 
 ## 3-9. 프로필 버전 서비스 구현
 
-* [ ] `getProfileVersions(profileId)`
-* [ ] `createProfileVersion(profileId, input)`
-* [ ] `getProfileVersion(profileId, versionId)`
-* [ ] `applyProfileVersion(profileId, versionId)`
-* [ ] `restoreProfileVersion(profileId, versionId)`
-* [ ] `archiveProfileVersion(profileId, versionId)`
+* [x] `getProfileVersions(profileId)`
+* [x] `createProfileVersion(profileId, input)`
+* [x] `getProfileVersion(profileId, versionId)`
+* [x] `applyProfileVersion(profileId, versionId)`
+* [x] `restoreProfileVersion(profileId, versionId)`
+* [x] `archiveProfileVersion(profileId, versionId)`
 
 핵심 규칙:
 
