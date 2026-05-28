@@ -704,35 +704,35 @@ currentVersionId가 가리키는 버전은 보관 불가
 
 ## 7-1. API 수동 테스트
 
-* [ ] `GET /health`
-* [ ] `POST /api/profiles`
-* [ ] `GET /api/profiles?candidateKey=demo-candidate`
-* [ ] `POST /api/profiles/:profileId/versions`
-* [ ] `POST /api/profiles/:profileId/versions/:versionId/apply`
-* [ ] `POST /api/profiles/:profileId/versions/:versionId/restore`
-* [ ] `POST /api/documents`
-* [ ] `GET /api/documents?candidateKey=demo-candidate`
-* [ ] `POST /api/documents/:documentId/versions`
-* [ ] `POST /api/documents/:documentId/versions/:versionId/apply`
-* [ ] `POST /api/documents/:documentId/versions/:versionId/restore`
+* [x] `GET /health`
+* [x] `POST /api/profiles`
+* [x] `GET /api/profiles?candidateKey=demo-candidate`
+* [x] `POST /api/profiles/:profileId/versions`
+* [x] `POST /api/profiles/:profileId/versions/:versionId/apply`
+* [x] `POST /api/profiles/:profileId/versions/:versionId/restore`
+* [x] `POST /api/documents`
+* [x] `GET /api/documents?candidateKey=demo-candidate`
+* [x] `POST /api/documents/:documentId/versions`
+* [x] `POST /api/documents/:documentId/versions/:versionId/apply`
+* [x] `POST /api/documents/:documentId/versions/:versionId/restore`
 
 ---
 
 ## 7-2. 빌드/테스트
 
-* [ ] backend lint.
+* [x] backend lint.
 
 ```bash
 corepack pnpm --filter @neet2work/backend lint
 ```
 
-* [ ] backend test.
+* [x] backend test.
 
 ```bash
 corepack pnpm --filter @neet2work/backend test
 ```
 
-* [ ] backend build.
+* [x] backend build.
 
 ```bash
 corepack pnpm --filter @neet2work/backend build
