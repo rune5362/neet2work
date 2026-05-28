@@ -1141,7 +1141,7 @@ archived 버전은 "현재 버전으로 적용" disabled
 
 ## 13-1. 메뉴 정리
 
-* [ ] 계정 드롭다운에 `/profiles` 링크 추가.
+* [x] 계정 드롭다운에 `/profiles` 링크 추가.
 
 ```text
 지원 프로필
@@ -1149,8 +1149,8 @@ archived 버전은 "현재 버전으로 적용" disabled
 계정 정보
 ```
 
-* [ ] `/documents`는 기존 “보관함” 유지.
-* [ ] 메인 네비게이션의 `/ai-analysis` 링크는 수정하지 않는다.
+* [x] `/documents`는 기존 “보관함” 유지.
+* [x] 메인 네비게이션의 `/ai-analysis` 링크는 수정하지 않는다.
 
 ---
 
@@ -1158,8 +1158,8 @@ archived 버전은 "현재 버전으로 적용" disabled
 
 현재 active 타입에 `home`, `jobs`, `analysis`, `community`, `account`, `notifications`만 있습니다. 
 
-* [ ] 필요하면 `profiles` 또는 `documents` 추가.
-* [ ] 아니면 기존처럼 `/profiles`, `/documents`를 account section으로 처리.
+* [x] 필요하면 `profiles` 또는 `documents` 추가.
+* [x] 아니면 기존처럼 `/profiles`, `/documents`를 account section으로 처리.
 
 추천:
 

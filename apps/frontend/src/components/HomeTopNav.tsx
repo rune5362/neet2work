@@ -24,6 +24,10 @@ function getStoredAuthUser(): AuthUser | null {
   }
 }
 
+function isPathInSection(currentPath: string, sectionPath: string) {
+  return currentPath === sectionPath || currentPath.startsWith(`${sectionPath}/`);
+}
+
 export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => getStoredAuthUser());
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
@@ -35,7 +39,10 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
   const displayName = authUser?.nickname || authUser?.name || authUser?.email;
   const shouldShowProfileImage = Boolean(authUser?.profileImageUrl && !profileImageFailed);
   const currentPath = typeof window === "undefined" ? "" : window.location.pathname;
-  const isAccountSection = currentPath === "/myaccount" || currentPath === "/documents";
+  const isProfilesSection = isPathInSection(currentPath, "/profiles");
+  const isDocumentsSection = isPathInSection(currentPath, "/documents");
+  const isMyAccountSection = isPathInSection(currentPath, "/myaccount");
+  const isAccountSection = isMyAccountSection || isProfilesSection || isDocumentsSection;
   const isNotificationSection = currentPath === "/notifications";
   const effectiveActive = isAccountSection ? "account" : isNotificationSection ? "notifications" : active;
 
@@ -186,18 +193,18 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
                     {authUser ? (
                       <>
                         <a
-                          className={currentPath === "/myaccount" ? "active" : ""}
-                          href="/myaccount"
+                          className={isProfilesSection ? "active" : ""}
+                          href="/profiles"
                           role="menuitem"
                           onClick={() => setIsNavMenuOpen(false)}
                         >
                           <svg aria-hidden="true" height="20" viewBox="0 -960 960 960" width="20">
                             <path d="M480-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z" />
                           </svg>
-                          계정 정보
+                          지원 프로필
                         </a>
                         <a
-                          className={currentPath === "/documents" ? "active" : ""}
+                          className={isDocumentsSection ? "active" : ""}
                           href="/documents"
                           role="menuitem"
                           onClick={() => setIsNavMenuOpen(false)}
@@ -206,6 +213,17 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
                             <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h240l80 80h240q33 0 56.5 23.5T840-680v480q0 33-23.5 56.5T760-120H200Zm0-80h560v-480H487l-80-80H200v560Zm0 0v-560 560Z" />
                           </svg>
                           보관함
+                        </a>
+                        <a
+                          className={isMyAccountSection ? "active" : ""}
+                          href="/myaccount"
+                          role="menuitem"
+                          onClick={() => setIsNavMenuOpen(false)}
+                        >
+                          <svg aria-hidden="true" height="20" viewBox="0 -960 960 960" width="20">
+                            <path d="M480-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z" />
+                          </svg>
+                          계정 정보
                         </a>
                       </>
                     ) : (
@@ -325,20 +343,28 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
               {isAccountMenuOpen && (
                 <div className="homeAccountDropdown" role="menu">
                   <a
-                    className={currentPath === "/myaccount" ? "active" : ""}
-                    href="/myaccount"
+                    className={isProfilesSection ? "active" : ""}
+                    href="/profiles"
                     role="menuitem"
                     onClick={() => setIsAccountMenuOpen(false)}
                   >
-                    계정 정보
+                    지원 프로필
                   </a>
                   <a
-                    className={currentPath === "/documents" ? "active" : ""}
+                    className={isDocumentsSection ? "active" : ""}
                     href="/documents"
                     role="menuitem"
                     onClick={() => setIsAccountMenuOpen(false)}
                   >
                     보관함
+                  </a>
+                  <a
+                    className={isMyAccountSection ? "active" : ""}
+                    href="/myaccount"
+                    role="menuitem"
+                    onClick={() => setIsAccountMenuOpen(false)}
+                  >
+                    계정 정보
                   </a>
                   <button type="button" role="menuitem" onClick={handleLogout}>
                     로그아웃
