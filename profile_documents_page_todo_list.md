@@ -84,14 +84,13 @@ corepack pnpm dev
 
 ---
 
-# Phase 1. Prisma schema 기준 복구/병합
+# Phase 1. Prisma schema/model 추가
 
-## 1-1. 기존 schema 상태 확인
+## 1-1. 기존 Prisma 구조 확인
 
 * [ ] `apps/backend/prisma/schema.prisma`를 확인한다.
-* [ ] 현재 브랜치 기준 파일에 모델 정의가 없는 상태인지 확인한다. 
-* [ ] `main` 또는 최신 작업 브랜치의 `JobPosting`, `ResumeAnalysis`, `User`, `Auth` 관련 schema를 먼저 반영한다.
-* [ ] 기존 백엔드 코드가 참조하는 generated enum/model이 schema에 모두 존재하는지 확인한다.
+* [ ] 이 브랜치는 `schema.prisma`에 generator/datasource만 두고, 실제 model/enum은 `apps/backend/prisma/models/*.prisma`에 분리하는 구조임을 확인한다.
+* [ ] 기존 백엔드 코드가 참조하는 generated enum/model이 `prisma/models/*.prisma`에 존재하는지 확인한다.
 
 확인해야 할 참조 예시:
 
@@ -105,7 +104,9 @@ User
 
 ---
 
-## 1-2. 기존 schema 정상화 후 새 enum 추가
+## 1-2. 새 enum 파일 추가
+
+아래 enum은 `apps/backend/prisma/models/*.prisma`에 각각 파일로 추가한다.
 
 * [ ] `ProfileVersionSource` 추가.
 
@@ -160,9 +161,10 @@ enum ApplicationDocumentStatus {
 
 ## 1-3. `CandidateProfile` 모델 추가
 
-* [ ] `apps/backend/prisma/schema.prisma`에 추가한다.
+* [ ] `apps/backend/prisma/models/candidateProfile.prisma`에 추가한다.
 * [ ] `candidateKey`는 `@unique`로 만들지 않는다.
 * [ ] `profileJson`, `profileText`는 넣지 않는다.
+* [ ] `currentVersionId`는 current 포인터로만 사용한다. 초기 구현에서는 순환 relation 복잡도를 피하기 위해 Prisma relation을 걸지 않고 서비스에서 같은 profile의 version인지 검증한다.
 
 ```prisma
 model CandidateProfile {
@@ -201,6 +203,9 @@ model CandidateProfile {
 
 * [ ] 실제 프로필 본문 저장용 모델을 추가한다.
 * [ ] `profileJson`, `profileText`는 여기에 저장한다.
+* [ ] `apps/backend/prisma/models/candidateProfileVersion.prisma`에 추가한다.
+* [ ] `profileId`는 `CandidateProfile`에 FK relation을 둔다.
+* [ ] `parentVersionId`는 초기 구현에서는 nullable string으로 두고 서비스에서 같은 profile의 version인지 검증한다.
 
 ```prisma
 model CandidateProfileVersion {
@@ -239,6 +244,11 @@ model CandidateProfileVersion {
 
 ## 1-5. `ApplicationDocument` 모델 추가
 
+* [ ] `apps/backend/prisma/models/applicationDocument.prisma`에 추가한다.
+* [ ] `profileId`, `profileVersionId`, `jobId`, `currentVersionId`는 초기 구현에서는 nullable string으로 둔다.
+* [ ] 연결 대상 존재 여부와 candidate 범위 검증은 service에서 수행한다.
+* [ ] `jobId`는 기존 `JobPosting`과 연결 가능하지만, mock-first fallback과 기존 샘플 데이터 흐름을 위해 초기 구현에서는 강제 FK를 두지 않는다.
+
 ```prisma
 model ApplicationDocument {
   id               String   @id @default(cuid())
@@ -272,6 +282,10 @@ model ApplicationDocument {
 ---
 
 ## 1-6. `ApplicationDocumentVersion` 모델 추가
+
+* [ ] `apps/backend/prisma/models/applicationDocumentVersion.prisma`에 추가한다.
+* [ ] `documentId`는 `ApplicationDocument`에 FK relation을 둔다.
+* [ ] `parentVersionId`는 초기 구현에서는 nullable string으로 두고 서비스에서 같은 document의 version인지 검증한다.
 
 ```prisma
 model ApplicationDocumentVersion {
@@ -315,8 +329,9 @@ model ApplicationDocumentVersion {
 이 브랜치는 루트 스크립트에서 backend Prisma 명령을 감싸고 있으므로 루트에서 실행한다. 
 
 ```bash
+corepack pnpm install
 corepack pnpm db:generate
-corepack pnpm db:migrate
+corepack pnpm --filter @neet2work/backend run db:migrate -- --name add_profile_document_versions
 ```
 
 또는 backend에서 직접 실행한다.
@@ -324,7 +339,14 @@ corepack pnpm db:migrate
 ```bash
 cd apps/backend
 corepack pnpm run db:generate
-corepack pnpm run db:migrate
+corepack pnpm run db:migrate -- --name add_profile_document_versions
+```
+
+주의:
+
+```text
+db:generate는 DB 없이도 통과해야 한다.
+db:migrate는 PostgreSQL 연결이 필요하므로 로컬 DB가 없으면 실패가 정상이다.
 ```
 
 ---
@@ -339,8 +361,8 @@ corepack pnpm run db:migrate
 * [ ] `apps/backend/src/services/profile.service.ts`
 * [ ] `apps/backend/src/types/profile.ts`
 * [ ] `apps/backend/src/utils/profile.ts`
-* [ ] `apps/backend/src/data/sampleProfiles.json`
-* [ ] `apps/backend/src/data/sampleProfileVersions.json`
+* [ ] `apps/backend/data/sampleProfiles.json`
+* [ ] `apps/backend/data/sampleProfileVersions.json`
 
 ---
 
@@ -349,8 +371,8 @@ corepack pnpm run db:migrate
 * [ ] `apps/backend/src/routes/document.route.ts`
 * [ ] `apps/backend/src/services/document.service.ts`
 * [ ] `apps/backend/src/types/document.ts`
-* [ ] `apps/backend/src/data/sampleDocuments.json`
-* [ ] `apps/backend/src/data/sampleDocumentVersions.json`
+* [ ] `apps/backend/data/sampleDocuments.json`
+* [ ] `apps/backend/data/sampleDocumentVersions.json`
 
 ---
 
@@ -370,6 +392,20 @@ import { documentRouter } from "./routes/document.route.js";
 app.use("/api/profiles", profileRouter);
 app.use("/api/documents", documentRouter);
 ```
+
+---
+
+## 2-4. 공통 보안/스코프 규칙
+
+프로필/문서 API는 로그인 계정 연동 전까지 `candidateKey` 기반 mock-first 구조로 간다. 단, 모든 변경/조회 서비스는 리소스 소유 범위를 함께 검증한다.
+
+* [ ] 목록 API는 `candidateKey`를 query로 받는다.
+* [ ] 생성 API는 body의 `candidateKey`를 필수로 받는다.
+* [ ] 상세/수정/삭제/버전 API는 `candidateKey`를 query 또는 body로 받아 `profileId/documentId/versionId`와 함께 검증한다.
+* [ ] 다른 candidate의 profile/document/version을 조회, 적용, 복원, 보관할 수 없게 한다.
+* [ ] `profileVersionId`가 전달되면 해당 version이 전달된 `profileId`와 같은 candidate에 속하는지 확인한다.
+* [ ] `documentId`와 `versionId`는 항상 같은 document에 속하는지 확인한다.
+* [ ] 사용자에게 반환하는 에러는 내부 경로, stack trace, DB 오류 원문을 노출하지 않는다.
 
 ---
 
@@ -517,6 +553,7 @@ profileJson 수정은 새 버전 생성 API에서 처리
 * [ ] `getProfileVersion(profileId, versionId)`
 * [ ] `applyProfileVersion(profileId, versionId)`
 * [ ] `restoreProfileVersion(profileId, versionId)`
+* [ ] `archiveProfileVersion(profileId, versionId)`
 
 핵심 규칙:
 
@@ -524,6 +561,7 @@ profileJson 수정은 새 버전 생성 API에서 처리
 기존 버전은 덮어쓰지 않음
 수정/복원은 항상 새 버전 생성
 archived 버전은 current로 적용 불가
+currentVersionId가 가리키는 버전은 보관 불가
 ```
 
 ---
@@ -540,6 +578,8 @@ archived 버전은 current로 적용 불가
 * [ ] `createProfileSchema`
 * [ ] `updateProfileMetaSchema`
 * [ ] `createProfileVersionSchema`
+* [ ] `candidateKeyQuerySchema`
+* [ ] `candidateKeyBodySchema`
 
 ---
 
@@ -547,19 +587,24 @@ archived 버전은 current로 적용 불가
 
 * [ ] `GET /api/profiles?candidateKey=...`
 * [ ] `POST /api/profiles`
-* [ ] `GET /api/profiles/:profileId`
+* [ ] `GET /api/profiles/:profileId?candidateKey=...`
 * [ ] `PATCH /api/profiles/:profileId`
-* [ ] `DELETE /api/profiles/:profileId`
+* [ ] `DELETE /api/profiles/:profileId?candidateKey=...`
+
+`PATCH` body에는 `candidateKey`를 포함한다.
 
 ---
 
 ## 4-3. 프로필 버전 API 라우트 구현
 
-* [ ] `GET /api/profiles/:profileId/versions`
+* [ ] `GET /api/profiles/:profileId/versions?candidateKey=...`
 * [ ] `POST /api/profiles/:profileId/versions`
-* [ ] `GET /api/profiles/:profileId/versions/:versionId`
+* [ ] `GET /api/profiles/:profileId/versions/:versionId?candidateKey=...`
 * [ ] `POST /api/profiles/:profileId/versions/:versionId/apply`
 * [ ] `POST /api/profiles/:profileId/versions/:versionId/restore`
+* [ ] `DELETE /api/profiles/:profileId/versions/:versionId`
+
+`POST apply`, `POST restore`, `DELETE` body에는 `candidateKey`를 포함한다.
 
 ---
 
@@ -581,6 +626,8 @@ archived 버전은 current로 적용 불가
 * [ ] `ApplicationDocumentVersion` v1 생성.
 * [ ] `currentVersionId` 갱신.
 * [ ] `profileVersionId`가 있으면 해당 프로필 버전 조회.
+* [ ] `profileId`와 `profileVersionId`가 둘 다 있으면 같은 프로필에 속하는지 확인.
+* [ ] `profileId`나 `profileVersionId`가 전달되면 같은 `candidateKey`에 속하는지 확인.
 * [ ] 문서 버전에 `profileSnapshotText`, `profileSnapshotJson` 저장.
 * [ ] `jobId`가 있으면 `JobPosting` 조회 후 `jobSnapshotJson` 저장.
 * [ ] `jobId`가 잘못된 경우는 400으로 처리.
@@ -597,6 +644,7 @@ archived 버전은 current로 적용 불가
 * [ ] `getDocumentVersion(documentId, versionId)`
 * [ ] `applyDocumentVersion(documentId, versionId)`
 * [ ] `restoreDocumentVersion(documentId, versionId)`
+* [ ] `archiveDocumentVersion(documentId, versionId)`
 
 핵심 규칙:
 
@@ -604,6 +652,8 @@ archived 버전은 current로 적용 불가
 문서 본문 수정은 기존 버전을 덮어쓰지 않음
 항상 ApplicationDocumentVersion 새 row 생성
 복원도 기존 버전을 current로 바꾸지 않고 새 버전 생성
+archived 버전은 current로 적용 불가
+currentVersionId가 가리키는 버전은 보관 불가
 ```
 
 ---
@@ -617,6 +667,8 @@ archived 버전은 current로 적용 불가
 * [ ] `createDocumentSchema`
 * [ ] `updateDocumentMetaSchema`
 * [ ] `createDocumentVersionSchema`
+* [ ] `candidateKeyQuerySchema`
+* [ ] `candidateKeyBodySchema`
 
 ---
 
@@ -624,19 +676,24 @@ archived 버전은 current로 적용 불가
 
 * [ ] `GET /api/documents?candidateKey=...`
 * [ ] `POST /api/documents`
-* [ ] `GET /api/documents/:documentId`
+* [ ] `GET /api/documents/:documentId?candidateKey=...`
 * [ ] `PATCH /api/documents/:documentId`
-* [ ] `DELETE /api/documents/:documentId`
+* [ ] `DELETE /api/documents/:documentId?candidateKey=...`
+
+`PATCH` body에는 `candidateKey`를 포함한다.
 
 ---
 
 ## 6-3. 문서 버전 API 라우트 구현
 
-* [ ] `GET /api/documents/:documentId/versions`
+* [ ] `GET /api/documents/:documentId/versions?candidateKey=...`
 * [ ] `POST /api/documents/:documentId/versions`
-* [ ] `GET /api/documents/:documentId/versions/:versionId`
+* [ ] `GET /api/documents/:documentId/versions/:versionId?candidateKey=...`
 * [ ] `POST /api/documents/:documentId/versions/:versionId/apply`
 * [ ] `POST /api/documents/:documentId/versions/:versionId/restore`
+* [ ] `DELETE /api/documents/:documentId/versions/:versionId`
+
+`POST apply`, `POST restore`, `DELETE` body에는 `candidateKey`를 포함한다.
 
 ---
 
@@ -696,6 +753,103 @@ B안: profileClient.ts, documentClient.ts로 분리
 
 * [ ] `apps/frontend/src/api/profileClient.ts`
 * [ ] `apps/frontend/src/api/documentClient.ts`
+* [ ] `apps/frontend/src/types/profile.ts`
+* [ ] `apps/frontend/src/types/document.ts`
+
+---
+
+## 8-1-1. 프론트 응답 타입 정의
+
+API client를 작성하기 전에 최소 응답 타입을 먼저 고정한다.
+
+프로필 타입:
+
+```ts
+export type ProfileListItem = {
+  id: string;
+  candidateKey: string;
+  title: string;
+  targetRole: string | null;
+  targetCompany: string | null;
+  targetJobId: string | null;
+  name: string | null;
+  email: string | null;
+  desiredRoles: string[];
+  skills: string[];
+  currentVersionId: string | null;
+  currentVersionNo: number | null;
+  isDefault: boolean;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProfileVersion = {
+  id: string;
+  profileId: string;
+  candidateKey: string;
+  versionNo: number;
+  title: string | null;
+  memo: string | null;
+  profileText: string;
+  profileJson: CandidateProfileJson;
+  source: "user" | "ai" | "system";
+  status: "draft" | "active" | "archived";
+  parentVersionId: string | null;
+  changeSummary: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProfileDetail = ProfileListItem & {
+  currentVersion: ProfileVersion | null;
+};
+```
+
+문서 타입:
+
+```ts
+export type DocumentListItem = {
+  id: string;
+  candidateKey: string;
+  title: string;
+  documentType: "resume" | "cover_letter";
+  profileId: string | null;
+  profileVersionId: string | null;
+  profileTitle: string | null;
+  jobId: string | null;
+  jobTitle: string | null;
+  company: string | null;
+  currentVersionId: string | null;
+  currentVersionNo: number | null;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DocumentVersion = {
+  id: string;
+  documentId: string;
+  candidateKey: string;
+  versionNo: number;
+  title: string | null;
+  memo: string | null;
+  content: string;
+  contentJson: unknown | null;
+  source: "user" | "ai" | "system";
+  status: "draft" | "active" | "archived";
+  parentVersionId: string | null;
+  profileSnapshotText: string | null;
+  profileSnapshotJson: unknown | null;
+  jobSnapshotJson: unknown | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DocumentDetail = DocumentListItem & {
+  currentVersion: DocumentVersion | null;
+};
+```
 
 ---
 
@@ -711,6 +865,7 @@ B안: profileClient.ts, documentClient.ts로 분리
 * [ ] `getProfileVersion(profileId, versionId)`
 * [ ] `applyProfileVersion(profileId, versionId)`
 * [ ] `restoreProfileVersion(profileId, versionId)`
+* [ ] `archiveProfileVersion(profileId, versionId)`
 
 ---
 
@@ -726,6 +881,7 @@ B안: profileClient.ts, documentClient.ts로 분리
 * [ ] `getDocumentVersion(documentId, versionId)`
 * [ ] `applyDocumentVersion(documentId, versionId)`
 * [ ] `restoreDocumentVersion(documentId, versionId)`
+* [ ] `archiveDocumentVersion(documentId, versionId)`
 
 ---
 
@@ -784,6 +940,23 @@ React Router가 없으므로 우선은 pathname split 방식으로 처리합니�
 ```ts
 const pathname = window.location.pathname;
 const segments = pathname.split("/").filter(Boolean);
+```
+
+라우팅 순서 주의:
+
+```text
+/profiles/new는 /profiles/:profileId보다 먼저 검사
+/documents/new는 /documents/:documentId보다 먼저 검사
+/profiles/:profileId/versions는 /profiles/:profileId보다 먼저 검사
+/documents/:documentId/versions는 /documents/:documentId보다 먼저 검사
+/documents 단일 경로는 모든 /documents 하위 경로보다 뒤에서 검사
+```
+
+수동 라우팅이므로 잘못된 세그먼트는 홈으로 보내지 말고 해당 기능의 목록으로 돌린다.
+
+```text
+알 수 없는 /profiles/* → /profiles
+알 수 없는 /documents/* → /documents
 ```
 
 ---
@@ -895,6 +1068,16 @@ const segments = pathname.split("/").filter(Boolean);
 보관
 ```
 
+버튼 정책:
+
+```text
+현재 적용 중인 버전은 "현재 버전으로 적용" disabled
+archived 버전은 "현재 버전으로 적용" disabled
+현재 적용 중인 버전은 "보관" disabled
+복원은 archived 여부와 무관하게 새 버전으로 복사 생성할지 정책 결정 필요
+초기 구현 추천: archived 버전 복원은 허용, 새 active 버전 생성
+```
+
 ---
 
 # Phase 12. 문서 화면 구현
@@ -941,6 +1124,16 @@ const segments = pathname.split("/").filter(Boolean);
 현재 버전으로 적용
 복원
 보관
+```
+
+버튼 정책:
+
+```text
+현재 적용 중인 버전은 "현재 버전으로 적용" disabled
+archived 버전은 "현재 버전으로 적용" disabled
+현재 적용 중인 버전은 "보관" disabled
+복원은 archived 여부와 무관하게 새 버전으로 복사 생성할지 정책 결정 필요
+초기 구현 추천: archived 버전 복원은 허용, 새 active 버전 생성
 ```
 
 ---
@@ -1015,26 +1208,35 @@ AI 분석 기능은 현재 연동 준비 중입니다.
 
 ## 15-1. 샘플 데이터 작성
 
-* [ ] `apps/backend/src/data/sampleProfiles.json`
-* [ ] `apps/backend/src/data/sampleProfileVersions.json`
-* [ ] `apps/backend/src/data/sampleDocuments.json`
-* [ ] `apps/backend/src/data/sampleDocumentVersions.json`
+* [ ] `apps/backend/data/sampleProfiles.json`
+* [ ] `apps/backend/data/sampleProfileVersions.json`
+* [ ] `apps/backend/data/sampleDocuments.json`
+* [ ] `apps/backend/data/sampleDocumentVersions.json`
 
 ---
 
 ## 15-2. fallback 정책
 
 * [ ] 조회 API는 sample fallback 제공.
-* [ ] 저장 API는 DB가 없으면 503 또는 in-memory fallback 중 선택.
+* [ ] 저장/수정/삭제/버전 API는 DB가 없거나 조회 실패 시 in-memory fallback을 사용한다.
+* [ ] in-memory fallback은 서버 프로세스 재시작 시 초기화된다.
+* [ ] fallback 응답은 실제 DB 응답과 같은 shape를 유지한다.
+* [ ] fallback 상태에서 저장한 데이터도 같은 `candidateKey` 스코프 검증을 적용한다.
 
-추천:
+정책:
 
 ```text
-시연 우선: in-memory fallback
-안정성 우선: 저장 실패 응답
+mock-first 시연 우선: 조회/생성/수정/삭제/버전 작업 모두 in-memory fallback 제공
+프로덕션 품질 경고: 이 데이터는 영속 저장되지 않음
 ```
 
-현재 프로젝트가 mock-first 시연 성격이 강하므로, 가능하면 in-memory fallback이 좋습니다.
+구현 위치:
+
+```text
+profile.service.ts 내부 module-level memory store
+document.service.ts 내부 module-level memory store
+sample JSON은 초기 memory store seed로 사용
+```
 
 ---
 
@@ -1051,6 +1253,11 @@ AI 분석 기능은 현재 연동 준비 중입니다.
 * [ ] 특정 문서 버전 적용 가능.
 * [ ] 과거 문서 버전 복원 가능.
 * [ ] archived 버전은 current로 적용 불가.
+* [ ] current version은 보관할 수 없음.
+* [ ] 다른 candidateKey의 profile/document/version 접근은 실패.
+* [ ] 다른 profile의 versionId를 apply/restore/archive하려 하면 실패.
+* [ ] 다른 document의 versionId를 apply/restore/archive하려 하면 실패.
+* [ ] DB가 없어도 sample/in-memory fallback으로 demo flow가 동작.
 
 ---
 
