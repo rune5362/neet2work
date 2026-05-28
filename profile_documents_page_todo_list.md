@@ -965,10 +965,10 @@ const segments = pathname.split("/").filter(Boolean);
 
 ## 10-1. `Documents.tsx` 수정
 
-* [ ] `DOCUMENTS` 상수 제거.
-* [ ] `getDocuments(candidateKey)` 호출.
-* [ ] loading/error/empty 상태 추가.
-* [ ] documentType 필터 추가.
+* [x] `DOCUMENTS` 상수 제거.
+* [x] `getDocuments(candidateKey)` 호출.
+* [x] loading/error/empty 상태 추가.
+* [x] documentType 필터 추가.
 
 필터:
 
@@ -978,15 +978,15 @@ const segments = pathname.split("/").filter(Boolean);
 자기소개서
 ```
 
-* [ ] 기존 `Profile` 타입 필터는 제거하거나 `/profiles`로 이동한다.
+* [x] 기존 `Profile` 타입 필터는 제거하거나 `/profiles`로 이동한다.
 
 ---
 
 ## 10-2. 버튼 연결
 
-* [ ] `새 문서 만들기` → `/documents/new`
-* [ ] `열기` → `/documents/{documentId}`
-* [ ] `버전 관리` → `/documents/{documentId}/versions`
+* [x] `새 문서 만들기` → `/documents/new`
+* [x] `열기` → `/documents/{documentId}`
+* [x] `버전 관리` → `/documents/{documentId}/versions`
 
 ---
 
@@ -994,9 +994,9 @@ const segments = pathname.split("/").filter(Boolean);
 
 ## 11-1. `/profiles` 목록 화면
 
-* [ ] `getProfiles(candidateKey)` 호출.
-* [ ] 프로필 카드 목록 표시.
-* [ ] 표시 항목:
+* [x] `getProfiles(candidateKey)` 호출.
+* [x] 프로필 카드 목록 표시.
+* [x] 표시 항목:
 
 ```text
 프로필 제목
@@ -1007,7 +1007,7 @@ const segments = pathname.split("/").filter(Boolean);
 기본 프로필 여부
 ```
 
-* [ ] 버튼:
+* [x] 버튼:
 
 ```text
 새 프로필 만들기
@@ -1022,7 +1022,7 @@ const segments = pathname.split("/").filter(Boolean);
 
 ## 11-2. `/profiles/new` 생성 화면
 
-* [ ] 입력 필드:
+* [x] 입력 필드:
 
 ```text
 프로필 제목
@@ -1037,26 +1037,26 @@ const segments = pathname.split("/").filter(Boolean);
 프로젝트 경험
 ```
 
-* [ ] 저장 시 `POST /api/profiles`.
-* [ ] 저장 후 `/profiles/{profileId}`로 이동.
+* [x] 저장 시 `POST /api/profiles`.
+* [x] 저장 후 `/profiles/{profileId}`로 이동.
 
 ---
 
 ## 11-3. `/profiles/:profileId` 상세/편집 화면
 
-* [ ] `getProfile(profileId)` 호출.
-* [ ] 현재 버전의 `profileJson`을 폼에 바인딩.
-* [ ] 저장 버튼은 “새 버전으로 저장”.
-* [ ] 저장 시 `POST /api/profiles/:profileId/versions`.
-* [ ] `makeCurrent = true`.
+* [x] `getProfile(profileId)` 호출.
+* [x] 현재 버전의 `profileJson`을 폼에 바인딩.
+* [x] 저장 버튼은 “새 버전으로 저장”.
+* [x] 저장 시 `POST /api/profiles/:profileId/versions`.
+* [x] `makeCurrent = true`.
 
 ---
 
 ## 11-4. `/profiles/:profileId/versions` 버전 관리 화면
 
-* [ ] `getProfileVersions(profileId)` 호출.
-* [ ] 버전 목록 표시.
-* [ ] 버튼:
+* [x] `getProfileVersions(profileId)` 호출.
+* [x] 버전 목록 표시.
+* [x] 버튼:
 
 ```text
 보기
