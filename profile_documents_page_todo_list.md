@@ -402,13 +402,13 @@ app.use("/api/documents", documentRouter);
 
 프로필/문서 API는 로그인 계정 연동 전까지 `candidateKey` 기반 mock-first 구조로 간다. 단, 모든 변경/조회 서비스는 리소스 소유 범위를 함께 검증한다.
 
-* [ ] 목록 API는 `candidateKey`를 query로 받는다.
-* [ ] 생성 API는 body의 `candidateKey`를 필수로 받는다.
-* [ ] 상세/수정/삭제/버전 API는 `candidateKey`를 query 또는 body로 받아 `profileId/documentId/versionId`와 함께 검증한다.
-* [ ] 다른 candidate의 profile/document/version을 조회, 적용, 복원, 보관할 수 없게 한다.
-* [ ] `profileVersionId`가 전달되면 해당 version이 전달된 `profileId`와 같은 candidate에 속하는지 확인한다.
-* [ ] `documentId`와 `versionId`는 항상 같은 document에 속하는지 확인한다.
-* [ ] 사용자에게 반환하는 에러는 내부 경로, stack trace, DB 오류 원문을 노출하지 않는다.
+* [x] 목록 API는 `candidateKey`를 query로 받는다.
+* [x] 생성 API는 body의 `candidateKey`를 필수로 받는다.
+* [x] 상세/수정/삭제/버전 API는 `candidateKey`를 query 또는 body로 받아 `profileId/documentId/versionId`와 함께 검증한다.
+* [x] 다른 candidate의 profile/document/version을 조회, 적용, 복원, 보관할 수 없게 한다.
+* [x] `profileVersionId`가 전달되면 해당 version이 전달된 `profileId`와 같은 candidate에 속하는지 확인한다.
+* [x] `documentId`와 `versionId`는 항상 같은 document에 속하는지 확인한다.
+* [x] 사용자에게 반환하는 에러는 내부 경로, stack trace, DB 오류 원문을 노출하지 않는다.
 
 ---
 
@@ -615,39 +615,39 @@ currentVersionId가 가리키는 버전은 보관 불가
 
 ## 5-1. `getDocuments(candidateKey, filters)` 구현
 
-* [ ] `candidateKey` 기준 조회.
-* [ ] `documentType` 필터 지원.
-* [ ] 기본값은 `isArchived = false`.
-* [ ] current version 번호 포함.
+* [x] `candidateKey` 기준 조회.
+* [x] `documentType` 필터 지원.
+* [x] 기본값은 `isArchived = false`.
+* [x] current version 번호 포함.
 
 ---
 
 ## 5-2. `createDocument(input)` 구현
 
-* [ ] transaction으로 처리.
-* [ ] `ApplicationDocument` 생성.
-* [ ] `ApplicationDocumentVersion` v1 생성.
-* [ ] `currentVersionId` 갱신.
-* [ ] `profileVersionId`가 있으면 해당 프로필 버전 조회.
-* [ ] `profileId`와 `profileVersionId`가 둘 다 있으면 같은 프로필에 속하는지 확인.
-* [ ] `profileId`나 `profileVersionId`가 전달되면 같은 `candidateKey`에 속하는지 확인.
-* [ ] 문서 버전에 `profileSnapshotText`, `profileSnapshotJson` 저장.
-* [ ] `jobId`가 있으면 `JobPosting` 조회 후 `jobSnapshotJson` 저장.
-* [ ] `jobId`가 잘못된 경우는 400으로 처리.
+* [x] transaction으로 처리.
+* [x] `ApplicationDocument` 생성.
+* [x] `ApplicationDocumentVersion` v1 생성.
+* [x] `currentVersionId` 갱신.
+* [x] `profileVersionId`가 있으면 해당 프로필 버전 조회.
+* [x] `profileId`와 `profileVersionId`가 둘 다 있으면 같은 프로필에 속하는지 확인.
+* [x] `profileId`나 `profileVersionId`가 전달되면 같은 `candidateKey`에 속하는지 확인.
+* [x] 문서 버전에 `profileSnapshotText`, `profileSnapshotJson` 저장.
+* [x] `jobId`가 있으면 `JobPosting` 조회 후 `jobSnapshotJson` 저장.
+* [x] `jobId`가 잘못된 경우는 400으로 처리.
 
 ---
 
 ## 5-3. 문서 메타/버전 서비스 구현
 
-* [ ] `getDocument(documentId)`
-* [ ] `updateDocumentMeta(documentId, input)`
-* [ ] `archiveDocument(documentId)`
-* [ ] `getDocumentVersions(documentId)`
-* [ ] `createDocumentVersion(documentId, input)`
-* [ ] `getDocumentVersion(documentId, versionId)`
-* [ ] `applyDocumentVersion(documentId, versionId)`
-* [ ] `restoreDocumentVersion(documentId, versionId)`
-* [ ] `archiveDocumentVersion(documentId, versionId)`
+* [x] `getDocument(documentId)`
+* [x] `updateDocumentMeta(documentId, input)`
+* [x] `archiveDocument(documentId)`
+* [x] `getDocumentVersions(documentId)`
+* [x] `createDocumentVersion(documentId, input)`
+* [x] `getDocumentVersion(documentId, versionId)`
+* [x] `applyDocumentVersion(documentId, versionId)`
+* [x] `restoreDocumentVersion(documentId, versionId)`
+* [x] `archiveDocumentVersion(documentId, versionId)`
 
 핵심 규칙:
 
@@ -667,21 +667,21 @@ currentVersionId가 가리키는 버전은 보관 불가
 
 ## 6-1. Zod schema 작성
 
-* [ ] `createDocumentSchema`
-* [ ] `updateDocumentMetaSchema`
-* [ ] `createDocumentVersionSchema`
-* [ ] `candidateKeyQuerySchema`
-* [ ] `candidateKeyBodySchema`
+* [x] `createDocumentSchema`
+* [x] `updateDocumentMetaSchema`
+* [x] `createDocumentVersionSchema`
+* [x] `candidateKeyQuerySchema`
+* [x] `candidateKeyBodySchema`
 
 ---
 
 ## 6-2. 문서 API 라우트 구현
 
-* [ ] `GET /api/documents?candidateKey=...`
-* [ ] `POST /api/documents`
-* [ ] `GET /api/documents/:documentId?candidateKey=...`
-* [ ] `PATCH /api/documents/:documentId`
-* [ ] `DELETE /api/documents/:documentId?candidateKey=...`
+* [x] `GET /api/documents?candidateKey=...`
+* [x] `POST /api/documents`
+* [x] `GET /api/documents/:documentId?candidateKey=...`
+* [x] `PATCH /api/documents/:documentId`
+* [x] `DELETE /api/documents/:documentId?candidateKey=...`
 
 `PATCH` body에는 `candidateKey`를 포함한다.
 
@@ -689,12 +689,12 @@ currentVersionId가 가리키는 버전은 보관 불가
 
 ## 6-3. 문서 버전 API 라우트 구현
 
-* [ ] `GET /api/documents/:documentId/versions?candidateKey=...`
-* [ ] `POST /api/documents/:documentId/versions`
-* [ ] `GET /api/documents/:documentId/versions/:versionId?candidateKey=...`
-* [ ] `POST /api/documents/:documentId/versions/:versionId/apply`
-* [ ] `POST /api/documents/:documentId/versions/:versionId/restore`
-* [ ] `DELETE /api/documents/:documentId/versions/:versionId`
+* [x] `GET /api/documents/:documentId/versions?candidateKey=...`
+* [x] `POST /api/documents/:documentId/versions`
+* [x] `GET /api/documents/:documentId/versions/:versionId?candidateKey=...`
+* [x] `POST /api/documents/:documentId/versions/:versionId/apply`
+* [x] `POST /api/documents/:documentId/versions/:versionId/restore`
+* [x] `DELETE /api/documents/:documentId/versions/:versionId`
 
 `POST apply`, `POST restore`, `DELETE` body에는 `candidateKey`를 포함한다.
 
