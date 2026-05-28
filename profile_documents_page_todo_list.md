@@ -754,10 +754,10 @@ B안: profileClient.ts, documentClient.ts로 분리
 
 ## 8-1. 파일 생성
 
-* [ ] `apps/frontend/src/api/profileClient.ts`
-* [ ] `apps/frontend/src/api/documentClient.ts`
-* [ ] `apps/frontend/src/types/profile.ts`
-* [ ] `apps/frontend/src/types/document.ts`
+* [x] `apps/frontend/src/api/profileClient.ts`
+* [x] `apps/frontend/src/api/documentClient.ts`
+* [x] `apps/frontend/src/types/profile.ts`
+* [x] `apps/frontend/src/types/document.ts`
 
 ---
 
@@ -858,33 +858,33 @@ export type DocumentDetail = DocumentListItem & {
 
 ## 8-2. profile API 함수 작성
 
-* [ ] `getProfiles(candidateKey)`
-* [ ] `createProfile(payload)`
-* [ ] `getProfile(profileId)`
-* [ ] `updateProfileMeta(profileId, payload)`
-* [ ] `archiveProfile(profileId)`
-* [ ] `getProfileVersions(profileId)`
-* [ ] `createProfileVersion(profileId, payload)`
-* [ ] `getProfileVersion(profileId, versionId)`
-* [ ] `applyProfileVersion(profileId, versionId)`
-* [ ] `restoreProfileVersion(profileId, versionId)`
-* [ ] `archiveProfileVersion(profileId, versionId)`
+* [x] `getProfiles(candidateKey)`
+* [x] `createProfile(payload)`
+* [x] `getProfile(profileId)`
+* [x] `updateProfileMeta(profileId, payload)`
+* [x] `archiveProfile(profileId)`
+* [x] `getProfileVersions(profileId)`
+* [x] `createProfileVersion(profileId, payload)`
+* [x] `getProfileVersion(profileId, versionId)`
+* [x] `applyProfileVersion(profileId, versionId)`
+* [x] `restoreProfileVersion(profileId, versionId)`
+* [x] `archiveProfileVersion(profileId, versionId)`
 
 ---
 
 ## 8-3. document API 함수 작성
 
-* [ ] `getDocuments(candidateKey, filters)`
-* [ ] `createDocument(payload)`
-* [ ] `getDocument(documentId)`
-* [ ] `updateDocumentMeta(documentId, payload)`
-* [ ] `archiveDocument(documentId)`
-* [ ] `getDocumentVersions(documentId)`
-* [ ] `createDocumentVersion(documentId, payload)`
-* [ ] `getDocumentVersion(documentId, versionId)`
-* [ ] `applyDocumentVersion(documentId, versionId)`
-* [ ] `restoreDocumentVersion(documentId, versionId)`
-* [ ] `archiveDocumentVersion(documentId, versionId)`
+* [x] `getDocuments(candidateKey, filters)`
+* [x] `createDocument(payload)`
+* [x] `getDocument(documentId)`
+* [x] `updateDocumentMeta(documentId, payload)`
+* [x] `archiveDocument(documentId)`
+* [x] `getDocumentVersions(documentId)`
+* [x] `createDocumentVersion(documentId, payload)`
+* [x] `getDocumentVersion(documentId, versionId)`
+* [x] `applyDocumentVersion(documentId, versionId)`
+* [x] `restoreDocumentVersion(documentId, versionId)`
+* [x] `archiveDocumentVersion(documentId, versionId)`
 
 ---
 
@@ -892,7 +892,7 @@ export type DocumentDetail = DocumentListItem & {
 
 로그인 계정과 완전히 연결하기 전에는 localStorage 기반 임시값을 사용합니다.
 
-* [ ] `apps/frontend/src/utils/candidateKey.ts` 생성.
+* [x] `apps/frontend/src/utils/candidateKey.ts` 생성.
 
 ```ts
 export function getCandidateKey() {
@@ -917,24 +917,25 @@ export function getCandidateKey() {
 
 ## 9-1. 새 페이지 컴포넌트 생성
 
-* [ ] `apps/frontend/src/pages/Profiles.tsx`
-* [ ] `apps/frontend/src/pages/ProfileDetail.tsx`
-* [ ] `apps/frontend/src/pages/ProfileVersions.tsx`
-* [ ] `apps/frontend/src/pages/DocumentDetail.tsx`
-* [ ] `apps/frontend/src/pages/DocumentVersions.tsx`
-* [ ] `apps/frontend/src/pages/DocumentNew.tsx`
+* [x] `apps/frontend/src/pages/Profiles.tsx`
+* [x] `apps/frontend/src/pages/ProfileNew.tsx`
+* [x] `apps/frontend/src/pages/ProfileDetail.tsx`
+* [x] `apps/frontend/src/pages/ProfileVersions.tsx`
+* [x] `apps/frontend/src/pages/DocumentDetail.tsx`
+* [x] `apps/frontend/src/pages/DocumentVersions.tsx`
+* [x] `apps/frontend/src/pages/DocumentNew.tsx`
 
 ---
 
 ## 9-2. `App.tsx` 경로 추가
 
-* [ ] `/profiles`
-* [ ] `/profiles/new`
-* [ ] `/profiles/:profileId`
-* [ ] `/profiles/:profileId/versions`
-* [ ] `/documents/new`
-* [ ] `/documents/:documentId`
-* [ ] `/documents/:documentId/versions`
+* [x] `/profiles`
+* [x] `/profiles/new`
+* [x] `/profiles/:profileId`
+* [x] `/profiles/:profileId/versions`
+* [x] `/documents/new`
+* [x] `/documents/:documentId`
+* [x] `/documents/:documentId/versions`
 
 React Router가 없으므로 우선은 pathname split 방식으로 처리합니다.
 
