@@ -1,0 +1,5 @@
+enum ProfileVersionStatus {
+  draft
+  active
+  archived
+}

@@ -1,0 +1,20 @@
+model ApplicationDocument {
+  id               String                  @id @default(cuid())
+  candidateKey     String                  @map("candidate_key")
+  title            String
+  documentType     ApplicationDocumentType @map("document_type")
+  profileId        String?                 @map("profile_id")
+  profileVersionId String?                 @map("profile_version_id")
+  jobId            String?                 @map("job_id")
+  currentVersionId String?                 @map("current_version_id")
+  isArchived       Boolean                 @default(false) @map("is_archived")
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+  versions         ApplicationDocumentVersion[]
+
+  @@index([candidateKey])
+  @@index([profileId])
+  @@index([profileVersionId])
+  @@index([jobId])
+  @@map("application_documents")
+}

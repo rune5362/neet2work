@@ -1,0 +1,22 @@
+model CandidateProfile {
+  id               String                    @id @default(cuid())
+  candidateKey     String                    @map("candidate_key")
+  title            String
+  targetRole       String?                   @map("target_role")
+  targetCompany    String?                   @map("target_company")
+  targetJobId      String?                   @map("target_job_id")
+  name             String?
+  email            String?
+  desiredRoles     String[]                  @default([]) @map("desired_roles")
+  skills           String[]                  @default([])
+  currentVersionId String?                   @map("current_version_id")
+  isDefault        Boolean                   @default(false) @map("is_default")
+  isArchived       Boolean                   @default(false) @map("is_archived")
+  createdAt        DateTime                  @default(now()) @map("created_at")
+  updatedAt        DateTime                  @updatedAt @map("updated_at")
+  versions         CandidateProfileVersion[]
+
+  @@index([candidateKey])
+  @@index([candidateKey, isArchived])
+  @@map("candidate_profiles")
+}

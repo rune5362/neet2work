@@ -49,22 +49,22 @@ B안: origin/daegyune/page/home 기준으로 필요한 기존 모델까지 schem
 
 # Phase 0. 브랜치 준비 및 기준 정리
 
-* [ ] 로컬에서 기준 브랜치를 최신화한다.
+* [x] 로컬에서 기준 브랜치를 최신화한다.
 
 ```bash
 git fetch origin
 git checkout -B feature/profile-document-version origin/daegyune/page/home
 ```
 
-* [ ] 루트에서 의존성 설치 및 기본 실행 확인.
+* [x] 루트에서 의존성 설치 및 기본 실행 확인.
 
 ```bash
 corepack pnpm install
 corepack pnpm dev
 ```
 
-* [ ] 현재 루트 스크립트가 backend/frontend를 workspace filter로 실행하는 구조임을 확인한다. 
-* [ ] 작업 범위를 아래로 확정한다.
+* [x] 현재 루트 스크립트가 backend/frontend를 workspace filter로 실행하는 구조임을 확인한다. 
+* [x] 작업 범위를 아래로 확정한다.
 
 ```text
 이번 작업 포함:
@@ -88,9 +88,9 @@ corepack pnpm dev
 
 ## 1-1. 기존 Prisma 구조 확인
 
-* [ ] `apps/backend/prisma/schema.prisma`를 확인한다.
-* [ ] 이 브랜치는 `schema.prisma`에 generator/datasource만 두고, 실제 model/enum은 `apps/backend/prisma/models/*.prisma`에 분리하는 구조임을 확인한다.
-* [ ] 기존 백엔드 코드가 참조하는 generated enum/model이 `prisma/models/*.prisma`에 존재하는지 확인한다.
+* [x] `apps/backend/prisma/schema.prisma`를 확인한다.
+* [x] 이 브랜치는 `schema.prisma`에 generator/datasource만 두고, 실제 model/enum은 `apps/backend/prisma/models/*.prisma`에 분리하는 구조임을 확인한다.
+* [x] 기존 백엔드 코드가 참조하는 generated enum/model이 `prisma/models/*.prisma`에 존재하는지 확인한다.
 
 확인해야 할 참조 예시:
 
@@ -108,7 +108,7 @@ User
 
 아래 enum은 `apps/backend/prisma/models/*.prisma`에 각각 파일로 추가한다.
 
-* [ ] `ProfileVersionSource` 추가.
+* [x] `ProfileVersionSource` 추가.
 
 ```prisma
 enum ProfileVersionSource {
@@ -118,7 +118,7 @@ enum ProfileVersionSource {
 }
 ```
 
-* [ ] `ProfileVersionStatus` 추가.
+* [x] `ProfileVersionStatus` 추가.
 
 ```prisma
 enum ProfileVersionStatus {
@@ -128,7 +128,7 @@ enum ProfileVersionStatus {
 }
 ```
 
-* [ ] `ApplicationDocumentType` 추가.
+* [x] `ApplicationDocumentType` 추가.
 
 ```prisma
 enum ApplicationDocumentType {
@@ -137,7 +137,7 @@ enum ApplicationDocumentType {
 }
 ```
 
-* [ ] `ApplicationDocumentSource` 추가.
+* [x] `ApplicationDocumentSource` 추가.
 
 ```prisma
 enum ApplicationDocumentSource {
@@ -147,7 +147,7 @@ enum ApplicationDocumentSource {
 }
 ```
 
-* [ ] `ApplicationDocumentStatus` 추가.
+* [x] `ApplicationDocumentStatus` 추가.
 
 ```prisma
 enum ApplicationDocumentStatus {
@@ -161,10 +161,10 @@ enum ApplicationDocumentStatus {
 
 ## 1-3. `CandidateProfile` 모델 추가
 
-* [ ] `apps/backend/prisma/models/candidateProfile.prisma`에 추가한다.
-* [ ] `candidateKey`는 `@unique`로 만들지 않는다.
-* [ ] `profileJson`, `profileText`는 넣지 않는다.
-* [ ] `currentVersionId`는 current 포인터로만 사용한다. 초기 구현에서는 순환 relation 복잡도를 피하기 위해 Prisma relation을 걸지 않고 서비스에서 같은 profile의 version인지 검증한다.
+* [x] `apps/backend/prisma/models/candidateProfile.prisma`에 추가한다.
+* [x] `candidateKey`는 `@unique`로 만들지 않는다.
+* [x] `profileJson`, `profileText`는 넣지 않는다.
+* [x] `currentVersionId`는 current 포인터로만 사용한다. 초기 구현에서는 순환 relation 복잡도를 피하기 위해 Prisma relation을 걸지 않고 서비스에서 같은 profile의 version인지 검증한다.
 
 ```prisma
 model CandidateProfile {
@@ -201,11 +201,11 @@ model CandidateProfile {
 
 ## 1-4. `CandidateProfileVersion` 모델 추가
 
-* [ ] 실제 프로필 본문 저장용 모델을 추가한다.
-* [ ] `profileJson`, `profileText`는 여기에 저장한다.
-* [ ] `apps/backend/prisma/models/candidateProfileVersion.prisma`에 추가한다.
-* [ ] `profileId`는 `CandidateProfile`에 FK relation을 둔다.
-* [ ] `parentVersionId`는 초기 구현에서는 nullable string으로 두고 서비스에서 같은 profile의 version인지 검증한다.
+* [x] 실제 프로필 본문 저장용 모델을 추가한다.
+* [x] `profileJson`, `profileText`는 여기에 저장한다.
+* [x] `apps/backend/prisma/models/candidateProfileVersion.prisma`에 추가한다.
+* [x] `profileId`는 `CandidateProfile`에 FK relation을 둔다.
+* [x] `parentVersionId`는 초기 구현에서는 nullable string으로 두고 서비스에서 같은 profile의 version인지 검증한다.
 
 ```prisma
 model CandidateProfileVersion {
@@ -244,10 +244,10 @@ model CandidateProfileVersion {
 
 ## 1-5. `ApplicationDocument` 모델 추가
 
-* [ ] `apps/backend/prisma/models/applicationDocument.prisma`에 추가한다.
-* [ ] `profileId`, `profileVersionId`, `jobId`, `currentVersionId`는 초기 구현에서는 nullable string으로 둔다.
-* [ ] 연결 대상 존재 여부와 candidate 범위 검증은 service에서 수행한다.
-* [ ] `jobId`는 기존 `JobPosting`과 연결 가능하지만, mock-first fallback과 기존 샘플 데이터 흐름을 위해 초기 구현에서는 강제 FK를 두지 않는다.
+* [x] `apps/backend/prisma/models/applicationDocument.prisma`에 추가한다.
+* [x] `profileId`, `profileVersionId`, `jobId`, `currentVersionId`는 초기 구현에서는 nullable string으로 둔다.
+* [x] 연결 대상 존재 여부와 candidate 범위 검증은 service에서 수행한다.
+* [x] `jobId`는 기존 `JobPosting`과 연결 가능하지만, mock-first fallback과 기존 샘플 데이터 흐름을 위해 초기 구현에서는 강제 FK를 두지 않는다.
 
 ```prisma
 model ApplicationDocument {
@@ -283,9 +283,9 @@ model ApplicationDocument {
 
 ## 1-6. `ApplicationDocumentVersion` 모델 추가
 
-* [ ] `apps/backend/prisma/models/applicationDocumentVersion.prisma`에 추가한다.
-* [ ] `documentId`는 `ApplicationDocument`에 FK relation을 둔다.
-* [ ] `parentVersionId`는 초기 구현에서는 nullable string으로 두고 서비스에서 같은 document의 version인지 검증한다.
+* [x] `apps/backend/prisma/models/applicationDocumentVersion.prisma`에 추가한다.
+* [x] `documentId`는 `ApplicationDocument`에 FK relation을 둔다.
+* [x] `parentVersionId`는 초기 구현에서는 nullable string으로 두고 서비스에서 같은 document의 version인지 검증한다.
 
 ```prisma
 model ApplicationDocumentVersion {
@@ -331,7 +331,7 @@ model ApplicationDocumentVersion {
 ```bash
 corepack pnpm install
 corepack pnpm db:generate
-corepack pnpm --filter @neet2work/backend run db:migrate -- --name add_profile_document_versions
+corepack pnpm --filter @neet2work/backend run db:migrate --name add_profile_document_versions
 ```
 
 또는 backend에서 직접 실행한다.
@@ -339,7 +339,7 @@ corepack pnpm --filter @neet2work/backend run db:migrate -- --name add_profile_d
 ```bash
 cd apps/backend
 corepack pnpm run db:generate
-corepack pnpm run db:migrate -- --name add_profile_document_versions
+corepack pnpm run db:migrate --name add_profile_document_versions
 ```
 
 주의:

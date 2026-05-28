@@ -1,0 +1,23 @@
+model CandidateProfileVersion {
+  id              String               @id @default(cuid())
+  profileId       String               @map("profile_id")
+  candidateKey    String               @map("candidate_key")
+  versionNo       Int                  @map("version_no")
+  title           String?
+  memo            String?
+  profileText     String               @map("profile_text")
+  profileJson     Json                 @map("profile_json")
+  schemaVersion   Int                  @default(1) @map("schema_version")
+  source          ProfileVersionSource @default(user)
+  status          ProfileVersionStatus @default(active)
+  parentVersionId String?              @map("parent_version_id")
+  changeSummary   String?              @map("change_summary")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+  profile         CandidateProfile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, versionNo])
+  @@index([candidateKey])
+  @@index([profileId, status])
+  @@map("candidate_profile_versions")
+}
