@@ -44,15 +44,15 @@ export default function App() {
     return <Jobs />;
   }
 
-  if (segments[0] === "profiles" && segments[1] === "new") {
+  if (segments[0] === "profiles" && segments[1] === "new" && segments.length === 2) {
     return <ProfileNew />;
   }
 
-  if (segments[0] === "profiles" && segments[1] && segments[2] === "versions") {
+  if (segments[0] === "profiles" && segments[1] && segments[2] === "versions" && segments.length === 3) {
     return <ProfileVersions />;
   }
 
-  if (segments[0] === "profiles" && segments[1]) {
+  if (segments[0] === "profiles" && segments[1] && segments.length === 2) {
     return <ProfileDetail />;
   }
 
@@ -64,15 +64,15 @@ export default function App() {
     return <Profiles />;
   }
 
-  if (segments[0] === "documents" && segments[1] === "new") {
+  if (segments[0] === "documents" && segments[1] === "new" && segments.length === 2) {
     return <DocumentNew />;
   }
 
-  if (segments[0] === "documents" && segments[1] && segments[2] === "versions") {
+  if (segments[0] === "documents" && segments[1] && segments[2] === "versions" && segments.length === 3) {
     return <DocumentVersions />;
   }
 
-  if (segments[0] === "documents" && segments[1]) {
+  if (segments[0] === "documents" && segments[1] && segments.length === 2) {
     return <DocumentDetail />;
   }
 

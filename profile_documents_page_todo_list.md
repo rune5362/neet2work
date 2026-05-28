@@ -8,20 +8,12 @@
 
 # 구현 전 중요 검수 사항
 
-## 1. 이 브랜치에서는 Prisma schema 정리가 먼저 필요함
+## 1. Prisma 모델 파일 분리 구조 확인
 
-`origin/daegyune/page/home` 기준 `apps/backend/prisma/schema.prisma`는 현재 generator와 datasource만 있고 모델 정의가 보이지 않습니다. 
-그런데 백엔드 서비스 코드에서는 `JobPostingStatus`, `UserStatus`, `ResumeAnalysis` 등 Prisma generated 타입을 사용하고 있습니다.  
+현재 프로젝트는 `apps/backend/prisma/schema.prisma`에 generator와 datasource만 두고, 실제 model/enum은 `apps/backend/prisma/models/*.prisma`에 분리하는 구조입니다.
+따라서 새 Prisma model/enum도 `schema.prisma`에 직접 추가하지 않고 `apps/backend/prisma/models/*.prisma` 파일로 추가합니다.
 
-따라서 작업 시작 전에 반드시 결정해야 합니다.
-
-```text
-A안: main 브랜치의 최신 schema.prisma를 먼저 이 브랜치에 반영한 뒤 작업
-B안: origin/daegyune/page/home 기준으로 필요한 기존 모델까지 schema.prisma에 복구한 뒤 작업
-```
-
-추천은 **A안**입니다.
-프로필/문서 기능을 추가하기 전에 기존 `JobPosting`, `ResumeAnalysis`, `User` 관련 schema가 정상이어야 migration이 안전합니다.
+기존 백엔드 코드가 참조하는 `JobPostingStatus`, `UserStatus`, `ResumeAnalysis`, `JobPosting`, `User` 등도 `prisma/models/*.prisma`에 존재하는지 먼저 확인합니다.
 
 ---
 
@@ -460,7 +452,7 @@ export const defaultProfileJson = {
 ## 3-2. `buildProfileText` 구현
 
 * [x] `apps/backend/src/utils/profile.ts`에 작성.
-* [ ] 포함 항목:
+* [x] 포함 항목:
 
 ```text
 이름
@@ -796,6 +788,7 @@ export type ProfileVersion = {
   memo: string | null;
   profileText: string;
   profileJson: CandidateProfileJson;
+  schemaVersion: number;
   source: "user" | "ai" | "system";
   status: "draft" | "active" | "archived";
   parentVersionId: string | null;
@@ -1325,7 +1318,7 @@ profileId, profileVersionId, documentId, documentVersionId, jobId 기준으로 �
 
 ```text
 1. origin/daegyune/page/home에서 작업 브랜치 생성
-2. schema.prisma 기존 모델 복구/병합
+2. Prisma models 분리 구조 확인
 3. CandidateProfile / CandidateProfileVersion 추가
 4. ApplicationDocument / ApplicationDocumentVersion 추가
 5. Prisma migrate / generate
