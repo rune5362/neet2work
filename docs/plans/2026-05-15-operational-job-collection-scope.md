@@ -119,11 +119,13 @@ Rule:
 - Ambiguous but visible on active list page: collect as `active` with raw `deadlineText`.
 - Previously collected but not seen in a later crawl: do not delete immediately.
 
-Operational refresh cadence:
+Desired operational refresh cadence:
 
-- Target the operational refresh loop at every `6` hours.
+- When automation is attached, target the operational refresh loop at every `6`
+  hours.
 - Until cron/background wiring is attached, keep the current repo contract as
-  a manual/skeleton plan that rehearses the same `6`-hour cadence.
+  a manual/skeleton plan that rehearses the same `6`-hour cadence only as an
+  operational target.
 
 ### Posting Lifecycle State Machine
 

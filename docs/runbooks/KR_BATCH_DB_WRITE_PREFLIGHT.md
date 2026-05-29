@@ -141,12 +141,12 @@ Raw trace verification after backfill:
 The backfill marker is `raw_json.traceBackfill =
 normalized-db-snapshot-v1`.
 
-## Target Refresh Cadence
+## Desired Refresh Cadence
 
-- 운영 기준 최신화 목표 주기는 `6시간`이다.
+- 자동화가 연결되면 운영 최신화 목표 주기는 `6시간`이다.
 - 현재 repo의 scheduler는 여전히 manual/skeleton 계약이므로, 실제
-  cron/background wiring 전까지는 같은 `6시간` cadence를 기준으로
-  수동 리허설과 artifact 검증을 유지한다.
+  cron/background wiring 전까지는 같은 `6시간` cadence를 수동 리허설
+  기준으로만 사용한다.
 
 ## Required Approval Sequence
 

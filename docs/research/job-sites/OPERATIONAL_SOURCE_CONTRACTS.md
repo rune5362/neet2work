@@ -13,8 +13,9 @@ Date: 2026-05-15
 - Python collector는 JSON 산출물만 만들고 DB에 직접 쓰지 않는다.
 - 운영 import는 `(source, sourceJobId)`를 안정 키로 본다.
 - 1차 운영 수집은 IT 공고만 대상으로 하며, non-IT 후보는 batch payload에서 제외한다.
-- 운영 최신화 목표 주기는 `6시간`이다. 실제 cron/background wiring 전까지는
-  manual/skeleton run도 같은 `6시간` cadence를 기준으로 검증한다.
+- 자동화 연결 이후 운영 최신화 목표 주기는 `6시간`이다. 실제
+  cron/background wiring 전까지는 manual/skeleton run도 같은 `6시간`
+  cadence를 수동 검증 기준으로만 사용한다.
 - batch 수집 전에는 source별 계약이 현재 HTML과 맞는지 다시 확인한다.
 - 일시적인 HTTP timeout은 공통 client에서 재시도하되, 반복 실패는 warning/실패
   threshold로 판정한다.

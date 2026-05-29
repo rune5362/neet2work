@@ -38,7 +38,7 @@ export type JobOperationalSchedulerPlan = {
   schemaVersion: "job_operational_scheduler_v1";
   scope: "kr";
   trigger: "manual";
-  targetRefreshCadenceHours: number;
+  desiredRefreshCadenceHours: number;
   executionPolicy: "artifact_generation_only_no_db_writes";
   sources: KrOperationalSource[];
   architectureCloseout: {
@@ -92,7 +92,7 @@ export function buildJobOperationalSchedulerPlan(
     schemaVersion: "job_operational_scheduler_v1",
     scope: "kr",
     trigger: "manual",
-    targetRefreshCadenceHours: manualRunPlan.targetRefreshCadenceHours,
+    desiredRefreshCadenceHours: manualRunPlan.desiredRefreshCadenceHours,
     executionPolicy: "artifact_generation_only_no_db_writes",
     sources: manualRunPlan.sources,
     architectureCloseout: {

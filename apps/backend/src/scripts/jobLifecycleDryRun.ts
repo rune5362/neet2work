@@ -22,6 +22,19 @@ const CLOSED_SIGNAL_PATTERNS = [
   "no longer accepting",
   "ended"
 ];
+const WARNING_CLOSED_SIGNAL_PATTERNS = [
+  "접수마감",
+  "채용마감",
+  "지원마감",
+  "접수종료",
+  "募集終了",
+  "掲載終了",
+  "受付終了",
+  "応募終了",
+  "expired",
+  "no longer accepting",
+  "closed-page:"
+];
 const PARTIAL_WARNING_PATTERN = /timeout|timed out|fail|failed|failure|skipped|selector|drift|error/i;
 
 export type ExistingLifecycleJob = {
@@ -493,7 +506,7 @@ function findWarningClosedEvidence(warnings: string[] | undefined) {
   }
 
   for (const warning of warnings) {
-    const evidence = findClosedSignal(warning);
+    const evidence = findWarningClosedSignal(warning);
     if (evidence) {
       return evidence;
     }
@@ -505,6 +518,19 @@ function findWarningClosedEvidence(warnings: string[] | undefined) {
 function findClosedSignal(text: string) {
   const lowerText = text.toLowerCase();
   return CLOSED_SIGNAL_PATTERNS.find((pattern) => lowerText.includes(pattern.toLowerCase()));
+}
+
+function findWarningClosedSignal(text: string) {
+  const sentinelMatch = /closed-page:(?<signal>.+)$/i.exec(text);
+  if (sentinelMatch?.groups?.signal) {
+    const extracted = sentinelMatch.groups.signal.trim();
+    return findClosedSignal(extracted) ?? extracted;
+  }
+
+  const lowerText = text.toLowerCase();
+  return WARNING_CLOSED_SIGNAL_PATTERNS.find((pattern) =>
+    lowerText.includes(pattern.toLowerCase())
+  );
 }
 
 function parseBatchWarning(warning: string) {

@@ -27,6 +27,19 @@ SUPPORTED_SOURCES = {
     "careercross",
     "green_japan",
 }
+NON_FATAL_CLOSED_DETAIL_PATTERNS = (
+    "closed-page:",
+    "접수마감",
+    "채용마감",
+    "지원마감",
+    "접수종료",
+    "募集終了",
+    "掲載終了",
+    "受付終了",
+    "応募終了",
+    "expired",
+    "no longer accepting",
+)
 
 
 @dataclass(frozen=True)
@@ -44,6 +57,19 @@ def load_source_module(source: str):
 def standard_posting_from_dict(value: dict[str, Any]) -> StandardJobPosting:
     allowed = StandardJobPosting.__dataclass_fields__
     return StandardJobPosting(**{key: item for key, item in value.items() if key in allowed})
+
+
+def is_non_fatal_closed_detail_error(error: Exception) -> bool:
+    message = str(error).lower()
+    return any(pattern.lower() in message for pattern in NON_FATAL_CLOSED_DETAIL_PATTERNS)
+
+
+def has_non_fatal_closed_warnings(warnings: list[str]) -> bool:
+    lowered_warnings = [warning.lower() for warning in warnings]
+    return any(
+        any(pattern.lower() in warning for pattern in NON_FATAL_CLOSED_DETAIL_PATTERNS)
+        for warning in lowered_warnings
+    )
 
 
 def build_payload(
@@ -107,10 +133,13 @@ def collect_raw_postings(
             postings.append(module.collect_detail(link).to_json_dict())
             consecutive_failures = 0
         except Exception as error:
-            consecutive_failures += 1
             warnings.append(
                 f"{link.source}/{link.source_job_id} skipped: {type(error).__name__}: {error}"
             )
+            if is_non_fatal_closed_detail_error(error):
+                consecutive_failures = 0
+                continue
+            consecutive_failures += 1
             if consecutive_failures >= 5:
                 raise RuntimeError("5 consecutive detail failures") from error
     return CollectionResult(postings, warnings)
@@ -144,7 +173,12 @@ def run_source(
         category_cap=category_cap,
         warnings=collection.warnings,
     )
-    if mode == "batch" and output_format == "batch" and len(payload["postings"]) == 0:
+    if (
+        mode == "batch"
+        and output_format == "batch"
+        and len(payload["postings"]) == 0
+        and not has_non_fatal_closed_warnings(collection.warnings)
+    ):
         raise RuntimeError("0 postings after filters")
     return payload
 

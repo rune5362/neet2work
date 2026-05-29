@@ -19,7 +19,7 @@ describe("buildJobOperationalPipelinePlan", () => {
     expect(plan).toMatchObject({
       source: "saramin",
       mode: "review",
-      targetRefreshCadenceHours: 6,
+      desiredRefreshCadenceHours: 6,
       artifacts: {
         batchReviewPath: path.join(repoRoot, "tmp", "saramin_batch_review.json"),
         importApplySqlPath: path.join(

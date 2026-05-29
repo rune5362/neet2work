@@ -133,6 +133,23 @@ describe("buildLifecycleDryRunReport", () => {
     );
   });
 
+  it("does not treat generic transport close wording as a closed posting signal", () => {
+    const report = buildLifecycleDryRunReport({
+      batch: batch([], {
+        warnings: ["saramin/1 skipped: RuntimeError: upstream connection closed unexpectedly"]
+      }),
+      existingJobs: [{ source: "saramin", sourceJobId: "1", status: "active" }]
+    });
+
+    expect(report.closedCandidates).toEqual([]);
+    expect(report.skipped).toContainEqual(
+      expect.objectContaining({
+        sourceJobId: "1",
+        reason: "partial_crawl_protects_absent_row"
+      })
+    );
+  });
+
   it("proposes inactive only after the missing threshold is reached", () => {
     const belowThreshold = buildLifecycleDryRunReport({
       batch: batch([{ ...observedJob, sourceJobId: "2" }]),

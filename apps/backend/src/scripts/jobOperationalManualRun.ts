@@ -66,7 +66,7 @@ export type JobOperationalManualRunPlan = {
   schemaVersion: "job_operational_manual_run_v1";
   scope: "kr";
   mode: "manual";
-  targetRefreshCadenceHours: number;
+  desiredRefreshCadenceHours: number;
   sources: KrOperationalSource[];
   requiresSupabasePlugin: true;
   executionPolicy: "manual_steps_with_approval_gates";
@@ -120,7 +120,7 @@ export function buildJobOperationalManualRunPlan(
     schemaVersion: "job_operational_manual_run_v1",
     scope: "kr",
     mode: "manual",
-    targetRefreshCadenceHours: sourcePlans[0]?.targetRefreshCadenceHours ?? 6,
+    desiredRefreshCadenceHours: sourcePlans[0]?.desiredRefreshCadenceHours ?? 6,
     sources,
     requiresSupabasePlugin: true,
     executionPolicy: "manual_steps_with_approval_gates",

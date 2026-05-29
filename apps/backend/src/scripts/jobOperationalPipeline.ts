@@ -44,7 +44,7 @@ export type JobOperationalPipelinePlan = {
   schemaVersion: "job_operational_pipeline_v1";
   source: JobOperationalSource;
   mode: JobOperationalPipelineMode;
-  targetRefreshCadenceHours: number;
+  desiredRefreshCadenceHours: number;
   executionPolicy: "plan_only_no_db_writes" | "approval_gated_db_writes";
   artifacts: {
     batchReviewPath: string;
@@ -157,7 +157,7 @@ export function buildJobOperationalPipelinePlan(
     schemaVersion: "job_operational_pipeline_v1",
     source: options.source,
     mode,
-    targetRefreshCadenceHours: TARGET_REFRESH_CADENCE_HOURS,
+    desiredRefreshCadenceHours: TARGET_REFRESH_CADENCE_HOURS,
     executionPolicy: mode === "review" ? "plan_only_no_db_writes" : "approval_gated_db_writes",
     artifacts: {
       batchReviewPath,
