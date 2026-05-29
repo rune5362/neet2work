@@ -141,6 +141,13 @@ Raw trace verification after backfill:
 The backfill marker is `raw_json.traceBackfill =
 normalized-db-snapshot-v1`.
 
+## Desired Refresh Cadence
+
+- 자동화가 연결되면 운영 최신화 목표 주기는 `6시간`이다.
+- 현재 repo의 scheduler는 여전히 manual/skeleton 계약이므로, 실제
+  cron/background wiring 전까지는 같은 `6시간` cadence를 수동 리허설
+  기준으로만 사용한다.
+
 ## Required Approval Sequence
 
 1. Confirm artifact set:
@@ -207,7 +214,7 @@ Command shape:
 corepack pnpm run db:lifecycle:jobs:dry-run -- `
   --batch tmp/<source>_batch_review.json `
   --existing tmp/<source>_existing_lifecycle_snapshot.json `
-  --inactive-threshold 3 `
+  --inactive-threshold 2 `
   --output tmp/<source>_lifecycle_dry_run.json
 ```
 

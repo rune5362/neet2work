@@ -1,3 +1,6 @@
+export type CareerStage = "entry" | "junior" | "senior";
+export type EmploymentTypeCategory = "permanent" | "contract" | "intern" | "freelance";
+
 export type JobPosting = {
   id: string;
   title: string;
@@ -16,5 +19,8 @@ export type JobPosting = {
   salaryText?: string | null;
   deadlineText?: string | null;
   applyMethod?: string | null;
+  careerStage?: CareerStage | null;
+  employmentTypeCategory?: EmploymentTypeCategory | null;
+  postedAt?: string | null;
   collectedAt?: string | null;
 };

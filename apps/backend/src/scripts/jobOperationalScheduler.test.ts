@@ -19,6 +19,7 @@ describe("buildJobOperationalSchedulerPlan", () => {
       schemaVersion: "job_operational_scheduler_v1",
       scope: "kr",
       trigger: "manual",
+      desiredRefreshCadenceHours: 6,
       executionPolicy: "artifact_generation_only_no_db_writes",
       sources: ["saramin", "jobkorea", "linkareer"]
     });

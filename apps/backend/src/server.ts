@@ -12,15 +12,38 @@ import { formatErrorForLog } from "./utils/redact.js";
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 const rootEnvPath = path.resolve(appDir, "../../..", ".env");
 const backendEnvPath = path.resolve(appDir, "..", ".env");
+const LOCALHOST_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
 dotenv.config({ path: rootEnvPath });
 dotenv.config({ path: backendEnvPath, override: true });
 
 const PORT = Number(process.env.PORT) || 3000;
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+const ALLOWED_CLIENT_ORIGINS = new Set(
+  CLIENT_URL.split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+);
 
 export function logServerError(error: unknown) {
   console.error(formatErrorForLog(error));
+}
+
+function isAllowedOrigin(origin?: string) {
+  if (!origin) {
+    return true;
+  }
+
+  if (ALLOWED_CLIENT_ORIGINS.has(origin)) {
+    return true;
+  }
+
+  try {
+    const url = new URL(origin);
+    return LOCALHOST_HOSTNAMES.has(url.hostname);
+  } catch {
+    return false;
+  }
 }
 
 export function createApp() {
@@ -28,7 +51,9 @@ export function createApp() {
 
   app.use(
     cors({
-      origin: CLIENT_URL,
+      origin(origin, callback) {
+        callback(null, isAllowedOrigin(origin));
+      },
       credentials: true
     })
   );

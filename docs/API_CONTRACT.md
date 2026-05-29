@@ -52,11 +52,22 @@ Query params:
 
 | Param | Type | Rule | Notes |
 | --- | --- | --- | --- |
-| `q` | string | optional | Case-insensitive text search over `title`, `company`, and `description`. |
+| `q` | string | optional | Case-insensitive text search over `title`, `company`, inferred `jobCategory`, `location`, `description`, and `skills`. |
 | `source` | string | optional | Exact source match, such as `careercross` or `daijob`. |
 | `country` | string | optional | Exact country match, such as `JP` or `KR`. |
 | `language` | string | optional | Exact language match, such as `ja`, `en`, or `ko`. |
-| `limit` | number | optional, 1-100 | Defaults to `50`. |
+| `careerStage` | string | optional, `entry`, `junior`, `senior` | Public three-step career filter. Raw source labels such as `Mid Career`, `未経験歓迎`, and `경력8년↑` are normalized by the backend. |
+| `employmentTypeCategory` | string | optional, `permanent`, `contract`, `intern`, `freelance`, `unspecified` | Public employment filter. `unspecified` keeps only jobs whose public employment category is still `null` even after checking `employmentType`, `title`, `careerLevel`, and `description`. |
+| `jobCategory` | string | optional | Frontend-facing inferred job category such as `개발`, `AI/데이터`, `디자인`, `마케팅`, `보안`, `PM`. |
+| `region1` | string | optional | Case-insensitive location substring filter for the first region depth. |
+| `region2` | string | optional | Case-insensitive location substring filter for the second region depth. |
+| `region3` | string | optional | Case-insensitive location substring filter for the third region depth. |
+| `skill` | string | optional | Exact skill badge match. |
+| `salaryVisibility` | string | optional, `disclosed`, `undisclosed` | Filters jobs by whether `salaryText` exists. |
+| `deadlineType` | string | optional, `dated`, `rolling` | `rolling` keeps only `상시 채용`. `dated` keeps the remaining jobs. |
+| `newOnly` | boolean | optional | Keeps only jobs whose public `postedAt` is within the last 3 days. |
+| `page` | number | optional, >= 1 | 1-based page number. Out-of-range requests are clamped to the last available page. |
+| `limit` | number | optional, 1-100 | Page size. Defaults to `9` on the paginated route. |
 
 ```json
 {
@@ -75,14 +86,21 @@ Query params:
       "country": "JP",
       "language": "en",
       "employmentType": null,
+      "careerStage": "junior",
+      "employmentTypeCategory": null,
       "educationLevel": null,
       "salaryText": null,
       "deadlineText": null,
       "applyMethod": null,
+      "postedAt": null,
       "collectedAt": "2026-05-19T06:00:00.000Z"
     }
   ],
-  "count": 1
+  "count": 1,
+  "total": 95,
+  "page": 1,
+  "limit": 9,
+  "availableSkills": ["AI", "Cloud", "Data"]
 }
 ```
 
@@ -103,11 +121,24 @@ Public job fields:
 | `country` | string | yes | Example: `JP`, `KR`. |
 | `language` | string | yes | Example: `ja`, `en`, `ko`. |
 | `employmentType` | string | yes | Optional source value. |
+| `careerStage` | string | yes | Public normalized career stage: `entry`, `junior`, `senior`, or `null` when source data is too vague. |
+| `employmentTypeCategory` | string | yes | Public normalized employment type: `permanent`, `contract`, `intern`, `freelance`, or `null` when source data is too vague even after checking `employmentType`, `title`, `careerLevel`, and `description`. |
 | `educationLevel` | string | yes | Optional source value. |
 | `salaryText` | string | yes | Optional display text. |
 | `deadlineText` | string | yes | Optional display text. |
 | `applyMethod` | string | yes | Optional display text. |
+| `postedAt` | string | yes | ISO timestamp or `null`. Best-effort public posting date. Prefers the source posting-period start when available, otherwise source update date. |
 | `collectedAt` | string | yes | ISO timestamp or `null`. |
+
+List envelope fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `count` | number | Current page item count. |
+| `total` | number | Full filtered result count before page slicing. |
+| `page` | number | 1-based current page after backend clamping. |
+| `limit` | number | Applied page size. |
+| `availableSkills` | string[] | Unique skills across the full filtered result set, sorted ascending. |
 
 Not exposed:
 
@@ -119,10 +150,11 @@ Not exposed:
 
 Current limitations:
 
-- No pagination yet.
+- Pagination is page-number based rather than cursor based.
 - List order is newest `collectedAt`, then newest `createdAt`.
 - Closed, inactive, and unknown lifecycle rows are not exposed in this public list.
-- `q` search is backed by the `public_job_search_indexes` migration once applied.
+- Some public filters such as `jobCategory` are inferred from public text rather than stored DB enums.
+- `postedAt` is best-effort and may be `null` when the source does not expose a reliable public posting date.
 
 ### `GET /api/jobs/facets`
 
@@ -189,10 +221,13 @@ Returns one public job by internal `id`.
     "country": "JP",
     "language": "en",
     "employmentType": null,
+    "careerStage": "junior",
+    "employmentTypeCategory": null,
     "educationLevel": null,
     "salaryText": null,
     "deadlineText": null,
     "applyMethod": null,
+    "postedAt": null,
     "collectedAt": "2026-05-19T06:00:00.000Z"
   }
 }

@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -48,6 +49,22 @@ const SUPPORTED_SOURCES: Record<JobCrawlerSource, true> = {
   green_japan: true
 };
 const RUNNER_SCRIPT = path.join("scripts", "job_crawler", "run_source.py");
+const requireFromHere = createRequire(import.meta.url);
+
+function resolveTsxCliPath(repoRoot: string) {
+  const normalizedRepoRoot = `${path.normalize(repoRoot)}${path.sep}`.toLowerCase();
+  try {
+    const packageJsonPath = requireFromHere.resolve("tsx/package.json", {
+      paths: [path.join(repoRoot, "apps", "backend"), repoRoot]
+    });
+    if (!path.normalize(packageJsonPath).toLowerCase().startsWith(normalizedRepoRoot)) {
+      return path.join(repoRoot, "node_modules", "tsx", "dist", "cli.mjs");
+    }
+    return path.join(path.dirname(packageJsonPath), "dist", "cli.mjs");
+  } catch {
+    return path.join(repoRoot, "node_modules", "tsx", "dist", "cli.mjs");
+  }
+}
 
 export function buildJobCrawlerImportCheckCommands(
   options: JobCrawlerImportCheckOptions
@@ -65,7 +82,7 @@ export function buildJobCrawlerImportCheckCommands(
   const tsxCommand = options.tsxCommand ?? process.execPath;
   const tsxArgs = options.tsxCommand
     ? []
-    : [path.join(repoRoot, "node_modules", "tsx", "dist", "cli.mjs")];
+    : [resolveTsxCliPath(repoRoot)];
   const collectorArgs = [
     path.join(repoRoot, RUNNER_SCRIPT),
     "--source",

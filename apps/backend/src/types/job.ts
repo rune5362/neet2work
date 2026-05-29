@@ -10,6 +10,10 @@ export type CareerStage =
   | "lead_manager"
   | "unknown";
 
+export type PublicCareerStage = Extract<CareerStage, "entry" | "junior" | "senior">;
+
+export type PublicEmploymentTypeCategory = "permanent" | "contract" | "intern" | "freelance";
+
 export type JobPosting = {
   id: string;
   title: string;
@@ -28,6 +32,9 @@ export type JobPosting = {
   salaryText?: string | null;
   deadlineText?: string | null;
   applyMethod?: string | null;
+  careerStage?: CareerStage | null;
+  employmentTypeCategory?: PublicEmploymentTypeCategory | null;
+  postedAt?: string | null;
   collectedAt?: string | null;
 };
 

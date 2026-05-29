@@ -18,7 +18,7 @@ function report(overrides: Record<string, unknown> = {}) {
     crawlBatchId: "saramin-20260518T000000Z",
     collectedAt: "2026-05-18T00:00:00.000Z",
     generatedAt: "2026-05-18T00:05:00.000Z",
-    inactiveThreshold: 3,
+    inactiveThreshold: 2,
     partial: false,
     partialReasons: [],
     counts: {
@@ -55,8 +55,8 @@ function report(overrides: Record<string, unknown> = {}) {
         currentStatus: "active",
         proposedStatus: "inactive",
         reason: "missing_threshold_reached",
-        previousMissingCount: 2,
-        nextMissingCount: 3
+        previousMissingCount: 1,
+        nextMissingCount: 2
       }
     ],
     skipped: [
@@ -65,8 +65,8 @@ function report(overrides: Record<string, unknown> = {}) {
         sourceJobId: "missing-1",
         currentStatus: "active",
         reason: "missing_threshold_not_met",
-        previousMissingCount: 1,
-        nextMissingCount: 2
+        previousMissingCount: 0,
+        nextMissingCount: 1
       }
     ],
     ...overrides
@@ -108,8 +108,8 @@ describe("applyLifecycleReport", () => {
     const store = new FakeLifecycleApplyStore([
       job("active-1", { classifierMeta: { lifecycle: { missingCount: 2 } } }),
       job("closed-1"),
-      job("inactive-1", { classifierMeta: { lifecycle: { missingCount: 2 } } }),
-      job("missing-1", { classifierMeta: { lifecycle: { missingCount: 1 } } })
+      job("inactive-1", { classifierMeta: { lifecycle: { missingCount: 1 } } }),
+      job("missing-1", { classifierMeta: { lifecycle: { missingCount: 0 } } })
     ]);
 
     const summary = await applyLifecycleReport({
@@ -154,7 +154,7 @@ describe("applyLifecycleReport", () => {
       status: "inactive",
       classifierMeta: {
         lifecycle: {
-          missingCount: 3,
+          missingCount: 2,
           lastDecision: "missing_threshold_reached"
         }
       }
@@ -162,7 +162,7 @@ describe("applyLifecycleReport", () => {
     expect(updateFor(store, "missing-1").data.status).toBeUndefined();
     expect(updateFor(store, "missing-1").data.classifierMeta).toMatchObject({
       lifecycle: {
-        missingCount: 2,
+        missingCount: 1,
         lastDecision: "missing_threshold_not_met"
       }
     });
@@ -177,8 +177,8 @@ describe("applyLifecycleReport", () => {
         }
       }),
       job("closed-1"),
-      job("inactive-1", { classifierMeta: { lifecycle: { missingCount: 2 } } }),
-      job("missing-1", { classifierMeta: { lifecycle: { missingCount: 1 } } })
+      job("inactive-1", { classifierMeta: { lifecycle: { missingCount: 1 } } }),
+      job("missing-1", { classifierMeta: { lifecycle: { missingCount: 0 } } })
     ]);
 
     await applyLifecycleReport({
@@ -203,9 +203,9 @@ describe("applyLifecycleReport", () => {
       job("closed-1"),
       job("inactive-1", {
         status: "closed",
-        classifierMeta: { lifecycle: { missingCount: 2 } }
+        classifierMeta: { lifecycle: { missingCount: 1 } }
       }),
-      job("missing-1", { classifierMeta: { lifecycle: { missingCount: 1 } } })
+      job("missing-1", { classifierMeta: { lifecycle: { missingCount: 0 } } })
     ]);
 
     await expect(
@@ -222,8 +222,8 @@ describe("applyLifecycleReport", () => {
     const store = new FakeLifecycleApplyStore([
       job("active-1"),
       job("closed-1"),
-      job("inactive-1", { classifierMeta: { lifecycle: { missingCount: 2 } } }),
-      job("missing-1", { classifierMeta: { lifecycle: { missingCount: 1 } } })
+      job("inactive-1", { classifierMeta: { lifecycle: { missingCount: 1 } } }),
+      job("missing-1", { classifierMeta: { lifecycle: { missingCount: 0 } } })
     ]);
     store.updateCounts.set("closed-1", 0);
 
@@ -240,11 +240,11 @@ describe("applyLifecycleReport", () => {
     const store = new FakeLifecycleApplyStore([
       job("active-1"),
       job("closed-1"),
-      job("inactive-1", { classifierMeta: { lifecycle: { missingCount: 2 } } }),
+      job("inactive-1", { classifierMeta: { lifecycle: { missingCount: 1 } } }),
       job("missing-1", {
         classifierMeta: {
           lifecycle: {
-            missingCount: 2,
+            missingCount: 1,
             lastDecision: "missing_threshold_not_met",
             lastCrawlBatchId: "saramin-20260518T000000Z"
           }
@@ -261,8 +261,8 @@ describe("applyLifecycleReport", () => {
               sourceJobId: "missing-1",
               currentStatus: "active",
               reason: "missing_threshold_not_met",
-              previousMissingCount: 1,
-              nextMissingCount: 2
+              previousMissingCount: 0,
+              nextMissingCount: 1
             }
           ]
         })

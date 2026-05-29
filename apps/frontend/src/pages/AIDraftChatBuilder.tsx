@@ -1,6 +1,8 @@
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { getJobById } from "../api/client";
 import { HomeFooter } from "../components/HomeFooter";
 import { HomeTopNav } from "../components/HomeTopNav";
+import type { JobPosting } from "../types/job";
 
 type Sender = "ai" | "user";
 type DraftState = "idle" | "ready" | "loading" | "complete";
@@ -18,6 +20,7 @@ type Job = {
   title: string;
   link: string;
   skills: string[];
+  isMock?: boolean;
 };
 
 type AiSettings = {
@@ -33,13 +36,14 @@ type AudioWindow = Window & {
   webkitAudioContext?: typeof AudioContext;
 };
 
-const jobs: Job[] = [
+const mockJobs: Job[] = [
   {
     id: "frontend",
     company: "네이트워크 테크",
     title: "프론트엔드 개발자 (신입)",
     link: "https://careers.neet2work.com/mock-frontend",
     skills: ["JavaScript", "React", "HTML/CSS", "Git", "REST API", "TypeScript", "Next.js", "성능 최적화", "테스트 코드", "배포/CI-CD"],
+    isMock: true
   },
   {
     id: "backend",
@@ -47,6 +51,7 @@ const jobs: Job[] = [
     title: "백엔드 소프트웨어 엔지니어",
     link: "https://careers.neet2work.com/mock-backend",
     skills: ["Node.js", "Express", "PostgreSQL", "REST API", "Git", "테스트 코드", "배포/CI-CD", "성능 최적화"],
+    isMock: true
   },
   {
     id: "data",
@@ -54,8 +59,20 @@ const jobs: Job[] = [
     title: "데이터 자동화 주니어",
     link: "https://careers.neet2work.com/mock-data",
     skills: ["Python", "SQL", "Git", "REST API", "테스트 코드", "배포/CI-CD"],
-  },
+    isMock: true
+  }
 ];
+
+function toSelectedJob(job: JobPosting): Job {
+  return {
+    id: job.id,
+    company: job.company,
+    title: job.title,
+    link: job.sourceUrl,
+    skills: job.skills,
+    isMock: false
+  };
+}
 
 const initialMessages: Message[] = [
   {
@@ -228,7 +245,8 @@ function Icon({ name }: { name: "history" | "plus" | "settings" | "send" | "copy
 export function AIDraftChatBuilder() {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
-  const [selectedJobId, setSelectedJobId] = useState(jobs[0].id);
+  const [selectedJobId, setSelectedJobId] = useState(mockJobs[0].id);
+  const [selectedApiJob, setSelectedApiJob] = useState<Job | null>(null);
   const [jobQuery, setJobQuery] = useState("");
   const [draftState, setDraftState] = useState<DraftState>("complete");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -247,14 +265,24 @@ export function AIDraftChatBuilder() {
   const timelineRef = useRef<HTMLDivElement>(null);
   const draftFitProgressRef = useRef(0);
 
-  const selectedJob = jobs.find((job) => job.id === selectedJobId) ?? jobs[0];
+  const selectableJobs = useMemo(() => {
+    if (!selectedApiJob) {
+      return mockJobs;
+    }
+
+    return [selectedApiJob, ...mockJobs.filter((job) => job.id !== selectedApiJob.id)];
+  }, [selectedApiJob]);
+  const selectedJob = selectableJobs.find((job) => job.id === selectedJobId) ?? selectableJobs[0];
   const allText = `${messages.map((message) => message.text).join(" ")} ${input}`.toLowerCase();
   const inferredFrontendSkills =
     selectedJob.id === "frontend" && /(앱|개발|프로젝트|mvp|사용자|인터뷰|팀|공모전)/.test(allText)
       ? ["JavaScript", "React", "HTML/CSS", "Git", "REST API", "Next.js", "테스트 코드"]
       : [];
   const matchedSkills = selectedJob.skills.filter((skill) => allText.includes(skill.toLowerCase()) || inferredFrontendSkills.includes(skill));
-  const matchPercent = Math.round((matchedSkills.length / selectedJob.skills.length) * 100);
+  const matchPercent =
+    selectedJob.skills.length > 0
+      ? Math.round((matchedSkills.length / selectedJob.skills.length) * 100)
+      : 0;
   const draftFitTargetScore = Math.min(92, 52 + matchedSkills.length * 3 + 9);
   const atsScore = Math.min(92, 52 + matchedSkills.length * 3 + (draftState === "complete" ? 9 : 0));
   const completedProgressStepCount = draftProgressSteps.filter((step) => draftFitProgress >= Math.min(step.threshold, draftFitTargetScore)).length;
@@ -270,9 +298,11 @@ export function AIDraftChatBuilder() {
 
   const filteredJobs = useMemo(() => {
     const query = jobQuery.trim().toLowerCase();
-    if (!query) return jobs;
-    return jobs.filter((job) => `${job.company} ${job.title} ${job.skills.join(" ")}`.toLowerCase().includes(query));
-  }, [jobQuery]);
+    if (!query) return selectableJobs;
+    return selectableJobs.filter((job) =>
+      `${job.company} ${job.title} ${job.skills.join(" ")}`.toLowerCase().includes(query)
+    );
+  }, [jobQuery, selectableJobs]);
 
   useEffect(() => {
     timelineRef.current?.scrollTo({
@@ -280,6 +310,36 @@ export function AIDraftChatBuilder() {
       behavior: "smooth",
     });
   }, [messages, draftState]);
+
+  useEffect(() => {
+    const queryJobId = new URLSearchParams(window.location.search).get("jobId")?.trim();
+    if (!queryJobId) {
+      setSelectedApiJob(null);
+      setSelectedJobId(mockJobs[0].id);
+      return;
+    }
+
+    let isCurrent = true;
+
+    getJobById(queryJobId)
+      .then((job) => {
+        if (!isCurrent) return;
+
+        const nextJob = toSelectedJob(job);
+        setSelectedApiJob(nextJob);
+        setSelectedJobId(nextJob.id);
+      })
+      .catch(() => {
+        if (!isCurrent) return;
+
+        setSelectedApiJob(null);
+        setSelectedJobId(mockJobs[0].id);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
 
   useEffect(() => {
     const setMeterProgress = (nextValue: number) => {
@@ -608,7 +668,7 @@ export function AIDraftChatBuilder() {
 
             <section className="aiDraftInfoCard">
               <div className="aiDraftCardTitle">
-                <span>선택된 공고 (Mock)</span>
+                <span>{selectedJob.isMock ? "선택된 공고 (Mock)" : "선택된 공고"}</span>
                 <button type="button" onClick={() => setShowSearch((value) => !value)}>수정</button>
               </div>
               {showSearch && (
@@ -649,14 +709,18 @@ export function AIDraftChatBuilder() {
                 <small>대화 기반 체크</small>
               </div>
               <div className="aiDraftSkillGrid">
-                {selectedJob.skills.map((skill) => {
-                  const matched = matchedSkills.includes(skill);
-                  return (
-                    <span className={matched ? "matched" : ""} key={skill}>
-                      {matched ? "✓" : "○"} {skill}
-                    </span>
-                  );
-                })}
+                {selectedJob.skills.length > 0 ? (
+                  selectedJob.skills.map((skill) => {
+                    const matched = matchedSkills.includes(skill);
+                    return (
+                      <span className={matched ? "matched" : ""} key={skill}>
+                        {matched ? "✓" : "○"} {skill}
+                      </span>
+                    );
+                  })
+                ) : (
+                  <span>핵심 스킬 정보 없음</span>
+                )}
               </div>
               <p className="aiDraftFootnote">대화에서 언급한 스킬은 자동으로 체크됩니다.</p>
             </section>

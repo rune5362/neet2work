@@ -1415,14 +1415,6 @@ textarea:focus {
   font-weight: 800;
 }
 
-.jobsFilterResetBtn {
-  width: 120px;
-  min-width: 120px;
-  height: 44px;
-  min-height: 44px;
-  padding: 0 12px;
-}
-
 .jobsLocationPopover {
   position: absolute;
   top: calc(100% + 10px);
@@ -1758,10 +1750,51 @@ textarea:focus {
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: white;
-  color: var(--home-primary-container);
-  font-size: 0.78rem;
-  font-weight: 900;
+  background: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  flex-shrink: 0;
+}
+
+.jobsCardIconSvg {
+  width: 22px;
+  height: 22px;
+}
+
+.jobsCardIcon.is-development {
+  background: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+  border-color: rgba(37, 99, 235, 0.16);
+}
+
+.jobsCardIcon.is-ai {
+  background: rgba(8, 145, 178, 0.1);
+  color: #0891b2;
+  border-color: rgba(8, 145, 178, 0.18);
+}
+
+.jobsCardIcon.is-design {
+  background: rgba(168, 85, 247, 0.1);
+  color: #a855f7;
+  border-color: rgba(168, 85, 247, 0.18);
+}
+
+.jobsCardIcon.is-marketing {
+  background: rgba(249, 115, 22, 0.1);
+  color: #f97316;
+  border-color: rgba(249, 115, 22, 0.18);
+}
+
+.jobsCardIcon.is-security {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.18);
+}
+
+.jobsCardIcon.is-pm {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+  border-color: rgba(99, 102, 241, 0.18);
 }
 
 .jobsNewBadge {
@@ -3283,18 +3316,6 @@ textarea:focus {
   }
 }
 
-.jobsFilterResetBtn {
-  border: 1px solid var(--home-hairline) !important;
-  background: white !important;
-  color: var(--home-primary) !important;
-  transition: all 150ms ease;
-}
-
-.jobsFilterResetBtn:hover {
-  background: var(--home-surface-low) !important;
-  border-color: var(--home-primary) !important;
-}
-
 .jobsActiveFilterChips {
   display: flex;
   flex-wrap: wrap;
@@ -3420,8 +3441,9 @@ textarea:focus {
 }
 
 .jobsConditionItem {
-  display: inline-flex;
-  align-items: center;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
   min-width: 0;
   color: #475569;
   font-size: 0.78rem;
@@ -3430,9 +3452,13 @@ textarea:focus {
 
 .jobsConditionItem strong {
   flex: 0 0 auto;
-  margin-right: 4px;
   color: var(--home-ink);
   font-weight: 700;
+}
+
+.jobsConditionValue {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .jobsCardSkills {
@@ -3527,47 +3553,6 @@ textarea:focus {
 
 .jobsEmptyState button:hover {
   background: var(--home-primary);
-}
-
-.jobsStateSimulators {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: fit-content;
-  margin-bottom: 20px;
-  border: 1px solid var(--home-hairline);
-  border-radius: 8px;
-  padding: 10px 16px;
-  background: #f8fafc;
-}
-
-.simLabel {
-  color: var(--home-secondary);
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-
-.simBtn {
-  border: 1px solid var(--home-hairline);
-  border-radius: 6px;
-  padding: 6px 12px;
-  background: white;
-  color: #475569;
-  cursor: pointer;
-  font-size: 0.76rem;
-  font-weight: 700;
-  transition: all 120ms ease;
-}
-
-.simBtn:hover {
-  background: #f1f5f9;
-  color: var(--home-ink);
-}
-
-.simBtn.active {
-  border-color: var(--home-primary-container);
-  background: var(--home-primary-container);
-  color: white;
 }
 
 .jobsErrorState {
@@ -4002,11 +3987,6 @@ textarea:focus {
 }
 
 @media (max-width: 1023px) {
-  .jobsStateSimulators {
-    flex-wrap: wrap;
-    width: 100%;
-  }
-
   .jobsDetailDrawer {
     top: auto;
     right: 0;

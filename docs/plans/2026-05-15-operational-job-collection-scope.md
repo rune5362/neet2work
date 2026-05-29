@@ -119,6 +119,14 @@ Rule:
 - Ambiguous but visible on active list page: collect as `active` with raw `deadlineText`.
 - Previously collected but not seen in a later crawl: do not delete immediately.
 
+Desired operational refresh cadence:
+
+- When automation is attached, target the operational refresh loop at every `6`
+  hours.
+- Until cron/background wiring is attached, keep the current repo contract as
+  a manual/skeleton plan that rehearses the same `6`-hour cadence only as an
+  operational target.
+
 ### Posting Lifecycle State Machine
 
 Operational import should use the following lifecycle rules:
@@ -135,7 +143,7 @@ Operational import should use the following lifecycle rules:
 
 Initial missing threshold:
 
-- Mark as `inactive` only after `3` successful source crawls where the posting is absent.
+- Mark as `inactive` only after `2` successful source crawls where the posting is absent.
 - Closed postings require explicit source-visible closed evidence.
 - Missing postings should never be deleted by import.
 
@@ -563,7 +571,7 @@ Command shape:
 corepack pnpm run db:lifecycle:jobs:dry-run -- `
   --batch tmp/<source>_batch_review.json `
   --existing tmp/<source>_existing_lifecycle_snapshot.json `
-  --inactive-threshold 3 `
+  --inactive-threshold 2 `
   --output tmp/<source>_lifecycle_dry_run.json
 ```
 

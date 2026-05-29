@@ -17,6 +17,7 @@ export type JobOperationalJpPlan = {
   scope: "jp";
   country: "JP";
   defaultSource: "mynavi_tenshoku";
+  desiredRefreshCadenceHours: number;
   sources: JobOperationalJpSource[];
   executionPolicy: "plan_only_no_db_writes";
   sourcePlans: JobOperationalPipelinePlan[];
@@ -68,6 +69,7 @@ export function buildJobOperationalJpPlan(
     scope: "jp",
     country: "JP",
     defaultSource: "mynavi_tenshoku",
+    desiredRefreshCadenceHours: 6,
     sources,
     executionPolicy: "plan_only_no_db_writes",
     sourcePlans: sources.map((source) =>

@@ -102,11 +102,59 @@ describe("buildLifecycleDryRunReport", () => {
     );
   });
 
+  it("promotes source-specific closed warnings even during partial crawls", () => {
+    const report = buildLifecycleDryRunReport({
+      batch: batch([], {
+        warnings: [
+          "saramin/1 skipped: RuntimeError: 접수마감 안내 페이지",
+          "saramin/2 skipped: TimeoutError: read timed out"
+        ]
+      }),
+      existingJobs: [
+        { source: "saramin", sourceJobId: "1", status: "active" },
+        { source: "saramin", sourceJobId: "2", status: "active" }
+      ]
+    });
+
+    expect(report.partial).toBe(true);
+    expect(report.closedCandidates).toEqual([
+      expect.objectContaining({
+        sourceJobId: "1",
+        proposedStatus: "closed",
+        reason: "source_visible_closed_signal",
+        evidence: "접수마감"
+      })
+    ]);
+    expect(report.skipped).toContainEqual(
+      expect.objectContaining({
+        sourceJobId: "2",
+        reason: "partial_crawl_protects_absent_row"
+      })
+    );
+  });
+
+  it("does not treat generic transport close wording as a closed posting signal", () => {
+    const report = buildLifecycleDryRunReport({
+      batch: batch([], {
+        warnings: ["saramin/1 skipped: RuntimeError: upstream connection closed unexpectedly"]
+      }),
+      existingJobs: [{ source: "saramin", sourceJobId: "1", status: "active" }]
+    });
+
+    expect(report.closedCandidates).toEqual([]);
+    expect(report.skipped).toContainEqual(
+      expect.objectContaining({
+        sourceJobId: "1",
+        reason: "partial_crawl_protects_absent_row"
+      })
+    );
+  });
+
   it("proposes inactive only after the missing threshold is reached", () => {
     const belowThreshold = buildLifecycleDryRunReport({
       batch: batch([{ ...observedJob, sourceJobId: "2" }]),
-      existingJobs: [{ source: "saramin", sourceJobId: "1", status: "active", missingCount: 1 }],
-      inactiveThreshold: 3
+      existingJobs: [{ source: "saramin", sourceJobId: "1", status: "active", missingCount: 0 }],
+      inactiveThreshold: 2
     });
 
     expect(belowThreshold.inactiveCandidates).toEqual([]);
@@ -114,15 +162,15 @@ describe("buildLifecycleDryRunReport", () => {
       expect.objectContaining({
         sourceJobId: "1",
         reason: "missing_threshold_not_met",
-        previousMissingCount: 1,
-        nextMissingCount: 2
+        previousMissingCount: 0,
+        nextMissingCount: 1
       })
     );
 
     const atThreshold = buildLifecycleDryRunReport({
       batch: batch([{ ...observedJob, sourceJobId: "2" }]),
-      existingJobs: [{ source: "saramin", sourceJobId: "1", status: "active", missingCount: 2 }],
-      inactiveThreshold: 3
+      existingJobs: [{ source: "saramin", sourceJobId: "1", status: "active", missingCount: 1 }],
+      inactiveThreshold: 2
     });
 
     expect(atThreshold.inactiveCandidates).toEqual([
@@ -130,8 +178,8 @@ describe("buildLifecycleDryRunReport", () => {
         sourceJobId: "1",
         currentStatus: "active",
         proposedStatus: "inactive",
-        previousMissingCount: 2,
-        nextMissingCount: 3
+        previousMissingCount: 1,
+        nextMissingCount: 2
       })
     ]);
   });
@@ -147,14 +195,14 @@ describe("parseJobLifecycleDryRunArgs", () => {
         "--existing",
         "tmp/saramin_existing.json",
         "--inactive-threshold",
-        "3",
+        "2",
         "--output",
         "tmp/saramin_lifecycle_dry_run.json"
       ])
     ).toEqual({
       batchPath: "tmp/saramin_batch_review.json",
       existingPath: "tmp/saramin_existing.json",
-      inactiveThreshold: 3,
+      inactiveThreshold: 2,
       outputPath: "tmp/saramin_lifecycle_dry_run.json"
     });
   });

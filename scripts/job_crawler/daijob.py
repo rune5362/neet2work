@@ -13,10 +13,10 @@ from urllib.parse import urljoin, urlparse
 
 if __package__ is None or __package__ == "":
     sys.path.append(str(Path(__file__).resolve().parents[1]))
-    from job_crawler.http_client import fetch_text
+    from job_crawler.http_client import FetchResult, fetch_text
     from job_crawler.models import SourceJobLink, StandardJobPosting
 else:
-    from .http_client import fetch_text
+    from .http_client import FetchResult, fetch_text
     from .models import SourceJobLink, StandardJobPosting
 
 
@@ -27,6 +27,77 @@ DEFAULT_LIST_URL = (
 SOURCE = "daijob"
 TEXT_LIMIT = 5000
 MAX_LIMIT = 5
+DETAIL_LANGUAGE_PRIORITY = ("ja", "en")
+CLOSED_DETAIL_PATTERNS = (
+    "募集終了",
+    "掲載終了",
+    "受付終了",
+    "応募終了",
+    "closed",
+    "expired",
+    "no longer accepting",
+    "ended",
+)
+
+FIELD_PATTERNS = {
+    "en": {
+        "title": [
+            r"^(.*?)\s+:\s+.+?\s+:\s+Find jobs in Japan",
+            r"Experience Welcome\s+Visa Support Available\s+(.+?)\s+Company Name",
+            r"Urgent Hiring\s+(.+?)\s+Company Name",
+        ],
+        "company": [r"Company Name\s*(.+?)\s*Job Type"],
+        "job_type": [r"Job Type\s*(.+?)\s*Industry"],
+        "industry": [r"Industry\s*(.+?)\s*Location"],
+        "location": [r"Location\s*(.+?)\s*Job Description"],
+        "description": [r"Job Description\s*(.+?)\s*(?:Working Hours|Job Requirements|English Level)"],
+        "requirements": [r"Job Requirements\s*(.+?)\s*English Level"],
+        "salary": [r"Salary\s*(.+?)\s*(?:Other Salary Description|Holidays)"],
+        "holidays": [r"Holidays\s*(.+?)\s*Job Contract Period"],
+        "employment": [r"Job Contract Period\s*(.+?)\s*Nearest Station"],
+        "english_level": [r"English Level\s*(.+?)\s*Japanese Level"],
+        "japanese_level": [r"Japanese Level\s*(.+?)\s*Salary"],
+    },
+    "ja": {
+        "title": [
+            r"^(.*?)\s+\|\s+.+?\s+\|\s+外資系転職・求人サイト",
+            r"新卒歓迎\s+(.+?)\s+企業名",
+            r"急募\s+(.+?)\s+企業名",
+        ],
+        "company": [r"企業名\s*(.+?)\s*職種"],
+        "job_type": [r"職種\s*(.+?)\s*業種"],
+        "industry": [r"業種\s*(.+?)\s*勤務地"],
+        "location": [r"勤務地\s*(.+?)\s*仕事内容"],
+        "description": [r"仕事内容\s*(.+?)\s*(?:勤務時間|応募条件|英語能力)"],
+        "requirements": [r"応募条件\s*(.+?)\s*英語能力"],
+        "salary": [r"年収\s*(.+?)\s*(?:給与に関する説明|休日|契約期間)"],
+        "holidays": [r"休日\s*(.+?)\s*契約期間"],
+        "employment": [r"契約期間\s*(.+?)\s*最寄り駅"],
+        "english_level": [r"英語能力\s*(.+?)\s*日本語能力"],
+        "japanese_level": [r"日本語能力\s*(.+?)\s*年収"],
+    },
+}
+
+CAREER_LEVEL_MARKERS = {
+    "en": [
+        ("Executive Level", "Executive Level"),
+        ("Director/GM Level", "Director/GM Level"),
+        ("Manager Level", "Manager Level"),
+        ("Senior Level", "Senior Level"),
+        ("Staff Level", "Staff Level"),
+        ("Entry Level", "Entry Level"),
+        ("Experience Welcome", "Experience welcome"),
+    ],
+    "ja": [
+        ("エグゼクティブレベル", "Executive Level"),
+        ("本部長・事業部長クラス", "Director/GM Level"),
+        ("マネージャーレベル", "Manager Level"),
+        ("シニアレベル", "Senior Level"),
+        ("スタッフレベル", "Staff Level"),
+        ("エントリーレベル", "Entry Level"),
+        ("経験者優遇", "Experience welcome"),
+    ],
+}
 
 SKILL_KEYWORDS = [
     "Technical Support",
@@ -87,7 +158,7 @@ def html_to_text(markup: str) -> str:
 
 
 def source_job_id(url: str) -> str:
-    match = re.search(r"/en/jobs/detail/(?P<id>\d+)", url)
+    match = re.search(r"/(?:en/)?jobs/detail/(?P<id>\d+)", url)
     if match:
         return match.group("id")
 
@@ -96,7 +167,9 @@ def source_job_id(url: str) -> str:
     return fallback or "unknown"
 
 
-def canonical_detail_url(job_id: str) -> str:
+def canonical_detail_url(job_id: str, language: str = "en") -> str:
+    if language == "ja":
+        return f"https://www.daijob.com/jobs/detail/{job_id}"
     return f"https://www.daijob.com/en/jobs/detail/{job_id}"
 
 
@@ -151,56 +224,104 @@ def infer_skills(text: str) -> list[str]:
     return found[:12]
 
 
-def extract_title(text: str) -> str:
-    return find_first(
-        [
-            r"^(.*?)\s+:\s+.+?\s+:\s+Find jobs in Japan",
-            r"Experience Welcome\s+Visa Support Available\s+(.+?)\s+Company Name",
-            r"Urgent Hiring\s+(.+?)\s+Company Name",
-        ],
-        text,
-        "Title unavailable",
-    )
+def extract_html_lang(markup: str) -> str:
+    match = re.search(r"<html[^>]+lang=[\"'](?P<lang>[a-zA-Z-]+)[\"']", markup)
+    return (match.group("lang").split("-", 1)[0].lower() if match else "").strip() or "en"
 
 
-def extract_description(text: str) -> str:
-    body = find_first(
-        [r"Job Description\s*(.+?)\s*(?:Working Hours|Job Requirements|English Level)"],
-        text,
-        "",
-    )
-    requirements = find_first([r"Job Requirements\s*(.+?)\s*English Level"], text, "")
+def looks_like_detail_page(text: str, language: str) -> bool:
+    if language == "ja":
+        return "求人詳細" in text and "仕事内容" in text
+    return "Job Details" in text and "Job Description" in text
+
+
+def resolve_detail_result(job_id: str) -> tuple[FetchResult, str, str]:
+    errors: list[str] = []
+
+    for language in DETAIL_LANGUAGE_PRIORITY:
+        url = canonical_detail_url(job_id, language)
+        try:
+            result = fetch_text(url)
+        except RuntimeError as error:
+            errors.append(f"{language}:{error}")
+            continue
+
+        if result.status >= 400:
+            errors.append(f"{language}:HTTP {result.status}")
+            continue
+
+        page_language = extract_html_lang(result.text)
+        text = html_to_text(result.text)
+        if language == "ja" and page_language == "ja" and looks_like_detail_page(text, "ja"):
+            return result, text, "ja"
+        if language == "en" and page_language == "en" and looks_like_detail_page(text, "en"):
+            return result, text, "en"
+        closed_signal = find_closed_detail_signal(text)
+        if closed_signal:
+            errors.append(f"{language}:closed-page:{closed_signal}")
+            continue
+        errors.append(f"{language}:unexpected-page:{page_language}")
+
+    joined_errors = "; ".join(errors) if errors else "unknown detail resolution failure"
+    raise RuntimeError(f"Daijob detail resolution failed for {job_id}: {joined_errors}")
+
+
+def extract_field(text: str, language: str, field: str, default: str = "") -> str:
+    return find_first(FIELD_PATTERNS[language][field], text, default)
+
+
+def find_closed_detail_signal(text: str) -> str | None:
+    lowered = text.lower()
+    for pattern in CLOSED_DETAIL_PATTERNS:
+        if pattern.lower() in lowered:
+            return pattern
+    return None
+
+
+def extract_title(text: str, language: str) -> str:
+    return extract_field(text, language, "title", "Title unavailable")
+
+
+def extract_description(text: str, language: str) -> str:
+    body = extract_field(text, language, "description", "")
+    requirements = extract_field(text, language, "requirements", "")
     return normalize_space(f"{body} {requirements}")
 
 
-def extract_salary_text(text: str) -> str:
-    value = find_first([r"Salary\s*(.+?)\s*Holidays"], text, "")
+def extract_salary_text(text: str, language: str) -> str:
+    value = extract_field(text, language, "salary", "")
+    if language == "ja":
+        return value[:180]
+
     match = re.search(r"(JPY\s*-\s*Japanese Yen\s*JPY\s*\d+K\s*-\s*JPY\s*\d+K)", value)
     if match:
         return normalize_space(match.group(1))
     return value[:180]
 
 
-def collect_detail(link: SourceJobLink) -> StandardJobPosting:
-    result = fetch_text(link.source_url)
-    if result.status >= 400:
-        raise RuntimeError(f"Daijob detail request failed: HTTP {result.status} {link.source_url}")
+def extract_career_level(text: str, language: str) -> str:
+    for marker, normalized in CAREER_LEVEL_MARKERS[language]:
+        if marker in text:
+            return normalized
+    return "Experience not specified"
 
-    text = html_to_text(result.text)
-    title = extract_title(text)
-    company = find_first([r"Company Name\s*(.+?)\s*Job Type"], text, "Company unavailable")
-    job_type = find_first([r"Job Type\s*(.+?)\s*Industry"], text, "")
-    industry = find_first([r"Industry\s*(.+?)\s*Location"], text, "")
-    location = find_first([r"Location\s*(.+?)\s*Job Description"], text, "Location unavailable")
-    salary_text = extract_salary_text(text)
-    holidays = find_first([r"Holidays\s*(.+?)\s*Job Contract Period"], text, "")
-    employment_type = find_first([r"Job Contract Period\s*(.+?)\s*Nearest Station"], text, "")
-    english_level = find_first([r"English Level\s*(.+?)\s*Japanese Level"], text, "")
-    japanese_level = find_first([r"Japanese Level\s*(.+?)\s*Salary"], text, "")
-    description_body = extract_description(text)
+
+def collect_detail(link: SourceJobLink) -> StandardJobPosting:
+    result, text, language = resolve_detail_result(link.source_job_id)
+    title = extract_title(text, language)
+    company = extract_field(text, language, "company", "Company unavailable")
+    job_type = extract_field(text, language, "job_type", "")
+    industry = extract_field(text, language, "industry", "")
+    location = extract_field(text, language, "location", "Location unavailable")
+    salary_text = extract_salary_text(text, language)
+    holidays = extract_field(text, language, "holidays", "")
+    employment_type = extract_field(text, language, "employment", "")
+    english_level = extract_field(text, language, "english_level", "")
+    japanese_level = extract_field(text, language, "japanese_level", "")
+    description_body = extract_description(text, language)
     skills = infer_skills(f"{title} {job_type} {description_body}")
-    career_level = "Experience welcome" if "Experience Welcome" in text else "Experience not specified"
-    visa_support = "Visa Support Available" in text
+    career_level = extract_career_level(text, language)
+    visa_support = "Visa Support Available" in text or "ビザサポート" in text
     apply_method = "Daijob AGENT" if "Daijob AGENT" in text else ""
     description = normalize_space(
         f"{company} {title}. {location} / {career_level}"
@@ -212,8 +333,11 @@ def collect_detail(link: SourceJobLink) -> StandardJobPosting:
     raw_json: dict[str, Any] = {
         "listUrl": link.hints.get("listUrl"),
         "detailStatus": result.status,
+        "detailRequestedUrlJa": canonical_detail_url(link.source_job_id, "ja"),
+        "detailRequestedUrlEn": canonical_detail_url(link.source_job_id, "en"),
         "detailFinalUrl": result.url,
-        "canonicalDetailUrl": canonical_detail_url(link.source_job_id),
+        "detailLanguage": language,
+        "canonicalDetailUrl": canonical_detail_url(link.source_job_id, language),
         "detailTextLength": len(text),
         "jobType": job_type or None,
         "industry": industry or None,
@@ -238,9 +362,9 @@ def collect_detail(link: SourceJobLink) -> StandardJobPosting:
         description=description,
         source=SOURCE,
         sourceJobId=link.source_job_id,
-        sourceUrl=canonical_detail_url(link.source_job_id),
+        sourceUrl=result.url,
         country="JP",
-        language="en",
+        language=language,
         employmentType=employment_type or None,
         salaryText=salary_text or None,
         applyMethod=apply_method or None,
