@@ -1,10 +1,8 @@
 import type {
-  ApplicationDocumentType,
-  CreateDocumentPayload,
-  DocumentDetail,
-  DocumentListItem,
-  UpdateDocumentMetaPayload
-} from "../types/document";
+  ApplicationSetItem,
+  CreateApplicationSetPayload,
+  UpdateApplicationSetPayload
+} from "../types/applicationSet";
 import { getCandidateKey } from "../utils/candidateKey";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
@@ -47,7 +45,7 @@ async function getJson<T>(path: string, fallbackMessage: string): Promise<T> {
 
 async function sendJson<T>(
   path: string,
-  method: "POST" | "PATCH" | "DELETE",
+  method: "POST" | "PATCH",
   payload: unknown,
   fallbackMessage: string
 ): Promise<T> {
@@ -66,85 +64,73 @@ async function sendJson<T>(
   return response.json() as Promise<T>;
 }
 
-export async function getDocuments(
+export async function getDocumentSets(
   candidateKey = getCandidateKey(),
-  filters: { documentType?: ApplicationDocumentType; includeArchived?: boolean } = {}
-): Promise<DocumentListItem[]> {
+  options: { includeArchived?: boolean } = {}
+): Promise<ApplicationSetItem[]> {
   const query = buildQuery({
     candidateKey,
-    documentType: filters.documentType,
-    includeArchived: filters.includeArchived
+    includeArchived: options.includeArchived
   });
-  const result = await getJson<ApiListResponse<DocumentListItem>>(
-    `/api/documents?${query}`,
-    "문서 목록을 불러오지 못했습니다."
+  const result = await getJson<ApiListResponse<ApplicationSetItem>>(
+    `/api/document-sets?${query}`,
+    "문서 묶음 목록을 불러오지 못했습니다."
   );
 
   return result.data;
 }
 
-export async function createDocument(payload: CreateDocumentPayload): Promise<DocumentDetail> {
-  const result = await sendJson<ApiItemResponse<DocumentDetail>>(
-    "/api/documents",
+export async function createDocumentSet(payload: CreateApplicationSetPayload): Promise<ApplicationSetItem> {
+  const result = await sendJson<ApiItemResponse<ApplicationSetItem>>(
+    "/api/document-sets",
     "POST",
     {
       ...payload,
       candidateKey: payload.candidateKey ?? getCandidateKey()
     },
-    "문서 생성에 실패했습니다."
+    "문서 묶음 생성에 실패했습니다."
   );
 
   return result.data;
 }
 
-export async function getDocument(documentId: string, candidateKey = getCandidateKey()): Promise<DocumentDetail> {
+export async function getDocumentSet(setId: string, candidateKey = getCandidateKey()): Promise<ApplicationSetItem> {
   const query = buildQuery({ candidateKey });
-  const result = await getJson<ApiItemResponse<DocumentDetail>>(
-    `/api/documents/${documentId}?${query}`,
-    "문서를 불러오지 못했습니다."
+  const result = await getJson<ApiItemResponse<ApplicationSetItem>>(
+    `/api/document-sets/${setId}?${query}`,
+    "문서 묶음을 불러오지 못했습니다."
   );
 
   return result.data;
 }
 
-export async function updateDocumentMeta(
-  documentId: string,
-  payload: UpdateDocumentMetaPayload
-): Promise<DocumentDetail> {
-  const result = await sendJson<ApiItemResponse<DocumentDetail>>(
-    `/api/documents/${documentId}`,
+export async function updateDocumentSet(
+  setId: string,
+  payload: UpdateApplicationSetPayload
+): Promise<ApplicationSetItem> {
+  const result = await sendJson<ApiItemResponse<ApplicationSetItem>>(
+    `/api/document-sets/${setId}`,
     "PATCH",
     {
       ...payload,
       candidateKey: payload.candidateKey ?? getCandidateKey()
     },
-    "문서 수정에 실패했습니다."
+    "문서 묶음 수정에 실패했습니다."
   );
 
   return result.data;
 }
 
-export async function archiveDocument(documentId: string, candidateKey = getCandidateKey()): Promise<DocumentDetail> {
+export async function archiveDocumentSet(setId: string, candidateKey = getCandidateKey()): Promise<ApplicationSetItem> {
   const query = buildQuery({ candidateKey });
-  const response = await fetch(`${API_BASE_URL}/api/documents/${documentId}?${query}`, {
+  const response = await fetch(`${API_BASE_URL}/api/document-sets/${setId}?${query}`, {
     method: "DELETE"
   });
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response, "문서 보관에 실패했습니다."));
+    throw new Error(await readErrorMessage(response, "문서 묶음 보관에 실패했습니다."));
   }
 
-  const result = (await response.json()) as ApiItemResponse<DocumentDetail>;
-  return result.data;
-}
-
-export async function copyDocument(documentId: string, candidateKey = getCandidateKey()): Promise<DocumentDetail> {
-  const result = await sendJson<ApiItemResponse<DocumentDetail>>(
-    `/api/documents/${documentId}/copy`,
-    "POST",
-    { candidateKey },
-    "문서 복사에 실패했습니다."
-  );
-
+  const result = (await response.json()) as ApiItemResponse<ApplicationSetItem>;
   return result.data;
 }

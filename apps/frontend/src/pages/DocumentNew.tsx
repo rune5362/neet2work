@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { getJobs } from "../api/client";
 import { createDocument } from "../api/documentClient";
-import { getProfiles, getProfileVersions } from "../api/profileClient";
+import { getProfiles } from "../api/profileClient";
 import { HomeFooter } from "../components/HomeFooter";
 import { HomeTopNav } from "../components/HomeTopNav";
 import type { ApplicationDocumentType } from "../types/document";
 import type { JobPosting } from "../types/job";
-import type { ProfileListItem, ProfileVersion } from "../types/profile";
+import type { ProfileListItem } from "../types/profile";
 
 function getInitialDocumentType(): ApplicationDocumentType {
   const value = new URLSearchParams(window.location.search).get("documentType");
@@ -26,10 +26,8 @@ export function DocumentNew() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [profileId, setProfileId] = useState(() => getInitialProfileId());
-  const [profileVersionId, setProfileVersionId] = useState("");
   const [jobId, setJobId] = useState("");
   const [profiles, setProfiles] = useState<ProfileListItem[]>([]);
-  const [profileVersions, setProfileVersions] = useState<ProfileVersion[]>([]);
   const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -67,39 +65,6 @@ export function DocumentNew() {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadProfileVersions() {
-      if (!profileId) {
-        setProfileVersions([]);
-        setProfileVersionId("");
-        return;
-      }
-
-      try {
-        const versions = await getProfileVersions(profileId);
-
-        if (!cancelled) {
-          setProfileVersions(versions);
-          setProfileVersionId((current) => current || versions[0]?.id || "");
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setProfileVersions([]);
-          setProfileVersionId("");
-          setErrorMessage(error instanceof Error ? error.message : "프로필 버전 목록을 불러오지 못했습니다.");
-        }
-      }
-    }
-
-    void loadProfileVersions();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [profileId]);
-
   const selectedProfile = useMemo(
     () => profiles.find((profile) => profile.id === profileId) ?? null,
     [profileId, profiles]
@@ -126,7 +91,6 @@ export function DocumentNew() {
         title: title.trim(),
         documentType,
         profileId: profileId || null,
-        profileVersionId: profileVersionId || null,
         jobId: jobId || null,
         content: content.trim()
       });
@@ -177,21 +141,6 @@ export function DocumentNew() {
               {profiles.map((profile) => (
                 <option key={profile.id} value={profile.id}>
                   {profile.title}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            사용할 프로필 버전
-            <select
-              disabled={!profileId || profileVersions.length === 0}
-              value={profileVersionId}
-              onChange={(event) => setProfileVersionId(event.target.value)}
-            >
-              <option value="">선택 안 함</option>
-              {profileVersions.map((version) => (
-                <option key={version.id} value={version.id}>
-                  v{version.versionNo} {version.title ?? ""}
                 </option>
               ))}
             </select>

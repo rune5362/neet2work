@@ -3,9 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { createDocument as createDocumentRequest } from "./api/documentClient";
 import { createProfile as createProfileRequest } from "./api/profileClient";
-import type { DocumentDetail, DocumentListItem, DocumentVersion } from "./types/document";
+import type { ApplicationSetItem } from "./types/applicationSet";
+import type { DocumentDetail, DocumentListItem } from "./types/document";
 import type { JobPosting } from "./types/job";
-import type { CandidateProfileJson, ProfileDetail, ProfileListItem, ProfileVersion } from "./types/profile";
+import type { CandidateProfileJson, ProfileDetail, ProfileListItem } from "./types/profile";
 
 const timestamp = "2026-05-01T00:00:00.000Z";
 
@@ -33,7 +34,7 @@ function profileJson(name = "김민준"): CandidateProfileJson {
       {
         name: "문서 관리",
         role: "프론트엔드",
-        result: "버전 관리 구현"
+        result: "문서 편집 구현"
       }
     ],
     experiences: [],
@@ -47,32 +48,6 @@ function profileJson(name = "김민준"): CandidateProfileJson {
   };
 }
 
-const profileVersion1: ProfileVersion = {
-  id: "profile-version-1",
-  profileId: "profile-1",
-  candidateKey: "demo-candidate",
-  versionNo: 1,
-  title: "초기 프로필",
-  memo: null,
-  profileText: "김민준 React TypeScript",
-  profileJson: profileJson(),
-  schemaVersion: 1,
-  source: "user",
-  status: "active",
-  parentVersionId: null,
-  changeSummary: null,
-  createdAt: timestamp,
-  updatedAt: timestamp
-};
-
-const profileVersion2: ProfileVersion = {
-  ...profileVersion1,
-  id: "profile-version-2",
-  versionNo: 2,
-  title: "수정 프로필",
-  changeSummary: "수정"
-};
-
 const profile: ProfileDetail = {
   id: "profile-1",
   candidateKey: "demo-candidate",
@@ -84,40 +59,14 @@ const profile: ProfileDetail = {
   email: "minjun@example.com",
   desiredRoles: ["프론트엔드 개발자"],
   skills: ["React", "TypeScript"],
-  currentVersionId: profileVersion1.id,
-  currentVersionNo: 1,
+  profileText: "김민준 React TypeScript",
+  profileJson: profileJson(),
+  schemaVersion: 1,
+  source: "user",
   isDefault: true,
   isArchived: false,
   createdAt: timestamp,
-  updatedAt: timestamp,
-  currentVersion: profileVersion1
-};
-
-const documentVersion1: DocumentVersion = {
-  id: "document-version-1",
-  documentId: "document-1",
-  candidateKey: "demo-candidate",
-  versionNo: 1,
-  title: "초기 문서",
-  memo: null,
-  content: "초기 문서 본문",
-  contentJson: null,
-  source: "user",
-  status: "active",
-  parentVersionId: null,
-  profileSnapshotText: "김민준 React TypeScript",
-  profileSnapshotJson: profileJson(),
-  jobSnapshotJson: null,
-  createdAt: timestamp,
   updatedAt: timestamp
-};
-
-const documentVersion2: DocumentVersion = {
-  ...documentVersion1,
-  id: "document-version-2",
-  versionNo: 2,
-  title: "수정 문서",
-  content: "수정 문서 본문"
 };
 
 const document: DocumentDetail = {
@@ -126,17 +75,34 @@ const document: DocumentDetail = {
   title: "프론트엔드 이력서",
   documentType: "resume",
   profileId: profile.id,
-  profileVersionId: profileVersion1.id,
   profileTitle: profile.title,
   jobId: "job-001",
   jobTitle: "프론트엔드 개발자",
   company: "샘플테크",
-  currentVersionId: documentVersion1.id,
-  currentVersionNo: 1,
+  content: "초기 문서 본문",
+  contentJson: null,
+  source: "user",
+  profileSnapshotText: "김민준 React TypeScript",
+  profileSnapshotJson: profileJson(),
+  jobSnapshotJson: null,
   isArchived: false,
   createdAt: timestamp,
-  updatedAt: timestamp,
-  currentVersion: documentVersion1
+  updatedAt: timestamp
+};
+
+const documentSet: ApplicationSetItem = {
+  id: "set-1",
+  candidateKey: "demo-candidate",
+  title: "프론트엔드 지원 묶음",
+  profileId: profile.id,
+  profileTitle: profile.title,
+  resumeDocumentId: document.id,
+  resumeTitle: document.title,
+  coverLetterDocumentId: null,
+  coverLetterTitle: null,
+  isArchived: false,
+  createdAt: timestamp,
+  updatedAt: timestamp
 };
 
 const job: JobPosting = {
@@ -187,20 +153,24 @@ function setupFetchMock() {
       return jsonResponse({ data: profile });
     }
 
-    if (path === "/api/profiles/profile-1/versions" && method === "GET") {
-      return jsonResponse({ data: [profileVersion2, profileVersion1], count: 2 });
-    }
-
-    if (path === "/api/profiles/profile-1/versions" && method === "POST") {
-      return jsonResponse({ data: profileVersion2 });
-    }
-
-    if (path.startsWith("/api/profiles/profile-1/versions/") && method === "POST") {
-      return jsonResponse({ data: profileVersion2 });
+    if (path === "/api/profiles/profile-1" && method === "PATCH") {
+      return jsonResponse({ data: profile });
     }
 
     if (path === "/api/documents" && method === "GET") {
       return jsonResponse({ data: [document satisfies DocumentListItem], count: 1 });
+    }
+
+    if (path === "/api/document-sets" && method === "GET") {
+      return jsonResponse({ data: [documentSet], count: 1 });
+    }
+
+    if (path === "/api/document-sets/set-1" && method === "GET") {
+      return jsonResponse({ data: documentSet });
+    }
+
+    if (path === "/api/document-sets/set-1" && method === "PATCH") {
+      return jsonResponse({ data: documentSet });
     }
 
     if (path === "/api/documents" && method === "POST") {
@@ -211,16 +181,8 @@ function setupFetchMock() {
       return jsonResponse({ data: document });
     }
 
-    if (path === "/api/documents/document-1/versions" && method === "GET") {
-      return jsonResponse({ data: [documentVersion2, documentVersion1], count: 2 });
-    }
-
-    if (path === "/api/documents/document-1/versions" && method === "POST") {
-      return jsonResponse({ data: documentVersion2 });
-    }
-
-    if (path.startsWith("/api/documents/document-1/versions/") && method === "POST") {
-      return jsonResponse({ data: documentVersion2 });
+    if (path === "/api/documents/document-1" && method === "PATCH") {
+      return jsonResponse({ data: document });
     }
 
     return Promise.resolve(new Response(JSON.stringify({ message: "not found" }), { status: 404 }));
@@ -246,39 +208,34 @@ describe("profile/document frontend integration flow", () => {
     localStorage.clear();
   });
 
-  it("프로필 목록/생성/상세 저장/버전 적용과 복원 화면이 동작한다", async () => {
+  it("프로필 목록/생성/상세 저장 화면이 동작한다", async () => {
     const fetchMock = setupFetchMock();
 
-    renderAt("/profiles");
-    expect(await screen.findByRole("heading", { name: "지원 프로필" })).toBeInTheDocument();
+    renderAt("/documents?type=profile");
+    expect(await screen.findByRole("heading", { name: "문서 보관함" })).toBeInTheDocument();
     expect(await screen.findByText("프론트엔드 지원 프로필")).toBeInTheDocument();
     cleanup();
 
-    renderAt("/profiles/new");
+    renderAt("/documents/profiles/new");
     fireEvent.change(screen.getByLabelText("프로필 제목"), { target: { value: "테스트 프로필" } });
     fireEvent.change(screen.getByLabelText("이름"), { target: { value: "테스트" } });
     await createProfileRequest({ title: "테스트 프로필", profileJson: profileJson("테스트") });
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/profiles"), expect.objectContaining({ method: "POST" })));
     cleanup();
 
-    renderAt("/profiles/profile-1");
+    renderAt("/documents/profiles/profile-1");
     expect(await screen.findByDisplayValue("프론트엔드 지원 프로필")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "새 버전으로 저장" }));
-    expect(await screen.findByText("v2 새 버전을 저장했습니다.")).toBeInTheDocument();
-    cleanup();
-
-    renderAt("/profiles/profile-1/versions");
-    expect(await screen.findByRole("heading", { name: "프론트엔드 지원 프로필" })).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole("button", { name: "복원" })[0]);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/restore"), expect.anything()));
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+    expect(await screen.findByText("프로필을 저장했습니다.")).toBeInTheDocument();
   });
 
-  it("문서 목록/생성/상세 저장/버전 적용과 AI 보류 안내가 동작한다", async () => {
+  it("문서 목록/생성/상세 저장과 AI 보류 안내가 동작한다", async () => {
     const fetchMock = setupFetchMock();
 
     renderAt("/documents");
     expect(await screen.findByRole("heading", { name: "문서 보관함" })).toBeInTheDocument();
-    expect(await screen.findByText("프론트엔드 이력서")).toBeInTheDocument();
+    expect((await screen.findAllByText("프론트엔드 이력서")).length).toBeGreaterThan(0);
+    expect(screen.queryByText("버전 관리")).not.toBeInTheDocument();
     cleanup();
 
     renderAt("/documents/new");
@@ -294,13 +251,18 @@ describe("profile/document frontend integration flow", () => {
     expect(screen.getByRole("button", { name: "AI 분석하기" })).toBeDisabled();
     expect(screen.getByText("AI 분석 기능은 현재 연동 준비 중입니다.")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("문서 본문"), { target: { value: "수정 문서 본문" } });
-    fireEvent.click(screen.getByRole("button", { name: "새 버전으로 저장" }));
-    expect(await screen.findByText("v2 새 버전을 저장했습니다.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+    expect(await screen.findByText("문서를 저장했습니다.")).toBeInTheDocument();
     cleanup();
 
-    renderAt("/documents/document-1/versions");
-    expect(await screen.findByRole("heading", { name: "프론트엔드 이력서" })).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole("button", { name: "복원" })[0]);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/restore"), expect.anything()));
+    renderAt("/documents/sets/set-1");
+    expect(await screen.findByDisplayValue("프론트엔드 지원 묶음")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "전체 저장" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/document-sets/set-1"),
+        expect.objectContaining({ method: "PATCH" })
+      )
+    );
   });
 });

@@ -39,10 +39,9 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
   const displayName = authUser?.nickname || authUser?.name || authUser?.email;
   const shouldShowProfileImage = Boolean(authUser?.profileImageUrl && !profileImageFailed);
   const currentPath = typeof window === "undefined" ? "" : window.location.pathname;
-  const isProfilesSection = isPathInSection(currentPath, "/profiles");
   const isDocumentsSection = isPathInSection(currentPath, "/documents");
   const isMyAccountSection = isPathInSection(currentPath, "/myaccount");
-  const isAccountSection = isMyAccountSection || isProfilesSection || isDocumentsSection;
+  const isAccountSection = isMyAccountSection || isDocumentsSection;
   const isNotificationSection = currentPath === "/notifications";
   const effectiveActive = isAccountSection ? "account" : isNotificationSection ? "notifications" : active;
 
@@ -193,8 +192,8 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
                     {authUser ? (
                       <>
                         <a
-                          className={isProfilesSection ? "active" : ""}
-                          href="/profiles"
+                          className={isDocumentsSection ? "active" : ""}
+                          href="/documents?type=profile"
                           role="menuitem"
                           onClick={() => setIsNavMenuOpen(false)}
                         >
@@ -343,8 +342,8 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
               {isAccountMenuOpen && (
                 <div className="homeAccountDropdown" role="menu">
                   <a
-                    className={isProfilesSection ? "active" : ""}
-                    href="/profiles"
+                    className={isDocumentsSection ? "active" : ""}
+                    href="/documents?type=profile"
                     role="menuitem"
                     onClick={() => setIsAccountMenuOpen(false)}
                   >

@@ -1,9 +1,7 @@
 import type {
   CreateProfilePayload,
-  CreateProfileVersionPayload,
   ProfileDetail,
   ProfileListItem,
-  ProfileVersion,
   UpdateProfileMetaPayload
 } from "../types/profile";
 import { getCandidateKey } from "../utils/candidateKey";
@@ -138,94 +136,12 @@ export async function archiveProfile(profileId: string, candidateKey = getCandid
   return result.data;
 }
 
-export async function getProfileVersions(
-  profileId: string,
-  candidateKey = getCandidateKey(),
-  options: { includeArchived?: boolean } = {}
-): Promise<ProfileVersion[]> {
-  const query = buildQuery({
-    candidateKey,
-    includeArchived: options.includeArchived
-  });
-  const result = await getJson<ApiListResponse<ProfileVersion>>(
-    `/api/profiles/${profileId}/versions?${query}`,
-    "프로필 버전 목록을 불러오지 못했습니다."
-  );
-
-  return result.data;
-}
-
-export async function createProfileVersion(
-  profileId: string,
-  payload: CreateProfileVersionPayload
-): Promise<ProfileVersion> {
-  const result = await sendJson<ApiItemResponse<ProfileVersion>>(
-    `/api/profiles/${profileId}/versions`,
-    "POST",
-    {
-      ...payload,
-      candidateKey: payload.candidateKey ?? getCandidateKey()
-    },
-    "프로필 버전 생성에 실패했습니다."
-  );
-
-  return result.data;
-}
-
-export async function getProfileVersion(
-  profileId: string,
-  versionId: string,
-  candidateKey = getCandidateKey()
-): Promise<ProfileVersion> {
-  const query = buildQuery({ candidateKey });
-  const result = await getJson<ApiItemResponse<ProfileVersion>>(
-    `/api/profiles/${profileId}/versions/${versionId}?${query}`,
-    "프로필 버전을 불러오지 못했습니다."
-  );
-
-  return result.data;
-}
-
-export async function applyProfileVersion(
-  profileId: string,
-  versionId: string,
-  candidateKey = getCandidateKey()
-): Promise<ProfileVersion> {
-  const result = await sendJson<ApiItemResponse<ProfileVersion>>(
-    `/api/profiles/${profileId}/versions/${versionId}/apply`,
+export async function copyProfile(profileId: string, candidateKey = getCandidateKey()): Promise<ProfileDetail> {
+  const result = await sendJson<ApiItemResponse<ProfileDetail>>(
+    `/api/profiles/${profileId}/copy`,
     "POST",
     { candidateKey },
-    "프로필 버전 적용에 실패했습니다."
-  );
-
-  return result.data;
-}
-
-export async function restoreProfileVersion(
-  profileId: string,
-  versionId: string,
-  candidateKey = getCandidateKey()
-): Promise<ProfileVersion> {
-  const result = await sendJson<ApiItemResponse<ProfileVersion>>(
-    `/api/profiles/${profileId}/versions/${versionId}/restore`,
-    "POST",
-    { candidateKey },
-    "프로필 버전 복원에 실패했습니다."
-  );
-
-  return result.data;
-}
-
-export async function archiveProfileVersion(
-  profileId: string,
-  versionId: string,
-  candidateKey = getCandidateKey()
-): Promise<ProfileVersion> {
-  const result = await sendJson<ApiItemResponse<ProfileVersion>>(
-    `/api/profiles/${profileId}/versions/${versionId}`,
-    "DELETE",
-    { candidateKey },
-    "프로필 버전 보관에 실패했습니다."
+    "프로필 복사에 실패했습니다."
   );
 
   return result.data;

@@ -1,5 +1,0 @@
-enum ProfileVersionSource {
-  user
-  ai
-  system
-}

@@ -1,5 +1,0 @@
-enum ApplicationDocumentStatus {
-  draft
-  active
-  archived
-}

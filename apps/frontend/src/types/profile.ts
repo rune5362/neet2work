@@ -54,35 +54,17 @@ export type ProfileListItem = {
   email: string | null;
   desiredRoles: string[];
   skills: string[];
-  currentVersionId: string | null;
-  currentVersionNo: number | null;
+  profileText: string;
+  profileJson: CandidateProfileJson | null;
+  schemaVersion: number;
+  source: "user" | "ai" | "system" | string;
   isDefault: boolean;
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
 };
 
-export type ProfileVersion = {
-  id: string;
-  profileId: string;
-  candidateKey: string;
-  versionNo: number;
-  title: string | null;
-  memo: string | null;
-  profileText: string;
-  profileJson: CandidateProfileJson;
-  schemaVersion: number;
-  source: "user" | "ai" | "system";
-  status: "draft" | "active" | "archived";
-  parentVersionId: string | null;
-  changeSummary: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type ProfileDetail = ProfileListItem & {
-  currentVersion: ProfileVersion | null;
-};
+export type ProfileDetail = ProfileListItem;
 
 export type CreateProfilePayload = {
   candidateKey?: string;
@@ -102,17 +84,7 @@ export type UpdateProfileMetaPayload = {
   targetRole?: string | null;
   targetCompany?: string | null;
   targetJobId?: string | null;
+  profileJson?: CandidateProfileJson;
   isDefault?: boolean;
   isArchived?: boolean;
-};
-
-export type CreateProfileVersionPayload = {
-  candidateKey?: string;
-  profileJson: CandidateProfileJson;
-  title?: string | null;
-  memo?: string | null;
-  source?: "user" | "ai" | "system";
-  status?: "draft" | "active" | "archived";
-  changeSummary?: string | null;
-  makeCurrent?: boolean;
 };

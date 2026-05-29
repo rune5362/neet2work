@@ -1,16 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
-  applyProfileVersion,
   archiveProfile,
-  archiveProfileVersion,
+  copyProfile,
   createProfile,
-  createProfileVersion,
   getProfile,
   getProfiles,
-  getProfileVersion,
-  getProfileVersions,
-  restoreProfileVersion,
   updateProfileMeta
 } from "../services/profile.service.js";
 
@@ -89,23 +84,19 @@ const updateProfileMetaSchema = z.object({
   targetRole: optionalTextSchema,
   targetCompany: optionalTextSchema,
   targetJobId: optionalTextSchema,
+  profileJson: profileJsonSchema.optional(),
   isDefault: z.boolean().optional(),
   isArchived: z.boolean().optional()
 });
 
-const createProfileVersionSchema = z.object({
-  candidateKey: z.string().trim().min(1),
-  profileJson: profileJsonSchema,
-  title: optionalTextSchema,
-  memo: optionalTextSchema,
-  source: z.enum(["user", "ai", "system"]).optional(),
-  status: z.enum(["draft", "active", "archived"]).optional(),
-  changeSummary: optionalTextSchema,
-  makeCurrent: z.boolean().optional()
-});
-
 function parseIncludeArchived(value: string | undefined) {
   return value === "true";
+}
+
+function sendDeprecatedVersionResponse(_req: unknown, res: { status: (code: number) => { json: (body: unknown) => void } }) {
+  res.status(410).json({
+    message: "프로필 버전 API는 더 이상 사용하지 않습니다. 프로필 복사 API를 사용해 주세요."
+  });
 }
 
 profileRouter.get("/", async (req, res, next) => {
@@ -137,81 +128,18 @@ profileRouter.post("/", async (req, res, next) => {
   }
 });
 
-profileRouter.get("/:profileId/versions", async (req, res, next) => {
-  try {
-    const query = candidateKeyQuerySchema.parse(req.query);
-    const versions = await getProfileVersions(query.candidateKey, req.params.profileId, {
-      includeArchived: parseIncludeArchived(query.includeArchived)
-    });
+profileRouter.all("/:profileId/versions", sendDeprecatedVersionResponse);
+profileRouter.all("/:profileId/versions/:versionId", sendDeprecatedVersionResponse);
+profileRouter.all("/:profileId/versions/:versionId/apply", sendDeprecatedVersionResponse);
+profileRouter.all("/:profileId/versions/:versionId/restore", sendDeprecatedVersionResponse);
 
-    res.json({
-      data: versions,
-      count: versions.length
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-profileRouter.post("/:profileId/versions", async (req, res, next) => {
+profileRouter.post("/:profileId/copy", async (req, res, next) => {
   try {
-    const body = createProfileVersionSchema.parse(req.body);
-    const version = await createProfileVersion(req.params.profileId, body);
+    const body = candidateKeyBodySchema.parse(req.body);
+    const profile = await copyProfile(req.params.profileId, body);
 
     res.status(201).json({
-      data: version
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-profileRouter.get("/:profileId/versions/:versionId", async (req, res, next) => {
-  try {
-    const query = candidateKeyQuerySchema.parse(req.query);
-    const version = await getProfileVersion(query.candidateKey, req.params.profileId, req.params.versionId);
-
-    res.json({
-      data: version
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-profileRouter.post("/:profileId/versions/:versionId/apply", async (req, res, next) => {
-  try {
-    const body = candidateKeyBodySchema.parse(req.body);
-    const version = await applyProfileVersion(body.candidateKey, req.params.profileId, req.params.versionId);
-
-    res.json({
-      data: version
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-profileRouter.post("/:profileId/versions/:versionId/restore", async (req, res, next) => {
-  try {
-    const body = candidateKeyBodySchema.parse(req.body);
-    const version = await restoreProfileVersion(body.candidateKey, req.params.profileId, req.params.versionId);
-
-    res.status(201).json({
-      data: version
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-profileRouter.delete("/:profileId/versions/:versionId", async (req, res, next) => {
-  try {
-    const body = candidateKeyBodySchema.parse(req.body);
-    const version = await archiveProfileVersion(body.candidateKey, req.params.profileId, req.params.versionId);
-
-    res.json({
-      data: version
+      data: profile
     });
   } catch (error) {
     next(error);

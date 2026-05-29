@@ -2,23 +2,28 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { HttpError } from "../errors/httpError.js";
 import type { CandidateProfileJson } from "../types/profile.js";
 import {
-  applyProfileVersion,
-  archiveProfileVersion,
+  archiveProfile,
+  copyProfile,
   createProfile,
-  createProfileVersion,
   getProfile,
   getProfiles,
-  restoreProfileVersion
+  updateProfileMeta
 } from "./profile.service.js";
 import {
-  applyDocumentVersion,
-  archiveDocumentVersion,
+  archiveDocument,
+  copyDocument,
   createDocument,
-  createDocumentVersion,
   getDocument,
   getDocuments,
-  restoreDocumentVersion
+  updateDocumentMeta
 } from "./document.service.js";
+import {
+  archiveApplicationSet,
+  createApplicationSet,
+  getApplicationSet,
+  getApplicationSets,
+  updateApplicationSet
+} from "./applicationSet.service.js";
 
 function createProfileJson(name: string): CandidateProfileJson {
   return {
@@ -69,7 +74,7 @@ describe("profile/document mock-first integration", () => {
     process.env.DATABASE_URL = "";
   });
 
-  it("DB 없이 프로필과 문서 생성/버전/복원/스코프 검증 플로우가 동작한다", async () => {
+  it("DB 없이 프로필, 문서, 지원 묶음 생성/수정/복사/스코프 검증 플로우가 동작한다", async () => {
     const candidateKey = `candidate-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const firstProfile = await createProfile({
       candidateKey,
@@ -86,74 +91,54 @@ describe("profile/document mock-first integration", () => {
     const profiles = await getProfiles(candidateKey);
     expect(profiles.map((profile) => profile.id)).toEqual(expect.arrayContaining([firstProfile.id, secondProfile.id]));
 
-    const profileVersion2 = await createProfileVersion(firstProfile.id, {
+    const updatedProfile = await updateProfileMeta(firstProfile.id, {
       candidateKey,
-      profileJson: createProfileJson("민준-v2"),
-      title: "프로필 v2",
-      makeCurrent: true
+      profileJson: createProfileJson("민준-수정")
     });
-    const profileVersion3 = await createProfileVersion(firstProfile.id, {
-      candidateKey,
-      profileJson: createProfileJson("민준-v3"),
-      title: "프로필 v3",
-      makeCurrent: false
-    });
+    expect(updatedProfile.profileText).toContain("민준-수정");
 
-    await applyProfileVersion(candidateKey, firstProfile.id, profileVersion2.id);
-    expect((await getProfile(candidateKey, firstProfile.id)).currentVersionId).toBe(profileVersion2.id);
+    const copiedProfile = await copyProfile(firstProfile.id, { candidateKey });
+    expect(copiedProfile.id).not.toBe(firstProfile.id);
+    expect(copiedProfile.title).toMatch(/^프론트엔드 기본 프로필 \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+    expect(copiedProfile.profileText).toBe(updatedProfile.profileText);
+    expect((await getProfile(candidateKey, firstProfile.id)).title).toBe("프론트엔드 기본 프로필");
+    expect((await archiveProfile(copiedProfile.candidateKey, copiedProfile.id)).isArchived).toBe(true);
 
-    const restoredProfileVersion = await restoreProfileVersion(candidateKey, firstProfile.id, firstProfile.currentVersionId ?? "");
-    expect(restoredProfileVersion.versionNo).toBe(4);
-    expect((await getProfile(candidateKey, firstProfile.id)).currentVersionId).toBe(restoredProfileVersion.id);
-
-    await archiveProfileVersion(candidateKey, firstProfile.id, profileVersion3.id);
-    await expectHttpError(applyProfileVersion(candidateKey, firstProfile.id, profileVersion3.id), 400);
-    await expectHttpError(archiveProfileVersion(candidateKey, firstProfile.id, restoredProfileVersion.id), 400);
     await expectHttpError(getProfile("other-candidate", firstProfile.id), 404);
     await expectHttpError(getProfile(candidateKey, "missing-profile"), 404);
-    await expectHttpError(applyProfileVersion(candidateKey, secondProfile.id, profileVersion2.id), 404);
-    await expectHttpError(restoreProfileVersion(candidateKey, secondProfile.id, profileVersion2.id), 404);
-    await expectHttpError(archiveProfileVersion(candidateKey, secondProfile.id, profileVersion2.id), 404);
 
     const document = await createDocument({
       candidateKey,
       title: "프론트엔드 이력서",
       documentType: "resume",
       profileId: firstProfile.id,
-      profileVersionId: restoredProfileVersion.id,
       jobId: "job-001",
       content: "초기 이력서 본문"
     });
 
-    expect(document.currentVersion?.profileSnapshotText).toContain("민준");
-    expect(document.currentVersion?.jobSnapshotJson).toMatchObject({
+    expect(document.profileSnapshotText).toContain("민준");
+    expect(document.jobSnapshotJson).toMatchObject({
       id: "job-001",
       title: "프론트엔드 개발자"
     });
 
-    const documentVersion2 = await createDocumentVersion(document.id, {
+    const updatedDocument = await updateDocumentMeta(document.id, {
       candidateKey,
-      content: "두 번째 문서 본문",
-      title: "문서 v2",
-      makeCurrent: true
+      content: "수정된 이력서 본문",
+      contentJson: { sections: [] },
+      profileId: null
     });
-    const documentVersion3 = await createDocumentVersion(document.id, {
-      candidateKey,
-      content: "세 번째 문서 본문",
-      title: "문서 v3",
-      makeCurrent: false
-    });
+    expect(updatedDocument.content).toBe("수정된 이력서 본문");
+    expect(updatedDocument.profileId).toBeNull();
+    expect(updatedDocument.profileSnapshotText).toBeNull();
 
-    await applyDocumentVersion(candidateKey, document.id, documentVersion2.id);
-    expect((await getDocument(candidateKey, document.id)).currentVersionId).toBe(documentVersion2.id);
+    const copiedDocument = await copyDocument(document.id, { candidateKey });
+    expect(copiedDocument.id).not.toBe(document.id);
+    expect(copiedDocument.title).toMatch(/^프론트엔드 이력서 \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+    expect(copiedDocument.content).toBe(updatedDocument.content);
+    expect((await getDocument(candidateKey, document.id)).title).toBe("프론트엔드 이력서");
+    expect((await archiveDocument(copiedDocument.candidateKey, copiedDocument.id)).isArchived).toBe(true);
 
-    const restoredDocumentVersion = await restoreDocumentVersion(candidateKey, document.id, document.currentVersionId ?? "");
-    expect(restoredDocumentVersion.versionNo).toBe(4);
-    expect((await getDocument(candidateKey, document.id)).currentVersionId).toBe(restoredDocumentVersion.id);
-
-    await archiveDocumentVersion(candidateKey, document.id, documentVersion3.id);
-    await expectHttpError(applyDocumentVersion(candidateKey, document.id, documentVersion3.id), 400);
-    await expectHttpError(archiveDocumentVersion(candidateKey, document.id, restoredDocumentVersion.id), 400);
     await expectHttpError(getDocument("other-candidate", document.id), 404);
 
     const otherDocument = await createDocument({
@@ -163,9 +148,43 @@ describe("profile/document mock-first integration", () => {
       content: "자기소개서 본문"
     });
 
-    await expectHttpError(applyDocumentVersion(candidateKey, otherDocument.id, documentVersion2.id), 404);
-    await expectHttpError(restoreDocumentVersion(candidateKey, otherDocument.id, documentVersion2.id), 404);
-    await expectHttpError(archiveDocumentVersion(candidateKey, otherDocument.id, documentVersion2.id), 404);
+    const emptySet = await createApplicationSet({
+      candidateKey,
+      title: "빈 지원 묶음"
+    });
+    expect(emptySet.profileId).toBeNull();
+    expect(emptySet.resumeDocumentId).toBeNull();
+    expect(emptySet.coverLetterDocumentId).toBeNull();
+
+    const applicationSet = await createApplicationSet({
+      candidateKey,
+      title: "프론트엔드 지원 묶음",
+      profileId: firstProfile.id,
+      resumeDocumentId: document.id,
+      coverLetterDocumentId: otherDocument.id
+    });
+    expect(applicationSet.profileTitle).toBe("프론트엔드 기본 프로필");
+    expect(applicationSet.resumeTitle).toBe("프론트엔드 이력서");
+    expect(applicationSet.coverLetterTitle).toBe("다른 문서");
+
+    const unlinkedSet = await updateApplicationSet(applicationSet.id, {
+      candidateKey,
+      resumeDocumentId: null
+    });
+    expect(unlinkedSet.resumeDocumentId).toBeNull();
+    expect((await getApplicationSet(candidateKey, applicationSet.id)).coverLetterDocumentId).toBe(otherDocument.id);
+    expect((await getApplicationSets(candidateKey)).map((item) => item.id)).toEqual(
+      expect.arrayContaining([emptySet.id, applicationSet.id])
+    );
+    expect((await archiveApplicationSet(candidateKey, emptySet.id)).isArchived).toBe(true);
+    await expectHttpError(
+      createApplicationSet({
+        candidateKey: "other-candidate",
+        title: "잘못된 지원 묶음",
+        profileId: firstProfile.id
+      }),
+      400
+    );
 
     const documents = await getDocuments(candidateKey);
     expect(documents.map((item) => item.id)).toEqual(expect.arrayContaining([document.id, otherDocument.id]));

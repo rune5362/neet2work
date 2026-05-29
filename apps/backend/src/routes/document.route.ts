@@ -1,16 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
-  applyDocumentVersion,
   archiveDocument,
-  archiveDocumentVersion,
+  copyDocument,
   createDocument,
-  createDocumentVersion,
   getDocument,
   getDocuments,
-  getDocumentVersion,
-  getDocumentVersions,
-  restoreDocumentVersion,
   updateDocumentMeta
 } from "../services/document.service.js";
 
@@ -18,9 +13,6 @@ export const documentRouter = Router();
 
 const optionalTextSchema = z.string().trim().min(1).nullable().optional();
 const documentTypeSchema = z.enum(["resume", "cover_letter"]);
-const documentSourceSchema = z.enum(["user", "ai", "system"]);
-const documentStatusSchema = z.enum(["draft", "active", "archived"]);
-
 const candidateKeyQuerySchema = z.object({
   candidateKey: z.string().trim().min(1),
   includeArchived: z.enum(["true", "false"]).optional()
@@ -39,7 +31,6 @@ const createDocumentSchema = z.object({
   title: z.string().trim().min(1),
   documentType: documentTypeSchema,
   profileId: optionalTextSchema,
-  profileVersionId: optionalTextSchema,
   jobId: optionalTextSchema,
   content: z.string().min(1),
   contentJson: z.unknown().nullable().optional(),
@@ -50,23 +41,21 @@ const createDocumentSchema = z.object({
 const updateDocumentMetaSchema = z.object({
   candidateKey: z.string().trim().min(1),
   title: z.string().trim().min(1).optional(),
+  profileId: optionalTextSchema,
   jobId: optionalTextSchema,
-  isArchived: z.boolean().optional()
-});
-
-const createDocumentVersionSchema = z.object({
-  candidateKey: z.string().trim().min(1),
-  content: z.string().min(1),
+  content: z.string().min(1).optional(),
   contentJson: z.unknown().nullable().optional(),
-  title: optionalTextSchema,
-  memo: optionalTextSchema,
-  source: documentSourceSchema.optional(),
-  status: documentStatusSchema.optional(),
-  makeCurrent: z.boolean().optional()
+  isArchived: z.boolean().optional()
 });
 
 function parseIncludeArchived(value: string | undefined) {
   return value === "true";
+}
+
+function sendDeprecatedVersionResponse(_req: unknown, res: { status: (code: number) => { json: (body: unknown) => void } }) {
+  res.status(410).json({
+    message: "문서 버전 API는 더 이상 사용하지 않습니다. 문서 복사 API를 사용해 주세요."
+  });
 }
 
 documentRouter.get("/", async (req, res, next) => {
@@ -99,81 +88,18 @@ documentRouter.post("/", async (req, res, next) => {
   }
 });
 
-documentRouter.get("/:documentId/versions", async (req, res, next) => {
-  try {
-    const query = candidateKeyQuerySchema.parse(req.query);
-    const versions = await getDocumentVersions(query.candidateKey, req.params.documentId, {
-      includeArchived: parseIncludeArchived(query.includeArchived)
-    });
+documentRouter.all("/:documentId/versions", sendDeprecatedVersionResponse);
+documentRouter.all("/:documentId/versions/:versionId", sendDeprecatedVersionResponse);
+documentRouter.all("/:documentId/versions/:versionId/apply", sendDeprecatedVersionResponse);
+documentRouter.all("/:documentId/versions/:versionId/restore", sendDeprecatedVersionResponse);
 
-    res.json({
-      data: versions,
-      count: versions.length
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-documentRouter.post("/:documentId/versions", async (req, res, next) => {
+documentRouter.post("/:documentId/copy", async (req, res, next) => {
   try {
-    const body = createDocumentVersionSchema.parse(req.body);
-    const version = await createDocumentVersion(req.params.documentId, body);
+    const body = candidateKeyBodySchema.parse(req.body);
+    const document = await copyDocument(req.params.documentId, body);
 
     res.status(201).json({
-      data: version
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-documentRouter.get("/:documentId/versions/:versionId", async (req, res, next) => {
-  try {
-    const query = candidateKeyQuerySchema.parse(req.query);
-    const version = await getDocumentVersion(query.candidateKey, req.params.documentId, req.params.versionId);
-
-    res.json({
-      data: version
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-documentRouter.post("/:documentId/versions/:versionId/apply", async (req, res, next) => {
-  try {
-    const body = candidateKeyBodySchema.parse(req.body);
-    const version = await applyDocumentVersion(body.candidateKey, req.params.documentId, req.params.versionId);
-
-    res.json({
-      data: version
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-documentRouter.post("/:documentId/versions/:versionId/restore", async (req, res, next) => {
-  try {
-    const body = candidateKeyBodySchema.parse(req.body);
-    const version = await restoreDocumentVersion(body.candidateKey, req.params.documentId, req.params.versionId);
-
-    res.status(201).json({
-      data: version
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-documentRouter.delete("/:documentId/versions/:versionId", async (req, res, next) => {
-  try {
-    const body = candidateKeyBodySchema.parse(req.body);
-    const version = await archiveDocumentVersion(body.candidateKey, req.params.documentId, req.params.versionId);
-
-    res.json({
-      data: version
+      data: document
     });
   } catch (error) {
     next(error);

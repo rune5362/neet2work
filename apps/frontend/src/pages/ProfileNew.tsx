@@ -36,7 +36,7 @@ export function ProfileNew() {
         profileJson: createProfileJson(form)
       });
 
-      window.location.href = `/profiles/${profile.id}`;
+      window.location.href = `/documents/profiles/${profile.id}`;
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "프로필 생성에 실패했습니다.");
     } finally {
@@ -118,7 +118,7 @@ export function ProfileNew() {
             기본 프로필로 설정
           </label>
           <div className="profileFormActions">
-            <button className="documentsSecondaryButton" type="button" onClick={() => { window.location.href = "/profiles"; }}>
+            <button className="documentsSecondaryButton" type="button" onClick={() => { window.location.href = "/documents?type=profile"; }}>
               취소
             </button>
             <button disabled={saving} type="submit">

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { createProfileVersion, getProfile } from "../api/profileClient";
+import { copyProfile, getProfile, updateProfileMeta } from "../api/profileClient";
 import { HomeFooter } from "../components/HomeFooter";
 import { HomeTopNav } from "../components/HomeTopNav";
 import type { ProfileDetail as ProfileDetailData } from "../types/profile";
@@ -11,7 +11,9 @@ import {
 } from "../utils/profileForm";
 
 function getProfileIdFromPath() {
-  return window.location.pathname.split("/").filter(Boolean)[1] ?? "";
+  const segments = window.location.pathname.split("/").filter(Boolean);
+  const profileSegmentIndex = segments.indexOf("profiles");
+  return profileSegmentIndex >= 0 ? segments[profileSegmentIndex + 1] ?? "" : "";
 }
 
 export function ProfileDetail() {
@@ -20,6 +22,7 @@ export function ProfileDetail() {
   const [form, setForm] = useState<ProfileFormState>(initialProfileForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [copying, setCopying] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -36,11 +39,11 @@ export function ProfileDetail() {
         if (!cancelled) {
           setProfile(result);
           setForm(
-            result.currentVersion
+            result.profileJson
               ? profileJsonToForm({
                   title: result.title,
                   targetRole: result.targetRole,
-                  profileJson: result.currentVersion.profileJson
+                  profileJson: result.profileJson
                 })
               : {
                   ...initialProfileForm,
@@ -74,6 +77,21 @@ export function ProfileDetail() {
     }));
   };
 
+  const handleCopy = async () => {
+    setCopying(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const copiedProfile = await copyProfile(profileId);
+      window.location.href = `/documents/profiles/${copiedProfile.id}`;
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "프로필 복사에 실패했습니다.");
+    } finally {
+      setCopying(false);
+    }
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage(null);
@@ -87,16 +105,14 @@ export function ProfileDetail() {
     setSaving(true);
 
     try {
-      const version = await createProfileVersion(profileId, {
-        title: "사용자 수정",
-        changeSummary: "프로필 상세 화면에서 새 버전 저장",
-        makeCurrent: true,
+      const reloaded = await updateProfileMeta(profileId, {
+        title: form.title.trim(),
+        targetRole: form.targetRole.trim() || null,
         profileJson: createProfileJson(form)
       });
-      const reloaded = await getProfile(profileId);
 
       setProfile(reloaded);
-      setSuccessMessage(`v${version.versionNo} 새 버전을 저장했습니다.`);
+      setSuccessMessage("프로필을 저장했습니다.");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "프로필 저장에 실패했습니다.");
     } finally {
@@ -112,10 +128,10 @@ export function ProfileDetail() {
           <span>지원 프로필</span>
           <div>
             <h1>{profile?.title ?? "프로필 상세"}</h1>
-            <p>현재 적용 중인 프로필 버전을 확인하고 수정 내용을 새 버전으로 저장합니다.</p>
+            <p>프로필 본문을 확인하고 수정 내용을 저장합니다.</p>
           </div>
-          <button type="button" onClick={() => { window.location.href = `/profiles/${profileId}/versions`; }}>
-            버전 관리
+          <button disabled={copying || !profile} type="button" onClick={() => { void handleCopy(); }}>
+            {copying ? "복사 중" : "복사"}
           </button>
         </header>
 
@@ -186,11 +202,11 @@ export function ProfileDetail() {
               />
             </label>
             <div className="profileFormActions">
-              <button className="documentsSecondaryButton" type="button" onClick={() => { window.location.href = "/profiles"; }}>
+              <button className="documentsSecondaryButton" type="button" onClick={() => { window.location.href = "/documents?type=profile"; }}>
                 목록
               </button>
               <button disabled={saving} type="submit">
-                {saving ? "저장 중" : "새 버전으로 저장"}
+                {saving ? "저장 중" : "저장"}
               </button>
             </div>
           </form>

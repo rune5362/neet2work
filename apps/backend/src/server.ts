@@ -7,6 +7,7 @@ import { ZodError } from "zod";
 import { HttpError } from "./errors/httpError.js";
 import { createRateLimit } from "./middleware/rateLimit.js";
 import { analyzeRouter } from "./routes/analyze.route.js";
+import { applicationSetRouter } from "./routes/applicationSet.route.js";
 import { authRouter } from "./routes/auth.route.js";
 import { documentRouter } from "./routes/document.route.js";
 import { jobsRouter } from "./routes/jobs.route.js";
@@ -105,6 +106,7 @@ app.use("/api/analyze", analyzeRouter);
 app.use("/api/auth", authRateLimit, authRouter);
 app.use("/api/profiles", profileRouter);
 app.use("/api/documents", documentRouter);
+app.use("/api/document-sets", applicationSetRouter);
 
 app.use(
   (

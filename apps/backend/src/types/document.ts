@@ -1,6 +1,5 @@
 import type {
   ApplicationDocumentSource,
-  ApplicationDocumentStatus,
   ApplicationDocumentType
 } from "../generated/prisma/client.js";
 
@@ -10,47 +9,28 @@ export type DocumentListItem = {
   title: string;
   documentType: ApplicationDocumentType;
   profileId: string | null;
-  profileVersionId: string | null;
   profileTitle: string | null;
   jobId: string | null;
   jobTitle: string | null;
   company: string | null;
-  currentVersionId: string | null;
-  currentVersionNo: number | null;
+  content: string;
+  contentJson: unknown | null;
+  source: ApplicationDocumentSource;
+  profileSnapshotText: string | null;
+  profileSnapshotJson: unknown | null;
+  jobSnapshotJson: unknown | null;
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
 };
 
-export type DocumentVersion = {
-  id: string;
-  documentId: string;
-  candidateKey: string;
-  versionNo: number;
-  title: string | null;
-  memo: string | null;
-  content: string;
-  contentJson: unknown | null;
-  source: ApplicationDocumentSource;
-  status: ApplicationDocumentStatus;
-  parentVersionId: string | null;
-  profileSnapshotText: string | null;
-  profileSnapshotJson: unknown | null;
-  jobSnapshotJson: unknown | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type DocumentDetail = DocumentListItem & {
-  currentVersion: DocumentVersion | null;
-};
+export type DocumentDetail = DocumentListItem;
 
 export type CreateDocumentInput = {
   candidateKey: string;
   title: string;
   documentType: ApplicationDocumentType;
   profileId?: string | null;
-  profileVersionId?: string | null;
   jobId?: string | null;
   content: string;
   contentJson?: unknown | null;
@@ -61,17 +41,13 @@ export type CreateDocumentInput = {
 export type UpdateDocumentMetaInput = {
   candidateKey: string;
   title?: string;
+  profileId?: string | null;
   jobId?: string | null;
+  content?: string;
+  contentJson?: unknown | null;
   isArchived?: boolean;
 };
 
-export type CreateDocumentVersionInput = {
+export type CopyDocumentInput = {
   candidateKey: string;
-  content: string;
-  contentJson?: unknown | null;
-  title?: string | null;
-  memo?: string | null;
-  source?: ApplicationDocumentSource;
-  status?: ApplicationDocumentStatus;
-  makeCurrent?: boolean;
 };

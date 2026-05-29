@@ -9,12 +9,15 @@ model CandidateProfile {
   email            String?
   desiredRoles     String[]                  @default([]) @map("desired_roles")
   skills           String[]                  @default([])
-  currentVersionId String?                   @map("current_version_id")
+  profileText      String                    @default("") @map("profile_text")
+  profileJson      Json?                     @map("profile_json")
+  schemaVersion    Int                       @default(1) @map("schema_version")
+  source           String                    @default("user")
   isDefault        Boolean                   @default(false) @map("is_default")
   isArchived       Boolean                   @default(false) @map("is_archived")
   createdAt        DateTime                  @default(now()) @map("created_at")
   updatedAt        DateTime                  @updatedAt @map("updated_at")
-  versions         CandidateProfileVersion[]
+  applicationSets  ApplicationSet[]          @relation("ApplicationSetProfile")
 
   @@index([candidateKey])
   @@index([candidateKey, isArchived])

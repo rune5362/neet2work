@@ -1,5 +1,3 @@
-import type { ProfileVersionSource, ProfileVersionStatus } from "../generated/prisma/client.js";
-
 export type ProfileLinkSet = {
   github?: string;
   portfolio?: string;
@@ -63,35 +61,17 @@ export type ProfileListItem = {
   email: string | null;
   desiredRoles: string[];
   skills: string[];
-  currentVersionId: string | null;
-  currentVersionNo: number | null;
+  profileText: string;
+  profileJson: CandidateProfileJson | null;
+  schemaVersion: number;
+  source: string;
   isDefault: boolean;
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
 };
 
-export type ProfileVersion = {
-  id: string;
-  profileId: string;
-  candidateKey: string;
-  versionNo: number;
-  title: string | null;
-  memo: string | null;
-  profileText: string;
-  profileJson: CandidateProfileJson;
-  schemaVersion: number;
-  source: ProfileVersionSource;
-  status: ProfileVersionStatus;
-  parentVersionId: string | null;
-  changeSummary: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type ProfileDetail = ProfileListItem & {
-  currentVersion: ProfileVersion | null;
-};
+export type ProfileDetail = ProfileListItem;
 
 export type CreateProfileInput = {
   candidateKey: string;
@@ -111,17 +91,11 @@ export type UpdateProfileMetaInput = {
   targetRole?: string | null;
   targetCompany?: string | null;
   targetJobId?: string | null;
+  profileJson?: CandidateProfileJson;
   isDefault?: boolean;
   isArchived?: boolean;
 };
 
-export type CreateProfileVersionInput = {
+export type CopyProfileInput = {
   candidateKey: string;
-  profileJson: CandidateProfileJson;
-  title?: string | null;
-  memo?: string | null;
-  source?: ProfileVersionSource;
-  status?: ProfileVersionStatus;
-  changeSummary?: string | null;
-  makeCurrent?: boolean;
 };

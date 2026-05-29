@@ -4,6 +4,7 @@ import { AIAnalysisFront } from "./pages/AIAnalysisFront";
 import { AuthChoice } from "./pages/AuthChoice";
 import { DocumentDetail } from "./pages/DocumentDetail";
 import { DocumentNew } from "./pages/DocumentNew";
+import { DocumentSetDetail } from "./pages/DocumentSetDetail";
 import { DocumentVersions } from "./pages/DocumentVersions";
 import { Documents } from "./pages/Documents";
 import { Jobs } from "./pages/Jobs";
@@ -13,8 +14,12 @@ import { Notifications } from "./pages/Notifications";
 import { ProfileDetail } from "./pages/ProfileDetail";
 import { ProfileNew } from "./pages/ProfileNew";
 import { ProfileVersions } from "./pages/ProfileVersions";
-import { Profiles } from "./pages/Profiles";
 import { SignUp } from "./pages/SignUp";
+
+function Redirect({ to }: { to: string }) {
+  window.location.replace(to);
+  return null;
+}
 
 export default function App() {
   const pathname = window.location.pathname;
@@ -44,8 +49,16 @@ export default function App() {
     return <Jobs />;
   }
 
-  if (segments[0] === "profiles" && segments[1] === "new" && segments.length === 2) {
+  if (segments[0] === "documents" && segments[1] === "profiles" && segments[2] === "new" && segments.length === 3) {
     return <ProfileNew />;
+  }
+
+  if (segments[0] === "documents" && segments[1] === "profiles" && segments[2] && segments.length === 3) {
+    return <ProfileDetail />;
+  }
+
+  if (segments[0] === "profiles" && segments[1] === "new" && segments.length === 2) {
+    return <Redirect to="/documents/profiles/new" />;
   }
 
   if (segments[0] === "profiles" && segments[1] && segments[2] === "versions" && segments.length === 3) {
@@ -53,19 +66,23 @@ export default function App() {
   }
 
   if (segments[0] === "profiles" && segments[1] && segments.length === 2) {
-    return <ProfileDetail />;
+    return <Redirect to={`/documents/profiles/${segments[1]}`} />;
   }
 
   if (pathname === "/profiles") {
-    return <Profiles />;
+    return <Redirect to="/documents?type=profile" />;
   }
 
   if (segments[0] === "profiles") {
-    return <Profiles />;
+    return <Redirect to="/documents?type=profile" />;
   }
 
   if (segments[0] === "documents" && segments[1] === "new" && segments.length === 2) {
     return <DocumentNew />;
+  }
+
+  if (segments[0] === "documents" && segments[1] === "sets" && segments[2] && segments.length === 3) {
+    return <DocumentSetDetail />;
   }
 
   if (segments[0] === "documents" && segments[1] && segments[2] === "versions" && segments.length === 3) {
