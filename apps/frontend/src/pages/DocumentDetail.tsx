@@ -103,6 +103,15 @@ export function DocumentDetail() {
               문서 본문
               <textarea value={content} onChange={(event) => setContent(event.target.value)} />
             </label>
+            <div className="documentsAnalysisPending profileFormWide">
+              <div>
+                <strong>AI 분석 기능은 현재 연동 준비 중입니다.</strong>
+                <p>분석 페이지 구현이 완료된 후 연결될 예정입니다.</p>
+              </div>
+              <button disabled type="button">
+                AI 분석하기
+              </button>
+            </div>
             <div className="profileFormActions">
               <button className="documentsSecondaryButton" type="button" onClick={() => { window.location.href = "/documents"; }}>
                 목록

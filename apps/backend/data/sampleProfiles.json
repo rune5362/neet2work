@@ -1,1 +1,20 @@
-[]
+[
+  {
+    "id": "profile-demo-frontend",
+    "candidateKey": "demo-candidate",
+    "title": "프론트엔드 지원 기본 프로필",
+    "targetRole": "프론트엔드 개발자",
+    "targetCompany": "샘플테크",
+    "targetJobId": "job-001",
+    "name": "김민준",
+    "email": "minjun@example.com",
+    "desiredRoles": ["프론트엔드 개발자", "React 개발자"],
+    "skills": ["React", "TypeScript", "JavaScript", "HTML", "CSS"],
+    "currentVersionId": "profile-version-demo-frontend-1",
+    "currentVersionNo": 1,
+    "isDefault": true,
+    "isArchived": false,
+    "createdAt": "2026-05-01T00:00:00.000Z",
+    "updatedAt": "2026-05-01T00:00:00.000Z"
+  }
+]

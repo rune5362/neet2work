@@ -2264,6 +2264,43 @@ textarea:focus {
   color: #be123c;
 }
 
+.documentsAnalysisPending {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid rgba(0, 102, 255, 0.18);
+  border-radius: 12px;
+  padding: 18px;
+  background: var(--home-surface-low);
+}
+
+.documentsAnalysisPending strong {
+  color: var(--home-ink);
+  font-size: 0.98rem;
+  font-weight: 900;
+}
+
+.documentsAnalysisPending p {
+  margin: 4px 0 0;
+  color: var(--home-secondary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.documentsAnalysisPending button {
+  min-height: 42px;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  padding: 0 16px;
+  background: white;
+  color: var(--home-body-muted);
+  cursor: not-allowed;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .profileForm {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3830,6 +3867,11 @@ textarea:focus {
 
   .profileFormActions button {
     width: 100%;
+  }
+
+  .documentsAnalysisPending {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .jobsFilterControls,

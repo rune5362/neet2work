@@ -1173,9 +1173,9 @@ profiles/documents는 account section으로 유지
 
 ## 14-1. `/ai-analysis`, `/ai-analysis/details`는 수정하지 않음
 
-* [ ] `AIAnalysisFront.tsx` 직접 수정하지 않음.
-* [ ] `AIAnalysisDetails.tsx` 직접 수정하지 않음.
-* [ ] `/api/analyze` 직접 수정하지 않음.
+* [x] `AIAnalysisFront.tsx` 직접 수정하지 않음.
+* [x] `AIAnalysisDetails.tsx` 직접 수정하지 않음.
+* [x] `/api/analyze` 직접 수정하지 않음.
 
 현재 `/api/analyze`는 `resumeText`, `jobId`만 받는 단순 분석 구조입니다. 
 이 작업에서는 건드리지 않습니다.
@@ -1184,17 +1184,17 @@ profiles/documents는 account section으로 유지
 
 ## 14-2. 문서 상세 화면에 안내성 버튼만 추가
 
-* [ ] `DocumentDetail.tsx`에 `AI 분석하기` 버튼 영역 추가.
-* [ ] 버튼은 disabled 처리.
-* [ ] 문구 추가.
+* [x] `DocumentDetail.tsx`에 `AI 분석하기` 버튼 영역 추가.
+* [x] 버튼은 disabled 처리.
+* [x] 문구 추가.
 
 ```text
 AI 분석 기능은 현재 연동 준비 중입니다.
 분석 페이지 구현이 완료된 후 연결될 예정입니다.
 ```
 
-* [ ] `/ai-analysis`로 실제 데이터 전달 코드는 작성하지 않는다.
-* [ ] `/api/analysis-input`도 구현하지 않는다.
+* [x] `/ai-analysis`로 실제 데이터 전달 코드는 작성하지 않는다.
+* [x] `/api/analysis-input`도 구현하지 않는다.
 
 ---
 
@@ -1205,20 +1205,20 @@ AI 분석 기능은 현재 연동 준비 중입니다.
 
 ## 15-1. 샘플 데이터 작성
 
-* [ ] `apps/backend/data/sampleProfiles.json`
-* [ ] `apps/backend/data/sampleProfileVersions.json`
-* [ ] `apps/backend/data/sampleDocuments.json`
-* [ ] `apps/backend/data/sampleDocumentVersions.json`
+* [x] `apps/backend/data/sampleProfiles.json`
+* [x] `apps/backend/data/sampleProfileVersions.json`
+* [x] `apps/backend/data/sampleDocuments.json`
+* [x] `apps/backend/data/sampleDocumentVersions.json`
 
 ---
 
 ## 15-2. fallback 정책
 
-* [ ] 조회 API는 sample fallback 제공.
-* [ ] 저장/수정/삭제/버전 API는 DB가 없거나 조회 실패 시 in-memory fallback을 사용한다.
-* [ ] in-memory fallback은 서버 프로세스 재시작 시 초기화된다.
-* [ ] fallback 응답은 실제 DB 응답과 같은 shape를 유지한다.
-* [ ] fallback 상태에서 저장한 데이터도 같은 `candidateKey` 스코프 검증을 적용한다.
+* [x] 조회 API는 sample fallback 제공.
+* [x] 저장/수정/삭제/버전 API는 DB가 없거나 조회 실패 시 in-memory fallback을 사용한다.
+* [x] in-memory fallback은 서버 프로세스 재시작 시 초기화된다.
+* [x] fallback 응답은 실제 DB 응답과 같은 shape를 유지한다.
+* [x] fallback 상태에서 저장한 데이터도 같은 `candidateKey` 스코프 검증을 적용한다.
 
 정책:
 

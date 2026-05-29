@@ -1,1 +1,19 @@
-[]
+[
+  {
+    "id": "document-demo-resume",
+    "candidateKey": "demo-candidate",
+    "title": "프론트엔드 지원 이력서",
+    "documentType": "resume",
+    "profileId": "profile-demo-frontend",
+    "profileVersionId": "profile-version-demo-frontend-1",
+    "profileTitle": "프론트엔드 지원 기본 프로필",
+    "jobId": "job-001",
+    "jobTitle": "프론트엔드 개발자",
+    "company": "샘플테크",
+    "currentVersionId": "document-version-demo-resume-1",
+    "currentVersionNo": 1,
+    "isArchived": false,
+    "createdAt": "2026-05-01T00:10:00.000Z",
+    "updatedAt": "2026-05-01T00:10:00.000Z"
+  }
+]
