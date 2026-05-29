@@ -4088,9 +4088,11 @@ textarea:focus {
 }
 
 .aiDraftShell {
+  box-sizing: border-box;
   width: min(100% - 48px, 1512px);
+  height: 100vh;
   margin: 0 auto;
-  padding: 88px 0 40px;
+  padding: 82px 0 16px;
 }
 
 .aiDraftWorkspace {
@@ -4098,13 +4100,16 @@ textarea:focus {
   grid-template-columns: minmax(0, 2.15fr) minmax(360px, 1fr);
   gap: 12px;
   align-items: stretch;
+  height: 100%;
+  min-height: 0;
 }
 
 .aiDraftChatPanel {
   position: relative;
   display: grid;
-  grid-template-rows: auto minmax(520px, 1fr) auto;
-  min-height: 900px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid rgba(226, 232, 240, 0.18);
   border-radius: 12px;
@@ -4795,8 +4800,10 @@ textarea:focus {
   display: grid;
   gap: 12px;
   align-content: start;
-  min-height: 900px;
+  height: 100%;
+  min-height: 0;
   padding: 8px;
+  overflow-y: auto;
   border: 1px solid #dbe5f0;
   border-radius: 12px;
   background: #f8fafc;
@@ -5167,13 +5174,22 @@ textarea:focus {
 }
 
 @media (max-width: 1180px) {
+  .aiDraftShell {
+    height: auto;
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+
   .aiDraftWorkspace {
     grid-template-columns: 1fr;
+    height: auto;
   }
 
   .aiDraftSidePanel,
   .aiDraftChatPanel {
+    height: auto;
     min-height: auto;
+    overflow-y: visible;
   }
 }
 
