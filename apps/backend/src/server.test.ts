@@ -119,6 +119,46 @@ describe("server HTTP contract", () => {
     });
   });
 
+  it("returns 400 for unsupported resume extract requests", async () => {
+    const response = await request(createApp(), "/api/resume/extract", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        fileName: "resume.pdf",
+        mimeType: "application/pdf",
+        contentBase64: Buffer.from("%PDF-1.4", "utf-8").toString("base64")
+      })
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.message).toContain("본문 추출을 지원하지 않습니다");
+  });
+
+  it("keeps the resume extract route envelope stable for txt files", async () => {
+    const response = await request(createApp(), "/api/resume/extract", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        fileName: "resume.txt",
+        mimeType: "text/plain",
+        contentBase64: Buffer.from("첨부 텍스트 파일 본문입니다.", "utf-8").toString("base64")
+      })
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data).toMatchObject({
+      fileName: "resume.txt",
+      mode: "mock",
+      text: "첨부 텍스트 파일 본문입니다."
+    });
+  });
+
   it("keeps the jobs list route envelope stable", async () => {
     const count = vi.fn().mockResolvedValue(1);
     const findMany = vi.fn()

@@ -117,3 +117,28 @@ export async function analyzeResume(payload: {
   const result = (await response.json()) as ApiItemResponse<AnalysisResult>;
   return result.data;
 }
+
+export async function extractResumeFile(payload: {
+  fileName: string;
+  mimeType?: string;
+  contentBase64: string;
+}): Promise<{ fileName: string; text: string; mode: "mock" | "ai" }> {
+  const response = await fetch(`${API_BASE_URL}/api/resume/extract`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error("첨부 파일 본문 추출에 실패했습니다.");
+  }
+
+  const result = (await response.json()) as ApiItemResponse<{
+    fileName: string;
+    text: string;
+    mode: "mock" | "ai";
+  }>;
+  return result.data;
+}

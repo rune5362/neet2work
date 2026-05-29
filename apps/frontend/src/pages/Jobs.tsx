@@ -1,5 +1,4 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, CodeXml, ListChecks, Megaphone, PenTool, Shield } from "lucide-react";
 import {
   type DeadlineTypeFilterValue,
   type EmploymentTypeFilterValue,
@@ -130,28 +129,84 @@ function FilterChevronIcon() {
   );
 }
 
+function JobsCardGlyph({ children }: { children: ReactNode }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className="jobsCardIconSvg"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+      viewBox="0 0 24 24"
+    >
+      {children}
+    </svg>
+  );
+}
+
 function JobCategoryIcon({ category }: { category: string }) {
   if (category === "AI/데이터") {
-    return <Bot aria-hidden="true" className="jobsCardIconSvg" strokeWidth={1.9} />;
+    return (
+      <JobsCardGlyph>
+        <rect x="4.5" y="7" width="15" height="10" rx="3.5" />
+        <path d="M9 7V5.75A3 3 0 0 1 12 3a3 3 0 0 1 3 2.75V7" />
+        <path d="M12 11.25v1.5" />
+        <circle cx="8.25" cy="12" r="0.75" fill="currentColor" stroke="none" />
+        <circle cx="15.75" cy="12" r="0.75" fill="currentColor" stroke="none" />
+      </JobsCardGlyph>
+    );
   }
 
   if (category === "디자인") {
-    return <PenTool aria-hidden="true" className="jobsCardIconSvg" strokeWidth={1.9} />;
+    return (
+      <JobsCardGlyph>
+        <path d="m6 16 8.5-8.5a2.1 2.1 0 1 1 3 3L9 19l-3.5 1L6 16Z" />
+        <path d="m13.5 8.5 3 3" />
+      </JobsCardGlyph>
+    );
   }
 
   if (category === "마케팅") {
-    return <Megaphone aria-hidden="true" className="jobsCardIconSvg" strokeWidth={1.9} />;
+    return (
+      <JobsCardGlyph>
+        <path d="M5 13.5V10a1.5 1.5 0 0 1 1.5-1.5H9l7-3v12l-7-3H6.5A1.5 1.5 0 0 1 5 13.5Z" />
+        <path d="M9 14.5 10.5 19" />
+        <path d="M18.5 9a4.5 4.5 0 0 1 0 6" />
+      </JobsCardGlyph>
+    );
   }
 
   if (category === "보안") {
-    return <Shield aria-hidden="true" className="jobsCardIconSvg" strokeWidth={1.9} />;
+    return (
+      <JobsCardGlyph>
+        <path d="M12 3.75 18 6v4.75c0 4.1-2.55 7-6 9.5-3.45-2.5-6-5.4-6-9.5V6l6-2.25Z" />
+        <path d="m9.5 12 1.75 1.75L14.5 10.5" />
+      </JobsCardGlyph>
+    );
   }
 
   if (category === "PM") {
-    return <ListChecks aria-hidden="true" className="jobsCardIconSvg" strokeWidth={1.9} />;
+    return (
+      <JobsCardGlyph>
+        <path d="M10.5 7.5h7" />
+        <path d="M10.5 12h7" />
+        <path d="M10.5 16.5h7" />
+        <path d="m5.5 7.5 1.25 1.25L9 6.5" />
+        <path d="m5.5 12 1.25 1.25L9 11" />
+        <path d="m5.5 16.5 1.25 1.25L9 15.5" />
+      </JobsCardGlyph>
+    );
   }
 
-  return <CodeXml aria-hidden="true" className="jobsCardIconSvg" strokeWidth={1.9} />;
+  return (
+    <JobsCardGlyph>
+      <path d="m8.5 8-4 4 4 4" />
+      <path d="m15.5 8 4 4-4 4" />
+      <path d="M13.25 5.75 10.75 18.25" />
+    </JobsCardGlyph>
+  );
 }
 
 function jobCategoryIconClass(category: string) {

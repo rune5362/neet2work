@@ -6,7 +6,9 @@ import { fileURLToPath } from "node:url";
 import { ZodError } from "zod";
 import { analyzeRouter } from "./routes/analyze.route.js";
 import { jobsRouter } from "./routes/jobs.route.js";
+import { resumeExtractRouter } from "./routes/resume-extract.route.js";
 import { checkPostgresConnection } from "./storage/postgres.js";
+import { HttpError } from "./utils/http-error.js";
 import { formatErrorForLog } from "./utils/redact.js";
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
@@ -85,6 +87,7 @@ export function createApp() {
 
   app.use("/api/jobs", jobsRouter);
   app.use("/api/analyze", analyzeRouter);
+  app.use("/api/resume/extract", resumeExtractRouter);
 
   app.use(
     (
@@ -99,6 +102,14 @@ export function createApp() {
         res.status(400).json({
           message: "요청 데이터 형식이 올바르지 않습니다.",
           issues: err.issues,
+          fallback: true
+        });
+        return;
+      }
+
+      if (err instanceof HttpError) {
+        res.status(err.statusCode).json({
+          message: err.message,
           fallback: true
         });
         return;

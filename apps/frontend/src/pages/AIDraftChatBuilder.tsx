@@ -1,11 +1,25 @@
-import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
-import { getJobById } from "../api/client";
+import { type ChangeEvent, type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { analyzeResume, getJobById } from "../api/client";
+import arrowUpIcon from "../assets/icons/ai-draft-arrow-up.svg";
+import attachIcon from "../assets/icons/ai-draft-attach.svg";
+import chevronIcon from "../assets/icons/ai-draft-chevron.svg";
+import copyIcon from "../assets/icons/ai-draft-copy.svg";
+import downloadIcon from "../assets/icons/ai-draft-download.svg";
+import editIcon from "../assets/icons/ai-draft-edit.svg";
+import externalIcon from "../assets/icons/ai-draft-external.svg";
+import followUpIcon from "../assets/icons/ai-draft-follow-up.svg";
+import historyIcon from "../assets/icons/ai-draft-history.svg";
+import plusIcon from "../assets/icons/ai-draft-plus.svg";
+import sparkIcon from "../assets/icons/ai-draft-spark.svg";
+import aiSymbol from "../assets/logo/neet2work_symbol_reference_curve 1.png";
 import { HomeFooter } from "../components/HomeFooter";
 import { HomeTopNav } from "../components/HomeTopNav";
+import type { AnalysisResult } from "../types/analysis";
 import type { JobPosting } from "../types/job";
 
 type Sender = "ai" | "user";
 type DraftState = "idle" | "ready" | "loading" | "complete";
+type AnalysisStatus = "idle" | "ready" | "loading" | "complete" | "error";
 
 type Message = {
   id: string;
@@ -31,6 +45,17 @@ type AiSettings = {
 };
 
 type TextFormat = "TXT" | "Markdown";
+
+type AttachedFileKind = "text" | "binary";
+
+type AttachedFile = {
+  id: string;
+  name: string;
+  kind: AttachedFileKind;
+  textContent: string | null;
+  readError: boolean;
+  loading: boolean;
+};
 
 type AudioWindow = Window & {
   webkitAudioContext?: typeof AudioContext;
@@ -81,18 +106,6 @@ const initialMessages: Message[] = [
     time: "10:21",
     text: "안녕하세요. 저는 Neet2Work AI 스크래치입니다.\n\n지원하시는 직무에서 가장 중요한 역량을 발휘했던 경험을 구체적으로 들려주세요. 상황, 역할, 행동, 결과를 중심으로 자세히 설명해주시면 더 깊이 있는 질문으로 핵심을 함께 정리해드릴게요.",
   },
-  {
-    id: "m2",
-    sender: "user",
-    time: "10:24",
-    text: "저는 대학 시절 교내 앱 개발 공모전에 참여했을 때 팀 리더로서 프로젝트를 성공적으로 이끈 경험이 있습니다. 당시 4명의 팀원이 각자 맡은 역할이 있었지만, 일정 관리와 요구사항 정리가 제대로 되지 않아 중간에 방향이 흔들리는 문제가 있었습니다. 그래서 저는 전체 일정을 재정리하고, 매일 15분 스탠드업 미팅을 도입해 진행 상황을 공유했습니다. 또한 사용자 인터뷰를 직접 진행해 문제를 정의하고, MVP 기능을 우선순위에 따라 재구성했습니다. 그 결과 최종 발표에서 최우수상을 수상했고, 실제 사용자 200명 이상이 앱을 사용했습니다.",
-  },
-  {
-    id: "m3",
-    sender: "ai",
-    time: "10:25",
-    text: "좋은 경험이네요. 말씀해주신 내용을 바탕으로 핵심 포인트를 정리했습니다.\n추가로 더 깊이 파고들 부분이 있다면 이어서 질문드릴게요.",
-  },
 ];
 
 const draftProgressSteps = [
@@ -120,6 +133,69 @@ const draftProgressSteps = [
 
 const draftText =
   "저는 대학 시절 교내 앱 개발 공모전에서 팀 리더로 참여하여 프로젝트를 성공적으로 이끈 경험이 있습니다. 초기에는 역할 분담과 일정 관리가 체계적이지 않아 진행 방향이 불명확해지는 문제가 있었습니다.\n\n이에 전체 일정을 재정리하고 매일 15분 스탠드업 미팅을 도입해 진행 상황을 공유하며 소통을 강화했습니다. 또한 사용자 인터뷰를 직접 수행해 핵심 니즈를 도출하고, MVP 기능을 우선순위에 따라 재구성했습니다.\n\n그 결과 최종 발표에서 최우수상을 수상했으며, 실제 사용자 200명 이상이 앱을 사용했습니다.";
+
+const COMPOSER_INPUT_MIN_HEIGHT = 22;
+const COMPOSER_INPUT_MAX_HEIGHT = 240;
+const FILE_ACCEPT = "image/*,.txt,.md,.pdf,.doc,.docx";
+const AI_MODEL_OPTIONS: AiSettings["model"][] = ["Gemini Pro", "Fast Draft", "Precision"];
+const AI_TONE_OPTIONS: AiSettings["tone"][] = ["담백한 실무형", "성과 강조형", "성장 서사형"];
+
+function isTextAttachment(file: File) {
+  const lowerName = file.name.toLowerCase();
+  return file.type.startsWith("text/") || lowerName.endsWith(".txt") || lowerName.endsWith(".md");
+}
+
+function isDocumentFileName(name: string) {
+  const lowerName = name.toLowerCase();
+  return lowerName.endsWith(".pdf") || lowerName.endsWith(".doc") || lowerName.endsWith(".docx");
+}
+
+function getAttachmentChipSuffix(file: AttachedFile) {
+  if (file.loading) {
+    return " · 읽는 중…";
+  }
+  if (file.readError) {
+    return " · 읽기 실패";
+  }
+  if (file.kind === "binary") {
+    return isDocumentFileName(file.name) ? " · 본문 미포함" : " · 미리보기만";
+  }
+  return "";
+}
+
+function buildResumeTextParts(messages: Message[], input: string, attachedFiles: AttachedFile[]) {
+  const userMessageText = messages
+    .filter((message) => message.sender === "user")
+    .map((message) => message.text)
+    .join("\n\n");
+  const trimmedInput = input.trim();
+  const attachedText = attachedFiles
+    .filter((file) => file.kind === "text" && file.textContent && !file.readError && !file.loading)
+    .map((file) => file.textContent as string)
+    .join("\n\n");
+
+  return [userMessageText, trimmedInput, attachedText].filter((part) => part.length > 0);
+}
+
+const iconSources = {
+  history: historyIcon,
+  plus: plusIcon,
+  attach: attachIcon,
+  chevron: chevronIcon,
+  arrowUp: arrowUpIcon,
+  copy: copyIcon,
+  download: downloadIcon,
+  edit: editIcon,
+  followUp: followUpIcon,
+  spark: sparkIcon,
+  external: externalIcon,
+} as const;
+
+type IconName = keyof typeof iconSources;
+
+function Icon({ name }: { name: IconName }) {
+  return <img src={iconSources[name]} alt="" aria-hidden="true" className="aiDraftIcon" data-icon-name={name} width={18} height={18} />;
+}
 
 function nowTime() {
   return new Intl.DateTimeFormat("ko-KR", {
@@ -157,99 +233,19 @@ function playTone(enabled: boolean, type: "send" | "ready" | "open" | "success")
   oscillator.stop(context.currentTime + 0.16);
 }
 
-function Icon({ name }: { name: "history" | "plus" | "settings" | "send" | "copy" | "download" | "edit" | "spark" | "external" }) {
-  const common = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-
-  if (name === "history") {
-    return (
-      <svg aria-hidden="true" {...common}>
-        <path d="M3 12a9 9 0 1 0 3-6.7" />
-        <path d="M3 4v5h5" />
-        <path d="M12 7v5l3 2" />
-      </svg>
-    );
-  }
-
-  if (name === "plus") {
-    return (
-      <svg aria-hidden="true" {...common}>
-        <path d="M12 5v14" />
-        <path d="M5 12h14" />
-      </svg>
-    );
-  }
-
-  if (name === "settings") {
-    return (
-      <svg aria-hidden="true" {...common}>
-        <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
-        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.9l.05.05a2 2 0 1 1-2.83 2.83l-.05-.05a1.7 1.7 0 0 0-1.9-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.06a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.9.34l-.05.05a2 2 0 1 1-2.83-2.83l.05-.05a1.7 1.7 0 0 0 .34-1.9 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.06a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.9l-.05-.05a2 2 0 1 1 2.83-2.83l.05.05a1.7 1.7 0 0 0 1.9.34h.01a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.06a1.7 1.7 0 0 0 1 1.55h.01a1.7 1.7 0 0 0 1.9-.34l.05-.05a2 2 0 1 1 2.83 2.83l-.05.05a1.7 1.7 0 0 0-.34 1.9v.01a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.06a1.7 1.7 0 0 0-1.55 1Z" />
-      </svg>
-    );
-  }
-
-  if (name === "send") {
-    return (
-      <svg aria-hidden="true" {...common}>
-        <path d="m22 2-7 20-4-9-9-4 20-7Z" />
-        <path d="M22 2 11 13" />
-      </svg>
-    );
-  }
-
-  if (name === "copy") {
-    return (
-      <svg aria-hidden="true" {...common}>
-        <rect x="9" y="9" width="13" height="13" rx="2" />
-        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-      </svg>
-    );
-  }
-
-  if (name === "download") {
-    return (
-      <svg aria-hidden="true" {...common}>
-        <path d="M12 3v12" />
-        <path d="m7 10 5 5 5-5" />
-        <path d="M5 21h14" />
-      </svg>
-    );
-  }
-
-  if (name === "edit") {
-    return (
-      <svg aria-hidden="true" {...common}>
-        <path d="M12 20h9" />
-        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-      </svg>
-    );
-  }
-
-  if (name === "spark") {
-    return (
-      <svg aria-hidden="true" {...common}>
-        <path d="M13 2 8 13l-6 2 6 2 5 5 2-6 7-5-7-2-2-7Z" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg aria-hidden="true" {...common}>
-      <path d="M15 3h6v6" />
-      <path d="M10 14 21 3" />
-      <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
-    </svg>
-  );
-}
-
 export function AIDraftChatBuilder() {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
   const [selectedJobId, setSelectedJobId] = useState(mockJobs[0].id);
   const [selectedApiJob, setSelectedApiJob] = useState<Job | null>(null);
   const [jobQuery, setJobQuery] = useState("");
-  const [draftState, setDraftState] = useState<DraftState>("complete");
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [draftState, setDraftState] = useState<DraftState>("idle");
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [composerMenuOpen, setComposerMenuOpen] = useState(false);
+  const [toneMenuOpen, setToneMenuOpen] = useState(false);
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [textFormat, setTextFormat] = useState<TextFormat>("TXT");
   const [editorFontSize, setEditorFontSize] = useState(15);
@@ -262,8 +258,41 @@ export function AIDraftChatBuilder() {
   });
   const [didFallback, setDidFallback] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [newChatConfirmOpen, setNewChatConfirmOpen] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const timelineRef = useRef<HTMLDivElement>(null);
+  const composerBarRef = useRef<HTMLDivElement>(null);
+  const composerInputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const draftFitProgressRef = useRef(0);
+  const analyzeRequestIdRef = useRef(0);
+  const sendReplyTimeoutRef = useRef<number | null>(null);
+
+  const clearSendReplyTimeout = () => {
+    if (sendReplyTimeoutRef.current !== null) {
+      window.clearTimeout(sendReplyTimeoutRef.current);
+      sendReplyTimeoutRef.current = null;
+    }
+  };
+
+  const syncComposerHeight = useCallback(() => {
+    const textarea = composerInputRef.current;
+    if (!textarea) {
+      return;
+    }
+
+    textarea.style.height = "auto";
+    const scrollHeight = Math.max(textarea.scrollHeight, COMPOSER_INPUT_MIN_HEIGHT);
+
+    if (scrollHeight > COMPOSER_INPUT_MAX_HEIGHT) {
+      textarea.style.height = `${COMPOSER_INPUT_MAX_HEIGHT}px`;
+      textarea.style.overflowY = "auto";
+      return;
+    }
+
+    textarea.style.height = `${scrollHeight}px`;
+    textarea.style.overflowY = "hidden";
+  }, []);
 
   const selectableJobs = useMemo(() => {
     if (!selectedApiJob) {
@@ -273,7 +302,11 @@ export function AIDraftChatBuilder() {
     return [selectedApiJob, ...mockJobs.filter((job) => job.id !== selectedApiJob.id)];
   }, [selectedApiJob]);
   const selectedJob = selectableJobs.find((job) => job.id === selectedJobId) ?? selectableJobs[0];
-  const allText = `${messages.map((message) => message.text).join(" ")} ${input}`.toLowerCase();
+  const resumeText = useMemo(() => {
+    return buildResumeTextParts(messages, input, attachedFiles).join("\n\n");
+  }, [messages, input, attachedFiles]);
+  const canAnalyze = resumeText.trim().length >= 10;
+  const allText = `${resumeText}`.toLowerCase();
   const inferredFrontendSkills =
     selectedJob.id === "frontend" && /(앱|개발|프로젝트|mvp|사용자|인터뷰|팀|공모전)/.test(allText)
       ? ["JavaScript", "React", "HTML/CSS", "Git", "REST API", "Next.js", "테스트 코드"]
@@ -283,18 +316,23 @@ export function AIDraftChatBuilder() {
     selectedJob.skills.length > 0
       ? Math.round((matchedSkills.length / selectedJob.skills.length) * 100)
       : 0;
-  const draftFitTargetScore = Math.min(92, 52 + matchedSkills.length * 3 + 9);
-  const atsScore = Math.min(92, 52 + matchedSkills.length * 3 + (draftState === "complete" ? 9 : 0));
+  const estimatedFitScore = Math.min(92, 52 + matchedSkills.length * 3 + (draftState === "complete" ? 9 : 0));
+  const draftFitTargetScore = analysisResult?.matchScore ?? estimatedFitScore;
+  const atsScore = analysisResult?.matchScore ?? estimatedFitScore;
   const completedProgressStepCount = draftProgressSteps.filter((step) => draftFitProgress >= Math.min(step.threshold, draftFitTargetScore)).length;
-  const withSpaces = draftText.length;
-  const withoutSpaces = draftText.replace(/\s/g, "").length;
+  const resultBody =
+    analysisResult?.suggestedSentences?.length
+      ? analysisResult.suggestedSentences.join("\n\n")
+      : draftText;
+  const withSpaces = resultBody.length;
+  const withoutSpaces = resultBody.replace(/\s/g, "").length;
   const displayDraft =
     textFormat === "Markdown"
-      ? `## 팀 리더십 기반 문제 해결 경험\n\n${draftText
+      ? `## 팀 리더십 기반 문제 해결 경험\n\n${resultBody
           .split("\n\n")
           .map((paragraph) => `- ${paragraph}`)
           .join("\n")}`
-      : draftText;
+      : resultBody;
 
   const filteredJobs = useMemo(() => {
     const query = jobQuery.trim().toLowerCase();
@@ -304,12 +342,83 @@ export function AIDraftChatBuilder() {
     );
   }, [jobQuery, selectableJobs]);
 
+  const conversationSummaryItems = useMemo(() => {
+    const fromUser = messages
+      .filter((message) => message.sender === "user")
+      .flatMap((message) =>
+        message.text
+          .split(/\n+/)
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0)
+      );
+
+    if (fromUser.length > 0) {
+      return fromUser.slice(0, 5);
+    }
+
+    if (analysisResult?.strengths.length) {
+      return analysisResult.strengths.slice(0, 3);
+    }
+
+    return [];
+  }, [messages, analysisResult]);
+
   useEffect(() => {
     timelineRef.current?.scrollTo({
       top: timelineRef.current.scrollHeight,
       behavior: "smooth",
     });
   }, [messages, draftState]);
+
+  useEffect(() => {
+    syncComposerHeight();
+  }, [input, syncComposerHeight]);
+
+  useEffect(() => {
+    if (!newChatConfirmOpen) {
+      return undefined;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setNewChatConfirmOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [newChatConfirmOpen]);
+
+  useEffect(() => {
+    if (!composerMenuOpen && !modelMenuOpen && !toneMenuOpen) {
+      return undefined;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (composerBarRef.current?.contains(event.target as Node)) {
+        return;
+      }
+
+      setComposerMenuOpen(false);
+      setToneMenuOpen(false);
+      setModelMenuOpen(false);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setComposerMenuOpen(false);
+        setToneMenuOpen(false);
+        setModelMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [composerMenuOpen, modelMenuOpen, toneMenuOpen]);
 
   useEffect(() => {
     const queryJobId = new URLSearchParams(window.location.search).get("jobId")?.trim();
@@ -386,9 +495,141 @@ export function AIDraftChatBuilder() {
     playTone(settings.sound, "open");
   };
 
+  const closeComposerMenus = () => {
+    setComposerMenuOpen(false);
+    setToneMenuOpen(false);
+    setModelMenuOpen(false);
+  };
+
+  const toggleComposerMenu = () => {
+    setModelMenuOpen(false);
+    setToneMenuOpen(false);
+    setComposerMenuOpen((value) => !value);
+    playTone(settings.sound, "open");
+  };
+
+  const toggleModelMenu = () => {
+    setComposerMenuOpen(false);
+    setToneMenuOpen(false);
+    setModelMenuOpen((value) => !value);
+    playTone(settings.sound, "open");
+  };
+
+  const toggleToneMenu = () => {
+    setToneMenuOpen((value) => !value);
+    playTone(settings.sound, "open");
+  };
+
+  const handleModelSelect = (model: AiSettings["model"]) => {
+    updateSettings("model", model);
+    closeComposerMenus();
+  };
+
+  const handleToneSelect = (tone: AiSettings["tone"]) => {
+    updateSettings("tone", tone);
+    closeComposerMenus();
+  };
+
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileInputChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = event.target.files;
+    if (!selectedFiles?.length) {
+      return;
+    }
+
+    resetAnalysis();
+    setDraftState((prev) => (prev === "loading" ? prev : "idle"));
+
+    const fileEntries = Array.from(selectedFiles).map((file) => ({
+      file,
+      attachment: {
+        id: crypto.randomUUID(),
+        name: file.name,
+        kind: (isTextAttachment(file) ? "text" : "binary") as AttachedFileKind,
+        textContent: null,
+        readError: false,
+        loading: isTextAttachment(file),
+      },
+    }));
+
+    setAttachedFiles((prev) => [...prev, ...fileEntries.map((entry) => entry.attachment)]);
+    event.target.value = "";
+    playTone(settings.sound, "open");
+
+    const promoteDraftStateIfAnalyzable = (nextFiles: AttachedFile[]) => {
+      const nextResumeText = buildResumeTextParts(messages, input, nextFiles).join("\n\n").trim();
+      if (nextResumeText.length >= 10) {
+        setDraftState((prev) => (prev === "loading" ? prev : "ready"));
+      }
+    };
+
+    await Promise.all(
+      fileEntries.map(async ({ file, attachment }) => {
+        if (!isTextAttachment(file)) {
+          return;
+        }
+
+        try {
+          const textContent = await file.text();
+          setAttachedFiles((prev) => {
+            const next = prev.map((item) =>
+              item.id === attachment.id
+                ? {
+                    ...item,
+                    textContent,
+                    readError: textContent.trim().length === 0,
+                    loading: false,
+                  }
+                : item
+            );
+            promoteDraftStateIfAnalyzable(next);
+            return next;
+          });
+        } catch {
+          setAttachedFiles((prev) =>
+            prev.map((item) =>
+              item.id === attachment.id ? { ...item, readError: true, loading: false } : item
+            )
+          );
+        }
+      })
+    );
+  };
+
+  const removeAttachedFile = (fileId: string) => {
+    setAttachedFiles((prev) => prev.filter((file) => file.id !== fileId));
+    resetAnalysis();
+    playTone(settings.sound, "open");
+  };
+
+  const resetAnalysis = () => {
+    analyzeRequestIdRef.current += 1;
+    setAnalysisResult(null);
+    setAnalysisStatus("idle");
+    setAnalysisError(null);
+    setDraftFitProgress(0);
+    draftFitProgressRef.current = 0;
+  };
+
+  const handleJobSelect = (jobId: string) => {
+    setSelectedJobId(jobId);
+    setShowSearch(false);
+    clearSendReplyTimeout();
+    resetAnalysis();
+    setDraftState(messages.some((message) => message.sender === "user") ? "ready" : "idle");
+    playTone(settings.sound, "open");
+  };
+
   const handleSend = () => {
     const trimmed = input.trim();
     if (!trimmed) return;
+
+    clearSendReplyTimeout();
+    resetAnalysis();
+    setDraftState("idle");
 
     playTone(settings.sound, "send");
     const nextMessages: Message[] = [
@@ -402,8 +643,11 @@ export function AIDraftChatBuilder() {
     ];
     setMessages(nextMessages);
     setInput("");
+    window.requestAnimationFrame(syncComposerHeight);
 
-    window.setTimeout(() => {
+    sendReplyTimeoutRef.current = window.setTimeout(() => {
+      sendReplyTimeoutRef.current = null;
+
       if (settings.followUp && trimmed.length < 35 && !didFallback) {
         setDidFallback(true);
         setMessages((prev) => [
@@ -434,29 +678,70 @@ export function AIDraftChatBuilder() {
     }, 520);
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
+    if (!canAnalyze || draftState === "loading") {
+      return;
+    }
+
+    const requestId = analyzeRequestIdRef.current;
+    setAnalysisResult(null);
+    setAnalysisError(null);
+    setAnalysisStatus("loading");
     setDraftState("loading");
+    setDraftFitProgress(0);
+    draftFitProgressRef.current = 0;
     playTone(settings.sound, "open");
 
-    window.setTimeout(() => {
+    try {
+      const result = await analyzeResume({
+        jobId: selectedJob.id,
+        resumeText: resumeText.trim(),
+      });
+      if (requestId !== analyzeRequestIdRef.current) {
+        return;
+      }
+      setAnalysisResult(result);
+      setAnalysisStatus("complete");
       setDraftState("complete");
       playTone(settings.sound, "success");
-    }, 1500);
+    } catch {
+      if (requestId !== analyzeRequestIdRef.current) {
+        return;
+      }
+      setAnalysisResult(null);
+      setAnalysisStatus("error");
+      setAnalysisError("분석 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      setDraftState("ready");
+      playTone(settings.sound, "ready");
+    }
   };
 
   const handleCopy = async () => {
-    await navigator.clipboard?.writeText(draftText);
+    await navigator.clipboard?.writeText(resultBody);
     setCopied(true);
     playTone(settings.sound, "success");
     window.setTimeout(() => setCopied(false), 1600);
   };
 
   const handleNewChat = () => {
+    clearSendReplyTimeout();
     setMessages([initialMessages[0]]);
     setInput("");
+    setAttachedFiles([]);
     setDraftState("idle");
     setDidFallback(false);
+    resetAnalysis();
+    setNewChatConfirmOpen(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    window.requestAnimationFrame(syncComposerHeight);
     playTone(settings.sound, "open");
+  };
+
+  const handleComposerChange = (value: string) => {
+    setInput(value);
+    window.requestAnimationFrame(syncComposerHeight);
   };
 
   return (
@@ -477,51 +762,30 @@ export function AIDraftChatBuilder() {
               </div>
 
               <div className="aiDraftHeaderActions">
-                <button type="button" className="aiDraftGhostButton" onClick={() => setSettingsOpen((value) => !value)}>
-                  <Icon name="settings" />
-                  AI 설정
-                </button>
                 <button type="button" className="aiDraftGhostButton">
                   <Icon name="history" />
                   대화 히스토리
                 </button>
-                <button type="button" className="aiDraftGhostButton" onClick={handleNewChat}>
+                <button type="button" className="aiDraftGhostButton" onClick={() => setNewChatConfirmOpen(true)}>
                   <Icon name="plus" />새 대화
                 </button>
               </div>
-
-              {settingsOpen && (
-                <div className="aiDraftSettingsPopover" role="dialog" aria-label="AI 설정">
-                  <label>
-                    모델
-                    <select value={settings.model} onChange={(event) => updateSettings("model", event.target.value as AiSettings["model"])}>
-                      <option>Gemini Pro</option>
-                      <option>Fast Draft</option>
-                      <option>Precision</option>
-                    </select>
-                  </label>
-                  <label>
-                    문체
-                    <select value={settings.tone} onChange={(event) => updateSettings("tone", event.target.value as AiSettings["tone"])}>
-                      <option>담백한 실무형</option>
-                      <option>성과 강조형</option>
-                      <option>성장 서사형</option>
-                    </select>
-                  </label>
-                  <button type="button" className={settings.followUp ? "active" : ""} onClick={() => updateSettings("followUp", !settings.followUp)}>
-                    단답 보완 질문 {settings.followUp ? "ON" : "OFF"}
-                  </button>
-                  <button type="button" className={settings.sound ? "active" : ""} onClick={() => updateSettings("sound", !settings.sound)}>
-                    사운드 효과 {settings.sound ? "ON" : "OFF"}
-                  </button>
-                </div>
-              )}
             </header>
 
             <div className="aiDraftTimeline" ref={timelineRef}>
               {messages.map((message) => (
-                <article className={`aiDraftMessage ${message.sender}`} key={message.id}>
-                  <div className="aiDraftAvatar">{message.sender === "ai" ? "AI" : "나"}</div>
+                <article
+                  className={`aiDraftMessage ${message.sender}`}
+                  key={message.id}
+                  aria-label={message.sender === "ai" ? "AI 답변" : "내 메시지"}
+                >
+                  <div className="aiDraftAvatar" aria-hidden="true">
+                    {message.sender === "ai" ? (
+                      <img src={aiSymbol} alt="" className="aiDraftAvatarLogo" />
+                    ) : (
+                      "나"
+                    )}
+                  </div>
                   <div className="aiDraftBubble">
                     <p>{message.text}</p>
                     <time>{message.time}</time>
@@ -532,11 +796,19 @@ export function AIDraftChatBuilder() {
               {(draftState === "ready" || draftState === "complete") && (
                 <div className="aiDraftReadyRow">
                   <span>대화 완료</span>
-                  <button type="button" onClick={handleGenerate}>
+                  <button type="button" onClick={handleGenerate} disabled={!canAnalyze}>
                     <Icon name="spark" />
                     AI 초안 생성 시작
                   </button>
                 </div>
+              )}
+
+              {!canAnalyze && (draftState === "ready" || draftState === "complete") && (
+                <p className="aiDraftInputHint">자기소개 내용을 10자 이상 입력해야 분석할 수 있습니다.</p>
+              )}
+
+              {analysisStatus === "error" && analysisError && (
+                <p className="aiDraftErrorNote" role="alert">{analysisError}</p>
               )}
 
               {(draftState === "loading" || draftState === "complete") && (
@@ -568,16 +840,21 @@ export function AIDraftChatBuilder() {
                       ))}
                     </div>
                   </div>
-                  {draftState === "loading" && <b>1.5초</b>}
+                  {draftState === "loading" && <b aria-hidden="true">...</b>}
                 </section>
               )}
 
-              {draftState === "complete" && (
+              {draftState === "complete" && analysisResult && (
                 <section className="aiDraftResultCard">
                   <div className="aiDraftResultHeader">
                     <div>
                       <h2>AI 초안 결과</h2>
                       <span>초안 v1</span>
+                      {analysisResult && (
+                        <span className={`aiDraftModeBadge ${analysisResult.mode}`}>
+                          {analysisResult.mode === "mock" ? "mock 분석" : "ai 분석"}
+                        </span>
+                      )}
                     </div>
                     <strong>완료</strong>
                   </div>
@@ -608,21 +885,50 @@ export function AIDraftChatBuilder() {
                     </div>
                   </div>
                   <p className="aiDraftResultText" style={{ "--draft-editor-font": `${editorFontSize}px` } as CSSProperties}>{displayDraft}</p>
+                  {analysisResult && analysisResult.rewriteGuides.length > 0 && (
+                    <ul className="aiDraftGuideList" aria-label="개선 가이드">
+                      {analysisResult.rewriteGuides.map((guide) => (
+                        <li key={guide}>{guide}</li>
+                      ))}
+                    </ul>
+                  )}
                   <div className="aiDraftResultToolbar">
-                    <button type="button" className={copied ? "success" : ""} onClick={handleCopy}>
+                    <button
+                      type="button"
+                      className={copied ? "success" : ""}
+                      onClick={handleCopy}
+                      aria-label="초안 복사"
+                      title="초안 복사"
+                      data-tooltip="초안 복사"
+                    >
                       <Icon name="copy" />
                       {copied ? "복사 완료" : "복사"}
                     </button>
-                    <button type="button">
+                    <button
+                      type="button"
+                      aria-label="TXT로 다운로드"
+                      title="TXT로 다운로드"
+                      data-tooltip="TXT로 다운로드"
+                    >
                       <Icon name="download" />
                       다운로드 (TXT)
                     </button>
-                    <button type="button">
+                    <button
+                      type="button"
+                      aria-label="편집기로 열기"
+                      title="편집기로 열기"
+                      data-tooltip="편집기로 열기"
+                    >
                       <Icon name="edit" />
                       편집기로 열기
                     </button>
-                    <button type="button">
-                      <Icon name="spark" />
+                    <button
+                      type="button"
+                      aria-label="다음 질문 이어가기"
+                      title="다음 질문 이어가기"
+                      data-tooltip="다음 질문 이어가기"
+                    >
+                      <Icon name="followUp" />
                       다음 질문 이어가기
                     </button>
                   </div>
@@ -631,24 +937,187 @@ export function AIDraftChatBuilder() {
             </div>
 
             <footer className="aiDraftComposer">
-              <textarea
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    handleSend();
-                  }
-                }}
-                placeholder="메시지를 입력하세요..."
-                rows={1}
-              />
-              <button type="button" className="aiDraftAttachButton" aria-label="파일 첨부">
-                <Icon name="edit" />
-              </button>
-              <button type="button" className="aiDraftSendButton" onClick={handleSend} disabled={!input.trim()}>
-                <Icon name="send" />
-              </button>
+              <div className="aiDraftComposerDock">
+                {attachedFiles.length > 0 && (
+                  <div className="aiDraftAttachedFiles" aria-label="첨부 파일">
+                    {attachedFiles.map((file) => (
+                      <span
+                        className={`aiDraftAttachedFileChip ${file.readError ? "error" : ""} ${file.kind === "binary" ? "binary" : ""} ${file.loading ? "loading" : ""}`}
+                        key={file.id}
+                      >
+                        <span className="aiDraftAttachedFileChipLabel">
+                          {file.name}
+                          {getAttachmentChipSuffix(file)}
+                        </span>
+                        <button
+                          type="button"
+                          className="aiDraftAttachedFileChipRemove"
+                          aria-label={`${file.name} 제거`}
+                          onClick={() => removeAttachedFile(file.id)}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="aiDraftComposerBar" ref={composerBarRef}>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="aiDraftHiddenFileInput"
+                    accept={FILE_ACCEPT}
+                    multiple
+                    onChange={handleFileInputChange}
+                  />
+
+                  {composerMenuOpen && (
+                    <div
+                      className="aiDraftComposerPopover aiDraftComposerOptionsMenu aiDraftComposerOptionsMenuCompact"
+                      role="dialog"
+                      aria-label="작성 옵션"
+                    >
+                      <button
+                        type="button"
+                        className="aiDraftComposerMenuItem"
+                        aria-label="사진 및 파일 추가"
+                        onClick={openFilePicker}
+                      >
+                        <Icon name="attach" />
+                        <span>사진 및 파일 추가</span>
+                      </button>
+
+                      <div className="aiDraftComposerMenuDivider" role="separator" />
+
+                      <div className="aiDraftComposerOptionsMenuBody">
+                        <button
+                          type="button"
+                          className="aiDraftComposerSubmenuTrigger"
+                          aria-label="문체 설정"
+                          aria-expanded={toneMenuOpen}
+                          aria-haspopup="listbox"
+                          onClick={toggleToneMenu}
+                        >
+                          <span>문체 설정</span>
+                          <span className="aiDraftComposerSubmenuChevron" aria-hidden="true">
+                            <Icon name="chevron" />
+                          </span>
+                        </button>
+                      </div>
+
+                      <div className="aiDraftComposerMenuDivider" role="separator" />
+
+                      <button
+                        type="button"
+                        className={`aiDraftComposerMenuToggle ${settings.followUp ? "active" : ""}`}
+                        role="switch"
+                        aria-checked={settings.followUp}
+                        aria-label="단답 보완 질문"
+                        onClick={() => updateSettings("followUp", !settings.followUp)}
+                      >
+                        <span className="aiDraftComposerMenuToggleLabel">단답 보완 질문</span>
+                        <span className="aiDraftComposerMenuSwitch" aria-hidden="true" />
+                      </button>
+
+                      {toneMenuOpen && (
+                        <div
+                          className="aiDraftComposerToneSubmenu aiDraftComposerToneSubmenuAligned"
+                          role="listbox"
+                          aria-label="문체 설정"
+                        >
+                          {AI_TONE_OPTIONS.map((tone) => (
+                            <button
+                              key={tone}
+                              type="button"
+                              className={`aiDraftComposerToneOption ${settings.tone === tone ? "active" : ""}`}
+                              role="option"
+                              aria-selected={settings.tone === tone}
+                              onClick={() => handleToneSelect(tone)}
+                            >
+                              <span>{tone}</span>
+                              {settings.tone === tone ? <span className="aiDraftComposerToneCheck" aria-hidden="true">✓</span> : null}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {modelMenuOpen && (
+                    <div
+                      className="aiDraftComposerPopover aiDraftComposerModelMenu aiDraftComposerModelMenuCompact"
+                      role="menu"
+                      aria-label="AI 모델 선택"
+                    >
+                      {AI_MODEL_OPTIONS.map((model) => (
+                        <button
+                          key={model}
+                          type="button"
+                          className={`aiDraftComposerMenuItem ${settings.model === model ? "active" : ""}`}
+                          role="menuitemradio"
+                          aria-checked={settings.model === model}
+                          onClick={() => handleModelSelect(model)}
+                        >
+                          <span>{model}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    className="aiDraftComposerPlusButton"
+                    aria-label="작성 옵션"
+                    aria-expanded={composerMenuOpen}
+                    aria-haspopup="dialog"
+                    title="작성 옵션"
+                    data-tooltip="작성 옵션"
+                    onClick={toggleComposerMenu}
+                  >
+                    <Icon name="plus" />
+                  </button>
+
+                  <textarea
+                    ref={composerInputRef}
+                    value={input}
+                    onChange={(event) => handleComposerChange(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                    placeholder="메시지를 입력하세요..."
+                    rows={1}
+                  />
+
+                  <button
+                    type="button"
+                    className="aiDraftComposerModelButton"
+                    aria-label={`AI 모델 선택, 현재 ${settings.model}`}
+                    aria-expanded={modelMenuOpen}
+                    aria-haspopup="menu"
+                    title={`AI 모델: ${settings.model}`}
+                    onClick={toggleModelMenu}
+                  >
+                    <span>{settings.model}</span>
+                    <Icon name="chevron" />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="aiDraftComposerSendButton"
+                    onClick={handleSend}
+                    disabled={!input.trim()}
+                    aria-label="메시지 보내기"
+                    title="메시지 보내기"
+                    data-tooltip="메시지 보내기"
+                  >
+                    <Icon name="arrowUp" />
+                  </button>
+                </div>
+              </div>
               <div className="aiDraftComposerHint">
                 <span>Enter 전송</span>
                 <span>Shift + Enter 줄바꿈</span>
@@ -663,7 +1132,6 @@ export function AIDraftChatBuilder() {
                 <small>현재 활동 중인 취업 준비</small>
                 <strong>{settings.tone}</strong>
               </div>
-              <button type="button" onClick={() => setSettingsOpen((value) => !value)}>관리</button>
             </section>
 
             <section className="aiDraftInfoCard">
@@ -676,7 +1144,7 @@ export function AIDraftChatBuilder() {
                   <input value={jobQuery} onChange={(event) => setJobQuery(event.target.value)} placeholder="공고 또는 기술 검색" />
                   <div>
                     {filteredJobs.map((job) => (
-                      <button key={job.id} type="button" onClick={() => { setSelectedJobId(job.id); setShowSearch(false); playTone(settings.sound, "open"); }}>
+                      <button key={job.id} type="button" onClick={() => handleJobSelect(job.id)}>
                         <strong>{job.company}</strong>
                         <span>{job.title}</span>
                       </button>
@@ -728,7 +1196,7 @@ export function AIDraftChatBuilder() {
             <section className="aiDraftInfoCard ats">
               <div className="aiDraftCardTitle">
                 <span>ATS 적합도</span>
-                <small>실시간 추정</small>
+                <small>{analysisResult ? "API matchScore" : "대화 기반 추정"}</small>
               </div>
               <div className="aiDraftAtsGrid">
                 <div className="aiDraftScoreRing" style={{ "--score": `${atsScore}%` } as CSSProperties}>
@@ -736,38 +1204,129 @@ export function AIDraftChatBuilder() {
                   <span>/100</span>
                 </div>
                 <div className="aiDraftScoreBars">
-                  {[
-                    ["키워드 적합도", matchPercent],
-                    ["경험 구체성", 78],
-                    ["구조화 (STAR)", 86],
-                    ["문장 명료성", draftState === "complete" ? 84 : 80],
-                    ["기업/직무 적합도", 82],
-                  ].map(([label, value]) => (
-                    <div key={label}>
-                      <span>{label}</span>
-                      <i><b style={{ width: `${value}%` }} /></i>
-                      <em>{value}</em>
+                  {analysisResult ? (
+                    <div>
+                      <span>키워드 적합도</span>
+                      <i><b style={{ width: `${matchPercent}%` }} /></i>
+                      <em>{matchPercent}</em>
                     </div>
-                  ))}
+                  ) : (
+                    [
+                      ["키워드 적합도", matchPercent],
+                      ["경험 구체성 (추정)", 78],
+                      ["구조화 STAR (추정)", 86],
+                      ["문장 명료성 (추정)", draftState === "complete" ? 84 : 80],
+                      ["기업/직무 적합도 (추정)", 82],
+                    ].map(([label, value]) => (
+                      <div key={label}>
+                        <span>{label}</span>
+                        <i><b style={{ width: `${value}%` }} /></i>
+                        <em>{value}</em>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
-              <p><strong>TIP</strong> 더 구체적인 수치와 도구 사용 경험을 추가하면 점수가 상승합니다.</p>
+              <p>
+                <strong>TIP</strong>
+                {analysisResult
+                  ? " 세부 강점·보완점·키워드는 아래 API 분석 결과를 참고하세요."
+                  : " 더 구체적인 수치와 도구 사용 경험을 추가하면 점수가 상승합니다."}
+              </p>
             </section>
+
+            {analysisResult && (
+              <>
+                <section className="aiDraftInfoCard">
+                  <div className="aiDraftCardTitle">
+                    <span>강점</span>
+                  </div>
+                  <ul className="aiDraftSummary">
+                    {analysisResult.strengths.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </section>
+
+                <section className="aiDraftInfoCard">
+                  <div className="aiDraftCardTitle">
+                    <span>보완점</span>
+                  </div>
+                  {analysisResult.weaknesses.length > 0 ? (
+                    <ul className="aiDraftSummary aiDraftSummaryWarn">
+                      {analysisResult.weaknesses.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="aiDraftEmptyNote">뚜렷한 약점 없음</p>
+                  )}
+                </section>
+
+                <section className="aiDraftInfoCard">
+                  <div className="aiDraftCardTitle">
+                    <span>누락 키워드</span>
+                  </div>
+                  {analysisResult.missingKeywords.length > 0 ? (
+                    <div className="aiDraftKeywordGrid">
+                      {analysisResult.missingKeywords.map((keyword) => (
+                        <span className="aiDraftKeywordChip" key={keyword}>{keyword}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="aiDraftEmptyNote">누락 키워드 없음</p>
+                  )}
+                </section>
+              </>
+            )}
 
             <section className="aiDraftInfoCard">
               <div className="aiDraftCardTitle">
                 <span>대화 요약</span>
               </div>
-              <ul className="aiDraftSummary">
-                <li>팀 리더로서 프로젝트 일정 재정비 및 소통 체계 구축</li>
-                <li>사용자 인터뷰 기반 문제 정의 및 MVP 재구성</li>
-                <li>최우수상 수상, 사용자 200명 이상 확보</li>
-              </ul>
-              <button type="button" className="aiDraftSummaryButton">전체 대화 요약 보기</button>
+              {conversationSummaryItems.length > 0 ? (
+                <>
+                  <ul className="aiDraftSummary">
+                    {conversationSummaryItems.map((item, index) => (
+                      <li key={`${index}-${item}`}>{item}</li>
+                    ))}
+                  </ul>
+                  <button type="button" className="aiDraftSummaryButton">전체 대화 요약 보기</button>
+                </>
+              ) : (
+                <p className="aiDraftEmptyNote">대화를 시작하면 요약이 표시됩니다.</p>
+              )}
             </section>
           </aside>
         </div>
       </section>
+
+      {newChatConfirmOpen && (
+        <div
+          className="aiDraftConfirmOverlay"
+          role="presentation"
+          onClick={() => setNewChatConfirmOpen(false)}
+        >
+          <div
+            className="aiDraftConfirmDialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ai-draft-new-chat-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="ai-draft-new-chat-title">새 대화를 시작할까요?</h2>
+            <p>현재 대화와 분석 결과가 초기화됩니다.</p>
+            <div className="aiDraftConfirmActions">
+              <button type="button" className="aiDraftConfirmCancel" onClick={() => setNewChatConfirmOpen(false)}>
+                취소
+              </button>
+              <button type="button" className="aiDraftConfirmPrimary" onClick={handleNewChat}>
+                새 대화 시작
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <HomeFooter />
     </main>

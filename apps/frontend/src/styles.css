@@ -4094,8 +4094,8 @@ textarea:focus {
   border: 1px solid rgba(226, 232, 240, 0.18);
   border-radius: 12px;
   background:
-    radial-gradient(circle at 15% 18%, rgba(0, 102, 255, 0.18), transparent 23rem),
-    radial-gradient(circle at 75% 70%, rgba(16, 185, 129, 0.08), transparent 26rem),
+    radial-gradient(circle at 15% 18%, rgba(0, 102, 255, 0.1), transparent 23rem),
+    radial-gradient(circle at 75% 70%, rgba(16, 185, 129, 0.05), transparent 26rem),
     linear-gradient(145deg, #0a1128 0%, #081126 52%, #0b1329 100%);
   box-shadow: 0 28px 80px rgba(10, 17, 40, 0.18);
 }
@@ -4105,11 +4105,12 @@ textarea:focus {
   inset: 0;
   pointer-events: none;
   content: "";
+  opacity: 0.55;
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.024) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
   background-size: 56px 56px;
-  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.65), transparent 82%);
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.45), transparent 82%);
 }
 
 .aiDraftChatHeader,
@@ -4222,9 +4223,9 @@ textarea:focus {
 }
 
 .aiDraftGhostButton:active,
-.aiDraftSendButton:active,
 .aiDraftReadyRow button:active,
-.aiDraftResultToolbar button:active {
+.aiDraftResultToolbar button:active,
+.aiDraftComposerSendButton:active {
   transform: translateY(0) scale(0.98);
 }
 
@@ -4317,6 +4318,21 @@ textarea:focus {
   font-size: 0.84rem;
   font-weight: 800;
   box-shadow: 0 12px 28px rgba(0, 102, 255, 0.24);
+  overflow: hidden;
+}
+
+.aiDraftAvatarLogo {
+  display: block;
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.aiDraftIcon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 .aiDraftMessage.user .aiDraftAvatar {
@@ -4327,10 +4343,10 @@ textarea:focus {
   position: relative;
   max-width: min(720px, 86%);
   padding: 18px 20px;
-  border: 1px solid rgba(226, 232, 240, 0.08);
+  border: 1px solid rgba(226, 232, 240, 0.14);
   border-radius: 8px;
-  background: rgba(30, 41, 59, 0.54);
-  color: #d9e3f3;
+  background: rgba(30, 41, 59, 0.72);
+  color: #e2e8f0;
   line-height: 1.7;
   box-shadow: 0 18px 38px rgba(0, 0, 0, 0.12);
 }
@@ -4386,8 +4402,7 @@ textarea:focus {
   box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
 }
 
-.aiDraftReadyRow button,
-.aiDraftSendButton {
+.aiDraftReadyRow button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4410,8 +4425,7 @@ textarea:focus {
   padding: 0 24px;
 }
 
-.aiDraftReadyRow button:hover,
-.aiDraftSendButton:hover {
+.aiDraftReadyRow button:hover {
   transform: translateY(-1px);
   filter: brightness(1.05);
   box-shadow: 0 20px 34px rgba(0, 102, 255, 0.34);
@@ -4698,74 +4712,512 @@ textarea:focus {
 }
 
 .aiDraftComposer {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px 56px;
-  gap: 8px;
-  padding: 12px 22px 16px;
+  position: relative;
+  z-index: 12;
+  padding: 0;
 }
 
-.aiDraftComposer textarea {
-  width: 100%;
+.aiDraftComposerDock {
+  padding: 12px 22px 8px;
+}
+
+.aiDraftAttachedFiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.aiDraftAttachedFileChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 4px 6px 4px 10px;
+  border: 1px solid rgba(226, 232, 240, 0.14);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.88);
+  color: #e2e8f0;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.aiDraftAttachedFileChip.binary {
+  border-color: rgba(148, 163, 184, 0.22);
+  color: #cbd5e1;
+}
+
+.aiDraftAttachedFileChip.error {
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #fecaca;
+}
+
+.aiDraftAttachedFileChip.loading {
+  border-color: rgba(96, 165, 250, 0.28);
+  color: #dbeafe;
+}
+
+.aiDraftAttachedFileChipLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aiDraftAttachedFileChipRemove {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.aiDraftAttachedFileChipRemove:hover,
+.aiDraftAttachedFileChipRemove:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.aiDraftHiddenFileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.aiDraftComposerBar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-height: 48px;
-  max-height: 132px;
-  padding: 15px 18px;
-  border: 1px solid rgba(226, 232, 240, 0.2);
-  border-radius: 8px;
+  padding: 6px 8px;
+  border: 1px solid rgba(226, 232, 240, 0.14);
+  border-radius: 24px;
+  background: rgba(15, 23, 42, 0.94);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 28px rgba(0, 0, 0, 0.18);
+}
+
+.aiDraftComposerBar textarea {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 22px;
+  max-height: 240px;
+  padding: 0 4px;
+  border: 0;
   outline: none;
   resize: none;
-  background: rgba(15, 25, 48, 0.88);
+  overflow-y: hidden;
+  background: transparent;
   color: #f8fafc;
   font: inherit;
-  line-height: 1.4;
-  transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease,
-    background 180ms ease;
+  font-size: 0.92rem;
+  line-height: 22px;
+  align-self: center;
 }
 
-.aiDraftComposer textarea:focus {
-  border-color: var(--draft-blue) !important;
-  background: rgba(15, 25, 48, 1);
-  box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.22) !important;
+.aiDraftComposerBar textarea::placeholder {
+  color: #94a3b8;
 }
 
-.aiDraftAttachButton,
-.aiDraftSendButton {
-  width: 100%;
-  height: 44px;
-  align-self: start;
+.aiDraftComposerBar textarea:focus {
+  box-shadow: none !important;
 }
 
-.aiDraftAttachButton {
+.aiDraftComposerPlusButton {
   display: grid;
+  flex: 0 0 auto;
   place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.aiDraftComposerPlusButton .aiDraftIcon {
+  width: 16px;
+  height: 16px;
+}
+
+.aiDraftComposerPlusButton:hover,
+.aiDraftComposerPlusButton:focus-visible {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.aiDraftComposerPlusButton:focus-visible {
+  outline: 2px solid rgba(0, 102, 255, 0.35);
+  outline-offset: 1px;
+}
+
+.aiDraftComposerSendButton {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(51, 65, 85, 0.96);
+  color: #f8fafc;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    opacity 160ms ease;
+}
+
+.aiDraftComposerSendButton .aiDraftIcon {
+  width: 16px;
+  height: 16px;
+}
+
+.aiDraftComposerSendButton:hover:not(:disabled),
+.aiDraftComposerSendButton:focus-visible:not(:disabled) {
+  background: rgba(71, 85, 105, 1);
+}
+
+.aiDraftComposerSendButton:focus-visible:not(:disabled) {
+  outline: 2px solid rgba(0, 102, 255, 0.35);
+  outline-offset: 1px;
+}
+
+.aiDraftComposerSendButton:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.aiDraftComposerModelButton {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  max-width: 120px;
+  height: auto;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #cbd5e1;
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.aiDraftComposerModelButton span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aiDraftComposerModelButton .aiDraftIcon {
+  width: 12px;
+  height: 12px;
+  opacity: 0.78;
+}
+
+.aiDraftComposerModelButton:hover {
+  color: #f8fafc;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.aiDraftComposerModelButton:focus-visible {
+  color: #f8fafc;
+  outline: 2px solid rgba(0, 102, 255, 0.35);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.aiDraftComposerPopover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  z-index: 20;
+  padding: 4px;
+  border: 1px solid rgba(226, 232, 240, 0.14);
+  border-radius: 12px;
+  background: rgba(17, 27, 52, 0.98);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
+  animation: draftPopoverIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.aiDraftComposerOptionsMenuCompact {
+  left: 0;
+  width: 168px;
+  min-width: 150px;
+  max-width: 180px;
+}
+
+.aiDraftComposerOptionsMenuBody {
+  position: relative;
+}
+
+.aiDraftComposerMenuDivider {
+  height: 1px;
+  margin: 4px 6px;
+  background: rgba(226, 232, 240, 0.12);
+}
+
+.aiDraftComposerSubmenuTrigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: #94a3b8;
+  color: #e2e8f0;
+  font-size: 0.76rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 180ms ease, color 180ms ease, transform 180ms ease;
+  transition: background 160ms ease, color 160ms ease;
 }
 
-.aiDraftAttachButton:hover {
-  color: #f8fafc;
+.aiDraftComposerSubmenuTrigger:hover,
+.aiDraftComposerSubmenuTrigger:focus-visible,
+.aiDraftComposerSubmenuTrigger[aria-expanded="true"] {
   background: rgba(255, 255, 255, 0.06);
-  transform: translateY(-1px);
+  color: #f8fafc;
 }
 
-.aiDraftSendButton:disabled {
-  opacity: 0.45;
+.aiDraftComposerSubmenuTrigger:focus-visible {
+  outline: 2px solid rgba(0, 102, 255, 0.35);
+  outline-offset: 1px;
+}
+
+.aiDraftComposerSubmenuChevron {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  transform: rotate(-90deg);
+}
+
+.aiDraftComposerSubmenuChevron .aiDraftIcon {
+  width: 12px;
+  height: 12px;
+  opacity: 0.82;
+}
+
+.aiDraftComposerToneSubmenu {
+  position: absolute;
+  z-index: 25;
+  width: 168px;
+  min-width: 150px;
+  max-width: 180px;
+  padding: 4px;
+  border: 1px solid rgba(226, 232, 240, 0.14);
+  border-radius: 12px;
+  background: rgba(17, 27, 52, 0.98);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
+}
+
+.aiDraftComposerToneSubmenuAligned {
+  top: auto;
+  bottom: 0;
+  left: calc(100% + 6px);
+}
+
+.aiDraftComposerToneOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.aiDraftComposerToneOption span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aiDraftComposerToneOption:hover,
+.aiDraftComposerToneOption:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+}
+
+.aiDraftComposerToneOption.active {
+  background: rgba(0, 102, 255, 0.16);
+  color: #f8fafc;
+}
+
+.aiDraftComposerToneCheck {
+  flex: 0 0 auto;
+  color: #93c5fd;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.aiDraftComposerModelMenuCompact {
+  right: 40px;
+  width: 168px;
+  min-width: 150px;
+  max-width: 180px;
+}
+
+.aiDraftComposerMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.aiDraftComposerMenuItem .aiDraftIcon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.aiDraftComposerMenuItem span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aiDraftComposerMenuItem:hover,
+.aiDraftComposerMenuItem:focus-visible,
+.aiDraftComposerMenuItem.active {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+}
+
+.aiDraftComposerMenuItem.active {
+  background: rgba(0, 102, 255, 0.16);
+}
+
+.aiDraftComposerMenuItem.isDisabled,
+.aiDraftComposerMenuItem:disabled {
+  opacity: 0.55;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
+}
+
+.aiDraftComposerMenuItem.isDisabled:hover,
+.aiDraftComposerMenuItem:disabled:hover,
+.aiDraftComposerMenuItem.isDisabled:focus-visible,
+.aiDraftComposerMenuItem:disabled:focus-visible {
+  background: transparent;
+  color: #e2e8f0;
+}
+
+.aiDraftComposerMenuItem small {
+  margin-left: auto;
+  color: #94a3b8;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.aiDraftComposerMenuToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.aiDraftComposerMenuToggleLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aiDraftComposerMenuToggle:hover,
+.aiDraftComposerMenuToggle:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.aiDraftComposerMenuSwitch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.35);
+  transition: background 160ms ease;
+}
+
+.aiDraftComposerMenuSwitch::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #f8fafc;
+  transition: transform 160ms ease;
+  content: "";
+}
+
+.aiDraftComposerMenuToggle.active .aiDraftComposerMenuSwitch {
+  background: rgba(0, 102, 255, 0.72);
+}
+
+.aiDraftComposerMenuToggle.active .aiDraftComposerMenuSwitch::after {
+  transform: translateX(14px);
 }
 
 .aiDraftComposerHint {
-  grid-column: 1 / -1;
   display: flex;
   gap: 14px;
   align-items: center;
-  padding-left: 8px;
+  padding: 8px 22px 16px;
   color: #8794aa;
   font-size: 0.76rem;
 }
@@ -5085,6 +5537,222 @@ textarea:focus {
   min-height: 40px;
 }
 
+.aiDraftInputHint,
+.aiDraftErrorNote,
+.aiDraftEmptyNote {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.aiDraftInputHint {
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(226, 232, 240, 0.12);
+}
+
+.aiDraftErrorNote {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.aiDraftEmptyNote {
+  margin: 0;
+  padding: 0;
+  color: #74839a;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.aiDraftModeBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: 7px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.aiDraftModeBadge.mock {
+  color: #fde68a;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.aiDraftModeBadge.ai {
+  color: #bbf7d0;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.14);
+}
+
+.aiDraftGuideList {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.aiDraftGuideList li {
+  position: relative;
+  padding-left: 20px;
+  color: #cbd5e1;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.aiDraftGuideList li::before {
+  position: absolute;
+  top: 0.35em;
+  left: 0;
+  color: var(--draft-amber);
+  content: "•";
+}
+
+.aiDraftSummaryWarn li::before {
+  color: var(--draft-amber);
+  content: "!";
+}
+
+.aiDraftKeywordGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.aiDraftKeywordChip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 102, 255, 0.22);
+  background: rgba(0, 102, 255, 0.08);
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.aiDraftReadyRow button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.aiDraftConfirmOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(10, 17, 40, 0.72);
+}
+
+.aiDraftConfirmDialog {
+  width: min(100%, 420px);
+  padding: 24px;
+  border: 1px solid rgba(226, 232, 240, 0.2);
+  border-radius: 12px;
+  background: rgba(17, 27, 52, 0.98);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
+}
+
+.aiDraftConfirmDialog h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 1.08rem;
+}
+
+.aiDraftConfirmDialog p {
+  margin: 10px 0 0;
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.aiDraftConfirmActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.aiDraftConfirmCancel,
+.aiDraftConfirmPrimary {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(226, 232, 240, 0.18);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.aiDraftConfirmCancel {
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.aiDraftConfirmPrimary {
+  color: #fff;
+  border-color: rgba(0, 102, 255, 0.55);
+  background: var(--draft-blue);
+}
+
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::after {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  z-index: 5;
+  width: max-content;
+  max-width: 220px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(15, 25, 48, 0.96);
+  color: #e2e8f0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: normal;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, 4px);
+  transition: opacity 160ms ease, transform 160ms ease;
+  content: attr(data-tooltip);
+}
+
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after,
+[data-tooltip]:has(:focus-visible)::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.aiDraftResultText,
+.aiDraftSummary li,
+.aiDraftInfoCard dd,
+.aiDraftInfoCard dd a {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 @keyframes draftMessageIn {
   from {
     opacity: 0;
@@ -5221,17 +5889,26 @@ textarea:focus {
     max-width: 100%;
   }
 
-  .aiDraftComposer {
-    grid-template-columns: 1fr 44px;
+  .aiDraftComposerDock {
+    padding-right: 14px;
+    padding-left: 14px;
   }
 
-  .aiDraftSendButton {
-    grid-column: 2;
-    grid-row: 1;
+  .aiDraftComposerModelButton {
+    max-width: 88px;
+    font-size: 0.72rem;
   }
 
-  .aiDraftAttachButton {
-    display: none;
+  .aiDraftComposerModelMenuCompact {
+    right: 0;
+    left: auto;
+  }
+
+  .aiDraftComposerToneSubmenuAligned {
+    top: auto;
+    right: auto;
+    bottom: calc(100% + 8px);
+    left: 0;
   }
 
   .aiDraftProgressSteps {
