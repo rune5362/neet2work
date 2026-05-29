@@ -1241,34 +1241,34 @@ sample JSON은 초기 memory store seed로 사용
 
 ## 16-1. 백엔드 테스트
 
-* [ ] `candidateKey` 하나로 프로필 여러 개 생성 가능.
-* [ ] 프로필별 버전 여러 개 생성 가능.
-* [ ] 특정 프로필 버전 적용 가능.
-* [ ] 과거 프로필 버전 복원 가능.
-* [ ] 문서 생성 시 프로필 스냅샷 저장.
-* [ ] 문서별 버전 여러 개 생성 가능.
-* [ ] 특정 문서 버전 적용 가능.
-* [ ] 과거 문서 버전 복원 가능.
-* [ ] archived 버전은 current로 적용 불가.
-* [ ] current version은 보관할 수 없음.
-* [ ] 다른 candidateKey의 profile/document/version 접근은 실패.
-* [ ] 다른 profile의 versionId를 apply/restore/archive하려 하면 실패.
-* [ ] 다른 document의 versionId를 apply/restore/archive하려 하면 실패.
-* [ ] DB가 없어도 sample/in-memory fallback으로 demo flow가 동작.
+* [x] `candidateKey` 하나로 프로필 여러 개 생성 가능.
+* [x] 프로필별 버전 여러 개 생성 가능.
+* [x] 특정 프로필 버전 적용 가능.
+* [x] 과거 프로필 버전 복원 가능.
+* [x] 문서 생성 시 프로필 스냅샷 저장.
+* [x] 문서별 버전 여러 개 생성 가능.
+* [x] 특정 문서 버전 적용 가능.
+* [x] 과거 문서 버전 복원 가능.
+* [x] archived 버전은 current로 적용 불가.
+* [x] current version은 보관할 수 없음.
+* [x] 다른 candidateKey의 profile/document/version 접근은 실패.
+* [x] 다른 profile의 versionId를 apply/restore/archive하려 하면 실패.
+* [x] 다른 document의 versionId를 apply/restore/archive하려 하면 실패.
+* [x] DB가 없어도 sample/in-memory fallback으로 demo flow가 동작.
 
 ---
 
 ## 16-2. 프론트 테스트
 
-* [ ] `/profiles` 진입.
-* [ ] `/profiles/new`에서 프로필 생성.
-* [ ] `/profiles/:profileId`에서 새 버전 저장.
-* [ ] `/profiles/:profileId/versions`에서 버전 적용/복원.
-* [ ] `/documents`에서 API 기반 문서 목록 조회.
-* [ ] `/documents/new`에서 문서 생성.
-* [ ] `/documents/:documentId`에서 새 버전 저장.
-* [ ] `/documents/:documentId/versions`에서 버전 적용/복원.
-* [ ] AI 분석 버튼이 비활성화되어 있고 안내 문구가 표시되는지 확인.
+* [x] `/profiles` 진입.
+* [x] `/profiles/new`에서 프로필 생성.
+* [x] `/profiles/:profileId`에서 새 버전 저장.
+* [x] `/profiles/:profileId/versions`에서 버전 적용/복원.
+* [x] `/documents`에서 API 기반 문서 목록 조회.
+* [x] `/documents/new`에서 문서 생성.
+* [x] `/documents/:documentId`에서 새 버전 저장.
+* [x] `/documents/:documentId/versions`에서 버전 적용/복원.
+* [x] AI 분석 버튼이 비활성화되어 있고 안내 문구가 표시되는지 확인.
 
 ---
 
@@ -1277,9 +1277,9 @@ sample JSON은 초기 memory store seed로 사용
 루트에서 실행합니다.
 
 ```bash
-corepack pnpm lint
-corepack pnpm test
-corepack pnpm build
+corepack pnpm run lint
+corepack pnpm run test
+corepack pnpm run build
 ```
 
 루트 스크립트는 frontend와 backend를 함께 검사하도록 되어 있습니다. 
