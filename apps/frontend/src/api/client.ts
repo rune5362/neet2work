@@ -1,4 +1,12 @@
 import type { AnalysisResult } from "../types/analysis";
+import type {
+  AiProviderStatus,
+  DraftWorkflowDraft,
+  DraftWorkflowDraftRequest,
+  DraftWorkflowPlan,
+  DraftWorkflowPlanRequest,
+  DraftWorkflowReviseRequest
+} from "../types/draft-workflow";
 import type { CareerStage, EmploymentTypeCategory, JobPosting } from "../types/job";
 
 export type EmploymentTypeFilterValue = EmploymentTypeCategory | "unspecified";
@@ -140,5 +148,67 @@ export async function extractResumeFile(payload: {
     text: string;
     mode: "mock" | "ai";
   }>;
+  return result.data;
+}
+
+export async function getDraftWorkflowProviders(): Promise<AiProviderStatus[]> {
+  const response = await fetch(`${API_BASE_URL}/api/draft-workflow/providers`);
+
+  if (!response.ok) {
+    throw new Error("AI provider 상태 조회에 실패했습니다.");
+  }
+
+  const result = (await response.json()) as ApiItemResponse<AiProviderStatus[]>;
+  return result.data;
+}
+
+export async function createDraftWorkflowPlan(
+  payload: DraftWorkflowPlanRequest
+): Promise<DraftWorkflowPlan> {
+  const response = await fetch(`${API_BASE_URL}/api/draft-workflow/plan`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error("문항 분석 및 계획 생성에 실패했습니다.");
+  }
+
+  const result = (await response.json()) as ApiItemResponse<DraftWorkflowPlan>;
+  return result.data;
+}
+
+export async function createDraftWorkflowDraft(
+  payload: DraftWorkflowDraftRequest
+): Promise<DraftWorkflowDraft> {
+  const response = await fetch(`${API_BASE_URL}/api/draft-workflow/draft`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error("초안 생성에 실패했습니다.");
+  }
+
+  const result = (await response.json()) as ApiItemResponse<DraftWorkflowDraft>;
+  return result.data;
+}
+
+export async function reviseDraftWorkflowDraft(
+  payload: DraftWorkflowReviseRequest
+): Promise<DraftWorkflowDraft> {
+  const response = await fetch(`${API_BASE_URL}/api/draft-workflow/revise`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error("초안 수정에 실패했습니다.");
+  }
+
+  const result = (await response.json()) as ApiItemResponse<DraftWorkflowDraft>;
   return result.data;
 }

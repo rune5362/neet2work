@@ -5569,6 +5569,91 @@ textarea:focus {
   font-weight: 700;
 }
 
+.aiDraftTargetField,
+.aiDraftTargetToggle {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 0.82rem;
+  color: #cbd5e1;
+}
+
+.aiDraftTargetField textarea,
+.aiDraftTargetField input,
+.aiDraftGapTextarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(226, 232, 240, 0.16);
+  background: rgba(15, 23, 42, 0.55);
+  color: #f8fafc;
+  font: inherit;
+  resize: vertical;
+}
+
+.aiDraftTargetToggle {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.aiDraftGapPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.aiDraftGapFieldset {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.14);
+  border-radius: 12px;
+}
+
+.aiDraftGapFieldset legend {
+  padding: 0 6px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.aiDraftGapChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.aiDraftGapChoiceButton {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(226, 232, 240, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.aiDraftGapChoiceButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.aiDraftRevisePanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.aiDraftRevisePanel label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
 .aiDraftModeBadge {
   display: inline-flex;
   align-items: center;

@@ -1,12 +1,11 @@
 # Work Log
 
-## 2026-05-29
+## 2026-05-30
 
 ### Figma Summary
 
 <!-- 피그마에는 짧은 한국어 요약만 남긴다. 자세한 내용은 WORK_SESSIONS.md에 기록한다. -->
-- `sungho` 병합 후 코드리뷰와 워크트리 누락 여부를 점검했다.
-- 미사용 Codex·Antigravity 워크트리와 작업 브랜치를 정리했다.
-- `/ai-analysis` composer, 문체 설정, 첨부 파일 흐름을 개선했다.
-- `/api/resume/extract` mock 추출 API와 프론트 첨부 연동을 추가했다.
-- `/jobs` Lucide 의존성 오류를 inline SVG 아이콘으로 복구했다.
+
+- GPT 5.5 Pro 확장 모드 리뷰를 받아 AI 자소서 작성 워크플로우를 문항별 경험 매칭, 증거 잠금, 한국 자소서 검수 중심으로 재정리했다.
+- `/ai-analysis`에 draft workflow API 라우팅, fallback badge, 경험 카드/검수 리포트 UI 1차 연결을 완료했다.
+- 2단계 워크플로우(문항 분석 → gap/개요 확인 → 초안/수정)와 claim ledger 검증을 추가했다.

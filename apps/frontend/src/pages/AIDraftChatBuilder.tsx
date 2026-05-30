@@ -1,5 +1,12 @@
 import { type ChangeEvent, type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { analyzeResume, getJobById } from "../api/client";
+import {
+  createDraftWorkflowDraft,
+  createDraftWorkflowPlan,
+  extractResumeFile,
+  getDraftWorkflowProviders,
+  getJobById,
+  reviseDraftWorkflowDraft
+} from "../api/client";
 import arrowUpIcon from "../assets/icons/ai-draft-arrow-up.svg";
 import attachIcon from "../assets/icons/ai-draft-attach.svg";
 import chevronIcon from "../assets/icons/ai-draft-chevron.svg";
@@ -14,12 +21,26 @@ import sparkIcon from "../assets/icons/ai-draft-spark.svg";
 import aiSymbol from "../assets/logo/neet2work_symbol_reference_curve 1.png";
 import { HomeFooter } from "../components/HomeFooter";
 import { HomeTopNav } from "../components/HomeTopNav";
-import type { AnalysisResult } from "../types/analysis";
 import type { JobPosting } from "../types/job";
+import type {
+  AiProviderId,
+  AiProviderStatus,
+  AiSelection,
+  DraftWorkflowDraft,
+  DraftWorkflowPlan,
+  GapAnswer
+} from "../types/draft-workflow";
+import { fallbackReasonLabel, providerBadgeLabel } from "../types/draft-workflow";
 
 type Sender = "ai" | "user";
-type DraftState = "idle" | "ready" | "loading" | "complete";
-type AnalysisStatus = "idle" | "ready" | "loading" | "complete" | "error";
+type DraftState = "idle" | "ready" | "planning" | "plan_ready" | "drafting" | "complete" | "revising";
+type WorkflowStatus = "idle" | "loading" | "complete" | "error";
+
+type DraftTargetForm = {
+  questionText: string;
+  charLimit: number;
+  jobPostingText: string;
+};
 
 type Message = {
   id: string;
@@ -38,10 +59,10 @@ type Job = {
 };
 
 type AiSettings = {
-  model: "Gemini Pro" | "Fast Draft" | "Precision";
   tone: "담백한 실무형" | "성과 강조형" | "성장 서사형";
   sound: boolean;
   followUp: boolean;
+  blindRecruitment: boolean;
 };
 
 type TextFormat = "TXT" | "Markdown";
@@ -136,8 +157,26 @@ const draftText =
 
 const COMPOSER_INPUT_MIN_HEIGHT = 22;
 const COMPOSER_INPUT_MAX_HEIGHT = 240;
-const FILE_ACCEPT = "image/*,.txt,.md,.pdf,.doc,.docx";
-const AI_MODEL_OPTIONS: AiSettings["model"][] = ["Gemini Pro", "Fast Draft", "Precision"];
+const FILE_ACCEPT = ".txt,.md,.pdf,.docx";
+function buildDefaultJobPostingText(job: Job) {
+  return `${job.title}\n${job.skills.join(", ")}`;
+}
+
+function buildGapAnswersFromDrafts(
+  neededQuestions: DraftWorkflowPlan["answerStrategy"]["neededQuestions"],
+  drafts: Record<string, string>
+): GapAnswer[] {
+  return neededQuestions
+    .map((question) => ({
+      questionId: question.questionId,
+      answer: (drafts[question.questionId] ?? "").trim()
+    }))
+    .filter((item) => item.answer.length > 0);
+}
+
+const DEFAULT_QUESTION_TEXT =
+  "지원 직무에서 가장 중요한 역량을 발휘했던 경험을 구체적으로 작성해 주세요.";
+const AI_PROVIDER_AUTO_LABEL = "자동";
 const AI_TONE_OPTIONS: AiSettings["tone"][] = ["담백한 실무형", "성과 강조형", "성장 서사형"];
 
 function isTextAttachment(file: File) {
@@ -147,7 +186,25 @@ function isTextAttachment(file: File) {
 
 function isDocumentFileName(name: string) {
   const lowerName = name.toLowerCase();
-  return lowerName.endsWith(".pdf") || lowerName.endsWith(".doc") || lowerName.endsWith(".docx");
+  return lowerName.endsWith(".pdf") || lowerName.endsWith(".docx");
+}
+
+async function fileToBase64(file: File) {
+  const arrayBuffer =
+    typeof file.arrayBuffer === "function"
+      ? await file.arrayBuffer()
+      : await new Promise<ArrayBuffer>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as ArrayBuffer);
+          reader.onerror = () => reject(reader.error ?? new Error("file_read_failed"));
+          reader.readAsArrayBuffer(file);
+        });
+  const bytes = new Uint8Array(arrayBuffer);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return window.btoa(binary);
 }
 
 function getAttachmentChipSuffix(file: AttachedFile) {
@@ -158,7 +215,7 @@ function getAttachmentChipSuffix(file: AttachedFile) {
     return " · 읽기 실패";
   }
   if (file.kind === "binary") {
-    return isDocumentFileName(file.name) ? " · 본문 미포함" : " · 미리보기만";
+    return " · 지원하지 않는 파일";
   }
   return "";
 }
@@ -240,9 +297,20 @@ export function AIDraftChatBuilder() {
   const [selectedApiJob, setSelectedApiJob] = useState<Job | null>(null);
   const [jobQuery, setJobQuery] = useState("");
   const [draftState, setDraftState] = useState<DraftState>("idle");
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [workflowPlan, setWorkflowPlan] = useState<DraftWorkflowPlan | null>(null);
+  const [workflowDraft, setWorkflowDraft] = useState<DraftWorkflowDraft | null>(null);
+  const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus>("idle");
+  const [workflowError, setWorkflowError] = useState<string | null>(null);
+  const [gapAnswerDrafts, setGapAnswerDrafts] = useState<Record<string, string>>({});
+  const [outlineConfirmed, setOutlineConfirmed] = useState(false);
+  const [revisionRequest, setRevisionRequest] = useState("");
+  const [targetForm, setTargetForm] = useState<DraftTargetForm>({
+    questionText: DEFAULT_QUESTION_TEXT,
+    charLimit: 800,
+    jobPostingText: buildDefaultJobPostingText(mockJobs[0])
+  });
+  const [providerStatuses, setProviderStatuses] = useState<AiProviderStatus[]>([]);
+  const [aiSelection, setAiSelection] = useState<AiSelection>({ mode: "auto" });
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [toneMenuOpen, setToneMenuOpen] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
@@ -251,10 +319,10 @@ export function AIDraftChatBuilder() {
   const [editorFontSize, setEditorFontSize] = useState(15);
   const [draftFitProgress, setDraftFitProgress] = useState(0);
   const [settings, setSettings] = useState<AiSettings>({
-    model: "Gemini Pro",
     tone: "담백한 실무형",
     sound: true,
     followUp: true,
+    blindRecruitment: false,
   });
   const [didFallback, setDidFallback] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -265,7 +333,7 @@ export function AIDraftChatBuilder() {
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const draftFitProgressRef = useRef(0);
-  const analyzeRequestIdRef = useRef(0);
+  const workflowRequestIdRef = useRef(0);
   const sendReplyTimeoutRef = useRef<number | null>(null);
 
   const clearSendReplyTimeout = () => {
@@ -317,15 +385,20 @@ export function AIDraftChatBuilder() {
       ? Math.round((matchedSkills.length / selectedJob.skills.length) * 100)
       : 0;
   const estimatedFitScore = Math.min(92, 52 + matchedSkills.length * 3 + (draftState === "complete" ? 9 : 0));
-  const draftFitTargetScore = analysisResult?.matchScore ?? estimatedFitScore;
-  const atsScore = analysisResult?.matchScore ?? estimatedFitScore;
+  const draftFitTargetScore =
+    workflowDraft?.reviewReport.scores.promptFit ??
+    workflowPlan?.fitAssessments[0]?.fitScore ??
+    estimatedFitScore;
+  const atsScore = draftFitTargetScore;
+  const resultBody = workflowDraft?.draftText ?? draftText;
   const completedProgressStepCount = draftProgressSteps.filter((step) => draftFitProgress >= Math.min(step.threshold, draftFitTargetScore)).length;
-  const resultBody =
-    analysisResult?.suggestedSentences?.length
-      ? analysisResult.suggestedSentences.join("\n\n")
-      : draftText;
-  const withSpaces = resultBody.length;
-  const withoutSpaces = resultBody.replace(/\s/g, "").length;
+  const withSpaces = workflowDraft?.charCount.withSpaces ?? resultBody.length;
+  const withoutSpaces = workflowDraft?.charCount.withoutSpaces ?? resultBody.replace(/\s/g, "").length;
+  const selectedProviderLabel =
+    aiSelection.mode === "auto"
+      ? AI_PROVIDER_AUTO_LABEL
+      : providerBadgeLabel(aiSelection.providerId ?? "fallback");
+  const activeAiMeta = workflowDraft?.aiMeta ?? workflowPlan?.aiMeta;
   const displayDraft =
     textFormat === "Markdown"
       ? `## 팀 리더십 기반 문제 해결 경험\n\n${resultBody
@@ -356,12 +429,18 @@ export function AIDraftChatBuilder() {
       return fromUser.slice(0, 5);
     }
 
-    if (analysisResult?.strengths.length) {
-      return analysisResult.strengths.slice(0, 3);
+    if (workflowDraft?.reviewReport.issues.length) {
+      return workflowDraft.reviewReport.issues.slice(0, 3).map((issue) => issue.message);
     }
 
     return [];
-  }, [messages, analysisResult]);
+  }, [messages, workflowDraft]);
+
+  useEffect(() => {
+    getDraftWorkflowProviders()
+      .then((providers) => setProviderStatuses(providers))
+      .catch(() => setProviderStatuses([]));
+  }, []);
 
   useEffect(() => {
     timelineRef.current?.scrollTo({
@@ -437,6 +516,7 @@ export function AIDraftChatBuilder() {
         const nextJob = toSelectedJob(job);
         setSelectedApiJob(nextJob);
         setSelectedJobId(nextJob.id);
+        syncTargetFormForJob(nextJob);
       })
       .catch(() => {
         if (!isCurrent) return;
@@ -456,14 +536,14 @@ export function AIDraftChatBuilder() {
       setDraftFitProgress(nextValue);
     };
 
-    if (draftState !== "loading" && draftState !== "complete") {
+    if (draftState !== "planning" && draftState !== "drafting" && draftState !== "complete" && draftState !== "revising") {
       setMeterProgress(0);
       return undefined;
     }
 
-    const startValue = draftState === "loading" ? 0 : draftFitProgressRef.current;
+    const startValue = draftState === "planning" || draftState === "drafting" || draftState === "revising" ? 0 : draftFitProgressRef.current;
     const targetValue = draftFitTargetScore;
-    const duration = draftState === "loading" ? 1500 : 900;
+    const duration = draftState === "planning" || draftState === "drafting" || draftState === "revising" ? 1500 : 900;
     const startedAt = performance.now();
     let animationFrame = 0;
 
@@ -520,10 +600,80 @@ export function AIDraftChatBuilder() {
     playTone(settings.sound, "open");
   };
 
-  const handleModelSelect = (model: AiSettings["model"]) => {
-    updateSettings("model", model);
+  const handleProviderSelect = (providerId?: AiProviderId) => {
+    if (!providerId) {
+      setAiSelection({ mode: "auto" });
+    } else {
+      const provider = providerStatuses.find((item) => item.providerId === providerId);
+      setAiSelection({
+        mode: "manual",
+        providerId,
+        modelId: provider?.models.find((model) => model.recommended)?.modelId ?? provider?.models[0]?.modelId
+      });
+    }
     closeComposerMenus();
+    playTone(settings.sound, "open");
   };
+
+  const buildDraftTarget = () => ({
+    company: selectedJob.company,
+    role: selectedJob.title,
+    questionText: targetForm.questionText.trim() || DEFAULT_QUESTION_TEXT,
+    charLimit: targetForm.charLimit,
+    charCountRule: "with_spaces" as const,
+    jobPostingText: targetForm.jobPostingText.trim() || buildDefaultJobPostingText(selectedJob),
+    blindRecruitment: settings.blindRecruitment,
+    writingStyle: settings.tone
+  });
+
+  const neededGapQuestions = workflowPlan?.answerStrategy.neededQuestions ?? [];
+  const pendingGapQuestions = neededGapQuestions.filter(
+    (question) => !(gapAnswerDrafts[question.questionId] ?? "").trim()
+  );
+  const canConfirmDraft =
+    (draftState === "plan_ready" || draftState === "complete") &&
+    pendingGapQuestions.length === 0 &&
+    targetForm.questionText.trim().length >= 5 &&
+    targetForm.jobPostingText.trim().length >= 10;
+
+  const updateGapAnswerDraft = (questionId: string, answer: string) => {
+    setGapAnswerDrafts((prev) => ({ ...prev, [questionId]: answer }));
+    setOutlineConfirmed(false);
+    resetWorkflowPartialAfterGapChange();
+  };
+
+  const resetWorkflowPartialAfterGapChange = () => {
+    setWorkflowDraft(null);
+    setWorkflowStatus("idle");
+    setWorkflowError(null);
+    if (draftState === "complete") {
+      setDraftState("plan_ready");
+    }
+  };
+
+  const applyGapChoice = (questionId: string, choice: string) => {
+    setGapAnswerDrafts((prev) => {
+      const current = prev[questionId] ?? "";
+      return {
+        ...prev,
+        [questionId]: current ? `${current} ${choice}` : choice
+      };
+    });
+    setOutlineConfirmed(false);
+    resetWorkflowPartialAfterGapChange();
+  };
+
+  const buildExperienceInput = () => ({
+    portfolioText: attachedFiles
+      .filter((file) => file.kind === "text" && file.textContent && !file.readError && !file.loading)
+      .map((file) => file.textContent as string)
+      .join("\n\n"),
+    manualExperienceText: messages
+      .filter((message) => message.sender === "user")
+      .map((message) => message.text)
+      .join("\n\n"),
+    additionalContext: input.trim() || undefined
+  });
 
   const handleToneSelect = (tone: AiSettings["tone"]) => {
     updateSettings("tone", tone);
@@ -540,20 +690,24 @@ export function AIDraftChatBuilder() {
       return;
     }
 
-    resetAnalysis();
-    setDraftState((prev) => (prev === "loading" ? prev : "idle"));
+    resetWorkflow();
+    setDraftState((prev) => (prev === "planning" || prev === "drafting" ? prev : "idle"));
 
-    const fileEntries = Array.from(selectedFiles).map((file) => ({
-      file,
-      attachment: {
+    const fileEntries = Array.from(selectedFiles).map((file) => {
+      const canExtractText = isTextAttachment(file) || isDocumentFileName(file.name);
+      return {
+        file,
+        canExtractText,
+        attachment: {
         id: crypto.randomUUID(),
         name: file.name,
-        kind: (isTextAttachment(file) ? "text" : "binary") as AttachedFileKind,
+        kind: (canExtractText ? "text" : "binary") as AttachedFileKind,
         textContent: null,
         readError: false,
-        loading: isTextAttachment(file),
-      },
-    }));
+        loading: canExtractText,
+        },
+      };
+    });
 
     setAttachedFiles((prev) => [...prev, ...fileEntries.map((entry) => entry.attachment)]);
     event.target.value = "";
@@ -562,18 +716,26 @@ export function AIDraftChatBuilder() {
     const promoteDraftStateIfAnalyzable = (nextFiles: AttachedFile[]) => {
       const nextResumeText = buildResumeTextParts(messages, input, nextFiles).join("\n\n").trim();
       if (nextResumeText.length >= 10) {
-        setDraftState((prev) => (prev === "loading" ? prev : "ready"));
+        setDraftState((prev) => (prev === "planning" || prev === "drafting" ? prev : "ready"));
       }
     };
 
     await Promise.all(
-      fileEntries.map(async ({ file, attachment }) => {
-        if (!isTextAttachment(file)) {
+      fileEntries.map(async ({ file, attachment, canExtractText }) => {
+        if (!canExtractText) {
           return;
         }
 
         try {
-          const textContent = await file.text();
+          const textContent = isTextAttachment(file)
+            ? await file.text()
+            : (
+                await extractResumeFile({
+                  fileName: file.name,
+                  mimeType: file.type,
+                  contentBase64: await fileToBase64(file)
+                })
+              ).text;
           setAttachedFiles((prev) => {
             const next = prev.map((item) =>
               item.id === attachment.id
@@ -601,24 +763,37 @@ export function AIDraftChatBuilder() {
 
   const removeAttachedFile = (fileId: string) => {
     setAttachedFiles((prev) => prev.filter((file) => file.id !== fileId));
-    resetAnalysis();
+    resetWorkflow();
     playTone(settings.sound, "open");
   };
 
-  const resetAnalysis = () => {
-    analyzeRequestIdRef.current += 1;
-    setAnalysisResult(null);
-    setAnalysisStatus("idle");
-    setAnalysisError(null);
+  const resetWorkflow = () => {
+    workflowRequestIdRef.current += 1;
+    setWorkflowPlan(null);
+    setWorkflowDraft(null);
+    setWorkflowStatus("idle");
+    setWorkflowError(null);
+    setGapAnswerDrafts({});
+    setOutlineConfirmed(false);
+    setRevisionRequest("");
     setDraftFitProgress(0);
     draftFitProgressRef.current = 0;
   };
 
+  const syncTargetFormForJob = (job: Job) => {
+    setTargetForm((prev) => ({
+      ...prev,
+      jobPostingText: buildDefaultJobPostingText(job)
+    }));
+  };
+
   const handleJobSelect = (jobId: string) => {
+    const nextJob = selectableJobs.find((job) => job.id === jobId) ?? selectableJobs[0];
     setSelectedJobId(jobId);
+    syncTargetFormForJob(nextJob);
     setShowSearch(false);
     clearSendReplyTimeout();
-    resetAnalysis();
+    resetWorkflow();
     setDraftState(messages.some((message) => message.sender === "user") ? "ready" : "idle");
     playTone(settings.sound, "open");
   };
@@ -628,7 +803,7 @@ export function AIDraftChatBuilder() {
     if (!trimmed) return;
 
     clearSendReplyTimeout();
-    resetAnalysis();
+    resetWorkflow();
     setDraftState("idle");
 
     playTone(settings.sound, "send");
@@ -678,40 +853,136 @@ export function AIDraftChatBuilder() {
     }, 520);
   };
 
-  const handleGenerate = async () => {
-    if (!canAnalyze || draftState === "loading") {
+  const handleStartPlan = async () => {
+    if (!canAnalyze || draftState === "planning" || draftState === "drafting") {
       return;
     }
 
-    const requestId = analyzeRequestIdRef.current;
-    setAnalysisResult(null);
-    setAnalysisError(null);
-    setAnalysisStatus("loading");
-    setDraftState("loading");
+    const requestId = workflowRequestIdRef.current;
+    setWorkflowPlan(null);
+    setWorkflowDraft(null);
+    setWorkflowError(null);
+    setWorkflowStatus("loading");
+    setDraftState("planning");
+    setOutlineConfirmed(false);
+    setGapAnswerDrafts({});
+    setDraftFitProgress(0);
+    draftFitProgressRef.current = 0;
+    playTone(settings.sound, "open");
+
+    const target = buildDraftTarget();
+    const experienceInput = buildExperienceInput();
+
+    try {
+      const plan = await createDraftWorkflowPlan({
+        aiSelection,
+        target,
+        experienceInput
+      });
+      if (requestId !== workflowRequestIdRef.current) {
+        return;
+      }
+
+      setWorkflowPlan(plan);
+      setWorkflowStatus("complete");
+      setDraftState("plan_ready");
+      playTone(settings.sound, "success");
+    } catch {
+      if (requestId !== workflowRequestIdRef.current) {
+        return;
+      }
+      setWorkflowPlan(null);
+      setWorkflowStatus("error");
+      setWorkflowError("문항 분석 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      setDraftState("ready");
+      playTone(settings.sound, "ready");
+    }
+  };
+
+  const handleGenerateDraft = async () => {
+    if (!workflowPlan || !canConfirmDraft) {
+      return;
+    }
+
+    const requestId = workflowRequestIdRef.current;
+    const target = buildDraftTarget();
+    const experienceInput = buildExperienceInput();
+    const nextGapAnswers = buildGapAnswersFromDrafts(neededGapQuestions, gapAnswerDrafts);
+
+    setWorkflowDraft(null);
+    setWorkflowError(null);
+    setWorkflowStatus("loading");
+    setDraftState("drafting");
+    setOutlineConfirmed(true);
     setDraftFitProgress(0);
     draftFitProgressRef.current = 0;
     playTone(settings.sound, "open");
 
     try {
-      const result = await analyzeResume({
-        jobId: selectedJob.id,
-        resumeText: resumeText.trim(),
+      const draft = await createDraftWorkflowDraft({
+        aiSelection,
+        target,
+        experienceInput,
+        plan: workflowPlan,
+        gapAnswers: nextGapAnswers,
+        confirmedOutline: workflowPlan.outline
       });
-      if (requestId !== analyzeRequestIdRef.current) {
+      if (requestId !== workflowRequestIdRef.current) {
         return;
       }
-      setAnalysisResult(result);
-      setAnalysisStatus("complete");
+
+      setWorkflowDraft(draft);
+      setWorkflowStatus("complete");
       setDraftState("complete");
       playTone(settings.sound, "success");
     } catch {
-      if (requestId !== analyzeRequestIdRef.current) {
+      if (requestId !== workflowRequestIdRef.current) {
         return;
       }
-      setAnalysisResult(null);
-      setAnalysisStatus("error");
-      setAnalysisError("분석 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.");
-      setDraftState("ready");
+      setWorkflowDraft(null);
+      setWorkflowStatus("error");
+      setWorkflowError("초안 생성 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      setDraftState("plan_ready");
+      playTone(settings.sound, "ready");
+    }
+  };
+
+  const handleReviseDraft = async () => {
+    if (!workflowPlan || !workflowDraft || revisionRequest.trim().length < 3 || draftState === "revising") {
+      return;
+    }
+
+    const requestId = workflowRequestIdRef.current;
+    const target = buildDraftTarget();
+    setWorkflowError(null);
+    setWorkflowStatus("loading");
+    setDraftState("revising");
+    playTone(settings.sound, "open");
+
+    try {
+      const revised = await reviseDraftWorkflowDraft({
+        aiSelection,
+        target,
+        plan: workflowPlan,
+        draft: workflowDraft,
+        revisionRequest: revisionRequest.trim()
+      });
+      if (requestId !== workflowRequestIdRef.current) {
+        return;
+      }
+
+      setWorkflowDraft(revised);
+      setWorkflowStatus("complete");
+      setDraftState("complete");
+      setRevisionRequest("");
+      playTone(settings.sound, "success");
+    } catch {
+      if (requestId !== workflowRequestIdRef.current) {
+        return;
+      }
+      setWorkflowStatus("error");
+      setWorkflowError("초안 수정 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      setDraftState("complete");
       playTone(settings.sound, "ready");
     }
   };
@@ -730,7 +1001,12 @@ export function AIDraftChatBuilder() {
     setAttachedFiles([]);
     setDraftState("idle");
     setDidFallback(false);
-    resetAnalysis();
+    setTargetForm({
+      questionText: DEFAULT_QUESTION_TEXT,
+      charLimit: 800,
+      jobPostingText: buildDefaultJobPostingText(mockJobs[0])
+    });
+    resetWorkflow();
     setNewChatConfirmOpen(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -755,8 +1031,8 @@ export function AIDraftChatBuilder() {
               <div>
                 <div className="aiDraftTitleRow">
                   <h1>AI 자소서 채팅</h1>
-                  <span>{settings.model}</span>
-                  <strong>ONLINE</strong>
+                  <span>{selectedProviderLabel}</span>
+                  <strong>{activeAiMeta?.usedFallback ? "FALLBACK" : "ONLINE"}</strong>
                 </div>
                 <p>소크라테스처럼 질문하고, 당신의 경험을 구조화합니다.</p>
               </div>
@@ -793,25 +1069,108 @@ export function AIDraftChatBuilder() {
                 </article>
               ))}
 
-              {(draftState === "ready" || draftState === "complete") && (
+              {(draftState === "ready" || draftState === "complete") && !workflowPlan && (
                 <div className="aiDraftReadyRow">
                   <span>대화 완료</span>
-                  <button type="button" onClick={handleGenerate} disabled={!canAnalyze}>
+                  <button type="button" onClick={handleStartPlan} disabled={!canAnalyze}>
                     <Icon name="spark" />
-                    AI 초안 생성 시작
+                    문항 분석 시작
                   </button>
                 </div>
               )}
 
-              {!canAnalyze && (draftState === "ready" || draftState === "complete") && (
+              {!canAnalyze && (draftState === "ready" || draftState === "complete") && !workflowPlan && (
                 <p className="aiDraftInputHint">자기소개 내용을 10자 이상 입력해야 분석할 수 있습니다.</p>
               )}
 
-              {analysisStatus === "error" && analysisError && (
-                <p className="aiDraftErrorNote" role="alert">{analysisError}</p>
+              {workflowStatus === "error" && workflowError && (
+                <p className="aiDraftErrorNote" role="alert">{workflowError}</p>
               )}
 
-              {(draftState === "loading" || draftState === "complete") && (
+              {workflowPlan && (draftState === "plan_ready" || draftState === "drafting" || draftState === "complete") && (
+                <section className="aiDraftResultCard" aria-label="경험 카드 및 개요">
+                  <div className="aiDraftResultHeader">
+                    <div>
+                      <h2>문항 분석 및 경험 매칭</h2>
+                      {workflowPlan.aiMeta && (
+                        <span className={`aiDraftModeBadge ${workflowPlan.aiMeta.usedFallback ? "fallback" : "ai"}`}>
+                          {providerBadgeLabel(workflowPlan.aiMeta.providerId)}
+                          {workflowPlan.aiMeta.usedFallback ? " · Fallback" : ""}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <p className="aiDraftInputHint">{workflowPlan.questionRubric.intent}</p>
+                  <ul className="aiDraftGuideList" aria-label="경험 카드">
+                    {workflowPlan.experienceCards.map((card) => (
+                      <li key={card.experienceId}>
+                        <strong>{card.title}</strong>
+                        {card.claimLedger.length > 0 && (
+                          <span>
+                            {" "}
+                            · claim {card.claimLedger.filter((claim) => claim.allowedInDraft).length}/
+                            {card.claimLedger.length}
+                          </span>
+                        )}
+                        {card.missingSlots.length > 0 ? ` · 부족 슬롯 ${card.missingSlots.join(", ")}` : ""}
+                        {card.blindRiskFlags.length > 0 ? ` · 블라인드 리스크 ${card.blindRiskFlags.join(", ")}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                  {neededGapQuestions.length > 0 && draftState === "plan_ready" && (
+                    <div className="aiDraftGapPanel" aria-label="부족 슬롯 질문">
+                      {neededGapQuestions.map((question) => (
+                        <fieldset className="aiDraftGapFieldset" key={question.questionId}>
+                          <legend>{question.question}</legend>
+                          {question.choices && question.choices.length > 0 && (
+                            <div className="aiDraftGapChoices" role="group" aria-label={`${question.question} 선택지`}>
+                              {question.choices.map((choice) => (
+                                <button
+                                  type="button"
+                                  key={choice}
+                                  className="aiDraftGapChoiceButton"
+                                  onClick={() => applyGapChoice(question.questionId, choice)}
+                                >
+                                  {choice}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          <textarea
+                            className="aiDraftGapTextarea"
+                            value={gapAnswerDrafts[question.questionId] ?? ""}
+                            placeholder="직접 입력"
+                            rows={2}
+                            onChange={(event) => updateGapAnswerDraft(question.questionId, event.target.value)}
+                          />
+                        </fieldset>
+                      ))}
+                      {pendingGapQuestions.length > 0 && (
+                        <p className="aiDraftInputHint">남은 보완 질문 {pendingGapQuestions.length}개</p>
+                      )}
+                    </div>
+                  )}
+                  <ul className="aiDraftGuideList" aria-label="개요">
+                    {workflowPlan.outline.map((paragraph) => (
+                      <li key={paragraph.paragraphId}>
+                        {paragraph.purpose}
+                        {paragraph.targetChars ? ` (${paragraph.targetChars}자)` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                  {(draftState === "plan_ready" || draftState === "complete") && (
+                    <div className="aiDraftReadyRow">
+                      <span>{outlineConfirmed && draftState === "complete" ? "초안 생성 완료" : "개요 확인 후 초안 생성"}</span>
+                      <button type="button" onClick={handleGenerateDraft} disabled={!canConfirmDraft}>
+                        <Icon name="spark" />
+                        개요 확인 및 초안 생성
+                      </button>
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {(draftState === "planning" || draftState === "drafting" || draftState === "revising" || draftState === "complete") && (
                 <section className="aiDraftProgressCard" aria-label="AI 초안 생성 진행">
                   <div
                     className={`aiDraftFitMeter ${draftState}`}
@@ -829,7 +1188,13 @@ export function AIDraftChatBuilder() {
                     <span>적합도</span>
                   </div>
                   <div>
-                    <h2>{draftState === "loading" ? "AI가 당신의 이야기를 분석하고 초안을 작성하고 있습니다..." : "AI 초안 결과"}</h2>
+                    <h2>
+                      {draftState === "planning"
+                        ? "문항과 경험을 분석하고 있습니다..."
+                        : draftState === "drafting" || draftState === "revising"
+                          ? "AI가 초안을 작성하고 있습니다..."
+                          : "AI 초안 결과"}
+                    </h2>
                     <div className="aiDraftProgressSteps">
                       {draftProgressSteps.map((step, index) => (
                         <div className="aiDraftProgressStep" key={step.label}>
@@ -840,19 +1205,24 @@ export function AIDraftChatBuilder() {
                       ))}
                     </div>
                   </div>
-                  {draftState === "loading" && <b aria-hidden="true">...</b>}
+                  {(draftState === "planning" || draftState === "drafting" || draftState === "revising") && (
+                    <b aria-hidden="true">...</b>
+                  )}
                 </section>
               )}
 
-              {draftState === "complete" && analysisResult && (
+              {draftState === "complete" && workflowDraft && (
                 <section className="aiDraftResultCard">
                   <div className="aiDraftResultHeader">
                     <div>
                       <h2>AI 초안 결과</h2>
                       <span>초안 v1</span>
-                      {analysisResult && (
-                        <span className={`aiDraftModeBadge ${analysisResult.mode}`}>
-                          {analysisResult.mode === "mock" ? "mock 분석" : "ai 분석"}
+                      {activeAiMeta && (
+                        <span className={`aiDraftModeBadge ${activeAiMeta.usedFallback ? "fallback" : "ai"}`}>
+                          {providerBadgeLabel(activeAiMeta.providerId)}
+                          {activeAiMeta.usedFallback
+                            ? ` · Fallback${activeAiMeta.fallbackReason ? ` (${fallbackReasonLabel(activeAiMeta.fallbackReason)})` : ""}`
+                            : " · AI"}
                         </span>
                       )}
                     </div>
@@ -885,13 +1255,55 @@ export function AIDraftChatBuilder() {
                     </div>
                   </div>
                   <p className="aiDraftResultText" style={{ "--draft-editor-font": `${editorFontSize}px` } as CSSProperties}>{displayDraft}</p>
-                  {analysisResult && analysisResult.rewriteGuides.length > 0 && (
+                  {workflowDraft.revisionOptions.length > 0 && (
                     <ul className="aiDraftGuideList" aria-label="개선 가이드">
-                      {analysisResult.rewriteGuides.map((guide) => (
+                      {workflowDraft.revisionOptions.map((guide) => (
                         <li key={guide}>{guide}</li>
                       ))}
                     </ul>
                   )}
+                  {workflowDraft.reviewReport.issues.length > 0 && (
+                    <ul className="aiDraftGuideList aiDraftSummaryWarn" aria-label="검수 이슈">
+                      {workflowDraft.reviewReport.issues.map((issue) => (
+                        <li key={`${issue.type}-${issue.message}`}>{issue.message}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {workflowDraft.reviewReport.likelyInterviewQuestions.length > 0 && (
+                    <ul className="aiDraftGuideList" aria-label="예상 면접 질문">
+                      {workflowDraft.reviewReport.likelyInterviewQuestions.map((question) => (
+                        <li key={question}>{question}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {workflowDraft.evidenceMap.length > 0 && (
+                    <ul className="aiDraftGuideList" aria-label="증거 매핑">
+                      {workflowDraft.evidenceMap.map((item) => (
+                        <li key={item.textRangeLabel}>
+                          {item.textRangeLabel} · claim {item.claimIds.join(", ")}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="aiDraftRevisePanel" aria-label="초안 수정">
+                    <label htmlFor="aiDraftRevisionRequest">수정 요청</label>
+                    <textarea
+                      id="aiDraftRevisionRequest"
+                      className="aiDraftGapTextarea"
+                      value={revisionRequest}
+                      rows={3}
+                      placeholder="예: 첫 문단을 더 간결하게, 성과 수치를 강조해 주세요."
+                      onChange={(event) => setRevisionRequest(event.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="aiDraftGapChoiceButton"
+                      disabled={revisionRequest.trim().length < 3}
+                      onClick={handleReviseDraft}
+                    >
+                      수정 적용
+                    </button>
+                  </div>
                   <div className="aiDraftResultToolbar">
                     <button
                       type="button"
@@ -1048,18 +1460,31 @@ export function AIDraftChatBuilder() {
                     <div
                       className="aiDraftComposerPopover aiDraftComposerModelMenu aiDraftComposerModelMenuCompact"
                       role="menu"
-                      aria-label="AI 모델 선택"
+                      aria-label="AI provider 선택"
                     >
-                      {AI_MODEL_OPTIONS.map((model) => (
+                      <button
+                        type="button"
+                        className={`aiDraftComposerMenuItem ${aiSelection.mode === "auto" ? "active" : ""}`}
+                        role="menuitemradio"
+                        aria-checked={aiSelection.mode === "auto"}
+                        onClick={() => handleProviderSelect()}
+                      >
+                        <span>{AI_PROVIDER_AUTO_LABEL}</span>
+                      </button>
+                      {providerStatuses.map((provider) => (
                         <button
-                          key={model}
+                          key={provider.providerId}
                           type="button"
-                          className={`aiDraftComposerMenuItem ${settings.model === model ? "active" : ""}`}
+                          className={`aiDraftComposerMenuItem ${aiSelection.providerId === provider.providerId ? "active" : ""}`}
                           role="menuitemradio"
-                          aria-checked={settings.model === model}
-                          onClick={() => handleModelSelect(model)}
+                          aria-checked={aiSelection.providerId === provider.providerId}
+                          onClick={() => handleProviderSelect(provider.providerId)}
                         >
-                          <span>{model}</span>
+                          <span>
+                            {providerBadgeLabel(provider.providerId)}
+                            {provider.online ? " · 온라인" : " · 오프라인"}
+                            {provider.quotaExceeded ? " · 할당량 초과" : ""}
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -1095,13 +1520,13 @@ export function AIDraftChatBuilder() {
                   <button
                     type="button"
                     className="aiDraftComposerModelButton"
-                    aria-label={`AI 모델 선택, 현재 ${settings.model}`}
+                    aria-label={`AI provider 선택, 현재 ${selectedProviderLabel}`}
                     aria-expanded={modelMenuOpen}
                     aria-haspopup="menu"
-                    title={`AI 모델: ${settings.model}`}
+                    title={`AI provider: ${selectedProviderLabel}`}
                     onClick={toggleModelMenu}
                   >
-                    <span>{settings.model}</span>
+                    <span>{selectedProviderLabel}</span>
                     <Icon name="chevron" />
                   </button>
 
@@ -1132,6 +1557,62 @@ export function AIDraftChatBuilder() {
                 <small>현재 활동 중인 취업 준비</small>
                 <strong>{settings.tone}</strong>
               </div>
+            </section>
+
+            <section className="aiDraftInfoCard" aria-label="자소서 목표 입력">
+              <div className="aiDraftCardTitle">
+                <span>자소서 목표</span>
+                <small>문항 · 공고 · 제한</small>
+              </div>
+              <label className="aiDraftTargetField">
+                <span>문항</span>
+                <textarea
+                  value={targetForm.questionText}
+                  rows={3}
+                  onChange={(event) => {
+                    setTargetForm((prev) => ({ ...prev, questionText: event.target.value }));
+                    resetWorkflow();
+                  }}
+                />
+              </label>
+              <label className="aiDraftTargetField">
+                <span>글자 수 제한</span>
+                <input
+                  type="number"
+                  min={200}
+                  max={5000}
+                  value={targetForm.charLimit}
+                  onChange={(event) => {
+                    setTargetForm((prev) => ({
+                      ...prev,
+                      charLimit: Number(event.target.value) || prev.charLimit
+                    }));
+                    resetWorkflow();
+                  }}
+                />
+              </label>
+              <label className="aiDraftTargetField">
+                <span>공고 텍스트</span>
+                <textarea
+                  value={targetForm.jobPostingText}
+                  rows={4}
+                  onChange={(event) => {
+                    setTargetForm((prev) => ({ ...prev, jobPostingText: event.target.value }));
+                    resetWorkflow();
+                  }}
+                />
+              </label>
+              <label className="aiDraftTargetToggle">
+                <input
+                  type="checkbox"
+                  checked={settings.blindRecruitment}
+                  onChange={(event) => {
+                    updateSettings("blindRecruitment", event.target.checked);
+                    resetWorkflow();
+                  }}
+                />
+                <span>블라인드 채용 모드</span>
+              </label>
             </section>
 
             <section className="aiDraftInfoCard">
@@ -1196,7 +1677,7 @@ export function AIDraftChatBuilder() {
             <section className="aiDraftInfoCard ats">
               <div className="aiDraftCardTitle">
                 <span>ATS 적합도</span>
-                <small>{analysisResult ? "API matchScore" : "대화 기반 추정"}</small>
+                <small>{workflowDraft ? "검수 리포트" : "대화 기반 추정"}</small>
               </div>
               <div className="aiDraftAtsGrid">
                 <div className="aiDraftScoreRing" style={{ "--score": `${atsScore}%` } as CSSProperties}>
@@ -1204,12 +1685,20 @@ export function AIDraftChatBuilder() {
                   <span>/100</span>
                 </div>
                 <div className="aiDraftScoreBars">
-                  {analysisResult ? (
-                    <div>
-                      <span>키워드 적합도</span>
-                      <i><b style={{ width: `${matchPercent}%` }} /></i>
-                      <em>{matchPercent}</em>
-                    </div>
+                  {workflowDraft ? (
+                    [
+                      ["문항 적합도", workflowDraft.reviewReport.scores.promptFit],
+                      ["직무 적합도", workflowDraft.reviewReport.scores.jobFit],
+                      ["구체성", workflowDraft.reviewReport.scores.specificity],
+                      ["증거 안전성", workflowDraft.reviewReport.scores.evidenceSafety],
+                      ["한국어 가독성", workflowDraft.reviewReport.scores.koreanReadability],
+                    ].map(([label, value]) => (
+                      <div key={label}>
+                        <span>{label}</span>
+                        <i><b style={{ width: `${value}%` }} /></i>
+                        <em>{value}</em>
+                      </div>
+                    ))
                   ) : (
                     [
                       ["키워드 적합도", matchPercent],
@@ -1229,20 +1718,31 @@ export function AIDraftChatBuilder() {
               </div>
               <p>
                 <strong>TIP</strong>
-                {analysisResult
-                  ? " 세부 강점·보완점·키워드는 아래 API 분석 결과를 참고하세요."
+                {workflowDraft
+                  ? " 검수 리포트 점수와 이슈는 초안 결과 영역에서 확인할 수 있습니다."
                   : " 더 구체적인 수치와 도구 사용 경험을 추가하면 점수가 상승합니다."}
               </p>
             </section>
 
-            {analysisResult && (
+            {workflowDraft && (
               <>
                 <section className="aiDraftInfoCard">
                   <div className="aiDraftCardTitle">
-                    <span>강점</span>
+                    <span>검수 이슈</span>
+                  </div>
+                  <ul className="aiDraftSummary aiDraftSummaryWarn">
+                    {workflowDraft.reviewReport.issues.map((item) => (
+                      <li key={`${item.type}-${item.message}`}>{item.message}</li>
+                    ))}
+                  </ul>
+                </section>
+
+                <section className="aiDraftInfoCard">
+                  <div className="aiDraftCardTitle">
+                    <span>예상 면접 질문</span>
                   </div>
                   <ul className="aiDraftSummary">
-                    {analysisResult.strengths.map((item) => (
+                    {workflowDraft.reviewReport.likelyInterviewQuestions.map((item) => (
                       <li key={item}>{item}</li>
                     ))}
                   </ul>
@@ -1250,34 +1750,38 @@ export function AIDraftChatBuilder() {
 
                 <section className="aiDraftInfoCard">
                   <div className="aiDraftCardTitle">
-                    <span>보완점</span>
+                    <span>민감 정보 경고</span>
                   </div>
-                  {analysisResult.weaknesses.length > 0 ? (
+                  {workflowDraft.reviewReport.sensitiveWarnings.length > 0 ? (
                     <ul className="aiDraftSummary aiDraftSummaryWarn">
-                      {analysisResult.weaknesses.map((item) => (
+                      {workflowDraft.reviewReport.sensitiveWarnings.map((item) => (
                         <li key={item}>{item}</li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="aiDraftEmptyNote">뚜렷한 약점 없음</p>
-                  )}
-                </section>
-
-                <section className="aiDraftInfoCard">
-                  <div className="aiDraftCardTitle">
-                    <span>누락 키워드</span>
-                  </div>
-                  {analysisResult.missingKeywords.length > 0 ? (
-                    <div className="aiDraftKeywordGrid">
-                      {analysisResult.missingKeywords.map((keyword) => (
-                        <span className="aiDraftKeywordChip" key={keyword}>{keyword}</span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="aiDraftEmptyNote">누락 키워드 없음</p>
+                    <p className="aiDraftEmptyNote">민감 정보 경고 없음</p>
                   )}
                 </section>
               </>
+            )}
+
+            {providerStatuses.length > 0 && (
+              <section className="aiDraftInfoCard">
+                <div className="aiDraftCardTitle">
+                  <span>AI Provider 상태</span>
+                </div>
+                <div className="aiDraftSkillGrid">
+                  {providerStatuses.map((provider) => (
+                    <span
+                      className={provider.online && !provider.quotaExceeded ? "matched" : ""}
+                      key={provider.providerId}
+                    >
+                      {providerBadgeLabel(provider.providerId)} ·{" "}
+                      {provider.quotaExceeded ? "할당량 초과" : provider.online ? "온라인" : "오프라인"}
+                    </span>
+                  ))}
+                </div>
+              </section>
             )}
 
             <section className="aiDraftInfoCard">

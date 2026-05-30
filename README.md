@@ -6,7 +6,7 @@
 
 ## 프로젝트 소개
 
-**일했음 청년**은 사용자의 자기소개서와 채용 공고를 비교 분석하여 직무 적합도를 예측하고, 자기소개서 수정 가이드라인을 제공하는 맞춤형 커리어 컨설팅 플랫폼입니다.
+**일했음 청년**은 사용자의 자기소개서, 포트폴리오 문서, 채용 공고를 비교 분석하여 직무 적합도를 예측하고, 근거 기반 자기소개서 초안 작성까지 지원하는 맞춤형 커리어 컨설팅 플랫폼입니다.
 
 초기 버전은 실제 외부 API, DB, R2 키가 없어도 실행되는 Mock-first 구조를 사용합니다. 덕분에 발표와 로컬 개발 환경에서는 안정적으로 데모를 보여주고, 이후 실제 AI, RDS, R2 연동을 점진적으로 붙일 수 있습니다.
 
@@ -17,8 +17,40 @@
 - 채용공고와 자기소개서 간 적합도 점수 산출
 - 강점, 보완점, 부족한 키워드 도출
 - 자기소개서 수정 가이드와 추천 문장 제공
+- 소크라테스식 보완 질문 기반 자기소개서 작성 워크플로우
+- 경험 카드, claim ledger, 개요, 초안, 자기검수 리포트 생성
+- DOCX/PDF/TXT/MD 포트폴리오 및 입사지원서 파일 본문 추출
+- AI provider 라우팅(Codex Bridge, Gemini, Local AI, fallback demo)
 - API 키 미설정 시 Mock 분석 결과 반환
 - DB/R2 미설정 시 로컬 JSON 또는 in-memory fallback 사용
+
+## AI 자기소개서 작성 워크플로우
+
+`/ai-analysis`는 단순 첨삭 화면이 아니라, 사용자의 실제 경험을 구조화한 뒤 자기소개서 초안을 만드는 단계형 workflow를 목표로 합니다.
+
+현재 구현된 흐름:
+
+1. 사용자가 자소서 문항, 목표 직무, 공고 정보, 기존 자기소개서/대화 내용을 입력합니다.
+2. 사용자가 포트폴리오 또는 입사지원서 파일을 첨부하면 backend가 본문을 추출합니다.
+3. AI가 문항과 첨부 본문에서 경험 후보를 뽑고, 부족한 정보는 소크라테스식 보완 질문으로 확인합니다.
+4. AI가 경험 카드, claim ledger, 개요 미리보기를 생성합니다.
+5. 사용자가 개요를 확인하면 초안을 생성하고, evidence mapping과 자기검수 리포트를 함께 반환합니다.
+6. 수정 요청 시 기존 plan과 claim ledger를 유지한 채 초안을 다시 생성합니다.
+
+첨부 파일 정책:
+
+- 지원: `.txt`, `.md`, `.docx`, `.pdf`
+- DOCX: `mammoth`로 raw text를 추출합니다.
+- PDF: `pdf-parse`로 text layer만 추출합니다.
+- 미지원: 이미지 파일(`png`, `jpg`, `jpeg`, `webp`), legacy `.doc`, 이미지 기반/스캔본 PDF
+- 작업물 파일이 없는 경험은 첨부가 아니라 보완 질문 답변 또는 직접 입력으로 claim ledger에 반영합니다.
+
+AI 라우팅 정책:
+
+- 기본은 `auto` routing이며 `codex_bridge`, `gemini`, `local`, `fallback` 순서로 사용 가능한 provider를 선택합니다.
+- 사용자가 수동으로 provider를 고르면 해당 모델의 online/offline/quota 상태를 표시합니다.
+- 선택 provider가 offline이거나 quota 초과이면 fallback demo provider로 내려가 데모 흐름을 유지합니다.
+- fallback 결과는 실제 AI 결과와 구분되도록 UI에 표시합니다.
 
 ## 팀원 및 역할 분담
 
@@ -37,6 +69,8 @@
 | Package Manager | pnpm 11 |
 | Frontend | React 19 + Vite 7 |
 | Backend | Express 5 |
+| AI Routing | Codex Bridge + Gemini API + Local AI(Gemma 등) + Fallback Demo |
+| Document Parsing | Mammoth(DOCX) + pdf-parse(PDF text layer) |
 | DB | PostgreSQL 17 |
 | DB Migration | Prisma Migrate + Prisma Seed |
 | Job Collection | Python public HTML collector/ETL |
@@ -59,6 +93,8 @@
 - TypeScript
 - REST API
 - Zod
+- Mammoth 기반 DOCX 텍스트 추출
+- pdf-parse 기반 PDF 텍스트 레이어 추출
 
 ### Database & Storage
 
@@ -79,9 +115,14 @@
 
 ### AI
 
-- Codex
-- Generative AI 기반 자기소개서 분석 로직
-- API Key 미설정 시 Mock Analyzer 사용
+- Codex Bridge
+- Gemini API
+- Local AI provider(Gemma 등 로컬 모델 연결용)
+- Hardcoded fallback demo
+- Evidence-locked 자기소개서 작성 workflow
+- Socratic gap question 기반 경험 심화
+- Claim ledger 기반 허위/과장 방지 검증
+- API Key 또는 provider 미설정 시 fallback 결과 사용
 
 ### Code Quality & Test
 
@@ -163,7 +204,10 @@ Express 5 + TypeScript Backend API
   │
   ├─ 채용 공고 조회 API
   ├─ 자기소개서 분석 API
+  ├─ 자기소개서 작성 workflow API
+  ├─ DOCX/PDF/TXT/MD 본문 추출 API
   ├─ AI 분석 모듈
+  ├─ AI provider router
   ├─ Mock 분석 모듈
   └─ 데이터 저장 모듈
         │
@@ -185,6 +229,22 @@ PORT=3000
 CLIENT_URL=http://localhost:5173
 AI_API_KEY=
 AI_MODEL=
+AI_ROUTING_DEFAULT=auto
+AI_PROVIDER_ORDER=codex_bridge,gemini,local,fallback
+AI_PROVIDER_TIMEOUT_MS=180000
+CODEX_BRIDGE_ENABLED=false
+CODEX_BRIDGE_COMMAND=codex
+CODEX_BRIDGE_MODEL=
+CODEX_BRIDGE_PROFILE=
+GEMINI_ENABLED=false
+GEMINI_API_KEY=
+GEMINI_MODEL=
+GEMINI_TIMEOUT_MS=120000
+LOCAL_AI_ENABLED=false
+LOCAL_AI_BASE_URL=http://localhost:11434
+LOCAL_AI_MODEL=
+LOCAL_AI_TIMEOUT_MS=120000
+LOCAL_AI_PROTOCOL=ollama
 # 개인 개발 DB URL로 교체합니다. 비워두면 DB 없이 mock fallback으로 실행됩니다.
 DATABASE_URL=
 POSTGRES_USER=neet2work
@@ -384,6 +444,51 @@ Content-Type: application/json
 }
 ```
 
+### 첨부 파일 본문 추출
+
+```http
+POST /api/resume/extract
+Content-Type: application/json
+```
+
+```json
+{
+  "fileName": "portfolio.pdf",
+  "mimeType": "application/pdf",
+  "contentBase64": "..."
+}
+```
+
+응답 예시:
+
+```json
+{
+  "data": {
+    "fileName": "portfolio.pdf",
+    "text": "PDF에서 추출한 포트폴리오 본문입니다.",
+    "mode": "mock"
+  }
+}
+```
+
+### AI 자기소개서 작성 workflow
+
+```http
+GET /api/draft-workflow/providers
+POST /api/draft-workflow/plan
+POST /api/draft-workflow/draft
+POST /api/draft-workflow/revise
+```
+
+대표 요청 흐름:
+
+1. `GET /providers`로 provider online/offline/quota 상태를 확인합니다.
+2. `POST /plan`으로 경험 카드, claim ledger, 보완 질문, 개요를 생성합니다.
+3. `POST /draft`로 개요 기반 초안과 자기검수 리포트를 생성합니다.
+4. `POST /revise`로 사용자의 수정 요청을 반영합니다.
+
+자세한 request/response schema는 [docs/API_CONTRACT.md](./docs/API_CONTRACT.md)를 기준으로 합니다.
+
 ## 설계 원칙
 
 - TypeScript로 핵심 데이터 타입을 먼저 정의합니다.
@@ -397,7 +502,6 @@ Content-Type: application/json
 ## 향후 확장 기능
 
 - 사용자 로그인 및 회원 관리
-- 자기소개서 파일 업로드 기능
 - 분석 이력 저장
 - 직무별 추천 공고 제공
 - 기업별 합격 가능성 통계 제공

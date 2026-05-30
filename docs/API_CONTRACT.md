@@ -321,6 +321,143 @@ Server error shape:
 }
 ```
 
+## Resume File Extract
+
+### `POST /api/resume/extract`
+
+Extracts text from uploaded resume, portfolio, or application files before the
+draft workflow sends them as `experienceInput.portfolioText`.
+
+Supported formats:
+
+- `.txt`, `.md`: decoded as UTF-8 text.
+- `.docx`: extracted with Mammoth.
+- `.pdf`: extracts text-layer content with pdf-parse. Image-only/scanned PDFs
+  are unsupported when no text can be extracted.
+
+Unsupported formats:
+
+- `.doc`: ask the user to convert to DOCX.
+- Images such as `.png`, `.jpg`, `.jpeg`, `.webp`.
+
+Required request body:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `fileName` | string | Original file name. |
+| `mimeType` | optional string | Browser-provided MIME type. |
+| `contentBase64` | string | Base64 encoded file bytes. |
+
+Response:
+
+```json
+{
+  "data": {
+    "fileName": "portfolio.pdf",
+    "text": "extracted text...",
+    "mode": "mock"
+  }
+}
+```
+
+## Draft Workflow
+
+The `/ai-analysis` page uses these endpoints instead of `POST /api/analyze` for
+self-introduction drafting. Legacy `POST /api/analyze` remains available for fit
+analysis demos.
+
+Frontend must not send provider API keys or Codex tokens. All routing happens on
+the backend.
+
+### `GET /api/draft-workflow/providers`
+
+Returns provider availability for the AI selection UI.
+
+```json
+{
+  "data": [
+    {
+      "providerId": "fallback",
+      "label": "Fallback Demo",
+      "online": true,
+      "configured": true,
+      "quotaExceeded": false,
+      "models": [
+        {
+          "modelId": "hardcoded-demo",
+          "label": "Demo Fallback",
+          "online": true,
+          "quotaExceeded": false,
+          "recommended": true
+        }
+      ]
+    }
+  ]
+}
+```
+
+Routing policy:
+
+- Default mode is `auto`.
+- Auto order: `codex_bridge -> gemini -> local -> fallback`.
+- Manual mode uses the selected provider only; on failure it falls back to
+  `fallback`, not another paid provider.
+- Invalid provider JSON/schema output is treated as `invalid_output` and retried
+  through `fallback`.
+- Fallback responses include `aiMeta.usedFallback=true` and `fallbackReason`.
+
+### `POST /api/draft-workflow/plan`
+
+Analyzes the question, normalizes experience cards, creates claim ledgers, matches
+experiences to the question, and returns answer strategy plus outline. Does not
+generate draft body text.
+
+Required body fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `aiSelection.mode` | `auto` or `manual` | Default UI mode is `auto`. |
+| `aiSelection.providerId` | optional provider id | Required for manual mode. |
+| `target.company` | string | Target company. |
+| `target.role` | string | Target role. |
+| `target.questionText` | string | Application question text. |
+| `target.jobPostingText` | string | Pasted posting text. |
+| `target.blindRecruitment` | boolean | Blind hiring constraint flag. |
+| `target.writingStyle` | optional string | UI-selected tone such as 담백한 실무형. |
+| `experienceInput` | object | At least one of portfolio/manual/additional text. |
+
+Response includes `experienceCards`, `fitAssessments`, `answerStrategy`,
+`outline`, and `aiMeta`.
+
+### `POST /api/draft-workflow/draft`
+
+Generates the evidence-locked draft, evidence map, review report, and revision
+options from a prior plan.
+
+Required body fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `plan` | object | Prior `POST /plan` response body. |
+| `gapAnswers` | optional array | Answers to missing-slot questions. |
+| `confirmedOutline` | optional array | User-confirmed outline override. |
+
+Response includes `draftText`, `charCount`, `evidenceMap`, `reviewReport`,
+`revisionOptions`, and `aiMeta`.
+
+### `POST /api/draft-workflow/revise`
+
+Applies a user revision request to an existing draft. Review and rewrite are
+separated on the backend contract; the rewriter only changes approved inputs.
+
+Required body fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `plan` | object | Prior `POST /plan` response body used for evidence-lock validation. |
+| `draft` | object | Prior draft payload. |
+| `revisionRequest` | string | User revision instruction. |
+
 ## Frontend Handoff Checklist
 
 When the teammate frontend arrives, check these first:

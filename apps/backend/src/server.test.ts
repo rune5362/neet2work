@@ -15,6 +15,15 @@ vi.mock("./storage/postgres.js", () => ({
 const getPrismaClientMock = vi.mocked(getPrismaClient);
 const checkPostgresConnectionMock = vi.mocked(checkPostgresConnection);
 
+const fetchBlockedPorts = new Set([
+  1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79, 87, 95, 101,
+  102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137, 139, 143, 161, 179, 389,
+  427, 465, 512, 513, 514, 515, 526, 530, 531, 532, 540, 548, 554, 556, 563, 587, 601, 636,
+  989, 990, 993, 995, 1719, 1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566,
+  6665, 6666, 6667, 6668, 6669, 6697, 10080
+]);
+const maxFetchPortAttempts = 10;
+
 const dbJob = {
   id: "db-job-001",
   title: "Backend Developer",
@@ -40,12 +49,21 @@ const dbJob = {
 async function request(
   app: ReturnType<typeof createApp>,
   path: string,
-  init?: RequestInit
+  init?: RequestInit,
+  attempt = 1
 ): Promise<Response> {
   const server = app.listen(0);
 
   try {
     const address = server.address() as AddressInfo;
+    if (fetchBlockedPorts.has(address.port)) {
+      if (attempt >= maxFetchPortAttempts) {
+        throw new Error(`Unable to allocate a fetch-safe test port after ${attempt} attempts`);
+      }
+
+      return await request(app, path, init, attempt + 1);
+    }
+
     return await fetch(`http://127.0.0.1:${address.port}${path}`, init);
   } finally {
     await new Promise<void>((resolve, reject) => {
@@ -119,22 +137,22 @@ describe("server HTTP contract", () => {
     });
   });
 
-  it("returns 400 for unsupported resume extract requests", async () => {
+  it("returns 400 for unsupported image resume extract requests", async () => {
     const response = await request(createApp(), "/api/resume/extract", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        fileName: "resume.pdf",
-        mimeType: "application/pdf",
-        contentBase64: Buffer.from("%PDF-1.4", "utf-8").toString("base64")
+        fileName: "resume.png",
+        mimeType: "image/png",
+        contentBase64: Buffer.from("png", "utf-8").toString("base64")
       })
     });
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.message).toContain("본문 추출을 지원하지 않습니다");
+    expect(body.message).toContain("이미지 파일은 지원하지 않습니다");
   });
 
   it("keeps the resume extract route envelope stable for txt files", async () => {

@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ZodError } from "zod";
 import { analyzeRouter } from "./routes/analyze.route.js";
+import { draftWorkflowRouter } from "./routes/draft-workflow.route.js";
 import { jobsRouter } from "./routes/jobs.route.js";
 import { resumeExtractRouter } from "./routes/resume-extract.route.js";
 import { checkPostgresConnection } from "./storage/postgres.js";
@@ -87,6 +88,7 @@ export function createApp() {
 
   app.use("/api/jobs", jobsRouter);
   app.use("/api/analyze", analyzeRouter);
+  app.use("/api/draft-workflow", draftWorkflowRouter);
   app.use("/api/resume/extract", resumeExtractRouter);
 
   app.use(
