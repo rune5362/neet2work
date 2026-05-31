@@ -408,9 +408,10 @@ Routing policy:
 
 ### `POST /api/draft-workflow/plan`
 
-Analyzes the question, normalizes experience cards, creates claim ledgers, matches
-experiences to the question, and returns answer strategy plus outline. Does not
-generate draft body text.
+Analyzes the question, builds a requirement-first material store, normalizes
+experience cards, creates evidence-locked claim ledgers, matches experiences to
+the question, and returns answer strategy plus outline. Does not generate draft
+body text.
 
 Required body fields:
 
@@ -424,15 +425,24 @@ Required body fields:
 | `target.jobPostingText` | string | Pasted posting text. |
 | `target.blindRecruitment` | boolean | Blind hiring constraint flag. |
 | `target.writingStyle` | optional string | UI-selected tone such as 담백한 실무형. |
+| `target.sectionName` | optional string | Current application section, such as 자기소개 or 직무역량. |
+| `target.requirementSourceText` | optional string | Extracted application instructions. When present, these rules outrank job posting text and references. |
+| `target.previousDraftText` | optional string | Existing section drafts used only to reduce repetition. |
 | `experienceInput` | object | At least one of portfolio/manual/additional text. |
+| `experienceInput.referenceSelfIntroText` | optional string | Learned/reference self-introduction examples. Used only when no attached requirement text exists and never as factual evidence about the user. |
 
 Response includes `experienceCards`, `fitAssessments`, `answerStrategy`,
-`outline`, and `aiMeta`.
+`materialStore`, `outline`, and `aiMeta`.
+
+`materialStore` is the central planning JSON. It keeps attached-document
+requirements, reference rules, user strengths, private constraints, experience
+facts, section-specific plans, and document output rules together so `/draft`
+does not invent facts outside the plan.
 
 ### `POST /api/draft-workflow/draft`
 
-Generates the evidence-locked draft, evidence map, review report, and revision
-options from a prior plan.
+Generates the evidence-locked draft, evidence map, document formatting metadata,
+review report, and revision options from a prior plan.
 
 Required body fields:
 
@@ -442,8 +452,22 @@ Required body fields:
 | `gapAnswers` | optional array | Answers to missing-slot questions. |
 | `confirmedOutline` | optional array | User-confirmed outline override. |
 
-Response includes `draftText`, `charCount`, `evidenceMap`, `reviewReport`,
-`revisionOptions`, and `aiMeta`.
+Response includes `draftText`, `charCount`, `evidenceMap`,
+`documentFormatting`, `reviewReport`, `revisionOptions`, and `aiMeta`.
+
+`documentFormatting` is fixed to UTF-8-safe Korean output and Malgun Gothic
+document export metadata:
+
+```json
+{
+  "encoding": "UTF-8",
+  "fontFamily": "Malgun Gothic",
+  "fontDisplayName": "맑은 고딕",
+  "lineSpacing": "normal",
+  "normalizeWhitespace": true,
+  "forbidMojibake": true
+}
+```
 
 ### `POST /api/draft-workflow/revise`
 

@@ -14,6 +14,15 @@ export const fallbackSeedContent = {
   ]
 };
 
+export const defaultDocumentFormatting = {
+  encoding: "UTF-8",
+  fontFamily: "Malgun Gothic",
+  fontDisplayName: "맑은 고딕",
+  lineSpacing: "normal",
+  normalizeWhitespace: true,
+  forbidMojibake: true
+} as const;
+
 export function countChars(text: string) {
   return {
     withSpaces: text.length,

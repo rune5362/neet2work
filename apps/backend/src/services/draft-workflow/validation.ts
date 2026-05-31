@@ -1,6 +1,9 @@
 import type { DraftTarget, DraftWorkflowDraft, DraftWorkflowPlan } from "../../types/draft-workflow.js";
 import { HttpError } from "../../utils/http-error.js";
 
+const INTERNAL_DRAFT_TERMS = ["claimLedger", "evidenceMap", "materialStore", "provider routing", "fallback"];
+const UNSAFE_TEXT_PATTERN = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u00A0\u200B-\u200D\uFEFF�]/u;
+
 export function findDisallowedClaimsInDraft(plan: DraftWorkflowPlan, draftText: string) {
   const violations: Array<{ claimId: string; text: string }> = [];
 
@@ -68,6 +71,46 @@ export function assertDraftEvidenceMapUsesAllowedClaims(plan: DraftWorkflowPlan,
   }
 }
 
+export function assertPlanPrioritizesAttachedRequirements(target: DraftTarget, plan: DraftWorkflowPlan) {
+  if (!target.requirementSourceText?.trim()) {
+    return;
+  }
+
+  const hasCriticalAttachedRequirement = plan.materialStore.requirements.some(
+    (requirement) =>
+      requirement.source === "attached_document" &&
+      requirement.priority === "critical" &&
+      requirement.text.trim().length > 0
+  );
+
+  if (!hasCriticalAttachedRequirement) {
+    throw new HttpError("첨부 문서 요구사항이 materialStore에 최우선으로 반영되지 않았습니다.", 422);
+  }
+}
+
+export function assertDraftTextIsExportSafe(draftText: string) {
+  if (UNSAFE_TEXT_PATTERN.test(draftText)) {
+    throw new HttpError("초안에 문서 출력에 안전하지 않은 문자나 깨진 문자가 포함되었습니다.", 422);
+  }
+
+  const leakedTerms = INTERNAL_DRAFT_TERMS.filter((term) => draftText.includes(term));
+  if (leakedTerms.length > 0) {
+    throw new HttpError(`초안에 내부 용어가 포함되었습니다: ${leakedTerms.join(", ")}`, 422);
+  }
+}
+
+export function assertDraftCharCountMatchesText(draft: DraftWorkflowDraft) {
+  const withSpaces = draft.draftText.length;
+  const withoutSpaces = draft.draftText.replace(/\s/g, "").length;
+
+  if (draft.charCount.withSpaces !== withSpaces || draft.charCount.withoutSpaces !== withoutSpaces) {
+    throw new HttpError(
+      `초안 글자 수 메타데이터가 본문과 일치하지 않습니다: withSpaces=${draft.charCount.withSpaces}/${withSpaces}, withoutSpaces=${draft.charCount.withoutSpaces}/${withoutSpaces}`,
+      422
+    );
+  }
+}
+
 export function assertDraftWithinCharLimit(target: DraftTarget, draftText: string) {
   if (!target.charLimit) {
     return;
@@ -88,6 +131,8 @@ export function assertDraftIsEvidenceLocked(
   target: DraftTarget,
   draft: DraftWorkflowDraft
 ) {
+  assertDraftTextIsExportSafe(draft.draftText);
+  assertDraftCharCountMatchesText(draft);
   assertDraftRespectsClaimLedger(plan, draft.draftText);
   assertDraftEvidenceMapUsesAllowedClaims(plan, draft);
   assertDraftWithinCharLimit(target, draft.draftText);

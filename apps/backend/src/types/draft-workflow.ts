@@ -29,12 +29,65 @@ export type DraftTarget = {
   jobPostingText: string;
   blindRecruitment: boolean;
   writingStyle?: string;
+  sectionName?: string;
+  requirementSourceText?: string;
+  previousDraftText?: string;
 };
 
 export type DraftExperienceInput = {
   portfolioText?: string;
   manualExperienceText?: string;
   additionalContext?: string;
+  referenceSelfIntroText?: string;
+};
+
+export type MaterialRequirementSource =
+  | "attached_document"
+  | "job_posting"
+  | "user_input"
+  | "reference"
+  | "fallback";
+
+export type MaterialPriority = "critical" | "high" | "medium" | "low";
+
+export type DocumentFormatting = {
+  encoding: "UTF-8";
+  fontFamily: "Malgun Gothic";
+  fontDisplayName: "맑은 고딕";
+  lineSpacing: "normal";
+  normalizeWhitespace: true;
+  forbidMojibake: true;
+};
+
+export type MaterialStore = {
+  requirements: Array<{
+    requirementId: string;
+    source: MaterialRequirementSource;
+    text: string;
+    priority: MaterialPriority;
+    appliesTo: string[];
+  }>;
+  referenceRules: string[];
+  profile: {
+    coreStrengths: string[];
+    tone: string;
+    privateConstraints: string[];
+  };
+  experiences: Array<{
+    experienceId: string;
+    facts: string[];
+    skills: string[];
+    usableSections: string[];
+    privateConstraints: string[];
+    sourceEvidenceIds: string[];
+  }>;
+  sectionPlan: Array<{
+    sectionName: string;
+    mainClaim: string;
+    evidenceIds: string[];
+    avoidRepeating: string[];
+  }>;
+  outputRules: DocumentFormatting;
 };
 
 export type EvidenceItem = {
@@ -116,6 +169,7 @@ export type DraftWorkflowPlan = {
   experienceCards: ExperienceCard[];
   fitAssessments: FitAssessment[];
   answerStrategy: AnswerStrategy;
+  materialStore: MaterialStore;
   outline: Array<{
     paragraphId: string;
     purpose: string;
@@ -139,6 +193,7 @@ export type DraftWorkflowDraft = {
     claimIds: string[];
     experienceIds: string[];
   }>;
+  documentFormatting: DocumentFormatting;
   reviewReport: {
     scores: {
       promptFit: number;

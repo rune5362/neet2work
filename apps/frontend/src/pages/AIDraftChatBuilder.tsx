@@ -226,12 +226,39 @@ function buildResumeTextParts(messages: Message[], input: string, attachedFiles:
     .map((message) => message.text)
     .join("\n\n");
   const trimmedInput = input.trim();
-  const attachedText = attachedFiles
-    .filter((file) => file.kind === "text" && file.textContent && !file.readError && !file.loading)
-    .map((file) => file.textContent as string)
-    .join("\n\n");
+  const attachedText = buildPortfolioSourceText(attachedFiles);
 
   return [userMessageText, trimmedInput, attachedText].filter((part) => part.length > 0);
+}
+
+function readyTextAttachments(attachedFiles: AttachedFile[]) {
+  return attachedFiles.filter((file) => file.kind === "text" && file.textContent && !file.readError && !file.loading);
+}
+
+function isRequirementLikeText(text: string) {
+  const markers = [
+    /작성\s*요령|작성\s*방법|요구\s*사항|유의\s*사항/,
+    /소\s*제\s*목|두괄식|글자\s*수/,
+    /자기소개|성장\s*과정|성격\s*소개|직무\s*역량|지원\s*동기|입사\s*후\s*포부/,
+    /경험을\s*구체|근거|문항|항목/
+  ];
+  return markers.filter((marker) => marker.test(text)).length >= 2;
+}
+
+function buildRequirementSourceText(attachedFiles: AttachedFile[]) {
+  return readyTextAttachments(attachedFiles)
+    .map((file) => file.textContent as string)
+    .filter(isRequirementLikeText)
+    .join("\n\n")
+    .trim();
+}
+
+function buildPortfolioSourceText(attachedFiles: AttachedFile[]) {
+  return readyTextAttachments(attachedFiles)
+    .map((file) => file.textContent as string)
+    .filter((text) => !isRequirementLikeText(text))
+    .join("\n\n")
+    .trim();
 }
 
 const iconSources = {
@@ -623,13 +650,17 @@ export function AIDraftChatBuilder() {
     charCountRule: "with_spaces" as const,
     jobPostingText: targetForm.jobPostingText.trim() || buildDefaultJobPostingText(selectedJob),
     blindRecruitment: settings.blindRecruitment,
-    writingStyle: settings.tone
+    writingStyle: settings.tone,
+    requirementSourceText: buildRequirementSourceText(attachedFiles) || undefined,
+    previousDraftText: workflowDraft?.draftText
   });
 
   const neededGapQuestions = workflowPlan?.answerStrategy.neededQuestions ?? [];
   const pendingGapQuestions = neededGapQuestions.filter(
     (question) => !(gapAnswerDrafts[question.questionId] ?? "").trim()
   );
+  const activeGapQuestion = draftState === "plan_ready" ? pendingGapQuestions[0] : undefined;
+  const answeredGapQuestionCount = neededGapQuestions.length - pendingGapQuestions.length;
   const canConfirmDraft =
     (draftState === "plan_ready" || draftState === "complete") &&
     pendingGapQuestions.length === 0 &&
@@ -664,10 +695,7 @@ export function AIDraftChatBuilder() {
   };
 
   const buildExperienceInput = () => ({
-    portfolioText: attachedFiles
-      .filter((file) => file.kind === "text" && file.textContent && !file.readError && !file.loading)
-      .map((file) => file.textContent as string)
-      .join("\n\n"),
+    portfolioText: buildPortfolioSourceText(attachedFiles),
     manualExperienceText: messages
       .filter((message) => message.sender === "user")
       .map((message) => message.text)
@@ -1108,45 +1136,45 @@ export function AIDraftChatBuilder() {
                         {card.claimLedger.length > 0 && (
                           <span>
                             {" "}
-                            · claim {card.claimLedger.filter((claim) => claim.allowedInDraft).length}/
+                            · 작성 근거 {card.claimLedger.filter((claim) => claim.allowedInDraft).length}/
                             {card.claimLedger.length}
                           </span>
                         )}
-                        {card.missingSlots.length > 0 ? ` · 부족 슬롯 ${card.missingSlots.join(", ")}` : ""}
+                        {card.missingSlots.length > 0 ? ` · 추가 확인 ${card.missingSlots.join(", ")}` : ""}
                         {card.blindRiskFlags.length > 0 ? ` · 블라인드 리스크 ${card.blindRiskFlags.join(", ")}` : ""}
                       </li>
                     ))}
                   </ul>
-                  {neededGapQuestions.length > 0 && draftState === "plan_ready" && (
-                    <div className="aiDraftGapPanel" aria-label="부족 슬롯 질문">
-                      {neededGapQuestions.map((question) => (
-                        <fieldset className="aiDraftGapFieldset" key={question.questionId}>
-                          <legend>{question.question}</legend>
-                          {question.choices && question.choices.length > 0 && (
-                            <div className="aiDraftGapChoices" role="group" aria-label={`${question.question} 선택지`}>
-                              {question.choices.map((choice) => (
-                                <button
-                                  type="button"
-                                  key={choice}
-                                  className="aiDraftGapChoiceButton"
-                                  onClick={() => applyGapChoice(question.questionId, choice)}
-                                >
-                                  {choice}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          <textarea
-                            className="aiDraftGapTextarea"
-                            value={gapAnswerDrafts[question.questionId] ?? ""}
-                            placeholder="직접 입력"
-                            rows={2}
-                            onChange={(event) => updateGapAnswerDraft(question.questionId, event.target.value)}
-                          />
-                        </fieldset>
-                      ))}
+                  {activeGapQuestion && (
+                    <div className="aiDraftGapPanel" aria-label="보완 질문">
+                      <fieldset className="aiDraftGapFieldset" key={activeGapQuestion.questionId}>
+                        <legend>{activeGapQuestion.question}</legend>
+                        {activeGapQuestion.choices && activeGapQuestion.choices.length > 0 && (
+                          <div className="aiDraftGapChoices" role="group" aria-label={`${activeGapQuestion.question} 선택지`}>
+                            {activeGapQuestion.choices.map((choice) => (
+                              <button
+                                type="button"
+                                key={choice}
+                                className="aiDraftGapChoiceButton"
+                                onClick={() => applyGapChoice(activeGapQuestion.questionId, choice)}
+                              >
+                                {choice}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <textarea
+                          className="aiDraftGapTextarea"
+                          value={gapAnswerDrafts[activeGapQuestion.questionId] ?? ""}
+                          placeholder="직접 입력"
+                          rows={2}
+                          onChange={(event) => updateGapAnswerDraft(activeGapQuestion.questionId, event.target.value)}
+                        />
+                      </fieldset>
                       {pendingGapQuestions.length > 0 && (
-                        <p className="aiDraftInputHint">남은 보완 질문 {pendingGapQuestions.length}개</p>
+                        <p className="aiDraftInputHint">
+                          보완 질문 {answeredGapQuestionCount + 1}/{neededGapQuestions.length}
+                        </p>
                       )}
                     </div>
                   )}
@@ -1277,10 +1305,10 @@ export function AIDraftChatBuilder() {
                     </ul>
                   )}
                   {workflowDraft.evidenceMap.length > 0 && (
-                    <ul className="aiDraftGuideList" aria-label="증거 매핑">
+                    <ul className="aiDraftGuideList" aria-label="근거 연결">
                       {workflowDraft.evidenceMap.map((item) => (
                         <li key={item.textRangeLabel}>
-                          {item.textRangeLabel} · claim {item.claimIds.join(", ")}
+                          {item.textRangeLabel} · 작성 근거 {item.claimIds.length}개
                         </li>
                       ))}
                     </ul>

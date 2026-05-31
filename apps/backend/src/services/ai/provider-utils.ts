@@ -64,10 +64,21 @@ export function extractAssistantOutputFromJsonl(raw: string) {
   let lastAssistant = "";
   for (const line of lines) {
     try {
-      const parsed = JSON.parse(line) as { type?: string; role?: string; content?: string; text?: string };
-      const content = parsed.content ?? parsed.text ?? "";
+      const parsed = JSON.parse(line) as {
+        type?: string;
+        role?: string;
+        content?: unknown;
+        text?: string;
+        item?: { type?: string; role?: string; content?: unknown; text?: string };
+      };
+      const content = stringifyContent(parsed.content) ?? parsed.text ?? "";
       if (parsed.type === "message" && parsed.role === "assistant" && content) {
         lastAssistant = content;
+      }
+
+      const itemContent = stringifyContent(parsed.item?.content) ?? parsed.item?.text ?? "";
+      if (parsed.type === "item.completed" && parsed.item?.type === "agent_message" && itemContent) {
+        lastAssistant = itemContent;
       }
     } catch {
       // ignore non-json lines
@@ -75,6 +86,29 @@ export function extractAssistantOutputFromJsonl(raw: string) {
   }
 
   return lastAssistant || raw;
+}
+
+function stringifyContent(content: unknown): string | undefined {
+  if (typeof content === "string") {
+    return content;
+  }
+
+  if (!Array.isArray(content)) {
+    return undefined;
+  }
+
+  const parts = content
+    .map((item) => {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object" && "text" in item) {
+        const text = (item as { text?: unknown }).text;
+        return typeof text === "string" ? text : "";
+      }
+      return "";
+    })
+    .filter(Boolean);
+
+  return parts.length > 0 ? parts.join("") : undefined;
 }
 
 export type BaseProviderContext = {

@@ -10,10 +10,12 @@ import type {
   DraftTarget,
   DraftWorkflowDraft,
   DraftWorkflowPlan,
-  GapAnswer
+  GapAnswer,
+  MaterialStore
 } from "../../types/draft-workflow.js";
 import {
   countChars,
+  defaultDocumentFormatting,
   extractExperienceText,
   fallbackSeedContent,
   inferBlindRiskFlags,
@@ -26,6 +28,7 @@ type FallbackPlanPayload = {
     portfolioText?: string;
     manualExperienceText?: string;
     additionalContext?: string;
+    referenceSelfIntroText?: string;
   };
 };
 
@@ -41,6 +44,143 @@ function createAiMeta(usedFallback = true): AiExecutionMeta {
     routingMode: "auto",
     usedFallback,
     fallbackReason: usedFallback ? "all_providers_unavailable" : undefined
+  };
+}
+
+function compactText(text: string, limit = 240) {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  return normalized.length > limit ? `${normalized.slice(0, limit).trimEnd()}...` : normalized;
+}
+
+function inferSectionName(target: DraftTarget) {
+  if (target.sectionName?.trim()) {
+    return target.sectionName.trim();
+  }
+
+  if (/성장\s*과정|성장과정/.test(target.questionText)) return "성장과정";
+  if (/성격|장점|단점/.test(target.questionText)) return "성격소개";
+  if (/직무\s*역량|역량|기술/.test(target.questionText)) return "직무역량";
+  if (/지원\s*동기|포부|입사\s*후/.test(target.questionText)) return "지원동기 및 포부";
+  return "자기소개";
+}
+
+function extractRequirementLines(text?: string) {
+  return (text ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^[\s*ㆍ•-]+/, "").trim())
+    .filter((line) => line.length >= 4)
+    .slice(0, 8);
+}
+
+function inferReferenceRules(referenceText?: string) {
+  if (!referenceText?.trim()) {
+    return [];
+  }
+
+  const rules = [];
+  if (/두괄|결론|소\s*제\s*목/.test(referenceText)) {
+    rules.push("두괄식으로 문단의 결론을 먼저 제시합니다.");
+  }
+  if (/구체|경험|근거/.test(referenceText)) {
+    rules.push("주장마다 구체 경험과 검증 가능한 근거를 붙입니다.");
+  }
+  if (/직무|역량|기술/.test(referenceText)) {
+    rules.push("경험을 지원 직무에서 발휘할 수 있는 역량으로 연결합니다.");
+  }
+  return rules;
+}
+
+function inferCoreStrengths(text: string) {
+  const strengths = [];
+  if (/AI|인공지능|프롬프트|prompt/i.test(text)) strengths.push("AI 활용");
+  if (/자동화|반복/.test(text)) strengths.push("자동화");
+  if (/아키텍처|구조|설계/.test(text)) strengths.push("로직/아키텍처 설계");
+  if (/실행|구현|만들/.test(text)) strengths.push("빠른 실행과 검증");
+  return strengths.length > 0 ? strengths : ["문제 정의", "실행", "직무 경험 정리"];
+}
+
+function isMotivationQuestion(target: DraftTarget) {
+  return /지원\s*동기|포부|입사\s*후|회사/.test(target.questionText);
+}
+
+function hasSpecificCompanyContext(text: string) {
+  const normalized = text.trim();
+  if (normalized.length < 80) return false;
+  return /서비스|제품|사업|고객|시장|문화|비전|기술|문제|도메인|프로덕트/.test(normalized);
+}
+
+function buildMaterialStore(payload: FallbackPlanPayload, card: ReturnType<typeof buildExperienceCard>): MaterialStore {
+  const sectionName = inferSectionName(payload.target);
+  const requirementLines = extractRequirementLines(payload.target.requirementSourceText);
+  const referenceRules = inferReferenceRules(payload.experienceInput.referenceSelfIntroText);
+  const experienceText = extractExperienceText(payload.experienceInput);
+  const requirements: MaterialStore["requirements"] = [];
+
+  requirementLines.forEach((line, index) => {
+    requirements.push({
+      requirementId: `attached-requirement-${index + 1}`,
+      source: "attached_document",
+      text: compactText(line),
+      priority: "critical",
+      appliesTo: [sectionName]
+    });
+  });
+
+  if (requirements.length === 0 && referenceRules.length > 0) {
+    referenceRules.forEach((rule, index) => {
+      requirements.push({
+        requirementId: `reference-rule-${index + 1}`,
+        source: "reference",
+        text: rule,
+        priority: "medium",
+        appliesTo: [sectionName]
+      });
+    });
+  }
+
+  requirements.push({
+    requirementId: "job-posting-fit-1",
+    source: "job_posting",
+    text: compactText(payload.target.jobPostingText),
+    priority: payload.target.requirementSourceText?.trim() ? "medium" : "high",
+    appliesTo: [sectionName]
+  });
+
+  return {
+    requirements,
+    referenceRules,
+    profile: {
+      coreStrengths: inferCoreStrengths(`${experienceText}\n${payload.target.jobPostingText}`),
+      tone: payload.target.writingStyle ?? "담백한 실무형",
+      privateConstraints: /상품화|비공개|자세히 알려줄/.test(experienceText)
+        ? ["상품화 예정이거나 비공개인 세부 로직은 공개하지 않습니다."]
+        : []
+    },
+    experiences: [
+      {
+        experienceId: card.experienceId,
+        facts: [
+          compactText(card.problem ?? "문제 상황"),
+          ...card.actions.map((item) => compactText(item.action)),
+          ...card.outputs.map((item) => compactText(item))
+        ].filter(Boolean),
+        skills: card.skills,
+        usableSections: [sectionName],
+        privateConstraints: /상품화|비공개|자세히 알려줄/.test(experienceText)
+          ? ["세부 구현 로직은 면접에서 공개 가능한 수준으로만 설명합니다."]
+          : [],
+        sourceEvidenceIds: card.evidenceItems.map((item) => item.evidenceId)
+      }
+    ],
+    sectionPlan: [
+      {
+        sectionName,
+        mainClaim: card.claimLedger.find((claim) => claim.allowedInDraft)?.text ?? "경험 기반 역량을 구체적으로 설명합니다.",
+        evidenceIds: card.evidenceItems.map((item) => item.evidenceId),
+        avoidRepeating: payload.target.previousDraftText ? inferCoreStrengths(payload.target.previousDraftText) : []
+      }
+    ],
+    outputRules: defaultDocumentFormatting
   };
 }
 
@@ -108,16 +248,45 @@ function buildExperienceCard(
   };
 }
 
+function buildNeededQuestions(payload: FallbackPlanPayload, card: ReturnType<typeof buildExperienceCard>) {
+  const questions = card.missingSlots.map((slot, index) => ({
+    questionId: `gap-${index + 1}`,
+    slot,
+    priority: index + 1,
+    question:
+      slot === "result_metric"
+        ? "이 경험에서 실제로 확인 가능한 결과는 무엇이었나요? 수치가 없다면 달라진 점을 한 문장으로 적어주세요."
+        : "이 경험에서 본인이 직접 맡은 역할과 판단한 이유는 무엇이었나요?",
+    choices:
+      slot === "result_metric"
+        ? ["속도/품질 개선", "사용자 반응", "팀 작업 효율"]
+        : ["직접 구현", "구조 설계", "분석/검증"]
+  }));
+
+  if (isMotivationQuestion(payload.target) && !hasSpecificCompanyContext(payload.target.jobPostingText)) {
+    questions.push({
+      questionId: "company-fit-1",
+      slot: "company_fit_evidence",
+      priority: questions.length + 1,
+      question: "지원 회사에서 끌린 구체적인 서비스, 기술, 문제 영역은 무엇인가요?",
+      choices: ["서비스/제품", "기술 스택", "해결하는 문제"]
+    });
+  }
+
+  return questions;
+}
+
 export function buildFallbackPlan(payload: FallbackPlanPayload): DraftWorkflowPlan {
   const experienceText = extractExperienceText(payload.experienceInput);
   const usingSeed = experienceText.length < 20;
   const cardSource = usingSeed ? "fallback" : experienceText.includes("\n") ? "portfolio" : "manual";
   const card = buildExperienceCard(payload.target, usingSeed ? fallbackSeedContent.draftText : experienceText, cardSource);
   const questionId = "question-1";
+  const neededQuestions = buildNeededQuestions(payload, card);
 
   return {
     mode: "fallback",
-    state: card.missingSlots.length > 0 ? "GAP_INTERVIEWING" : "OUTLINE_READY",
+    state: neededQuestions.length > 0 ? "GAP_INTERVIEWING" : "OUTLINE_READY",
     aiMeta: createAiMeta(),
     questionRubric: {
       intent: `${payload.target.questionText}에 답하기 위해 경험의 문제-행동-결과를 연결합니다.`,
@@ -145,20 +314,9 @@ export function buildFallbackPlan(payload: FallbackPlanPayload): DraftWorkflowPl
       narrativePattern: "STAR",
       primaryExperienceId: card.experienceId,
       questionBudget: payload.target.charLimit ?? 800,
-      neededQuestions: card.missingSlots.map((slot, index) => ({
-        questionId: `gap-${index + 1}`,
-        slot,
-        priority: index + 1,
-        question:
-          slot === "result_metric"
-            ? "이 경험에서 확인 가능한 결과나 성과를 한 가지 적어주세요."
-            : "이 경험에서 본인이 맡았던 역할을 한 문장으로 적어주세요.",
-        choices:
-          slot === "result_metric"
-            ? ["사용자 수/매출 등 수치", "품질/속도 개선", "팀 협업 성과"]
-            : ["기획/조율", "직접 구현", "분석/검증"]
-      }))
+      neededQuestions
     },
+    materialStore: buildMaterialStore(payload, card),
     outline: [
       {
         paragraphId: "p1",
@@ -249,6 +407,7 @@ export function buildFallbackDraft(payload: FallbackDraftPayload): DraftWorkflow
         experienceIds: [primaryCard.experienceId]
       }
     ],
+    documentFormatting: defaultDocumentFormatting,
     reviewReport: {
       scores: {
         promptFit: usingSeed ? 62 : 74,
@@ -265,7 +424,7 @@ export function buildFallbackDraft(payload: FallbackDraftPayload): DraftWorkflow
             {
               type: "fallback_demo",
               severity: "high" as const,
-              message: "현재 결과는 AI가 아닌 데모 fallback 초안입니다.",
+              message: "현재 결과는 실제 AI가 아닌 데모 초안입니다.",
               suggestedQuestion: "실제 경험 텍스트를 더 입력해 주세요."
             }
           ]
@@ -354,6 +513,7 @@ export class HardcodedFallbackProvider implements AiProvider {
           ...countChars(revisedText),
           limit: revisePayload.draft.charCount.limit
         },
+        documentFormatting: revisePayload.draft.documentFormatting ?? defaultDocumentFormatting,
         state: "REVISION_REQUESTED",
         mode: "fallback" as const,
         aiMeta: createAiMeta()

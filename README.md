@@ -18,7 +18,7 @@
 - 강점, 보완점, 부족한 키워드 도출
 - 자기소개서 수정 가이드와 추천 문장 제공
 - 소크라테스식 보완 질문 기반 자기소개서 작성 워크플로우
-- 경험 카드, claim ledger, 개요, 초안, 자기검수 리포트 생성
+- 요구사항 우선 재료함, 경험 카드, 근거 검증, 개요, 초안, 자기검수 리포트 생성
 - DOCX/PDF/TXT/MD 포트폴리오 및 입사지원서 파일 본문 추출
 - AI provider 라우팅(Codex Bridge, Gemini, Local AI, fallback demo)
 - API 키 미설정 시 Mock 분석 결과 반환
@@ -32,10 +32,11 @@
 
 1. 사용자가 자소서 문항, 목표 직무, 공고 정보, 기존 자기소개서/대화 내용을 입력합니다.
 2. 사용자가 포트폴리오 또는 입사지원서 파일을 첨부하면 backend가 본문을 추출합니다.
-3. AI가 문항과 첨부 본문에서 경험 후보를 뽑고, 부족한 정보는 소크라테스식 보완 질문으로 확인합니다.
-4. AI가 경험 카드, claim ledger, 개요 미리보기를 생성합니다.
-5. 사용자가 개요를 확인하면 초안을 생성하고, evidence mapping과 자기검수 리포트를 함께 반환합니다.
-6. 수정 요청 시 기존 plan과 claim ledger를 유지한 채 초안을 다시 생성합니다.
+3. 첨부 문서에 자소서 요구사항이 있으면 공고/레퍼런스보다 우선해 재료함 JSON에 고정합니다.
+4. AI가 문항과 첨부 본문에서 경험 후보를 뽑고, 부족한 정보는 소크라테스식 보완 질문으로 한 번에 하나씩 확인합니다.
+5. AI가 경험 카드, 근거 검증 장부, 개요 미리보기를 생성합니다.
+6. 사용자가 개요를 확인하면 초안을 생성하고, 근거 연결 정보와 자기검수 리포트를 함께 반환합니다.
+7. 수정 요청 시 기존 계획과 근거 검증 장부를 유지한 채 초안을 다시 생성합니다.
 
 첨부 파일 정책:
 
@@ -43,7 +44,7 @@
 - DOCX: `mammoth`로 raw text를 추출합니다.
 - PDF: `pdf-parse`로 text layer만 추출합니다.
 - 미지원: 이미지 파일(`png`, `jpg`, `jpeg`, `webp`), legacy `.doc`, 이미지 기반/스캔본 PDF
-- 작업물 파일이 없는 경험은 첨부가 아니라 보완 질문 답변 또는 직접 입력으로 claim ledger에 반영합니다.
+- 작업물 파일이 없는 경험은 첨부가 아니라 보완 질문 답변 또는 직접 입력으로 근거 검증 장부에 반영합니다.
 
 AI 라우팅 정책:
 
@@ -121,7 +122,7 @@ AI 라우팅 정책:
 - Hardcoded fallback demo
 - Evidence-locked 자기소개서 작성 workflow
 - Socratic gap question 기반 경험 심화
-- Claim ledger 기반 허위/과장 방지 검증
+- 근거 검증 장부 기반 허위/과장 방지 검증
 - API Key 또는 provider 미설정 시 fallback 결과 사용
 
 ### Code Quality & Test
@@ -235,6 +236,7 @@ AI_PROVIDER_TIMEOUT_MS=180000
 CODEX_BRIDGE_ENABLED=false
 CODEX_BRIDGE_COMMAND=codex
 CODEX_BRIDGE_MODEL=
+CODEX_BRIDGE_REASONING_EFFORT=
 CODEX_BRIDGE_PROFILE=
 GEMINI_ENABLED=false
 GEMINI_API_KEY=
@@ -483,8 +485,8 @@ POST /api/draft-workflow/revise
 대표 요청 흐름:
 
 1. `GET /providers`로 provider online/offline/quota 상태를 확인합니다.
-2. `POST /plan`으로 경험 카드, claim ledger, 보완 질문, 개요를 생성합니다.
-3. `POST /draft`로 개요 기반 초안과 자기검수 리포트를 생성합니다.
+2. `POST /plan`으로 요구사항 우선 재료함, 경험 카드, 보완 질문, 개요를 생성합니다.
+3. `POST /draft`로 개요 기반 초안, 근거 연결 정보, 자기검수 리포트를 생성합니다.
 4. `POST /revise`로 사용자의 수정 요청을 반영합니다.
 
 자세한 request/response schema는 [docs/API_CONTRACT.md](./docs/API_CONTRACT.md)를 기준으로 합니다.

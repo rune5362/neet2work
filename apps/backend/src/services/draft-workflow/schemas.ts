@@ -22,13 +22,63 @@ export const draftTargetSchema = z.object({
   charCountRule: z.enum(["with_spaces", "without_spaces", "unknown"]),
   jobPostingText: z.string().min(10),
   blindRecruitment: z.boolean(),
-  writingStyle: z.string().optional()
+  writingStyle: z.string().optional(),
+  sectionName: z.string().optional(),
+  requirementSourceText: z.string().optional(),
+  previousDraftText: z.string().optional()
 });
 
 export const draftExperienceInputSchema = z.object({
   portfolioText: z.string().optional(),
   manualExperienceText: z.string().optional(),
-  additionalContext: z.string().optional()
+  additionalContext: z.string().optional(),
+  referenceSelfIntroText: z.string().optional()
+});
+
+export const documentFormattingSchema = z.object({
+  encoding: z.literal("UTF-8"),
+  fontFamily: z.literal("Malgun Gothic"),
+  fontDisplayName: z.literal("맑은 고딕"),
+  lineSpacing: z.literal("normal"),
+  normalizeWhitespace: z.literal(true),
+  forbidMojibake: z.literal(true)
+});
+
+export const materialStoreSchema = z.object({
+  requirements: z.array(
+    z.object({
+      requirementId: z.string(),
+      source: z.enum(["attached_document", "job_posting", "user_input", "reference", "fallback"]),
+      text: z.string(),
+      priority: z.enum(["critical", "high", "medium", "low"]),
+      appliesTo: z.array(z.string())
+    })
+  ),
+  referenceRules: z.array(z.string()),
+  profile: z.object({
+    coreStrengths: z.array(z.string()),
+    tone: z.string(),
+    privateConstraints: z.array(z.string())
+  }),
+  experiences: z.array(
+    z.object({
+      experienceId: z.string(),
+      facts: z.array(z.string()),
+      skills: z.array(z.string()),
+      usableSections: z.array(z.string()),
+      privateConstraints: z.array(z.string()),
+      sourceEvidenceIds: z.array(z.string())
+    })
+  ),
+  sectionPlan: z.array(
+    z.object({
+      sectionName: z.string(),
+      mainClaim: z.string(),
+      evidenceIds: z.array(z.string()),
+      avoidRepeating: z.array(z.string())
+    })
+  ),
+  outputRules: documentFormattingSchema
 });
 
 export const evidenceItemSchema = z.object({
@@ -154,6 +204,7 @@ export const draftWorkflowPlanSchema = z.object({
   experienceCards: z.array(experienceCardSchema),
   fitAssessments: z.array(fitAssessmentSchema),
   answerStrategy: answerStrategySchema,
+  materialStore: materialStoreSchema,
   outline: z.array(
     z.object({
       paragraphId: z.string(),
@@ -181,6 +232,7 @@ export const draftWorkflowDraftSchema = z.object({
       experienceIds: z.array(z.string())
     })
   ),
+  documentFormatting: documentFormattingSchema,
   reviewReport: z.object({
     scores: z.object({
       promptFit: z.number().min(0).max(100),

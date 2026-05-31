@@ -18,6 +18,15 @@ const sampleExperience = {
     "Node.js와 PostgreSQL로 REST API 서버를 구축하고 운영한 백엔드 개발 경험이 있습니다."
 };
 
+const documentFormatting = {
+  encoding: "UTF-8",
+  fontFamily: "Malgun Gothic",
+  fontDisplayName: "맑은 고딕",
+  lineSpacing: "normal",
+  normalizeWhitespace: true,
+  forbidMojibake: true
+} as const;
+
 describe("draftWorkflowService", () => {
   it("returns provider statuses including fallback", async () => {
     const providers = await draftWorkflowService.getProviders();
@@ -38,6 +47,27 @@ describe("draftWorkflowService", () => {
     expect(plan.outline.length).toBeGreaterThan(0);
     expect(plan.aiMeta.usedFallback).toBe(true);
     expect(plan.aiMeta.providerId).toBe("fallback");
+  });
+
+  it("createPlan prioritizes attached document requirements in materialStore", async () => {
+    const plan = await draftWorkflowService.createPlan({
+      aiSelection: { mode: "auto" },
+      target: {
+        ...sampleTarget,
+        requirementSourceText: "자소서 요구사항\n소제목을 작성하고 두괄식으로 구체 경험을 포함하세요."
+      },
+      experienceInput: sampleExperience
+    });
+
+    expect(plan.materialStore.requirements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: "attached_document",
+          priority: "critical",
+          text: expect.stringContaining("두괄식")
+        })
+      ])
+    );
   });
 
   it("createDraft returns draft envelope", async () => {
@@ -119,6 +149,7 @@ describe("draftWorkflowService", () => {
           draftText: "데모용 하드코딩 초안 문장은 실제 AI 결과가 아닙니다.",
           charCount: { withSpaces: 30, withoutSpaces: 24, limit: 800 },
           evidenceMap: [],
+          documentFormatting,
           reviewReport: {
             scores: {
               promptFit: 0,

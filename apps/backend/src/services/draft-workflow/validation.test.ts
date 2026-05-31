@@ -1,11 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
   assertDraftEvidenceMapUsesAllowedClaims,
+  assertDraftTextIsExportSafe,
   assertDraftWithinCharLimit,
+  assertPlanPrioritizesAttachedRequirements,
   assertDraftRespectsClaimLedger,
   findDisallowedClaimsInDraft
 } from "./validation.js";
 import type { DraftWorkflowPlan } from "../../types/draft-workflow.js";
+
+const documentFormatting = {
+  encoding: "UTF-8",
+  fontFamily: "Malgun Gothic",
+  fontDisplayName: "맑은 고딕",
+  lineSpacing: "normal",
+  normalizeWhitespace: true,
+  forbidMojibake: true
+} as const;
 
 const samplePlan: DraftWorkflowPlan = {
   mode: "fallback",
@@ -62,6 +73,42 @@ const samplePlan: DraftWorkflowPlan = {
     questionBudget: 800,
     neededQuestions: []
   },
+  materialStore: {
+    requirements: [
+      {
+        requirementId: "job-posting-fit-1",
+        source: "job_posting",
+        text: "공고 요구사항",
+        priority: "high",
+        appliesTo: ["자기소개"]
+      }
+    ],
+    referenceRules: [],
+    profile: {
+      coreStrengths: ["문제 해결"],
+      tone: "담백한 실무형",
+      privateConstraints: []
+    },
+    experiences: [
+      {
+        experienceId: "exp-1",
+        facts: ["허용된 경험"],
+        skills: [],
+        usableSections: ["자기소개"],
+        privateConstraints: [],
+        sourceEvidenceIds: []
+      }
+    ],
+    sectionPlan: [
+      {
+        sectionName: "자기소개",
+        mainClaim: "test",
+        evidenceIds: [],
+        avoidRepeating: []
+      }
+    ],
+    outputRules: documentFormatting
+  },
   outline: []
 };
 
@@ -103,6 +150,7 @@ describe("assertDraftRespectsClaimLedger", () => {
         draftText: "초안",
         charCount: { withSpaces: 2, withoutSpaces: 2, limit: 800 },
         evidenceMap: [{ textRangeLabel: "전체", claimIds: ["blocked-1", "missing"], experienceIds: ["exp-1"] }],
+        documentFormatting,
         reviewReport: {
           scores: {
             promptFit: 0,
@@ -138,5 +186,26 @@ describe("assertDraftRespectsClaimLedger", () => {
         "123456"
       )
     ).toThrow(/글자 수 제한/);
+  });
+
+  it("throws when attached requirements are not prioritized in the plan", () => {
+    expect(() =>
+      assertPlanPrioritizesAttachedRequirements(
+        {
+          company: "A",
+          role: "B",
+          questionText: "지원 동기를 작성하세요.",
+          charCountRule: "with_spaces",
+          jobPostingText: "충분히 긴 공고 텍스트",
+          blindRecruitment: false,
+          requirementSourceText: "자소서 요구사항: 두괄식으로 작성"
+        },
+        samplePlan
+      )
+    ).toThrow(/첨부 문서 요구사항/);
+  });
+
+  it("throws when draft text contains unsafe export characters", () => {
+    expect(() => assertDraftTextIsExportSafe("정상 문장\u00A0깨진 공백")).toThrow(/안전하지 않은 문자/);
   });
 });

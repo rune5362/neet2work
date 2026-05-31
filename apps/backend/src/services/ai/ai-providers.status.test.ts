@@ -8,6 +8,7 @@ const mockAiConfig = vi.hoisted(() => ({
     enabled: false,
     command: "codex",
     model: "",
+    reasoningEffort: "",
     profile: ""
   },
   gemini: {
@@ -119,7 +120,7 @@ describe("AI provider status", () => {
       stdout: {
         on: vi.fn((event: string, cb: (chunk: string) => void) => {
           if (event === "data") {
-            queueMicrotask(() => cb('{"type":"message","role":"assistant","content":"{\\"ok\\":true}"}\n'));
+            queueMicrotask(() => cb('{"type":"item.completed","item":{"type":"agent_message","text":"{\\"ok\\":true}"}}\n'));
           }
         })
       },

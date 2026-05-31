@@ -23,6 +23,7 @@ export const aiConfig = {
     enabled: process.env.CODEX_BRIDGE_ENABLED === "true",
     command: process.env.CODEX_BRIDGE_COMMAND ?? "codex",
     model: process.env.CODEX_BRIDGE_MODEL ?? "",
+    reasoningEffort: process.env.CODEX_BRIDGE_REASONING_EFFORT ?? "",
     profile: process.env.CODEX_BRIDGE_PROFILE ?? ""
   },
 

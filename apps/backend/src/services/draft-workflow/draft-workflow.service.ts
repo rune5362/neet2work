@@ -12,7 +12,10 @@ import {
   draftWorkflowDraftSchema,
   draftWorkflowPlanSchema
 } from "./schemas.js";
-import { assertDraftIsEvidenceLocked } from "./validation.js";
+import {
+  assertDraftIsEvidenceLocked,
+  assertPlanPrioritizesAttachedRequirements
+} from "./validation.js";
 
 type RouterResult<T> = { data: T; aiMeta: AiExecutionMeta };
 
@@ -37,12 +40,31 @@ export class DraftWorkflowService {
       target: request.target,
       experienceInput: request.experienceInput
     };
-    return this.executeAndParse<DraftWorkflowPlan>({
+    const parsed = await this.executeAndParse<DraftWorkflowPlan>({
       operation: "plan",
       payload,
       aiSelection: request.aiSelection,
       schema: draftWorkflowPlanSchema
     });
+
+    try {
+      assertPlanPrioritizesAttachedRequirements(request.target, parsed);
+      return parsed;
+    } catch (error) {
+      if (parsed.aiMeta.usedFallback) {
+        throw error;
+      }
+
+      const fallback = await this.router.executeFallback<DraftWorkflowPlan>({
+        operation: "plan",
+        payload,
+        routingMode: parsed.aiMeta.routingMode,
+        fallbackReason: "invalid_output"
+      });
+      const fallbackPlan = parseWorkflowResult(draftWorkflowPlanSchema, fallback);
+      assertPlanPrioritizesAttachedRequirements(request.target, fallbackPlan);
+      return fallbackPlan;
+    }
   }
 
   async createDraft(request: DraftWorkflowDraftRequest) {

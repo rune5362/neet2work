@@ -85,7 +85,13 @@ export class CodexBridgeProvider implements AiProvider {
 
     const startedAt = Date.now();
     const prompt = buildDraftWorkflowPrompt(input.operation, input.payload);
-    const args = ["exec", "--ephemeral", "--sandbox", "read-only", "--ask-for-approval", "never", "--json"];
+    const args = ["--ask-for-approval", "never"];
+
+    if (aiConfig.codexBridge.reasoningEffort) {
+      args.push("-c", `model_reasoning_effort=${JSON.stringify(aiConfig.codexBridge.reasoningEffort)}`);
+    }
+
+    args.push("exec", "--ephemeral", "--sandbox", "read-only", "--json");
 
     if (aiConfig.codexBridge.model || input.modelId) {
       args.push("-m", input.modelId ?? aiConfig.codexBridge.model);

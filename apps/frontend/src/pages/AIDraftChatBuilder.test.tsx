@@ -38,6 +38,15 @@ const aiMeta = {
   fallbackReason: "all_providers_unavailable" as const
 };
 
+const documentFormatting = {
+  encoding: "UTF-8" as const,
+  fontFamily: "Malgun Gothic" as const,
+  fontDisplayName: "맑은 고딕" as const,
+  lineSpacing: "normal" as const,
+  normalizeWhitespace: true as const,
+  forbidMojibake: true as const
+};
+
 const workflowPlanResult = {
   mode: "fallback" as const,
   state: "OUTLINE_READY" as const,
@@ -97,6 +106,42 @@ const workflowPlanResult = {
     questionBudget: 800,
     neededQuestions: []
   },
+  materialStore: {
+    requirements: [
+      {
+        requirementId: "job-posting-fit-1",
+        source: "job_posting" as const,
+        text: "실서비스 API와 데이터 처리를 담당합니다.",
+        priority: "high" as const,
+        appliesTo: ["자기소개"]
+      }
+    ],
+    referenceRules: [],
+    profile: {
+      coreStrengths: ["백엔드 API 운영"],
+      tone: "담백한 실무형",
+      privateConstraints: []
+    },
+    experiences: [
+      {
+        experienceId: "manual-experience-1",
+        facts: ["REST API 서버 구축"],
+        skills: ["Node.js", "PostgreSQL"],
+        usableSections: ["자기소개"],
+        privateConstraints: [],
+        sourceEvidenceIds: ["manual-evidence-1"]
+      }
+    ],
+    sectionPlan: [
+      {
+        sectionName: "자기소개",
+        mainClaim: "백엔드 API 운영 경험",
+        evidenceIds: ["manual-evidence-1"],
+        avoidRepeating: []
+      }
+    ],
+    outputRules: documentFormatting
+  },
   outline: [{ paragraphId: "p1", purpose: "문제 상황", plannedClaims: ["manual-claim-1"] }]
 };
 
@@ -114,6 +159,7 @@ const workflowDraftResult = {
       experienceIds: ["manual-experience-1"]
     }
   ],
+  documentFormatting,
   reviewReport: {
     scores: {
       promptFit: 74,
@@ -434,6 +480,31 @@ describe("AIDraftChatBuilder draft workflow flow", () => {
 
     const body = getPlanCallBody(fetchMock);
     expect(body.experienceInput.portfolioText).toContain("첨부 파일 본문 텍스트입니다.");
+    expect(body.experienceInput.manualExperienceText).toContain("Node.js와 PostgreSQL");
+  });
+
+  it("routes requirement-like attachments to target requirements instead of experience evidence", async () => {
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+    fireEvent.click(screen.getByRole("button", { name: "작성 옵션" }));
+    await attachTextFile(
+      "requirements.txt",
+      "자기소개 작성요령\n소 제 목을 작성하세요.\n요구사항: 두괄식으로 쓰고 구체 경험을 포함하세요."
+    );
+    await submitUserResume();
+
+    fireEvent.click(screen.getByRole("button", { name: /문항 분석 시작/i }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) => String(url).includes("/api/draft-workflow/plan"))
+      ).toBe(true);
+    });
+
+    const body = getPlanCallBody(fetchMock);
+    expect(body.target.requirementSourceText).toContain("두괄식");
+    expect(body.experienceInput.portfolioText ?? "").not.toContain("두괄식");
     expect(body.experienceInput.manualExperienceText).toContain("Node.js와 PostgreSQL");
   });
 
@@ -1216,6 +1287,62 @@ describe("AIDraftChatBuilder plan test plan coverage", () => {
     expect(await screen.findByText(/문제 상황에서 API 안정성을 확보하기 위해/)).toBeInTheDocument();
     expect(screen.getByLabelText("검수 이슈")).toBeInTheDocument();
     expect(screen.getAllByText("결과 수치가 확인되면 설득력이 더 높아집니다.").length).toBeGreaterThan(0);
+  });
+
+  it("shows Socratic follow-up questions one at a time", async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.includes("/api/draft-workflow/providers")) {
+        return apiResponse({ data: providerStatuses });
+      }
+
+      if (url.includes("/api/jobs/careercross-1591647")) {
+        return apiResponse({ data: apiJob });
+      }
+
+      if (url.includes("/api/draft-workflow/plan") && init?.method === "POST") {
+        return apiResponse({
+          data: {
+            ...workflowPlanResult,
+            answerStrategy: {
+              ...workflowPlanResult.answerStrategy,
+              neededQuestions: [
+                {
+                  questionId: "gap-1",
+                  slot: "result_metric",
+                  priority: 1,
+                  question: "첫 번째 보완 질문입니다.",
+                  choices: ["첫 답변"]
+                },
+                {
+                  questionId: "gap-2",
+                  slot: "personal_role",
+                  priority: 2,
+                  question: "두 번째 보완 질문입니다.",
+                  choices: ["두 번째 답변"]
+                }
+              ]
+            }
+          }
+        });
+      }
+
+      return errorResponse();
+    });
+
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+    await submitUserResume();
+    fireEvent.click(screen.getByRole("button", { name: /문항 분석 시작/i }));
+
+    expect(await screen.findByText("첫 번째 보완 질문입니다.")).toBeInTheDocument();
+    expect(screen.queryByText("두 번째 보완 질문입니다.")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "첫 답변" }));
+
+    expect(await screen.findByText("두 번째 보완 질문입니다.")).toBeInTheDocument();
   });
 
   it("marks fallback mode distinctly from real AI output", async () => {
