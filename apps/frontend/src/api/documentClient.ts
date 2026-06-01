@@ -141,6 +141,10 @@ export async function archiveDocument(documentId: string): Promise<DocumentDetai
   return result.data;
 }
 
+export async function restoreDocument(documentId: string): Promise<DocumentDetail> {
+  return updateDocumentMeta(documentId, { isArchived: false });
+}
+
 export async function copyDocument(documentId: string): Promise<DocumentDetail> {
   const result = await sendJson<ApiItemResponse<DocumentDetail>>(
     `/api/documents/${documentId}/copy`,

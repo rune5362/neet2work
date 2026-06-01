@@ -137,6 +137,10 @@ export async function archiveProfile(profileId: string): Promise<ProfileDetail> 
   return result.data;
 }
 
+export async function restoreProfile(profileId: string): Promise<ProfileDetail> {
+  return updateProfileMeta(profileId, { isArchived: false });
+}
+
 export async function copyProfile(profileId: string): Promise<ProfileDetail> {
   const result = await sendJson<ApiItemResponse<ProfileDetail>>(
     `/api/profiles/${profileId}/copy`,

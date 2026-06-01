@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { createDocument as createDocumentRequest } from "./api/documentClient";
@@ -90,6 +90,14 @@ const document: DocumentDetail = {
   updatedAt: timestamp
 };
 
+const archivedDocument: DocumentDetail = {
+  ...document,
+  id: "document-archived",
+  title: "보관된 자기소개서",
+  documentType: "cover_letter",
+  isArchived: true
+};
+
 const documentSet: ApplicationSetItem = {
   id: "set-1",
   candidateKey: "demo-candidate",
@@ -131,18 +139,22 @@ function jsonResponse(body: unknown) {
   );
 }
 
-function setupFetchMock() {
+function setupFetchMock(options: { empty?: boolean; unauthenticated?: boolean } = {}) {
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input));
     const method = init?.method ?? "GET";
     const path = url.pathname;
+
+    if (options.unauthenticated && path.startsWith("/api/")) {
+      return Promise.resolve(new Response(JSON.stringify({ message: "로그인이 필요합니다." }), { status: 401 }));
+    }
 
     if (path === "/api/jobs") {
       return jsonResponse({ data: [job], count: 1 });
     }
 
     if (path === "/api/profiles" && method === "GET") {
-      return jsonResponse({ data: [profile satisfies ProfileListItem], count: 1 });
+      return jsonResponse({ data: options.empty ? [] : [profile satisfies ProfileListItem], count: options.empty ? 0 : 1 });
     }
 
     if (path === "/api/profiles" && method === "POST") {
@@ -158,11 +170,16 @@ function setupFetchMock() {
     }
 
     if (path === "/api/documents" && method === "GET") {
-      return jsonResponse({ data: [document satisfies DocumentListItem], count: 1 });
+      const documents = url.searchParams.get("includeArchived") === "true" ? [document, archivedDocument] : [document];
+      return jsonResponse({ data: options.empty ? [] : documents, count: options.empty ? 0 : documents.length });
     }
 
     if (path === "/api/document-sets" && method === "GET") {
-      return jsonResponse({ data: [documentSet], count: 1 });
+      return jsonResponse({ data: options.empty ? [] : [documentSet], count: options.empty ? 0 : 1 });
+    }
+
+    if (path === "/api/document-sets" && method === "POST") {
+      return jsonResponse({ data: { ...documentSet, id: "created-set", title: "새 지원 묶음" } });
     }
 
     if (path === "/api/document-sets/set-1" && method === "GET") {
@@ -183,6 +200,14 @@ function setupFetchMock() {
 
     if (path === "/api/documents/document-1" && method === "PATCH") {
       return jsonResponse({ data: document });
+    }
+
+    if (path === "/api/documents/document-1" && method === "DELETE") {
+      return jsonResponse({ data: { ...document, isArchived: true } });
+    }
+
+    if (path === "/api/documents/document-archived" && method === "PATCH") {
+      return jsonResponse({ data: { ...archivedDocument, isArchived: false } });
     }
 
     return Promise.resolve(new Response(JSON.stringify({ message: "not found" }), { status: 404 }));
@@ -250,8 +275,8 @@ describe("profile/document frontend integration flow", () => {
 
     renderAt("/documents/document-1");
     expect(await screen.findByDisplayValue("초기 문서 본문")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "AI 분석하기" })).toBeDisabled();
-    expect(screen.getByText("AI 분석 기능은 현재 연동 준비 중입니다.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "AI 분석하기" })).toBeEnabled();
+    expect(screen.getByText("AI 분석으로 이어서 작성합니다.")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("문서 본문"), { target: { value: "수정 문서 본문" } });
     fireEvent.click(screen.getByRole("button", { name: "저장" }));
     expect(await screen.findByText("문서를 저장했습니다.")).toBeInTheDocument();
@@ -298,5 +323,46 @@ describe("profile/document frontend integration flow", () => {
     });
 
     await waitFor(() => expect(screen.getByRole("button", { name: "프로필" })).toHaveClass("active"));
+  });
+
+  it("문서 보관함 인증/빈 상태와 검색/보관 토글을 구분한다", async () => {
+    setupFetchMock({ unauthenticated: true });
+
+    renderAt("/documents");
+    expect(await screen.findByText("로그인이 필요합니다.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "로그인" })).toBeInTheDocument();
+    expect(screen.queryByText("저장된 항목이 없습니다.")).not.toBeInTheDocument();
+    cleanup();
+
+    setupFetchMock({ empty: true });
+    renderAt("/documents");
+    expect(await screen.findByText("저장된 항목이 없습니다.")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "프로필 만들기" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "새 문서 만들기" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "지원 묶음 만들기" }).length).toBeGreaterThan(0);
+    cleanup();
+
+    const fetchMock = setupFetchMock();
+    renderAt("/documents");
+    expect(await screen.findByText("3개 항목")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("검색"), { target: { value: "샘플테크" } });
+    expect(await screen.findByText("1개 항목")).toBeInTheDocument();
+    expect(screen.getByText("프론트엔드 이력서")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("검색"), { target: { value: "" } });
+    fireEvent.click(screen.getByLabelText("보관 항목 보기"));
+    expect(await screen.findByText("4개 항목")).toBeInTheDocument();
+    expect(await screen.findByText("보관된 자기소개서")).toBeInTheDocument();
+
+    const archivedCard = screen.getByText("보관된 자기소개서").closest("article");
+    expect(archivedCard).not.toBeNull();
+    fireEvent.click(within(archivedCard as HTMLElement).getByRole("button", { name: "복원" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/documents/document-archived"),
+        expect.objectContaining({ method: "PATCH" })
+      )
+    );
   });
 });

@@ -2009,6 +2009,31 @@ textarea:focus {
   padding: 0 24px;
 }
 
+.documentsHeaderActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.documentsHeaderActions .documentsSecondaryButton {
+  border: 1px solid var(--home-hairline);
+  background: white;
+  color: var(--home-primary);
+}
+
+.documentsHeaderActions .documentsDangerButton {
+  border: 1px solid rgba(190, 18, 60, 0.22);
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.documentsHeaderActions button:disabled,
+.documentsEmptyActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .documentsToolbar {
   display: flex;
   flex-wrap: wrap;
@@ -2040,6 +2065,58 @@ textarea:focus {
   color: var(--home-body-muted);
   font-size: 0.86rem;
   font-weight: 800;
+}
+
+.documentsControls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 220px) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 20px;
+}
+
+.documentsControls label {
+  display: grid;
+  gap: 8px;
+  color: var(--home-secondary);
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.documentsControls input,
+.documentsControls select {
+  min-height: 42px;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: white;
+  color: var(--home-ink);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.documentsControls input:focus,
+.documentsControls select:focus {
+  outline: 3px solid rgba(0, 102, 255, 0.18);
+  border-color: var(--home-primary-container);
+}
+
+.documentsArchiveToggle {
+  min-height: 42px;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  align-self: end;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: white;
+}
+
+.documentsArchiveToggle input {
+  min-height: auto;
+  width: auto;
+  padding: 0;
 }
 
 .documentsNotice,
@@ -2088,6 +2165,24 @@ textarea:focus {
 
 .documentsEmpty p {
   margin: 0;
+}
+
+.documentsEmptyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.documentsEmptyActions button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 16px;
+  background: var(--home-primary-container);
+  color: var(--home-on-primary-container);
+  cursor: pointer;
+  font-weight: 900;
 }
 
 .documentsList {
@@ -2258,7 +2353,8 @@ textarea:focus {
   color: var(--home-primary);
 }
 
-.documentsCardMeta .documentsDangerButton {
+.documentsCardMeta .documentsDangerButton,
+.profileFormActions .documentsDangerButton {
   border: 1px solid rgba(190, 18, 60, 0.22);
   background: #fff1f2;
   color: #be123c;
@@ -2295,10 +2391,16 @@ textarea:focus {
   border-radius: 8px;
   padding: 0 16px;
   background: white;
-  color: var(--home-body-muted);
-  cursor: not-allowed;
+  color: var(--home-primary);
+  cursor: pointer;
   font-weight: 900;
   white-space: nowrap;
+}
+
+.documentsAnalysisPending button:disabled {
+  color: var(--home-body-muted);
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .profileForm {
@@ -3843,6 +3945,23 @@ textarea:focus {
   }
 
   .documentsHeader button {
+    width: 100%;
+  }
+
+  .documentsHeaderActions,
+  .documentsControls,
+  .documentsEmptyActions {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .documentsHeaderActions,
+  .documentsEmptyActions {
+    flex-direction: column;
+  }
+
+  .documentsHeaderActions button,
+  .documentsEmptyActions button {
     width: 100%;
   }
 
