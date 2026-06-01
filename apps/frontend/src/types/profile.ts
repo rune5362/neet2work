@@ -73,8 +73,6 @@ export type CreateProfilePayload = {
   targetJobId?: string | null;
   isDefault?: boolean;
   profileJson: CandidateProfileJson;
-  versionTitle?: string | null;
-  memo?: string | null;
 };
 
 export type UpdateProfileMetaPayload = {

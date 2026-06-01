@@ -34,8 +34,6 @@ export type CreateDocumentInput = {
   jobId?: string | null;
   content: string;
   contentJson?: unknown | null;
-  versionTitle?: string | null;
-  memo?: string | null;
 };
 
 export type UpdateDocumentMetaInput = {

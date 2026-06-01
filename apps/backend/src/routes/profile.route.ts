@@ -70,9 +70,7 @@ const createProfileSchema = z.object({
   targetCompany: optionalTextSchema,
   targetJobId: optionalTextSchema,
   isDefault: z.boolean().optional(),
-  profileJson: profileJsonSchema,
-  versionTitle: optionalTextSchema,
-  memo: optionalTextSchema
+  profileJson: profileJsonSchema
 });
 
 const updateProfileMetaSchema = z.object({
@@ -87,12 +85,6 @@ const updateProfileMetaSchema = z.object({
 
 function parseIncludeArchived(value: string | undefined) {
   return value === "true";
-}
-
-function sendDeprecatedVersionResponse(_req: unknown, res: { status: (code: number) => { json: (body: unknown) => void } }) {
-  res.status(410).json({
-    message: "프로필 버전 API는 더 이상 사용하지 않습니다. 프로필 복사 API를 사용해 주세요."
-  });
 }
 
 profileRouter.get("/", async (req, res, next) => {
@@ -128,11 +120,6 @@ profileRouter.post("/", async (req, res, next) => {
     next(error);
   }
 });
-
-profileRouter.all("/:profileId/versions", sendDeprecatedVersionResponse);
-profileRouter.all("/:profileId/versions/:versionId", sendDeprecatedVersionResponse);
-profileRouter.all("/:profileId/versions/:versionId/apply", sendDeprecatedVersionResponse);
-profileRouter.all("/:profileId/versions/:versionId/restore", sendDeprecatedVersionResponse);
 
 profileRouter.post("/:profileId/copy", async (req, res, next) => {
   try {

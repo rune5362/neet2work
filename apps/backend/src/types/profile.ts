@@ -81,8 +81,6 @@ export type CreateProfileInput = {
   targetJobId?: string | null;
   isDefault?: boolean;
   profileJson: CandidateProfileJson;
-  versionTitle?: string | null;
-  memo?: string | null;
 };
 
 export type UpdateProfileMetaInput = {

@@ -5,7 +5,6 @@ import { AuthChoice } from "./pages/AuthChoice";
 import { DocumentDetail } from "./pages/DocumentDetail";
 import { DocumentNew } from "./pages/DocumentNew";
 import { DocumentSetDetail } from "./pages/DocumentSetDetail";
-import { DocumentVersions } from "./pages/DocumentVersions";
 import { Documents } from "./pages/Documents";
 import { Jobs } from "./pages/Jobs";
 import { Login } from "./pages/Login";
@@ -13,7 +12,6 @@ import { MyAccount } from "./pages/MyAccount";
 import { Notifications } from "./pages/Notifications";
 import { ProfileDetail } from "./pages/ProfileDetail";
 import { ProfileNew } from "./pages/ProfileNew";
-import { ProfileVersions } from "./pages/ProfileVersions";
 import { SignUp } from "./pages/SignUp";
 
 function Redirect({ to }: { to: string }) {
@@ -61,10 +59,6 @@ export default function App() {
     return <Redirect to="/documents/profiles/new" />;
   }
 
-  if (segments[0] === "profiles" && segments[1] && segments[2] === "versions" && segments.length === 3) {
-    return <ProfileVersions />;
-  }
-
   if (segments[0] === "profiles" && segments[1] && segments.length === 2) {
     return <Redirect to={`/documents/profiles/${segments[1]}`} />;
   }
@@ -83,10 +77,6 @@ export default function App() {
 
   if (segments[0] === "documents" && segments[1] === "sets" && segments[2] && segments.length === 3) {
     return <DocumentSetDetail />;
-  }
-
-  if (segments[0] === "documents" && segments[1] && segments[2] === "versions" && segments.length === 3) {
-    return <DocumentVersions />;
   }
 
   if (segments[0] === "documents" && segments[1] && segments.length === 2) {
