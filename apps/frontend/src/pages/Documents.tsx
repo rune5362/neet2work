@@ -32,6 +32,14 @@ function getInitialFilter(): DocumentsFilter {
   return "all";
 }
 
+function getDocumentsFilterPath(nextFilter: DocumentsFilter) {
+  if (nextFilter === "all") {
+    return "/documents";
+  }
+
+  return `/documents?type=${nextFilter}`;
+}
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("ko-KR", {
     year: "numeric",
@@ -98,6 +106,15 @@ export function Documents() {
     void loadLibrary();
   }, []);
 
+  useEffect(() => {
+    const syncFilterFromUrl = () => {
+      setFilter(getInitialFilter());
+    };
+
+    window.addEventListener("popstate", syncFilterFromUrl);
+    return () => window.removeEventListener("popstate", syncFilterFromUrl);
+  }, []);
+
   const items = useMemo<LibraryItem[]>(() => {
     const merged: LibraryItem[] = [
       ...profiles.map((profile) => ({ kind: "profile" as const, updatedAt: profile.updatedAt, profile })),
@@ -160,6 +177,11 @@ export function Documents() {
     }
   };
 
+  const handleFilterChange = (nextFilter: DocumentsFilter) => {
+    setFilter(nextFilter);
+    window.history.pushState({}, "", getDocumentsFilterPath(nextFilter));
+  };
+
   return (
     <main className="documentsPage">
       <HomeTopNav />
@@ -182,7 +204,7 @@ export function Documents() {
               className={filter === item.value ? "active" : ""}
               key={item.value}
               type="button"
-              onClick={() => setFilter(item.value)}
+              onClick={() => handleFilterChange(item.value)}
             >
               {item.label}
             </button>

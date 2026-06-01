@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { createDocument as createDocumentRequest } from "./api/documentClient";
@@ -266,5 +266,37 @@ describe("profile/document frontend integration flow", () => {
         expect.objectContaining({ method: "PATCH" })
       )
     );
+  });
+
+  it("문서 보관함 필터를 URL과 동기화한다", async () => {
+    setupFetchMock();
+
+    renderAt("/documents");
+    expect(await screen.findByRole("heading", { name: "문서 보관함" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "프로필" }));
+    expect(window.location.pathname).toBe("/documents");
+    expect(window.location.search).toBe("?type=profile");
+
+    fireEvent.click(screen.getByRole("button", { name: "이력서" }));
+    expect(window.location.search).toBe("?type=resume");
+
+    fireEvent.click(screen.getByRole("button", { name: "자기소개서" }));
+    expect(window.location.search).toBe("?type=cover_letter");
+
+    fireEvent.click(screen.getByRole("button", { name: "묶음" }));
+    expect(window.location.search).toBe("?type=set");
+
+    fireEvent.click(screen.getByRole("button", { name: "전체" }));
+    expect(window.location.pathname).toBe("/documents");
+    expect(window.location.search).toBe("");
+
+    fireEvent.click(screen.getByRole("button", { name: "이력서" }));
+    act(() => {
+      window.history.pushState({}, "", "/documents?type=profile");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "프로필" })).toHaveClass("active"));
   });
 });
