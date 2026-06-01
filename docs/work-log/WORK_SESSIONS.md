@@ -48,3 +48,47 @@
 - 사용자 승인 후 메인 workspace에서 `corepack pnpm install --frozen-lockfile`를 다시 실행했고, 결과는 `Already up to date`였다.
 - merge worktree 기준 backend 신규 의존성 `mammoth@1.12.0`, `pdf-parse@2.4.5`가 실제 `node_modules/.pnpm`에 존재함을 확인했다.
 - 검증은 merge worktree `apps/backend`에서 더미 `DATABASE_URL`을 주고 `.\node_modules\.bin\tsc.cmd --noEmit`, `corepack pnpm run build`를 승인 경로로 재실행해 통과시켰다. 기본 sandbox에선 Prisma generated client unlink 권한 제한 때문에 build가 막혀 승인 경로가 필요했다.
+
+### merge 충돌 정리 HTML 문서 작성
+
+- `docs/MERGE_CONFLICT_REPORT_DAEGYUNE_PAGE_HOME.html` 파일을 새로 만들고, `sungho`와 `origin/daegyune/page/home` 병합에서 실제로 충돌 난 25개 파일을 카테고리별로 정리했다.
+- 문서에는 충돌 타입(`AA`, `UU`), 왜 충돌이 났는지, 최종 해결 방식(우리 쪽 유지, 대균 쪽 유지, 둘 다 합침, 수동 병합)을 표로 넣었다.
+- 검증은 파일 생성 확인과 핵심 문자열(`title`, 기준 브랜치명, `styles.css` 항목) 점검까지 수행했다. 브라우저 렌더링 확인은 이번 턴에 따로 하지 않았다.
+
+### merge worktree 코드리뷰 피드백 검증
+
+- `sungho-merge-daegyune-page-home` worktree 기준으로 외부 리뷰 5건을 실제 코드와 테스트로 검증했다.
+- 인증 없는 `candidateKey` 기반 소유권 판단, 무조건 켜진 `trust proxy`, 비개발 HTTP를 막는 HTTPS 가드, draft-workflow validation 정규식 lint 오류, `job.service` 테스트 기대값 drift를 모두 코드 기준으로 확인했다.
+- 검증: `corepack pnpm --filter @neet2work/backend lint` 실패 원인이 `apps/backend/src/services/draft-workflow/validation.ts`의 `no-control-regex` 1건임을 확인했다. `corepack pnpm --filter @neet2work/backend test`는 승인 경로로 재실행해 실제 실패가 `src/server.test.ts` 9건, `src/services/job.service.test.ts` 2건임을 확인했다.
+
+### merge worktree 리뷰 지적 패치 및 전체 재검증
+
+- `sungho-merge-daegyune-page-home` worktree에서 리뷰 지적사항 기준으로 인증, 프록시, HTTPS 가드, 테스트 정합성 패치를 마무리했다.
+- backend는 후보자 라이브러리 라우트가 `Authorization` 기반으로만 동작하도록 바꾸고, `trust proxy`를 환경값으로 해석하도록 조정했으며, HTTPS 강제는 `REQUIRE_HTTPS=true`일 때만 적용되게 정리했다.
+- frontend는 문서 세트 상세의 프로필 섹션을 `수정했을 때만 저장`하도록 바꿔 전체 저장 직후 프로필 제목 검증에 걸리던 문제를 고쳤다.
+- 추가로 draft-workflow validation의 control regex를 제거해 backend lint를 복구했고, soft delete 반영 후 어긋난 `job.service`/`server` 테스트 기대값도 현재 구현과 맞췄다.
+- 검증: `corepack pnpm --filter @neet2work/frontend lint`, `corepack pnpm --filter @neet2work/frontend test`, `corepack pnpm --filter @neet2work/frontend build`, `corepack pnpm --filter @neet2work/backend lint`, `corepack pnpm --filter @neet2work/backend test`, `$env:DATABASE_URL='postgresql://neet2work:neet2work@localhost:5432/neet2work?schema=public'; corepack pnpm --filter @neet2work/backend run build` 전부 통과했다.
+
+### merge 충돌 정리 HTML 최신화
+
+- `docs/MERGE_CONFLICT_REPORT_DAEGYUNE_PAGE_HOME.html`에 리뷰 대응 이후 상태를 반영했다.
+- hero 문구와 상태 chip을 현재 브랜치 상태에 맞게 바꾸고, `merge 후 추가 패치`, `지금 상태`, 최신 `최종 검증` 블록을 추가했다.
+- 검증: HTML 본문에서 `merge 후 추가 패치`, `지금 상태`, `frontend lint/test/build`, `backend 테스트는 187개` 문자열이 들어간 것을 다시 확인했다.
+
+### merge worktree에 HTML 리포트 동기화
+
+- 최신화한 `docs/MERGE_CONFLICT_REPORT_DAEGYUNE_PAGE_HOME.html`을 `sungho-merge-daegyune-page-home` worktree의 `docs/`에도 같은 내용으로 복사했다.
+- 검증: 메인 repo와 merge worktree의 HTML 파일 SHA256 해시가 동일함을 확인했다.
+
+### merge 브랜치 commit 및 원격 push
+
+- `sungho-merge-daegyune-page-home` worktree에서 merge 상태를 `merge: integrate daegyune/page/home into merge branch` commit으로 마무리했다.
+- 이어서 `git push -u origin sungho-merge-daegyune-page-home`를 실행해 원격 브랜치를 새로 만들고 tracking을 연결했다.
+- 검증: merge worktree `git status --short --branch`가 `sungho-merge-daegyune-page-home...origin/sungho-merge-daegyune-page-home` clean 상태로 돌아온 것을 확인했다.
+
+### merge 로컬 브랜치 / worktree 정리
+
+- 사용자 요청으로 로컬 `sungho-merge-daegyune-page-home` 브랜치와 merge worktree 정리를 진행했다.
+- `git worktree remove`로 git worktree 등록은 제거했고, 로컬 브랜치는 `git branch -d sungho-merge-daegyune-page-home`로 삭제했다. 원격 `origin/sungho-merge-daegyune-page-home`는 유지했다.
+- 물리 경로 `C:\lsh\git\neet2work-merge-daegyune-page-home`는 Windows 파일 잠금 때문에 루트 폴더 삭제가 막혀 내부 파일만 모두 비웠고, 최종적으로 빈 디렉터리 껍데기만 남았다.
+- 검증: `git worktree list --porcelain`에 메인 worktree만 남아 있고, `git branch --list sungho-merge-daegyune-page-home` 결과가 비어 있는 것을 확인했다.
