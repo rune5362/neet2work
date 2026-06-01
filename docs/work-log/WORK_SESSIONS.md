@@ -92,3 +92,9 @@
 - `git worktree remove`로 git worktree 등록은 제거했고, 로컬 브랜치는 `git branch -d sungho-merge-daegyune-page-home`로 삭제했다. 원격 `origin/sungho-merge-daegyune-page-home`는 유지했다.
 - 물리 경로 `C:\lsh\git\neet2work-merge-daegyune-page-home`는 Windows 파일 잠금 때문에 루트 폴더 삭제가 막혀 내부 파일만 모두 비웠고, 최종적으로 빈 디렉터리 껍데기만 남았다.
 - 검증: `git worktree list --porcelain`에 메인 worktree만 남아 있고, `git branch --list sungho-merge-daegyune-page-home` 결과가 비어 있는 것을 확인했다.
+
+### merge 빈 worktree 폴더 재삭제 시도
+
+- 남은 `C:\lsh\git\neet2work-merge-daegyune-page-home` 빈 폴더를 다시 삭제하려고 `openfiles` 확인, 직접 삭제, rename 후 삭제까지 재시도했다.
+- 결과는 폴더 내부 항목 수 0개까지는 확인했지만, 루트 폴더 자체는 다른 프로세스가 사용 중이라 rename/remove가 계속 막혔다.
+- 검증: `Get-ChildItem -Force ... | Measure-Object` 기준으로 내부 항목 수가 0임을 확인했다.
