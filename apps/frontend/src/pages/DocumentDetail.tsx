@@ -170,7 +170,7 @@ export function DocumentDetail() {
         ) : !document ? (
           <div className="documentsEmpty">
             <strong>문서를 찾을 수 없습니다.</strong>
-            <p>문서 보관함에서 다시 선택합니다.</p>
+            <p>문서함에서 다시 선택합니다.</p>
           </div>
         ) : (
           <form className="profileForm" onSubmit={handleSubmit}>

@@ -210,7 +210,7 @@ export function Documents() {
         setAuthRequired(true);
         setErrorMessage(null);
       } else {
-        setErrorMessage(error instanceof Error ? error.message : "문서 보관함을 불러오지 못했습니다.");
+        setErrorMessage(error instanceof Error ? error.message : "문서함을 불러오지 못했습니다.");
       }
       setProfiles([]);
       setDocuments([]);
@@ -368,9 +368,9 @@ export function Documents() {
 
       <section className="documentsContent">
         <header className="documentsHeader">
-          <span>보관함</span>
+          <span>문서함</span>
           <div>
-            <h1>문서 보관함</h1>
+            <h1>문서함</h1>
             <p>프로필, 이력서, 자기소개서, 지원 묶음을 한 곳에서 확인합니다.</p>
           </div>
           <div className="documentsHeaderActions">
@@ -436,7 +436,7 @@ export function Documents() {
         {authRequired ? (
           <div className="documentsEmpty">
             <strong>로그인이 필요합니다.</strong>
-            <p>문서 보관함을 보려면 먼저 로그인하세요.</p>
+            <p>문서함을 보려면 먼저 로그인하세요.</p>
             <div className="documentsEmptyActions">
               <button type="button" onClick={() => { window.location.href = "/login"; }}>
                 로그인
@@ -444,7 +444,7 @@ export function Documents() {
             </div>
           </div>
         ) : loading ? (
-          <div className="documentsNotice">문서 보관함을 불러오는 중입니다.</div>
+          <div className="documentsNotice">문서함을 불러오는 중입니다.</div>
         ) : totalLibraryCount === 0 ? (
           <div className="documentsEmpty">
             <strong>저장된 항목이 없습니다.</strong>

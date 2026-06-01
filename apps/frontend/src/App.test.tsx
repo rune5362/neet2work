@@ -239,7 +239,7 @@ describe("profile/document frontend integration flow", () => {
     const fetchMock = setupFetchMock();
 
     renderAt("/documents?type=profile");
-    expect(await screen.findByRole("heading", { name: "문서 보관함" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "문서함" })).toBeInTheDocument();
     expect(await screen.findByText("프론트엔드 지원 프로필")).toBeInTheDocument();
     cleanup();
 
@@ -260,7 +260,7 @@ describe("profile/document frontend integration flow", () => {
     const fetchMock = setupFetchMock();
 
     renderAt("/documents");
-    expect(await screen.findByRole("heading", { name: "문서 보관함" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "문서함" })).toBeInTheDocument();
     expect((await screen.findAllByText("프론트엔드 이력서")).length).toBeGreaterThan(0);
     expect(screen.queryByText("버전 관리")).not.toBeInTheDocument();
     cleanup();
@@ -293,11 +293,11 @@ describe("profile/document frontend integration flow", () => {
     );
   });
 
-  it("문서 보관함 필터를 URL과 동기화한다", async () => {
+  it("문서함 필터를 URL과 동기화한다", async () => {
     setupFetchMock();
 
     renderAt("/documents");
-    expect(await screen.findByRole("heading", { name: "문서 보관함" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "문서함" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "프로필" }));
     expect(window.location.pathname).toBe("/documents");
@@ -325,7 +325,7 @@ describe("profile/document frontend integration flow", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "프로필" })).toHaveClass("active"));
   });
 
-  it("문서 보관함 인증/빈 상태와 검색/보관 토글을 구분한다", async () => {
+  it("문서함 인증/빈 상태와 검색/보관 토글을 구분한다", async () => {
     setupFetchMock({ unauthenticated: true });
 
     renderAt("/documents");

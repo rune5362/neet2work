@@ -298,7 +298,7 @@ export function DocumentSetDetail() {
             <p>프로필, 이력서, 자기소개서를 한 화면에서 확인하고 연결을 조정합니다.</p>
           </div>
           <button type="button" onClick={() => { window.location.href = "/documents"; }}>
-            보관함
+            문서함
           </button>
         </header>
 
@@ -310,7 +310,7 @@ export function DocumentSetDetail() {
         ) : !set ? (
           <div className="documentsEmpty">
             <strong>문서 묶음을 찾을 수 없습니다.</strong>
-            <p>문서 보관함에서 다시 선택합니다.</p>
+            <p>문서함에서 다시 선택합니다.</p>
           </div>
         ) : (
           <form
