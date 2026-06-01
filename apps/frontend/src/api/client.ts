@@ -59,6 +59,45 @@ type ApiItemResponse<T> = {
   data: T;
 };
 
+export type SignUpPayload = {
+  email: string;
+  password: string;
+  name?: string;
+  nickname?: string;
+  profileImageUrl?: string;
+};
+
+export type LoginPayload = {
+  email: string;
+  password: string;
+};
+
+export type AuthUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  nickname: string | null;
+  profileImageUrl: string | null;
+  status: string;
+  emailVerifiedAt: string | null;
+  lastLoginAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AccountSecuritySummary = {
+  previousLoginIpAddress: string | null;
+};
+
+export type LoginResult = {
+  user: AuthUser;
+  accessToken: string;
+  tokenType: "Bearer";
+  expiresIn: number;
+  refreshToken: string;
+  refreshTokenExpiresIn: number;
+};
+
 function buildApiUrl(
   path: string,
   query: Record<string, string | number | boolean | undefined> = {}
@@ -210,5 +249,121 @@ export async function reviseDraftWorkflowDraft(
   }
 
   const result = (await response.json()) as ApiItemResponse<DraftWorkflowDraft>;
+  return result.data;
+}
+
+export async function signUp(payload: SignUpPayload): Promise<AuthUser> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const fallbackMessage = "회원가입에 실패했습니다.";
+    const result = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(result?.message ?? fallbackMessage);
+  }
+
+  const result = (await response.json()) as ApiItemResponse<AuthUser>;
+  return result.data;
+}
+
+export async function login(payload: LoginPayload): Promise<LoginResult> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const fallbackMessage = "로그인에 실패했습니다.";
+    const result = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(result?.message ?? fallbackMessage);
+  }
+
+  const result = (await response.json()) as ApiItemResponse<LoginResult>;
+  return result.data;
+}
+
+export async function refreshSession(refreshToken: string): Promise<LoginResult> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ refreshToken })
+  });
+
+  if (!response.ok) {
+    const fallbackMessage = "세션 갱신에 실패했습니다.";
+    const result = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(result?.message ?? fallbackMessage);
+  }
+
+  const result = (await response.json()) as ApiItemResponse<LoginResult>;
+  return result.data;
+}
+
+export async function logout(refreshToken: string): Promise<{ revoked: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ refreshToken })
+  });
+
+  if (!response.ok) {
+    const fallbackMessage = "로그아웃에 실패했습니다.";
+    const result = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(result?.message ?? fallbackMessage);
+  }
+
+  const result = (await response.json()) as ApiItemResponse<{ revoked: boolean }>;
+  return result.data;
+}
+
+export async function updateProfile(
+  accessToken: string,
+  payload: Partial<Pick<AuthUser, "name" | "nickname" | "profileImageUrl">>
+): Promise<AuthUser> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const fallbackMessage = "프로필 수정에 실패했습니다.";
+    const result = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(result?.message ?? fallbackMessage);
+  }
+
+  const result = (await response.json()) as ApiItemResponse<AuthUser>;
+  return result.data;
+}
+
+export async function getAccountSecuritySummary(accessToken: string): Promise<AccountSecuritySummary> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/me/security`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+
+  if (!response.ok) {
+    const fallbackMessage = "계정 보안 정보를 불러오지 못했습니다.";
+    const result = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(result?.message ?? fallbackMessage);
+  }
+
+  const result = (await response.json()) as ApiItemResponse<AccountSecuritySummary>;
   return result.data;
 }

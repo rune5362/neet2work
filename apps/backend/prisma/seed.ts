@@ -46,7 +46,15 @@ async function main() {
       companyInfo: job.companyInfo,
       rawText: job.rawText,
       rawJson: job.rawJson,
-      collectedAt: job.collectedAt ? new Date(job.collectedAt) : undefined
+      collectedAt: job.collectedAt ? new Date(job.collectedAt) : undefined,
+      status: job.status,
+      firstSeenAt: job.firstSeenAt ? new Date(job.firstSeenAt) : undefined,
+      lastSeenAt: job.lastSeenAt ? new Date(job.lastSeenAt) : undefined,
+      closedAt: job.closedAt ? new Date(job.closedAt) : undefined,
+      jobCategory: job.jobCategory,
+      careerStage: job.careerStage,
+      crawlBatchId: job.crawlBatchId,
+      classifierMeta: job.classifierMeta
     };
 
     await prisma.jobPosting.upsert({

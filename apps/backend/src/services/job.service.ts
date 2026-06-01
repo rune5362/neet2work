@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { activeRecordWhere } from "../database/softDelete.js";
 import { getPrismaClient } from "../database/prisma.js";
 import type { Prisma } from "../generated/prisma/client.js";
 import type {
@@ -52,6 +53,11 @@ type PublicJobRow = {
   careerStage: string | null;
   rawJson: Prisma.JsonValue | null;
   collectedAt: Date | null;
+  status: string | null;
+  firstSeenAt: Date | null;
+  lastSeenAt: Date | null;
+  closedAt: Date | null;
+  jobCategory: string | null;
 };
 
 export type JobListQuery = {
@@ -117,6 +123,7 @@ const MAX_JOB_LIMIT = 100;
 const DEFAULT_JOB_PAGE = 1;
 const DEFAULT_JOB_PAGE_LIMIT = 9;
 const ACTIVE_PUBLIC_JOB_WHERE = {
+  ...activeRecordWhere,
   status: "active"
 } satisfies Prisma.JobPostingWhereInput;
 
@@ -139,7 +146,12 @@ export const PUBLIC_JOB_SELECT = {
   deadlineText: true,
   applyMethod: true,
   careerStage: true,
-  collectedAt: true
+  collectedAt: true,
+  status: true,
+  firstSeenAt: true,
+  lastSeenAt: true,
+  closedAt: true,
+  jobCategory: true
 };
 const INTERNAL_PUBLIC_JOB_SELECT = {
   ...PUBLIC_JOB_SELECT,
@@ -1204,6 +1216,10 @@ function shouldFallbackToSamples(error: unknown, context: string): boolean {
   return true;
 }
 
+function isJobPostingStatus(value: string | null): value is NonNullable<JobPosting["status"]> {
+  return value === "active" || value === "closed" || value === "inactive" || value === "unknown";
+}
+
 function toJobPosting(job: PublicJobRow): JobPosting {
   return {
     id: job.id,
@@ -1231,7 +1247,12 @@ function toJobPosting(job: PublicJobRow): JobPosting {
       job.description
     ),
     postedAt: resolvePostedAt(job),
-    collectedAt: job.collectedAt?.toISOString() ?? null
+    collectedAt: job.collectedAt?.toISOString() ?? null,
+    status: isJobPostingStatus(job.status) ? job.status : undefined,
+    firstSeenAt: job.firstSeenAt?.toISOString() ?? null,
+    lastSeenAt: job.lastSeenAt?.toISOString() ?? null,
+    closedAt: job.closedAt?.toISOString() ?? null,
+    jobCategory: job.jobCategory
   };
 }
 

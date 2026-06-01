@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Neet2Work Merge Conflict Report</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f3ee;
+        --panel: #fffdf8;
+        --line: #ddd2c4;
+        --text: #231f1a;
+        --muted: #655b4f;
+        --accent: #9c5a2e;
+        --accent-soft: #f6e3d3;
+        --green: #2f6b43;
+        --green-soft: #dff3e7;
+        --blue: #245f7b;
+        --blue-soft: #ddeef7;
+        --red: #924444;
+        --red-soft: #f8dddd;
+        --shadow: 0 18px 40px rgba(35, 31, 26, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Pretendard", "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(156, 90, 46, 0.12), transparent 28rem),
+          linear-gradient(180deg, #faf7f2 0%, var(--bg) 100%);
+        color: var(--text);
+        line-height: 1.6;
+      }
+
+      .page {
+        width: min(1180px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 40px 0 64px;
+      }
+
+      .hero,
+      .card,
+      .category,
+      .note {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+      }
+
+      .hero {
+        padding: 28px 32px;
+        margin-bottom: 20px;
+      }
+
+      .eyebrow {
+        margin: 0 0 8px;
+        color: var(--accent);
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        line-height: 1.2;
+      }
+
+      h1 {
+        font-size: clamp(2rem, 4vw, 3.3rem);
+        letter-spacing: -0.04em;
+      }
+
+      .hero p {
+        margin: 14px 0 0;
+        max-width: 72ch;
+        color: var(--muted);
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+        margin: 20px 0;
+      }
+
+      .card {
+        padding: 20px;
+      }
+
+      .stat-value {
+        display: block;
+        font-size: 2rem;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+      }
+
+      .stat-label {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+        background: #f3ece3;
+        border: 1px solid #eadbc8;
+      }
+
+      .chip.aa {
+        background: var(--red-soft);
+        border-color: #e9b8b8;
+        color: var(--red);
+      }
+
+      .chip.uu {
+        background: var(--blue-soft);
+        border-color: #b7d6e8;
+        color: var(--blue);
+      }
+
+      .chip.final {
+        background: var(--green-soft);
+        border-color: #b5e2c5;
+        color: var(--green);
+      }
+
+      .two-col {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+
+      .section-title {
+        margin-bottom: 14px;
+        font-size: 1.1rem;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 20px;
+      }
+
+      li + li {
+        margin-top: 8px;
+      }
+
+      .category {
+        overflow: hidden;
+        margin-bottom: 18px;
+      }
+
+      .category-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: center;
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(156, 90, 46, 0.08), rgba(156, 90, 46, 0.02));
+      }
+
+      .category-head p {
+        margin: 8px 0 0;
+        color: var(--muted);
+      }
+
+      .count {
+        white-space: nowrap;
+        font-weight: 700;
+        color: var(--accent);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 14px 18px;
+        vertical-align: top;
+        text-align: left;
+        border-bottom: 1px solid var(--line);
+      }
+
+      th {
+        font-size: 13px;
+        color: var(--muted);
+        background: #fcf7f0;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      code {
+        font-family: "Consolas", "SFMono-Regular", monospace;
+        font-size: 0.94em;
+        background: #f7efe5;
+        border: 1px solid #eadbc8;
+        border-radius: 8px;
+        padding: 2px 6px;
+      }
+
+      .decision {
+        display: inline-block;
+        margin-bottom: 8px;
+        padding: 5px 9px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .decision.union {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+
+      .decision.ours {
+        background: var(--blue-soft);
+        color: var(--blue);
+      }
+
+      .decision.theirs {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .decision.manual {
+        background: #efe7ff;
+        color: #5d3f95;
+      }
+
+      .note {
+        padding: 22px 24px;
+        margin-top: 20px;
+      }
+
+      .note p {
+        margin: 10px 0 0;
+        color: var(--muted);
+      }
+
+      .foot {
+        margin-top: 18px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      @media (max-width: 960px) {
+        .stats,
+        .two-col {
+          grid-template-columns: 1fr;
+        }
+
+        .category-head {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        table,
+        thead,
+        tbody,
+        th,
+        td,
+        tr {
+          display: block;
+        }
+
+        thead {
+          display: none;
+        }
+
+        tr + tr {
+          border-top: 1px solid var(--line);
+        }
+
+        td {
+          padding: 10px 18px;
+          border-bottom: 0;
+        }
+
+        td::before {
+          content: attr(data-label);
+          display: block;
+          margin-bottom: 6px;
+          color: var(--muted);
+          font-size: 12px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <p class="eyebrow">Neet2Work Merge Report</p>
+        <h1><code>sungho</code> + <code>origin/daegyune/page/home</code> 충돌 정리</h1>
+        <p>
+          merge 전용 브랜치 <code>sungho-merge-daegyune-page-home</code>에서 재현한 충돌만
+          모아 정리했다. 신규 파일이 깨끗하게 들어온 경우는 제외하고, 실제로 충돌이 난 파일에 대해
+          “왜 부딪혔는지 / 무엇을 살렸는지 / 어떻게 합쳤는지”를 먼저 적고, 그 뒤에 진행한
+          리뷰 대응 패치와 최종 검증 상태까지 이어서 볼 수 있게 구성했다.
+        </p>
+
+        <div class="stats">
+          <article class="card">
+            <span class="stat-value">25</span>
+            <span class="stat-label">충돌 파일 수</span>
+          </article>
+          <article class="card">
+            <span class="stat-value">6</span>
+            <span class="stat-label">프론트 충돌</span>
+          </article>
+          <article class="card">
+            <span class="stat-value">9</span>
+            <span class="stat-label">백엔드/Prisma 충돌</span>
+          </article>
+          <article class="card">
+            <span class="stat-value">10</span>
+            <span class="stat-label">문서/루트/크롤러 충돌</span>
+          </article>
+        </div>
+
+        <div class="meta">
+          <span class="chip uu">UU = 기존 파일을 양쪽이 모두 수정</span>
+          <span class="chip aa">AA = 같은 경로 파일을 양쪽이 새로 만듦</span>
+          <span class="chip final">현재 상태 = conflict 해소 + 리뷰 대응 패치 완료</span>
+        </div>
+      </section>
+
+      <section class="two-col">
+        <article class="card">
+          <h2 class="section-title">이번 merge에서 잡은 기준</h2>
+          <ul>
+            <li>기존 서비스 화면은 우리 쪽 흐름을 우선 유지했다.</li>
+            <li>대균 브랜치의 신규 auth, profile, document, notification 화면은 가져왔다.</li>
+            <li>Prisma는 단일 파일이 아니라 <code>schema.prisma + models/*.prisma</code> 분리 구조를 채택했다.</li>
+            <li>채용공고 importer와 crawler는 운영 로직이 더 큰 우리 버전을 유지했다.</li>
+            <li>soft delete 패턴은 대균 쪽 구조를 받아서 backend 조회 로직에 녹였다.</li>
+            <li>README, CONTRIBUTING, env 계약은 둘 중 하나를 버리기보다 합치는 쪽으로 정리했다.</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <h2 class="section-title">최종 검증</h2>
+          <ul>
+            <li><code>corepack pnpm --filter @neet2work/frontend lint</code>, <code>test</code>, <code>build</code> 통과</li>
+            <li><code>corepack pnpm --filter @neet2work/backend lint</code>, <code>test</code> 통과</li>
+            <li><code>DATABASE_URL=... corepack pnpm --filter @neet2work/backend run build</code> 통과</li>
+            <li><code>pnpm install --frozen-lockfile</code> 재실행 결과 <code>Already up to date</code></li>
+          </ul>
+          <p>
+            참고: backend build는 merge worktree의 Prisma generated client unlink 권한 문제 때문에
+            승인 경로로 다시 실행해 확인했다.
+          </p>
+        </article>
+      </section>
+
+      <section class="two-col">
+        <article class="card">
+          <h2 class="section-title">merge 후 추가 패치</h2>
+          <ul>
+            <li>후보자 프로필, 문서, 문서 세트 라우트는 클라이언트 <code>candidateKey</code> 대신 <code>Authorization</code> 기준으로만 접근하게 바꿨다.</li>
+            <li><code>trust proxy</code>는 고정값이 아니라 환경값을 해석하도록 바꿨고, HTTPS 강제는 <code>REQUIRE_HTTPS=true</code>일 때만 적용되게 정리했다.</li>
+            <li>draft-workflow validation의 control regex를 제거해 backend lint가 다시 통과하도록 고쳤다.</li>
+            <li><code>job.service</code>와 <code>server</code> 테스트는 soft delete와 인증 가드가 반영된 현재 구현 기준으로 기대값을 맞췄다.</li>
+            <li><code>DocumentSetDetail.tsx</code>는 프로필을 실제 수정했을 때만 저장하게 바꿔 전체 저장 직후 검증 에러가 나던 흐름을 잡았다.</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <h2 class="section-title">지금 상태</h2>
+          <ul>
+            <li>충돌 marker 제거만 끝난 상태가 아니라, 리뷰에서 지적된 인증/프록시/HTTPS/테스트 문제까지 같이 정리된 상태다.</li>
+            <li>Prisma split 구조와 soft delete 패턴은 유지하면서 우리 쪽 채용공고 운영 로직과 대균 브랜치의 신규 문서/계정 기능을 함께 살렸다.</li>
+            <li>프론트 테스트는 62개, 백엔드 테스트는 187개가 현재 merge 브랜치 기준으로 통과했다.</li>
+            <li>수동 브라우저 QA는 별도 기록하지 않았고, 이 문서의 검증 상태는 로컬 lint/test/build 기준이다.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="category">
+        <div class="category-head">
+          <div>
+            <h2>1. 문서 / 루트 설정 충돌</h2>
+            <p>프로젝트 소개, 작업 규칙, 루트 스크립트/lockfile이 서로 다른 방향으로 확장된 구간.</p>
+          </div>
+          <div class="count">7 files</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>파일</th>
+              <th>타입</th>
+              <th>왜 충돌났나</th>
+              <th>어떻게 해결했나</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="파일"><code>.env.example</code></td>
+              <td data-label="타입">UU</td>
+              <td data-label="왜 충돌났나">우리 쪽은 AI routing, Codex Bridge, Gemini 관련 env를 늘렸고, 대균 쪽은 JWT/auth와 <code>CLIENT_URL</code> 예시를 늘렸다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision union">둘 다 합침</span>키 이름이 겹치지 않는 선에서 auth 계약과 AI 계약을 한 파일에 정리했다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>AGENTS.md</code></td>
+              <td data-label="타입">AA</td>
+              <td data-label="왜 충돌났나">양쪽이 같은 이름의 repo 규칙 문서를 따로 새로 만들었다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision manual">둘 다 제거</span>사용자 결정대로 repo-local <code>AGENTS.md</code>는 가져오지 않도록 정리했다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>CONTRIBUTING.md</code></td>
+              <td data-label="타입">UU</td>
+              <td data-label="왜 충돌났나">우리 쪽은 실무 명령과 검사 흐름을 보강했고, 대균 쪽은 AI 작업 기준과 참조 문서를 추가했다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision union">둘 다 합침</span>“프로젝트 참여자가 어떻게 작업하는지” 문서로 보고, 개발 명령과 협업 규칙을 같이 남겼다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>README.md</code></td>
+              <td data-label="타입">UU</td>
+              <td data-label="왜 충돌났나">우리 쪽은 제품/AI workflow 설명이 강했고, 대균 쪽은 workspace 구조와 setup, auth/DB 실행법이 강했다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision union">둘 다 합침</span>서비스 설명과 실행 문서를 같이 살려서 읽는 사람 입장에서 빠진 부분이 없게 했다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>package.json</code></td>
+              <td data-label="타입">UU</td>
+              <td data-label="왜 충돌났나">우리 쪽은 figma/worklog/setup 보조 스크립트를, 대균 쪽은 <code>db:migrate</code>, <code>db:reset</code>, <code>db:status</code> 같은 DB 스크립트를 추가했다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision union">스크립트 합침</span>루트에서 쓰는 개발 보조 명령과 DB 운영 명령을 모두 유지했다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>pnpm-lock.yaml</code></td>
+              <td data-label="타입">AA</td>
+              <td data-label="왜 충돌났나">양쪽이 lockfile이 없던 상태에서 각자 전체 lockfile을 생성했다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision manual">install로 동기화</span>머지된 manifest 기준으로 lockfile 일관성을 확인했고, <code>pnpm install --frozen-lockfile</code>로 검증했다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>pnpm-workspace.yaml</code></td>
+              <td data-label="타입">AA</td>
+              <td data-label="왜 충돌났나">workspace 범위는 거의 같았지만, 우리 쪽에만 <code>verifyDepsBeforeRun: false</code>가 추가돼 있었다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision union">합침</span>공통 workspace 정의를 유지하고 우리 쪽 추가 옵션도 살렸다.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="category">
+        <div class="category-head">
+          <div>
+            <h2>2. Backend / Prisma 충돌</h2>
+            <p>여기가 핵심이었다. 채용공고 운영 로직, auth/profile/document API, Prisma 구조가 동시에 부딪힌 구간.</p>
+          </div>
+          <div class="count">9 files</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>파일</th>
+              <th>타입</th>
+              <th>왜 충돌났나</th>
+              <th>어떻게 해결했나</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="파일"><code>apps/backend/package.json</code></td>
+              <td data-label="타입">UU</td>
+              <td data-label="왜 충돌났나">우리 쪽은 importer/운영 파이프라인 스크립트와 문서 처리 의존성(<code>mammoth</code>, <code>pdf-parse</code>)을 넣었고, 대균 쪽은 auth/profile/document 중심 DB 운영 명령을 추가했다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision union">둘 다 합침</span>운영 스크립트와 auth/profile 쪽 스크립트를 같이 유지하고, 신규 의존성 설치까지 확인했다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>apps/backend/prisma.config.ts</code></td>
+              <td data-label="타입">UU</td>
+              <td data-label="왜 충돌났나">우리 쪽은 <code>DATABASE_PASSWORD</code>로 DB URL을 복원하는 로직이 있었고, 대균 쪽은 Prisma schema 위치를 <code>prisma/</code> 디렉터리 기준으로 바꿨다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision manual">수동 병합</span>DB URL 복원 로직을 유지하면서 schema 경로는 분리 Prisma 구조에 맞게 잡았다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>apps/backend/prisma/README.md</code></td>
+              <td data-label="타입">UU</td>
+              <td data-label="왜 충돌났나">우리 쪽은 import/운영 배치 설명이 많았고, 대균 쪽은 <code>models/*.prisma</code>, migration, 운영 절차 설명이 더 많았다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision union">둘 다 합침</span>실제 채택한 split Prisma 구조와 importer 사용법을 같이 설명하도록 정리했다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>apps/backend/prisma/importJobPostings.ts</code></td>
+              <td data-label="타입">AA</td>
+              <td data-label="왜 충돌났나">양쪽이 같은 importer 파일을 각각 새로 만들었다. 우리 쪽은 batch/status 검증이 더 많고, 대균 쪽은 더 단순한 dry-run 스타일이었다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision ours">우리 쪽 유지</span>운영용 배치 포맷과 상태 필드를 더 넓게 다루는 importer를 채택했다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>apps/backend/prisma/schema.prisma</code></td>
+              <td data-label="타입">UU</td>
+              <td data-label="왜 충돌났나">우리 쪽은 단일 <code>schema.prisma</code> 안에 <code>JobPosting</code>을 직접 정의했고, 대균 쪽은 모델을 <code>models/*.prisma</code>로 분리했다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision manual">분리 구조 채택</span><code>schema.prisma</code>는 엔트리 역할만 두고, 실제 모델 정의는 <code>models/*.prisma</code>로 옮기는 방향을 기준으로 맞췄다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>apps/backend/prisma/seed.ts</code></td>
+              <td data-label="타입">UU</td>
+              <td data-label="왜 충돌났나">샘플 채용공고를 넣을 때 채우는 필드가 달랐다. 대균 쪽은 <code>status</code>, <code>firstSeenAt</code>, <code>closedAt</code> 같은 lifecycle 정보를 더 썼다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision union">필드 합침</span>split Prisma 구조와 현재 <code>JobPosting</code> 컬럼에 맞게 lifecycle 필드까지 seed가 채우도록 정리했다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>apps/backend/src/server.ts</code></td>
+              <td data-label="타입">UU</td>
+              <td data-label="왜 충돌났나">우리 쪽은 AI draft, resume extract, 안전한 CORS/에러 처리 쪽이 있고, 대균 쪽은 auth/profile/document/applicationSet 라우트와 rate limit, HTTPS 가드가 있었다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision manual">수동 병합</span>기존 AI 라우트는 유지하고, 대균 쪽 신규 라우트와 auth rate limit, HTTPS 가드를 같이 붙였다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>apps/backend/src/services/job.service.ts</code></td>
+              <td data-label="타입">UU</td>
+              <td data-label="왜 충돌났나">우리 쪽은 공개 채용공고 필터링/분류 매핑이 크고, 대균 쪽은 <code>soft delete</code>와 <code>JobPostingStatus</code> 기반 조회가 들어갔다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision manual">패턴 병합</span>우리 쪽 채용공고 분류 로직을 살리면서 조회 조건에는 <code>activeRecordWhere</code>를 적용해 soft delete 패턴을 받아들였다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>apps/backend/src/types/job.ts</code></td>
+              <td data-label="타입">UU</td>
+              <td data-label="왜 충돌났나">우리 쪽은 경력 단계와 공개 타입 enum이 강했고, 대균 쪽은 수집 시점, 상태, lifecycle 메타 필드가 더 많았다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision union">타입 합침</span>분류 enum과 lifecycle/source 메타 필드를 같이 담는 타입으로 정리했다.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="category">
+        <div class="category-head">
+          <div>
+            <h2>3. Frontend 충돌</h2>
+            <p>라우팅, 공통 API client, 상단 내비, jobs 화면, 공통 스타일이 겹쳤다.</p>
+          </div>
+          <div class="count">6 files</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>파일</th>
+              <th>타입</th>
+              <th>왜 충돌났나</th>
+              <th>어떻게 해결했나</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="파일"><code>apps/frontend/src/App.tsx</code></td>
+              <td data-label="타입">UU</td>
+              <td data-label="왜 충돌났나">우리 쪽은 <code>/ai-analysis</code>와 기존 화면 흐름이 있었고, 대균 쪽은 로그인, 문서, 프로필, 알림, 마이페이지 라우트를 늘렸다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision union">라우트 합침</span>기존 AI 분석 경로는 유지하고, 대균 쪽 신규 auth/document/profile 라우트를 같이 등록했다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>apps/frontend/src/api/client.ts</code></td>
+              <td data-label="타입">UU</td>
+              <td data-label="왜 충돌났나">우리 쪽은 jobs, analyze, resume extract, draft workflow API를 붙였고, 대균 쪽은 signup/login/logout/account API를 붙였다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision manual">수동 병합</span>공통 client 안에 jobs/AI API와 auth API를 같이 살렸다. 나중에 기능별 파일 분리는 별도 정리 포인트다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>apps/frontend/src/components/HomeTopNav.tsx</code></td>
+              <td data-label="타입">AA</td>
+              <td data-label="왜 충돌났나">우리 쪽은 단순 active nav였고, 대균 쪽은 account menu, notification menu, drawer, logout 흐름까지 가진 복합 네비였다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision theirs">대균 쪽 기반</span>신규 계정/알림 기능을 살리기 위해 대균 쪽 top nav를 기준으로 가져왔다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>apps/frontend/src/pages/Jobs.tsx</code></td>
+              <td data-label="타입">AA</td>
+              <td data-label="왜 충돌났나">양쪽이 같은 경로에 jobs 페이지를 새로 만들었다. 우리 쪽은 필터/검색/상세 흐름이 더 풍부했고, 대균 쪽은 단순 더미 기반 페이지였다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision ours">우리 쪽 유지</span>기존 채용공고 페이지 경험을 유지하기 위해 우리 버전을 그대로 가져갔다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>apps/frontend/src/styles.css</code></td>
+              <td data-label="타입">UU</td>
+              <td data-label="왜 충돌났나">양쪽이 전역 CSS를 크게 손봐서 같은 selector와 레이아웃 블록이 넓게 겹쳤다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision manual">영역 분할</span>header/footer와 신규 페이지 스타일은 대균 쪽을 따르고, 기존 jobs/AI draft 본문 스타일은 우리 쪽을 살린 뒤 공통 selector 충돌은 수동으로 정리했다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>apps/frontend/src/types/job.ts</code></td>
+              <td data-label="타입">UU</td>
+              <td data-label="왜 충돌났나">우리 쪽은 경력 단계/공개 타입 정보가 있고, 대균 쪽은 수집 시각과 lifecycle 메타가 추가돼 있었다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision union">타입 합침</span>Jobs 화면이 쓰던 분류 정보와 대균 쪽 lifecycle 메타를 같이 쓰도록 합쳤다.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="category">
+        <div class="category-head">
+          <div>
+            <h2>4. Crawler 충돌</h2>
+            <p>크롤러 쪽은 기능적으로 우리 버전이 더 큰 superset에 가까워서 기준이 비교적 명확했다.</p>
+          </div>
+          <div class="count">3 files</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>파일</th>
+              <th>타입</th>
+              <th>왜 충돌났나</th>
+              <th>어떻게 해결했나</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="파일"><code>scripts/job_crawler/http_client.py</code></td>
+              <td data-label="타입">AA</td>
+              <td data-label="왜 충돌났나">양쪽이 fetch helper를 만들었는데, 우리 쪽은 SSL, timeout, retry를 더 넓게 처리했고 대균 쪽은 기본 래퍼 수준이었다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision ours">우리 쪽 유지</span>운영 안정성이 더 좋아서 우리 helper를 기준으로 갔다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>scripts/job_crawler/models.py</code></td>
+              <td data-label="타입">AA</td>
+              <td data-label="왜 충돌났나">둘 다 crawler 데이터 모델을 새로 만들었지만, 우리 쪽이 상태, first/last seen, careerStage, classifierMeta 같은 필드를 더 넓게 갖고 있었다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision ours">우리 쪽 유지</span>수집 후 운영 처리에 필요한 필드가 더 많아서 우리 모델을 유지했다.</td>
+            </tr>
+            <tr>
+              <td data-label="파일"><code>scripts/job_crawler/saramin.py</code></td>
+              <td data-label="타입">AA</td>
+              <td data-label="왜 충돌났나">양쪽이 같은 Saramin crawler를 새로 만들었다. 우리 쪽은 분류/보강 로직이 더 많고, 대균 쪽은 더 기본적인 수집 흐름이었다.</td>
+              <td data-label="어떻게 해결했나"><span class="decision ours">우리 쪽 유지</span>운영용 분류 보강까지 포함된 버전을 살렸다.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="note">
+        <h2>핵심만 다시 보면</h2>
+        <ul>
+          <li>기존 채용공고 경험과 crawler/importer는 우리 쪽을 살렸다.</li>
+          <li>대균 브랜치의 신규 auth/profile/document/notification 기능은 받아들였다.</li>
+          <li>Prisma는 split 구조를 채택했고, soft delete 패턴도 같이 가져왔다.</li>
+          <li>merge 뒤에는 <code>server.ts</code>, 인증 라우트들, <code>DocumentSetDetail.tsx</code>, 테스트 파일들까지 추가 손질이 들어갔다.</li>
+          <li>이 문서는 “충돌 난 파일 정리 + 후속 안정화 패치 요약” 문서라, 충돌 없이 합쳐진 신규 페이지 전체 목록은 생략했다.</li>
+        </ul>
+        <p class="foot">작성 기준일: 2026-06-01 / 기준 브랜치: <code>sungho-merge-daegyune-page-home</code></p>
+      </section>
+    </main>
+  </body>
+</html>

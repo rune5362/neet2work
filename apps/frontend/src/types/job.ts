@@ -1,5 +1,16 @@
-export type CareerStage = "entry" | "junior" | "senior";
+export type CareerStage =
+  | "intern"
+  | "entry"
+  | "junior"
+  | "career_unspecified"
+  | "mid"
+  | "senior"
+  | "lead_manager"
+  | "unknown";
+
 export type EmploymentTypeCategory = "permanent" | "contract" | "intern" | "freelance";
+
+export type JobPostingStatus = "active" | "closed" | "inactive" | "unknown";
 
 export type JobPosting = {
   id: string;
@@ -23,4 +34,9 @@ export type JobPosting = {
   employmentTypeCategory?: EmploymentTypeCategory | null;
   postedAt?: string | null;
   collectedAt?: string | null;
+  status?: JobPostingStatus;
+  firstSeenAt?: string | null;
+  lastSeenAt?: string | null;
+  closedAt?: string | null;
+  jobCategory?: string | null;
 };

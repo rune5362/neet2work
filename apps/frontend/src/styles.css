@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   color: #171717;
   background: #ffffff;
   font-family:
@@ -715,6 +715,173 @@ textarea:focus {
   width: auto;
 }
 
+.homeNavMenu {
+  position: relative;
+  display: none;
+}
+
+.homeMenuButton {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.homeMenuButton:hover,
+.homeMenuButton[aria-expanded="true"] {
+  background: var(--home-surface-container);
+}
+
+.homeMenuButton span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--home-secondary);
+}
+
+.homeNavDropdown {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  width: min(320px, calc(100vw - 48px));
+  overflow-y: auto;
+  border-right: 1px solid var(--home-hairline);
+  background: white;
+  box-shadow: 18px 0 42px rgba(15, 23, 42, 0.18);
+}
+
+.homeNavDrawerBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  border: 0;
+  background: rgba(10, 17, 40, 0.28);
+  cursor: pointer;
+}
+
+.homeNavDrawerHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 70px;
+  border-bottom: 1px solid var(--home-hairline);
+  padding: 0 20px;
+  background: white;
+  cursor: pointer;
+}
+
+.homeNavDrawerHeader strong {
+  color: var(--home-ink);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.homeNavDrawerHeader:hover {
+  background: var(--home-surface-container);
+}
+
+.homeNavDrawerMenuIcon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+}
+
+.homeNavDrawerMenuIcon span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--home-secondary);
+}
+
+.homeNavDropdown a,
+.homeNavDropdown button {
+  border: 0;
+  padding: 16px 20px;
+  background: white;
+  color: var(--home-ink);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.homeNavDropdown a:hover,
+.homeNavDropdown a.active,
+.homeNavDropdown button:hover {
+  background: var(--home-surface-low);
+  color: var(--home-primary);
+}
+
+.homeNavDropdownMobileOnly {
+  display: none;
+  border-top: 1px solid var(--home-hairline);
+}
+
+.homeNavDropdownMobileOnly a,
+.homeNavDropdownMobileOnly button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.homeNavDropdownMobileOnly svg {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.homeNavDrawerFooter {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  margin-top: auto;
+  border-top: 1px solid var(--home-hairline);
+  padding: 12px;
+  background: white;
+}
+
+.homeNavDrawerFooter button {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 16px 20px;
+  background: var(--home-surface-low);
+  color: var(--home-ink);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.homeNavDrawerFooter button:hover {
+  background: var(--home-surface-container);
+  color: var(--home-primary);
+}
+
 .homeNavLinks {
   gap: 24px;
 }
@@ -738,22 +905,233 @@ textarea:focus {
 }
 
 .homeIconButton {
+  position: relative;
   display: grid;
   place-items: center;
   width: 40px;
   height: 40px;
+  border: 0;
   border-radius: 999px;
+  background: transparent;
   color: var(--home-secondary);
+  cursor: pointer;
 }
 
-.homeIconButton:hover {
+.homeIconButton:hover,
+.homeIconButton[aria-expanded="true"] {
   background: var(--home-surface-container);
+}
+
+.homeIconButton.active {
+  color: var(--home-primary);
 }
 
 .homeIconButton svg {
   width: 24px;
   height: 24px;
   fill: currentColor;
+}
+
+.homeNotificationMenu {
+  position: relative;
+}
+
+.homeNotificationBadge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  min-width: 16px;
+  height: 16px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--home-primary-container);
+  color: var(--home-on-primary-container);
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.homeNotificationDropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  display: grid;
+  width: min(340px, calc(100vw - 32px));
+  overflow: hidden;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+}
+
+.homeNotificationHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--home-hairline);
+}
+
+.homeNotificationHeader strong {
+  color: var(--home-ink);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.homeNotificationHeader span {
+  color: var(--home-primary);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.homeNotificationList {
+  display: grid;
+}
+
+.homeNotificationList a,
+.homeNotificationAllLink {
+  display: grid;
+  gap: 5px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--home-hairline);
+  color: var(--home-ink);
+  text-decoration: none;
+}
+
+.homeNotificationList a:hover,
+.homeNotificationAllLink:hover {
+  background: var(--home-surface-low);
+}
+
+.homeNotificationList span {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: var(--home-surface-low);
+  color: var(--home-primary);
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.homeNotificationList strong {
+  font-size: 0.9rem;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.homeNotificationList small {
+  color: var(--home-body-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.homeNotificationAllLink {
+  border-bottom: 0;
+  color: var(--home-primary);
+  font-size: 0.88rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.homeAccountMenu {
+  position: relative;
+}
+
+.homeAccountButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  max-width: 180px;
+  border: 0;
+  border-radius: 999px;
+  padding: 4px 10px 4px 4px;
+  background: transparent;
+  color: var(--home-secondary);
+  cursor: pointer;
+}
+
+.homeAccountButton:hover,
+.homeAccountButton[aria-expanded="true"] {
+  background: var(--home-surface-container);
+}
+
+.homeAccountButton.active > span:last-child {
+  border-bottom: 2px solid var(--home-primary);
+  color: var(--home-primary);
+  font-weight: 900;
+}
+
+.homeAccountButton img,
+.homeAccountFallbackIcon {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+}
+
+.homeAccountButton img {
+  object-fit: cover;
+}
+
+.homeAccountFallbackIcon {
+  display: grid;
+  place-items: center;
+  background: var(--home-surface-low);
+  color: var(--home-secondary);
+}
+
+.homeAccountFallbackIcon svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.homeAccountButton > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--home-ink);
+  font-size: 0.9rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.homeAccountDropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  display: grid;
+  min-width: 132px;
+  overflow: hidden;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+}
+
+.homeAccountDropdown a,
+.homeAccountDropdown button {
+  border: 0;
+  padding: 12px 14px;
+  background: white;
+  color: var(--home-ink);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.homeAccountDropdown a:hover,
+.homeAccountDropdown a.active,
+.homeAccountDropdown button:hover {
+  background: var(--home-surface-low);
+  color: var(--home-primary);
 }
 
 .homeStartButton,
@@ -1273,10 +1651,6 @@ textarea:focus {
   padding: 110px 0 96px;
 }
 
-.jobsFilterArea {
-  position: relative;
-}
-
 .jobsFilterBar {
   display: flex;
   flex-wrap: wrap;
@@ -1306,8 +1680,7 @@ textarea:focus {
 }
 
 .jobsSearchField span,
-.jobsFilterControlWrap > span:first-child,
-.jobsLocationSearch span {
+.jobsFilterControls label span {
   width: 1px;
   height: 1px;
   overflow: hidden;
@@ -1338,73 +1711,24 @@ textarea:focus {
   gap: 12px;
 }
 
-.jobsFilterControlWrap {
-  position: relative;
-  flex: 0 0 120px;
-  width: 120px;
-}
-
-.jobsFilterControl,
-.jobsAdvancedFilterBtn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 120px;
-  min-width: 120px;
-  height: 44px;
+.jobsFilterControls select {
   min-height: 44px;
   border: 1px solid var(--home-hairline);
   border-radius: 8px;
-  padding: 0 34px 0 16px;
-  appearance: none;
+  padding: 0 16px;
   background: white;
   color: var(--home-secondary);
   font-size: 0.86rem;
-  font-weight: 700;
   cursor: pointer;
-  white-space: nowrap;
-  transition:
-    border-color 120ms ease,
-    background 120ms ease,
-    color 120ms ease,
-    box-shadow 120ms ease;
 }
 
-.jobsFilterControlWrap .jobsFilterControl {
-  width: 100%;
-}
-
-.jobsFilterChevron {
-  position: absolute;
-  top: 50%;
-  right: 12px;
-  width: 14px;
-  height: 14px;
-  color: #64748b;
-  pointer-events: none;
-  transform: translateY(-50%);
-}
-
-.jobsFilterChevron path {
-  vector-effect: non-scaling-stroke;
-}
-
-.jobsFilterButton.selected,
-.jobsFilterButton:hover,
-.jobsAdvancedFilterBtn.selected,
-.jobsAdvancedFilterBtn:hover {
-  border-color: rgba(0, 102, 255, 0.34);
-  background: rgba(0, 102, 255, 0.05);
-  color: var(--home-primary-container);
-}
-
-.jobsFilterControl:focus {
+.jobsFilterControls select:focus {
   outline: 0;
   border-color: var(--home-primary-container);
   box-shadow: 0 0 0 1px rgba(0, 102, 255, 0.22);
 }
 
+.jobsFilterControls button,
 .jobsCardActions button {
   border: 0;
   border-radius: 8px;
@@ -1415,285 +1739,9 @@ textarea:focus {
   font-weight: 800;
 }
 
-.jobsLocationPopover {
-  position: absolute;
-  top: calc(100% + 10px);
-  left: 0;
-  z-index: 25;
-  width: min(980px, 100%);
-  border: 1px solid rgba(148, 163, 184, 0.32);
-  border-radius: 12px;
-  padding: 16px;
-  background: white;
-  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.16);
-}
-
-.jobsLocationSearch {
-  display: flex;
-  align-items: center;
+.jobsFilterControls button {
   min-height: 44px;
-  border: 1px solid var(--home-hairline);
-  border-radius: 8px;
-  padding: 0 14px;
-  background: #f8fafc;
-}
-
-.jobsLocationSearch::before {
-  content: "⌕";
-  margin-right: 10px;
-  color: #727687;
-  font-size: 1.05rem;
-  line-height: 1;
-}
-
-.jobsLocationSearch input {
-  width: 100%;
-  border: 0;
-  background: transparent;
-  color: var(--home-ink);
-  font: inherit;
-  outline: 0;
-}
-
-.jobsLocationSelected {
-  margin: 12px 0;
-  color: var(--home-primary-container);
-  font-size: 0.82rem;
-  font-weight: 800;
-}
-
-.jobsLocationColumns {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.jobsLocationColumn {
-  min-height: 220px;
-  max-height: 260px;
-  overflow-y: auto;
-  border: 1px solid #eef2f7;
-  border-radius: 8px;
-  padding: 12px;
-  background: #fbfcff;
-}
-
-.jobsLocationColumn h3 {
-  margin: 0 0 10px;
-  color: var(--home-secondary);
-  font-size: 0.76rem;
-  font-weight: 800;
-}
-
-.jobsLocationColumn button {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 34px;
-  border: 0;
-  border-radius: 6px;
-  padding: 0 10px;
-  background: transparent;
-  color: #334155;
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 700;
-  text-align: left;
-}
-
-.jobsLocationColumn button:hover,
-.jobsLocationColumn button.active {
-  background: rgba(0, 102, 255, 0.08);
-  color: var(--home-primary-container);
-}
-
-.jobsLocationColumn p {
-  margin: 8px 0 0;
-  color: #94a3b8;
-  font-size: 0.78rem;
-  line-height: 1.45;
-}
-
-.jobsLocationActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 14px;
-  border-top: 1px solid #eef2f7;
-  padding-top: 14px;
-}
-
-.jobsLocationActions button {
-  min-height: 38px;
-  border-radius: 8px;
-  padding: 0 16px;
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 800;
-}
-
-.jobsLocationClearBtn {
-  border: 1px solid var(--home-hairline);
-  background: white;
-  color: var(--home-secondary);
-}
-
-.jobsLocationApplyBtn {
-  border: 0;
-  background: var(--home-primary-container);
-  color: white;
-}
-
-.jobsAdvancedPopover {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  z-index: 25;
-  width: min(560px, 100%);
-  border: 1px solid rgba(148, 163, 184, 0.32);
-  border-radius: 12px;
-  padding: 16px;
-  background: white;
-  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.16);
-}
-
-.jobsAdvancedHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14px;
-}
-
-.jobsAdvancedHeader h2 {
-  margin: 0;
-  color: var(--home-ink);
-  font-size: 0.98rem;
-  font-weight: 800;
-}
-
-.jobsAdvancedHeader button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--home-secondary);
-  cursor: pointer;
-  font-size: 1.15rem;
-  line-height: 1;
-}
-
-.jobsAdvancedHeader button:hover {
-  background: #f1f5f9;
-  color: var(--home-ink);
-}
-
-.jobsAdvancedSection {
-  border-top: 1px solid #eef2f7;
-  padding: 14px 0;
-}
-
-.jobsAdvancedSection h3 {
-  margin: 0 0 10px;
-  color: var(--home-secondary);
-  font-size: 0.76rem;
-  font-weight: 800;
-}
-
-.jobsAdvancedToggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #334155;
-  cursor: pointer;
-  font-size: 0.84rem;
-  font-weight: 800;
-}
-
-.jobsAdvancedToggle input {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--home-primary-container);
-}
-
-.jobsAdvancedChips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  max-height: 132px;
-  overflow-y: auto;
-}
-
-.jobsAdvancedChips button,
-.jobsAdvancedSegmented button {
-  border: 1px solid var(--home-hairline);
-  border-radius: 999px;
-  background: white;
-  color: #475569;
-  cursor: pointer;
-  font-size: 0.78rem;
-  font-weight: 800;
-  transition:
-    border-color 120ms ease,
-    background 120ms ease,
-    color 120ms ease;
-}
-
-.jobsAdvancedChips button {
-  min-height: 30px;
-  padding: 0 11px;
-}
-
-.jobsAdvancedChips button:hover,
-.jobsAdvancedChips button.active,
-.jobsAdvancedSegmented button:hover,
-.jobsAdvancedSegmented button.active {
-  border-color: rgba(0, 102, 255, 0.34);
-  background: rgba(0, 102, 255, 0.08);
-  color: var(--home-primary-container);
-}
-
-.jobsAdvancedSegmented {
-  display: inline-flex;
-  gap: 8px;
-}
-
-.jobsAdvancedSegmented button {
-  min-height: 34px;
-  padding: 0 14px;
-  border-radius: 8px;
-}
-
-.jobsAdvancedActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  border-top: 1px solid #eef2f7;
-  padding-top: 14px;
-}
-
-.jobsAdvancedActions button {
-  min-height: 38px;
-  border-radius: 8px;
-  padding: 0 16px;
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 800;
-}
-
-.jobsAdvancedActions button:first-child {
-  border: 1px solid var(--home-hairline);
-  background: white;
-  color: var(--home-secondary);
-}
-
-.jobsAdvancedActions button:last-child {
-  border: 0;
-  background: var(--home-primary-container);
-  color: white;
+  padding: 0 24px;
 }
 
 .jobsHeading {
@@ -1750,51 +1798,10 @@ textarea:focus {
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: rgba(37, 99, 235, 0.08);
-  color: #2563eb;
-  border: 1px solid rgba(37, 99, 235, 0.14);
-  flex-shrink: 0;
-}
-
-.jobsCardIconSvg {
-  width: 22px;
-  height: 22px;
-}
-
-.jobsCardIcon.is-development {
-  background: rgba(37, 99, 235, 0.08);
-  color: #2563eb;
-  border-color: rgba(37, 99, 235, 0.16);
-}
-
-.jobsCardIcon.is-ai {
-  background: rgba(8, 145, 178, 0.1);
-  color: #0891b2;
-  border-color: rgba(8, 145, 178, 0.18);
-}
-
-.jobsCardIcon.is-design {
-  background: rgba(168, 85, 247, 0.1);
-  color: #a855f7;
-  border-color: rgba(168, 85, 247, 0.18);
-}
-
-.jobsCardIcon.is-marketing {
-  background: rgba(249, 115, 22, 0.1);
-  color: #f97316;
-  border-color: rgba(249, 115, 22, 0.18);
-}
-
-.jobsCardIcon.is-security {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-  border-color: rgba(16, 185, 129, 0.18);
-}
-
-.jobsCardIcon.is-pm {
-  background: rgba(99, 102, 241, 0.1);
-  color: #6366f1;
-  border-color: rgba(99, 102, 241, 0.18);
+  background: white;
+  color: var(--home-primary-container);
+  font-size: 0.78rem;
+  font-weight: 900;
 }
 
 .jobsNewBadge {
@@ -1903,6 +1910,841 @@ textarea:focus {
 .jobsPagination button.active {
   background: var(--home-primary-container);
   color: var(--home-on-primary-container);
+}
+
+.documentsPage,
+.notificationsPage {
+  --home-canvas: #f8fafc;
+  --home-surface-low: #f2f3ff;
+  --home-surface-container: #ecedfa;
+  --home-primary: #0050cb;
+  --home-primary-container: #0066ff;
+  --home-on-primary-container: #f8f7ff;
+  --home-ink: #0a1128;
+  --home-secondary: #575d78;
+  --home-body-muted: #64748b;
+  --home-hairline: #e2e8f0;
+  min-height: 100vh;
+  background: var(--home-canvas);
+  color: #191b24;
+  font-family:
+    Inter,
+    "Pretendard",
+    "Malgun Gothic",
+    Arial,
+    sans-serif;
+}
+
+.documentsContent,
+.notificationsContent {
+  width: min(1280px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 126px 0 96px;
+}
+
+.documentsHeader,
+.notificationsHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: end;
+  margin-bottom: 28px;
+}
+
+.documentsHeader > span,
+.notificationsHeader > span {
+  grid-column: 1 / -1;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: var(--home-surface-container);
+  color: var(--home-primary);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.documentsHeader h1,
+.notificationsHeader h1 {
+  max-width: 760px;
+  margin: 0 0 12px;
+  color: var(--home-ink);
+  font-size: clamp(2.1rem, 4vw, 3.1rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.documentsHeader p,
+.notificationsHeader p {
+  max-width: 720px;
+  margin: 0;
+  color: var(--home-secondary);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.notificationsHeader strong {
+  justify-self: end;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: var(--home-primary-container);
+  color: var(--home-on-primary-container);
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.documentsHeader button,
+.documentsCardMeta button {
+  min-height: 48px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--home-primary-container);
+  color: var(--home-on-primary-container);
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.documentsHeader button {
+  padding: 0 24px;
+}
+
+.documentsToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.documentsToolbar button {
+  min-height: 40px;
+  border: 1px solid var(--home-hairline);
+  border-radius: 999px;
+  padding: 0 16px;
+  background: white;
+  color: var(--home-secondary);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.documentsToolbar button.active,
+.documentsToolbar button:hover {
+  border-color: var(--home-primary-container);
+  background: var(--home-surface-low);
+  color: var(--home-primary);
+}
+
+.documentsToolbarMeta {
+  margin-left: auto;
+  color: var(--home-body-muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.documentsNotice,
+.documentsEmpty {
+  border: 1px solid var(--home-hairline);
+  border-radius: 12px;
+  padding: 20px;
+  background: white;
+  color: var(--home-secondary);
+  font-size: 0.94rem;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.documentsNotice {
+  margin-bottom: 16px;
+}
+
+.documentsNotice.error {
+  border-color: rgba(190, 18, 60, 0.24);
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.documentsNotice.success {
+  border-color: rgba(21, 128, 61, 0.24);
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.documentsNotice.info {
+  border-color: rgba(0, 102, 255, 0.18);
+  background: var(--home-surface-low);
+  color: var(--home-primary);
+}
+
+.documentsEmpty {
+  display: grid;
+  gap: 8px;
+}
+
+.documentsEmpty strong {
+  color: var(--home-ink);
+  font-size: 1.05rem;
+}
+
+.documentsEmpty p {
+  margin: 0;
+}
+
+.documentsList {
+  display: grid;
+  gap: 14px;
+}
+
+.documentsCard {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) minmax(200px, 260px);
+  gap: 24px;
+  align-items: start;
+  border: 1px solid var(--home-hairline);
+  border-radius: 12px;
+  padding: 24px;
+  background: white;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.documentsCardType {
+  display: grid;
+  min-height: 44px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--home-surface-low);
+  color: var(--home-primary);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.documentsCardBody {
+  display: grid;
+  gap: 14px;
+}
+
+.documentsCardBody h2 {
+  margin: 0 0 6px;
+  color: var(--home-ink);
+  font-size: 1.25rem;
+  font-weight: 900;
+  line-height: 1.3;
+}
+
+.documentsCardBody span,
+.documentsCardBody p,
+.documentsCardMeta strong {
+  color: var(--home-body-muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.documentsCardBody p {
+  margin: 0;
+}
+
+.documentsTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.documentsTags span {
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: var(--home-surface-low);
+  color: var(--home-primary-container);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.documentsCardMeta {
+  display: grid;
+  gap: 12px;
+  justify-items: end;
+  text-align: right;
+}
+
+.notificationsList {
+  display: grid;
+  gap: 14px;
+}
+
+.notificationsItem {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: start;
+  border: 1px solid var(--home-hairline);
+  border-radius: 12px;
+  padding: 22px;
+  background: white;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.notificationsItem.unread {
+  border-color: rgba(0, 102, 255, 0.28);
+}
+
+.notificationsItemMarker {
+  width: 10px;
+  height: 10px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: var(--home-hairline);
+}
+
+.notificationsItem.unread .notificationsItemMarker {
+  background: var(--home-primary-container);
+}
+
+.notificationsItem span {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: var(--home-surface-low);
+  color: var(--home-primary);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.notificationsItem h2 {
+  margin: 10px 0 8px;
+  color: var(--home-ink);
+  font-size: 1.08rem;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.notificationsItem p {
+  margin: 0;
+  color: var(--home-body-muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.notificationsItem time {
+  color: var(--home-secondary);
+  font-size: 0.84rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.documentsCardMeta > span {
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: var(--home-surface-container);
+  color: var(--home-primary);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.documentsCardMeta button {
+  width: 100%;
+}
+
+.documentsCardMeta button:disabled,
+.profileFormActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.documentsCardMeta .documentsSecondaryButton,
+.profileFormActions .documentsSecondaryButton {
+  border: 1px solid var(--home-hairline);
+  background: white;
+  color: var(--home-primary);
+}
+
+.documentsCardMeta .documentsDangerButton {
+  border: 1px solid rgba(190, 18, 60, 0.22);
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.documentsAnalysisPending {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid rgba(0, 102, 255, 0.18);
+  border-radius: 12px;
+  padding: 18px;
+  background: var(--home-surface-low);
+}
+
+.documentsAnalysisPending strong {
+  color: var(--home-ink);
+  font-size: 0.98rem;
+  font-weight: 900;
+}
+
+.documentsAnalysisPending p {
+  margin: 4px 0 0;
+  color: var(--home-secondary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.documentsAnalysisPending button {
+  min-height: 42px;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  padding: 0 16px;
+  background: white;
+  color: var(--home-body-muted);
+  cursor: not-allowed;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.profileForm {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  border: 1px solid var(--home-hairline);
+  border-radius: 12px;
+  padding: 24px;
+  background: white;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.profileForm label {
+  display: grid;
+  gap: 8px;
+  color: var(--home-secondary);
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.profileForm input,
+.profileForm select,
+.profileForm textarea {
+  width: 100%;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: white;
+  color: var(--home-ink);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.profileForm textarea {
+  min-height: 132px;
+  resize: vertical;
+}
+
+.profileForm input:focus,
+.profileForm select:focus,
+.profileForm textarea:focus {
+  outline: 3px solid rgba(0, 102, 255, 0.18);
+  border-color: var(--home-primary-container);
+}
+
+.profileFormWide,
+.profileFormActions,
+.profileFormCheck {
+  grid-column: 1 / -1;
+}
+
+.profileFormCheck {
+  display: flex;
+  align-items: center;
+}
+
+.profileFormCheck input {
+  width: auto;
+}
+
+.profileFormActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.profileFormActions button {
+  min-height: 46px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 18px;
+  background: var(--home-primary-container);
+  color: var(--home-on-primary-container);
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.myAccountPage {
+  --home-canvas: #f8fafc;
+  --home-surface-low: #f2f3ff;
+  --home-surface-container: #ecedfa;
+  --home-primary: #0050cb;
+  --home-primary-container: #0066ff;
+  --home-on-primary-container: #f8f7ff;
+  --home-ink: #0a1128;
+  --home-secondary: #575d78;
+  --home-body-muted: #64748b;
+  --home-hairline: #e2e8f0;
+  min-height: 100vh;
+  background: var(--home-canvas);
+  color: #191b24;
+  font-family:
+    Inter,
+    "Pretendard",
+    "Malgun Gothic",
+    Arial,
+    sans-serif;
+}
+
+.myAccountContent {
+  width: min(960px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 126px 0 96px;
+}
+
+.myAccountHeader {
+  margin-bottom: 28px;
+}
+
+.myAccountHeader > span {
+  display: inline-flex;
+  margin-bottom: 14px;
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: var(--home-surface-container);
+  color: var(--home-primary);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.myAccountHeader h1 {
+  margin: 0 0 12px;
+  color: var(--home-ink);
+  font-size: clamp(2.1rem, 4vw, 3.1rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.myAccountHeader p {
+  max-width: 680px;
+  margin: 0;
+  color: var(--home-secondary);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.myAccountPanel {
+  border: 1px solid var(--home-hairline);
+  border-radius: 12px;
+  padding: 32px;
+  background: white;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.myAccountProfile {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  border-bottom: 1px solid var(--home-hairline);
+  padding-bottom: 24px;
+}
+
+.myAccountUpdatedAt {
+  align-self: flex-end;
+  margin-left: auto;
+  color: var(--home-body-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.myAccountProfile img,
+.myAccountDefaultIcon {
+  flex: 0 0 auto;
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+}
+
+.myAccountProfile img {
+  object-fit: cover;
+}
+
+.myAccountDefaultIcon {
+  display: grid;
+  place-items: center;
+  background: var(--home-surface-low);
+  color: var(--home-primary);
+}
+
+.myAccountDefaultIcon svg {
+  width: 36px;
+  height: 36px;
+  fill: currentColor;
+}
+
+.myAccountProfile h2 {
+  margin: 0 0 6px;
+  color: var(--home-ink);
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+.myAccountProfile p {
+  margin: 0;
+  color: var(--home-body-muted);
+  font-weight: 700;
+}
+
+.myAccountEditableRow button,
+.myAccountEditControl button {
+  height: 36px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 14px;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.myAccountEditableRow button:hover,
+.myAccountEditControl button:hover {
+  background: var(--home-surface-container);
+}
+
+.myAccountMessage,
+.myAccountError {
+  margin-top: 20px;
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.myAccountMessage {
+  border: 1px solid #b7ebcc;
+  background: #f0fff4;
+  color: #166534;
+}
+
+.myAccountError {
+  border: 1px solid #f1aeb5;
+  background: #fff5f5;
+  color: #b3262b;
+}
+
+.myAccountDetails {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  margin: 24px 0 0;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  background: var(--home-hairline);
+}
+
+.myAccountDetails div {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 16px;
+  padding: 16px;
+  background: white;
+}
+
+.myAccountDetails dt {
+  color: var(--home-body-muted);
+  font-size: 0.85rem;
+  font-weight: 900;
+}
+
+.myAccountDetails dd {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--home-ink);
+  font-weight: 800;
+}
+
+.myAccountDetails dd > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.myAccountEditableRow button,
+.myAccountEditControl button {
+  flex: 0 0 auto;
+}
+
+.myAccountEditableRow button {
+  background: var(--home-surface-low);
+  color: var(--home-primary);
+}
+
+.myAccountEditingContainer {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  align-items: space-between;
+  margin: 0%;
+  padding: 0%;
+}
+
+.myAccountOriginalInput {
+  flex: 1 1 0%;
+  min-width: 0;
+  height: 42px;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: var(--home-surface-container);
+  color: var(--home-body-muted);
+  cursor: not-allowed;
+  font-weight: 700;
+}
+
+.myAccountEditControl {
+  flex: 1.5 1 0%;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.myAccountEditControl input {
+  width: 100%;
+  height: 42px;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: var(--home-surface-low);
+  color: var(--home-ink);
+}
+
+.myAccountEditControl input:focus {
+  outline: 0;
+  border-color: var(--home-primary-container);
+  box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.14);
+}
+
+.myAccountEditControl > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0;
+}
+
+.myAccountEditControl button:first-child {
+  background: var(--home-primary-container);
+  color: var(--home-on-primary-container);
+}
+
+.myAccountEditControl button:last-child {
+  background: var(--home-surface-low);
+  color: var(--home-secondary);
+}
+
+.myAccountEditControl button:disabled {
+  cursor: wait;
+  background: #9fb8ef;
+}
+
+@media (max-width: 900px) {
+  .myAccountContent {
+    width: min(100% - 32px, 960px);
+  }
+
+  .myAccountPanel {
+    padding: 24px;
+  }
+
+  .myAccountProfile {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .myAccountUpdatedAt {
+    align-self: flex-end;
+    margin-left: 0;
+  }
+
+  .myAccountDetails div {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .myAccountDetails dd {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .myAccountEditingContainer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .myAccountOriginalInput {
+    flex: none;
+    width: 100%;
+  }
+
+  .myAccountEditControl {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .myAccountEditControl > div {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .myAccountEditableRow button,
+  .myAccountEditControl button {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+.myAccountEmpty {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.myAccountEmpty h2 {
+  margin: 0;
+  color: var(--home-ink);
+  font-size: 1.35rem;
+}
+
+.myAccountEmpty p {
+  margin: 0;
+  color: var(--home-secondary);
+}
+
+.myAccountEmpty a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  border-radius: 8px;
+  padding: 0 24px;
+  background: var(--home-primary-container);
+  color: var(--home-on-primary-container);
+  font-weight: 900;
 }
 
 .jobsPagination span {
@@ -2482,6 +3324,307 @@ textarea:focus {
   color: white;
 }
 
+.authPage {
+  --home-canvas: #f8fafc;
+  --home-surface-low: #f2f3ff;
+  --home-surface-container: #ecedfa;
+  --home-primary: #0050cb;
+  --home-primary-container: #0066ff;
+  --home-on-primary-container: #f8f7ff;
+  --home-ink: #0a1128;
+  --home-secondary: #575d78;
+  --home-body-muted: #64748b;
+  --home-hairline: #e2e8f0;
+  min-height: 100vh;
+  background: var(--home-canvas);
+  color: #191b24;
+  font-family:
+    Inter,
+    "Pretendard",
+    "Malgun Gothic",
+    Arial,
+    sans-serif;
+}
+
+.authChoiceSection,
+.signupSection {
+  width: min(960px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 136px 0 96px;
+}
+
+.authHeader {
+  max-width: 720px;
+  margin-bottom: 32px;
+}
+
+.authHeader > span {
+  display: inline-flex;
+  margin-bottom: 12px;
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: var(--home-surface-container);
+  color: var(--home-primary);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.authHeader h1 {
+  margin: 0 0 12px;
+  color: var(--home-ink);
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.authHeader p {
+  margin: 0;
+  color: var(--home-secondary);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.authChoiceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.authChoiceCard,
+.signupForm {
+  border: 1px solid var(--home-hairline);
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.authChoiceCard {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-height: 280px;
+  padding: 32px;
+}
+
+.authChoiceCard.muted {
+  background: var(--home-surface-low);
+  color: var(--home-body-muted);
+}
+
+.authChoiceIcon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--home-primary-container);
+  color: white;
+  font-size: 1.4rem;
+  font-weight: 900;
+}
+
+.authChoiceCard.muted .authChoiceIcon {
+  background: var(--home-surface-container);
+  color: var(--home-secondary);
+}
+
+.authChoiceCard h2 {
+  margin: 8px 0 0;
+  color: var(--home-ink);
+  font-size: 1.35rem;
+}
+
+.authChoiceCard p {
+  margin: 0;
+  color: var(--home-secondary);
+  line-height: 1.6;
+}
+
+.authChoiceLoginForm {
+  display: grid;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.authChoiceLoginForm label {
+  display: grid;
+  gap: 8px;
+}
+
+.authChoiceLoginForm label > span {
+  color: var(--home-body-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.authChoiceLoginForm input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  padding: 0 14px;
+  background: var(--home-surface-low);
+  color: #191b24;
+}
+
+.authChoiceLoginForm input:focus {
+  outline: 0;
+  border-color: var(--home-primary-container);
+  box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.14);
+}
+
+.authChoiceLoginForm em {
+  color: #b3262b;
+  font-size: 0.78rem;
+  font-style: normal;
+}
+
+.authPrimaryButton,
+.authSecondaryButton,
+.signupForm button,
+.authChoiceLoginForm button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 24px;
+  font-weight: 900;
+}
+
+.authPrimaryButton {
+  width: fit-content;
+  margin-top: auto;
+  background: var(--home-primary-container);
+  color: var(--home-on-primary-container);
+}
+
+.authSecondaryButton {
+  width: fit-content;
+  margin-top: auto;
+  background: #d9deeb;
+  color: var(--home-secondary);
+}
+
+.signupForm {
+  display: grid;
+  gap: 20px;
+  max-width: 720px;
+  padding: 32px;
+}
+
+.signupFormGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.signupForm label {
+  display: grid;
+  gap: 8px;
+}
+
+.signupForm label > span {
+  color: var(--home-body-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.signupForm input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  padding: 0 14px;
+  background: var(--home-surface-low);
+  color: #191b24;
+}
+
+.signupForm input:focus {
+  outline: 0;
+  border-color: var(--home-primary-container);
+  box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.14);
+}
+
+.signupForm em {
+  color: #b3262b;
+  font-size: 0.78rem;
+  font-style: normal;
+}
+
+.signupForm button {
+  width: 100%;
+  margin-top: 4px;
+  background: var(--home-primary-container);
+  color: var(--home-on-primary-container);
+  cursor: pointer;
+}
+
+.signupForm button:disabled {
+  cursor: wait;
+  background: #9fb8ef;
+}
+
+.authChoiceLoginForm button {
+  width: 100%;
+  margin-top: 2px;
+  background: var(--home-primary-container);
+  color: var(--home-on-primary-container);
+  cursor: pointer;
+}
+
+.authChoiceLoginForm button:disabled {
+  cursor: wait;
+  background: #9fb8ef;
+}
+
+.authError,
+.authSuccess {
+  border-radius: 8px;
+  padding: 14px 16px;
+  line-height: 1.5;
+}
+
+.authError {
+  border: 1px solid #f1aeb5;
+  background: #fff5f5;
+  color: #b3262b;
+}
+
+.authSuccess {
+  display: grid;
+  gap: 2px;
+  border: 1px solid #b7ebcc;
+  background: #f0fff4;
+  color: #166534;
+}
+
+.authSuccess span {
+  font-size: 0.86rem;
+}
+
+.authSuccess a,
+.authFormFooter a {
+  color: var(--home-primary);
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.authSuccess a:hover,
+.authFormFooter a:hover {
+  text-decoration: underline;
+}
+
+.authFormFooter {
+  margin: -4px 0 0;
+  color: var(--home-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
 @keyframes homePulse {
   0%,
   100% {
@@ -2508,6 +3651,14 @@ textarea:focus {
     display: none;
   }
 
+  .homeNavLeft {
+    gap: 12px;
+  }
+
+  .homeNavMenu {
+    display: block;
+  }
+
   .homeHero {
     grid-template-columns: 1fr;
     padding-top: 112px;
@@ -2524,6 +3675,35 @@ textarea:focus {
 
   .jobsContent {
     width: min(100% - 32px, 1280px);
+  }
+
+  .documentsContent,
+  .notificationsContent {
+    width: min(100% - 32px, 1280px);
+  }
+
+  .myAccountContent {
+    width: min(100% - 32px, 960px);
+  }
+
+  .documentsHeader,
+  .documentsCard,
+  .notificationsHeader,
+  .notificationsItem {
+    grid-template-columns: 1fr;
+  }
+
+  .documentsCardMeta {
+    justify-items: stretch;
+    text-align: left;
+  }
+
+  .notificationsHeader strong {
+    justify-self: start;
+  }
+
+  .notificationsItem time {
+    white-space: normal;
   }
 
   .jobsPage .jobsGrid {
@@ -2573,8 +3753,14 @@ textarea:focus {
     gap: 8px;
   }
 
-  .homeIconButton {
+  .homeIconButton,
+  .homeNotificationMenu,
+  .homeAccountMenu {
     display: none;
+  }
+
+  .homeNavDropdownMobileOnly {
+    display: grid;
   }
 
   .homeStartButton {
@@ -2620,10 +3806,72 @@ textarea:focus {
     padding-left: 24px;
   }
 
+  .authChoiceSection,
+  .signupSection {
+    width: min(100% - 24px, 1280px);
+    padding-top: 96px;
+    padding-bottom: 64px;
+  }
+
+  .authChoiceGrid,
+  .signupFormGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .authChoiceCard,
+  .signupForm {
+    padding: 24px;
+  }
+
   .jobsContent {
     width: min(100% - 24px, 1280px);
     padding-top: 96px;
     padding-bottom: 64px;
+  }
+
+  .documentsContent,
+  .notificationsContent {
+    width: min(100% - 24px, 1280px);
+    padding-top: 96px;
+    padding-bottom: 64px;
+  }
+
+  .myAccountContent {
+    width: min(100% - 24px, 960px);
+    padding-top: 96px;
+    padding-bottom: 64px;
+  }
+
+  .documentsHeader button {
+    width: 100%;
+  }
+
+  .documentsToolbarMeta {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .documentsCard,
+  .notificationsItem {
+    padding: 20px;
+  }
+
+  .profileForm {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+
+  .profileFormActions {
+    flex-direction: column;
+  }
+
+  .profileFormActions button {
+    width: 100%;
+  }
+
+  .documentsAnalysisPending {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .jobsFilterControls,
@@ -2631,24 +3879,6 @@ textarea:focus {
   .jobsFilterControls select,
   .jobsFilterControls button {
     width: 100%;
-  }
-
-  .jobsLocationPopover {
-    width: 100%;
-  }
-
-  .jobsAdvancedPopover {
-    right: auto;
-    left: 0;
-    width: 100%;
-  }
-
-  .jobsLocationColumns {
-    grid-template-columns: 1fr;
-  }
-
-  .jobsLocationColumn {
-    min-height: auto;
   }
 
   .jobsPage .jobsGrid {
@@ -3316,6 +4546,7 @@ textarea:focus {
   }
 }
 
+/* Merge supplement: keep richer Jobs + AI draft styles from sungho. */
 .jobsActiveFilterChips {
   display: flex;
   flex-wrap: wrap;

@@ -117,6 +117,21 @@ describe("server HTTP contract", () => {
     expect(response.headers.get("access-control-allow-credentials")).toBe("true");
   });
 
+  it("requires authentication for candidate-owned library routes", async () => {
+    const protectedPaths = ["/api/profiles", "/api/documents", "/api/document-sets"];
+
+    for (const path of protectedPaths) {
+      const response = await request(createApp(), path);
+      const body = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(body).toEqual({
+        message: "인증이 필요합니다.",
+        fallback: true
+      });
+    }
+  });
+
   it("keeps the analyze route envelope stable", async () => {
     const response = await request(createApp(), "/api/analyze", {
       method: "POST",
@@ -195,6 +210,9 @@ describe("server HTTP contract", () => {
         {
           ...dbJob,
           careerStage: "junior",
+          firstSeenAt: null,
+          lastSeenAt: null,
+          closedAt: null,
           employmentTypeCategory: "permanent",
           postedAt: "2026-05-19T00:00:00.000Z",
           collectedAt: "2026-05-19T06:00:00.000Z"
@@ -272,6 +290,9 @@ describe("server HTTP contract", () => {
       data: {
         ...dbJob,
         careerStage: "junior",
+        firstSeenAt: null,
+        lastSeenAt: null,
+        closedAt: null,
         employmentTypeCategory: "permanent",
         postedAt: "2026-05-19T00:00:00.000Z",
         collectedAt: "2026-05-19T06:00:00.000Z"

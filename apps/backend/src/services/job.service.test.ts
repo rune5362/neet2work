@@ -744,17 +744,22 @@ describe("getJobFacets", () => {
     });
     expect(groupBy).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ where: { status: "active" } })
+      expect.objectContaining({ where: expect.objectContaining({ status: "active", deletedAt: null }) })
     );
     expect(groupBy).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ where: { status: "active" } })
+      expect.objectContaining({ where: expect.objectContaining({ status: "active", deletedAt: null }) })
     );
     expect(groupBy).toHaveBeenNthCalledWith(
       3,
-      expect.objectContaining({ where: { status: "active" } })
+      expect.objectContaining({ where: expect.objectContaining({ status: "active", deletedAt: null }) })
     );
-    expect(count).toHaveBeenCalledWith({ where: { status: "active" } });
+    expect(count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        status: "active",
+        deletedAt: null
+      })
+    });
   });
 
   it("returns empty database facets instead of sample fallback when the database is connected", async () => {
@@ -800,9 +805,15 @@ describe("getJobById", () => {
 
     await getJobById("db-job-001");
 
-    expect(findFirst).toHaveBeenCalledWith({
-      where: { id: "db-job-001", status: "active" },
-      select: expect.any(Object)
-    });
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "db-job-001",
+          status: "active",
+          deletedAt: null
+        }),
+        select: expect.any(Object)
+      })
+    );
   });
 });

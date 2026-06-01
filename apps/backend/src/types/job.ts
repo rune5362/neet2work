@@ -36,15 +36,14 @@ export type JobPosting = {
   employmentTypeCategory?: PublicEmploymentTypeCategory | null;
   postedAt?: string | null;
   collectedAt?: string | null;
-};
-
-export type CollectedJobPosting = JobPosting & {
   status?: JobPostingStatus;
   firstSeenAt?: string | null;
   lastSeenAt?: string | null;
   closedAt?: string | null;
   jobCategory?: string | null;
-  careerStage?: CareerStage | null;
+};
+
+export type CollectedJobPosting = JobPosting & {
   crawlBatchId?: string | null;
   classifierMeta?: Record<string, unknown> | null;
   companyInfo?: Record<string, unknown> | null;

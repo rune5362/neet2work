@@ -67,7 +67,7 @@ AI 라우팅 정책:
 | 구분 | 기술 |
 | --- | --- |
 | Node.js | 24 LTS |
-| Package Manager | pnpm 11 |
+| Package Manager | pnpm 11 via Corepack |
 | Frontend | React 19 + Vite 7 |
 | Backend | Express 5 |
 | AI Routing | Codex Bridge + Gemini API + Local AI(Gemma 등) + Fallback Demo |
@@ -172,6 +172,8 @@ neet2work/
 │     │  └─ sampleAnalysis.json
 │     ├─ prisma/
 │     │  ├─ migrations/
+│     │  ├─ models/
+│     │  ├─ OPERATIONS.md
 │     │  ├─ schema.prisma
 │     │  └─ seed.ts
 │     ├─ package.json
@@ -262,6 +264,8 @@ R2_SECRET_ACCESS_KEY=
 
 자세한 개발 환경 세팅은 [setup/SETUP.md](./setup/SETUP.md)를 참고합니다. 운영체제별 완전 초기 세팅은 [setup/WINDOWS_SETUP.md](./setup/WINDOWS_SETUP.md), [setup/MACOS_SETUP.md](./setup/MACOS_SETUP.md), [setup/LINUX_SETUP.md](./setup/LINUX_SETUP.md)에 정리되어 있습니다. 협업 규칙은 [CONTRIBUTING.md](./CONTRIBUTING.md)에 정리되어 있습니다.
 
+AI 작업 운영 방식은 [docs/AI_WORKFLOW.md](./docs/AI_WORKFLOW.md), 구조 개요는 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)를 참고합니다. 반복 작업용 프로젝트 스킬은 `.codex/skills/`에 있습니다.
+
 ### 처음 설치
 
 ```bash
@@ -309,6 +313,7 @@ DB 서버는 각자 따로 사용하고, 스키마와 샘플 데이터만 Git으
 팀원 DB/API 인수인계 기준은 [docs/DB_API_TEAM_HANDOFF.md](./docs/DB_API_TEAM_HANDOFF.md)를 참고합니다.
 
 ```bash
+corepack pnpm run db:migrate
 corepack pnpm run db:deploy
 corepack pnpm run db:seed
 ```
@@ -318,6 +323,11 @@ Prisma migration은 아래 구조로 관리합니다.
 ```txt
 apps/backend/prisma/
 ├─ schema.prisma
+├─ models/
+│  ├─ analysisMode.prisma
+│  ├─ jobPosting.prisma
+│  └─ resumeAnalysis.prisma
+├─ OPERATIONS.md
 ├─ seed.ts
 └─ migrations/
    ├─ migration_lock.toml
@@ -350,6 +360,7 @@ corepack pnpm --filter @neet2work/backend run db:migrate -- --name add_feature_n
 
 ```bash
 git pull
+corepack pnpm run db:migrate
 corepack pnpm run db:deploy
 corepack pnpm run db:seed
 ```

@@ -2,7 +2,29 @@ import type { DraftTarget, DraftWorkflowDraft, DraftWorkflowPlan } from "../../t
 import { HttpError } from "../../utils/http-error.js";
 
 const INTERNAL_DRAFT_TERMS = ["claimLedger", "evidenceMap", "materialStore", "provider routing", "fallback"];
-const UNSAFE_TEXT_PATTERN = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u00A0\u200B-\u200D\uFEFF�]/u;
+
+function containsUnsafeExportText(value: string) {
+  for (const character of value) {
+    const codePoint = character.codePointAt(0);
+
+    if (
+      character === "�" ||
+      codePoint === undefined ||
+      (codePoint >= 0 && codePoint <= 8) ||
+      codePoint === 11 ||
+      codePoint === 12 ||
+      (codePoint >= 14 && codePoint <= 31) ||
+      codePoint === 127 ||
+      codePoint === 160 ||
+      (codePoint >= 8203 && codePoint <= 8205) ||
+      codePoint === 65279
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 export function findDisallowedClaimsInDraft(plan: DraftWorkflowPlan, draftText: string) {
   const violations: Array<{ claimId: string; text: string }> = [];
@@ -89,7 +111,7 @@ export function assertPlanPrioritizesAttachedRequirements(target: DraftTarget, p
 }
 
 export function assertDraftTextIsExportSafe(draftText: string) {
-  if (UNSAFE_TEXT_PATTERN.test(draftText)) {
+  if (containsUnsafeExportText(draftText)) {
     throw new HttpError("초안에 문서 출력에 안전하지 않은 문자나 깨진 문자가 포함되었습니다.", 422);
   }
 
