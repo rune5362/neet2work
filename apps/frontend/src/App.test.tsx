@@ -309,20 +309,34 @@ describe("profile/document frontend integration flow", () => {
 
     const fetchMock = setupFetchMock();
     renderAt("/documents");
-    expect(await screen.findByText("2개 항목")).toBeInTheDocument();
+    expect(await screen.findByText("3개 항목")).toBeInTheDocument();
+    expect(screen.getByText("보호된 자기소개서")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("검색"), { target: { value: "샘플테크" } });
+    fireEvent.change(screen.getByLabelText("검색"), { target: { value: "프론트엔드 자기소개서" } });
     expect(await screen.findByText("1개 항목")).toBeInTheDocument();
     expect(screen.getByText("프론트엔드 자기소개서")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("검색"), { target: { value: "" } });
-    fireEvent.click(screen.getByLabelText("보호 항목 보기"));
-    expect(await screen.findByText("3개 항목")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("보호 항목 만"));
+    expect(await screen.findByText("1개 항목")).toBeInTheDocument();
     expect(await screen.findByText("보호된 자기소개서")).toBeInTheDocument();
+    expect(screen.getByText("보호중")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "프론트엔드 지원 프로필" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "프론트엔드 자기소개서" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText("보호 항목 만"));
+    expect(await screen.findByText("3개 항목")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "프론트엔드 지원 프로필" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "프론트엔드 자기소개서" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "보호된 자기소개서" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "보호하기" }).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByLabelText("보호 항목 만"));
+    expect(await screen.findByText("1개 항목")).toBeInTheDocument();
 
     const protectedCard = screen.getByText("보호된 자기소개서").closest("article");
     expect(protectedCard).not.toBeNull();
-    fireEvent.click(within(protectedCard as HTMLElement).getByRole("button", { name: "보호 해제" }));
+    fireEvent.click(within(protectedCard as HTMLElement).getByRole("button", { name: "보호해제하기" }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining("/api/documents/document-protected"),

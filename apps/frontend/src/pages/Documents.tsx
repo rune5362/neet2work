@@ -166,8 +166,8 @@ export function Documents() {
 
     try {
       const [profileResult, documentResult] = await Promise.all([
-        getProfiles({ includeArchived: showProtectedItems }),
-        getDocuments({ documentType: "cover_letter", includeArchived: showProtectedItems })
+        getProfiles({ includeArchived: true }),
+        getDocuments({ documentType: "cover_letter", includeArchived: true })
       ]);
 
       setProfiles(profileResult);
@@ -208,6 +208,13 @@ export function Documents() {
 
     return merged
       .filter((item) => {
+        if (!showProtectedItems) {
+          return true;
+        }
+
+        return getItemProtected(item);
+      })
+      .filter((item) => {
         if (filter === "all") {
           return true;
         }
@@ -240,7 +247,7 @@ export function Documents() {
 
         return right.updatedAt.localeCompare(left.updatedAt);
       });
-  }, [documents, filter, profiles, searchText, sort]);
+  }, [documents, filter, profiles, searchText, showProtectedItems, sort]);
 
   const totalLibraryCount = profiles.length + documents.length;
 
@@ -315,6 +322,31 @@ export function Documents() {
     window.history.pushState({}, "", getDocumentsFilterPath(nextFilter));
   };
 
+  const renderProtectionButton = (item: LibraryItem, actionId: string, isProtected: boolean) => {
+    const isWorking = workingId === actionId;
+
+    return (
+      <button
+        aria-label={isWorking ? "처리 중" : isProtected ? "보호해제하기" : "보호하기"}
+        className={`documentsProtectionAction${isProtected ? " protected" : ""}`}
+        disabled={isWorking}
+        type="button"
+        onClick={() => { void handleProtectionToggle(item); }}
+      >
+        {isWorking ? (
+          "처리 중"
+        ) : isProtected ? (
+          <>
+            <span className="documentsProtectionDefault">보호중</span>
+            <span className="documentsProtectionHover">보호해제하기</span>
+          </>
+        ) : (
+          "보호하기"
+        )}
+      </button>
+    );
+  };
+
   return (
     <main className="documentsPage">
       <HomeTopNav />
@@ -376,7 +408,7 @@ export function Documents() {
                 type="checkbox"
                 onChange={(event) => setShowProtectedItems(event.target.checked)}
               />
-              보호 항목 보기
+              보호 항목 만
             </label>
           </div>
         )}
@@ -450,14 +482,7 @@ export function Documents() {
                       >
                         {copyingId === profile.id ? "복사 중" : "복사"}
                       </button>
-                      <button
-                        className={profile.isArchived ? "documentsSecondaryButton" : "documentsDangerButton"}
-                        disabled={workingId === `profile-${profile.id}`}
-                        type="button"
-                        onClick={() => { void handleProtectionToggle(item); }}
-                      >
-                        {workingId === `profile-${profile.id}` ? "처리 중" : profile.isArchived ? "보호 해제" : "보호"}
-                      </button>
+                      {renderProtectionButton(item, `profile-${profile.id}`, profile.isArchived)}
                     </div>
                   </article>
                 );
@@ -493,14 +518,7 @@ export function Documents() {
                     >
                       {copyingId === document.id ? "복사 중" : "복사"}
                     </button>
-                    <button
-                      className={document.isArchived ? "documentsSecondaryButton" : "documentsDangerButton"}
-                      disabled={workingId === `document-${document.id}`}
-                      type="button"
-                      onClick={() => { void handleProtectionToggle(item); }}
-                    >
-                      {workingId === `document-${document.id}` ? "처리 중" : document.isArchived ? "보호 해제" : "보호"}
-                    </button>
+                    {renderProtectionButton(item, `document-${document.id}`, document.isArchived)}
                   </div>
                 </article>
               );

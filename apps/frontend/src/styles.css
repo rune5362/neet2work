@@ -2360,6 +2360,40 @@ textarea:focus {
   color: #be123c;
 }
 
+.documentsCardMeta .documentsProtectionAction {
+  border: 1px solid var(--home-hairline);
+  background: white;
+  color: var(--home-primary);
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.documentsCardMeta .documentsProtectionAction.protected {
+  border-color: rgba(190, 18, 60, 0.28);
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.documentsCardMeta .documentsProtectionAction.protected:hover,
+.documentsCardMeta .documentsProtectionAction.protected:focus-visible {
+  border-color: rgba(0, 102, 255, 0.28);
+  background: var(--home-surface-low);
+  color: var(--home-primary);
+}
+
+.documentsProtectionHover {
+  display: none;
+}
+
+.documentsProtectionAction.protected:hover .documentsProtectionDefault,
+.documentsProtectionAction.protected:focus-visible .documentsProtectionDefault {
+  display: none;
+}
+
+.documentsProtectionAction.protected:hover .documentsProtectionHover,
+.documentsProtectionAction.protected:focus-visible .documentsProtectionHover {
+  display: inline;
+}
+
 .documentsAnalysisPending {
   display: flex;
   gap: 16px;
