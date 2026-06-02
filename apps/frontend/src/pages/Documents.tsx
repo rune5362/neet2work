@@ -1,26 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { archiveDocument, copyDocument, getDocuments, restoreDocument } from "../api/documentClient";
-import { archiveDocumentSet, createDocumentSet, getDocumentSets, restoreDocumentSet } from "../api/documentSetClient";
 import { archiveProfile, copyProfile, getProfiles, restoreProfile } from "../api/profileClient";
 import { HomeFooter } from "../components/HomeFooter";
 import { HomeTopNav } from "../components/HomeTopNav";
-import type { ApplicationSetItem } from "../types/applicationSet";
 import type { ApplicationDocumentType, DocumentListItem } from "../types/document";
 import type { ProfileListItem } from "../types/profile";
 
-type DocumentsFilter = "all" | "profile" | "resume" | "cover_letter" | "set";
+type DocumentsFilter = "all" | "profile" | "cover_letter";
 type DocumentsSort = "updated" | "type" | "company";
 type LibraryItem =
   | { kind: "profile"; updatedAt: string; profile: ProfileListItem }
-  | { kind: "document"; updatedAt: string; document: DocumentListItem }
-  | { kind: "set"; updatedAt: string; set: ApplicationSetItem };
+  | { kind: "document"; updatedAt: string; document: DocumentListItem };
 
 const documentFilters: Array<{ label: string; value: DocumentsFilter }> = [
   { label: "전체", value: "all" },
   { label: "프로필", value: "profile" },
-  { label: "이력서", value: "resume" },
-  { label: "자기소개서", value: "cover_letter" },
-  { label: "묶음", value: "set" }
+  { label: "자기소개서", value: "cover_letter" }
 ];
 
 const documentSorts: Array<{ label: string; value: DocumentsSort }> = [
@@ -32,15 +27,13 @@ const documentSorts: Array<{ label: string; value: DocumentsSort }> = [
 const documentTypeOrder: Record<DocumentsFilter, number> = {
   all: 0,
   profile: 1,
-  resume: 2,
-  cover_letter: 3,
-  set: 4
+  cover_letter: 2
 };
 
 function getInitialFilter(): DocumentsFilter {
   const value = new URLSearchParams(window.location.search).get("type");
 
-  if (value === "profile" || value === "resume" || value === "cover_letter" || value === "set") {
+  if (value === "profile" || value === "cover_letter") {
     return value;
   }
 
@@ -79,11 +72,6 @@ function getProfileTarget(profile: ProfileListItem) {
   return profile.targetRole || profile.desiredRoles[0] || "목표 직무 미지정";
 }
 
-function getSetSummary(set: ApplicationSetItem) {
-  const labels = [set.profileTitle, set.resumeTitle, set.coverLetterTitle].filter(Boolean);
-  return labels.length > 0 ? labels.join(" / ") : "연결된 항목 없음";
-}
-
 function isLoginRequiredError(error: unknown) {
   return error instanceof Error && error.message.includes("로그인이 필요합니다");
 }
@@ -93,11 +81,7 @@ function getItemId(item: LibraryItem) {
     return item.profile.id;
   }
 
-  if (item.kind === "document") {
-    return item.document.id;
-  }
-
-  return item.set.id;
+  return item.document.id;
 }
 
 function getItemArchived(item: LibraryItem) {
@@ -105,11 +89,7 @@ function getItemArchived(item: LibraryItem) {
     return item.profile.isArchived;
   }
 
-  if (item.kind === "document") {
-    return item.document.isArchived;
-  }
-
-  return item.set.isArchived;
+  return item.document.isArchived;
 }
 
 function getItemTypeOrder(item: LibraryItem) {
@@ -117,20 +97,12 @@ function getItemTypeOrder(item: LibraryItem) {
     return documentTypeOrder.profile;
   }
 
-  if (item.kind === "set") {
-    return documentTypeOrder.set;
-  }
-
-  return documentTypeOrder[item.document.documentType];
+  return documentTypeOrder.cover_letter;
 }
 
 function getItemCompanySortValue(item: LibraryItem) {
   if (item.kind === "document") {
     return item.document.company ?? item.document.jobTitle ?? item.document.profileTitle ?? item.document.title;
-  }
-
-  if (item.kind === "set") {
-    return item.set.profileTitle ?? item.set.resumeTitle ?? item.set.coverLetterTitle ?? item.set.title;
   }
 
   return item.profile.targetCompany ?? item.profile.targetRole ?? item.profile.title;
@@ -152,24 +124,13 @@ function getItemSearchText(item: LibraryItem) {
       .join(" ");
   }
 
-  if (item.kind === "document") {
-    const document = item.document;
-    return [
-      document.title,
-      document.company,
-      document.jobTitle,
-      document.profileTitle,
-      getDocumentTypeLabel(document.documentType)
-    ]
-      .filter(Boolean)
-      .join(" ");
-  }
-
+  const document = item.document;
   return [
-    item.set.title,
-    item.set.profileTitle,
-    item.set.resumeTitle,
-    item.set.coverLetterTitle
+    document.title,
+    document.company,
+    document.jobTitle,
+    document.profileTitle,
+    getDocumentTypeLabel(document.documentType)
   ]
     .filter(Boolean)
     .join(" ");
@@ -182,11 +143,9 @@ export function Documents() {
   const [showArchived, setShowArchived] = useState(false);
   const [profiles, setProfiles] = useState<ProfileListItem[]>([]);
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
-  const [sets, setSets] = useState<ApplicationSetItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [copyingId, setCopyingId] = useState<string | null>(null);
   const [workingId, setWorkingId] = useState<string | null>(null);
-  const [creatingSet, setCreatingSet] = useState(false);
   const [authRequired, setAuthRequired] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -196,15 +155,13 @@ export function Documents() {
     setAuthRequired(false);
 
     try {
-      const [profileResult, documentResult, setResult] = await Promise.all([
+      const [profileResult, documentResult] = await Promise.all([
         getProfiles({ includeArchived: showArchived }),
-        getDocuments({ includeArchived: showArchived }),
-        getDocumentSets({ includeArchived: showArchived })
+        getDocuments({ documentType: "cover_letter", includeArchived: showArchived })
       ]);
 
       setProfiles(profileResult);
-      setDocuments(documentResult);
-      setSets(setResult);
+      setDocuments(documentResult.filter((document) => document.documentType === "cover_letter"));
     } catch (error) {
       if (isLoginRequiredError(error)) {
         setAuthRequired(true);
@@ -214,7 +171,6 @@ export function Documents() {
       }
       setProfiles([]);
       setDocuments([]);
-      setSets([]);
     } finally {
       setLoading(false);
     }
@@ -236,8 +192,7 @@ export function Documents() {
   const items = useMemo<LibraryItem[]>(() => {
     const merged: LibraryItem[] = [
       ...profiles.map((profile) => ({ kind: "profile" as const, updatedAt: profile.updatedAt, profile })),
-      ...documents.map((document) => ({ kind: "document" as const, updatedAt: document.updatedAt, document })),
-      ...sets.map((set) => ({ kind: "set" as const, updatedAt: set.updatedAt, set }))
+      ...documents.map((document) => ({ kind: "document" as const, updatedAt: document.updatedAt, document }))
     ];
     const normalizedSearchText = searchText.trim().toLowerCase();
 
@@ -251,11 +206,7 @@ export function Documents() {
           return item.kind === "profile";
         }
 
-        if (filter === "set") {
-          return item.kind === "set";
-        }
-
-        return item.kind === "document" && item.document.documentType === filter;
+        return item.kind === "document" && item.document.documentType === "cover_letter";
       })
       .filter((item) => {
         if (!normalizedSearchText) {
@@ -279,9 +230,9 @@ export function Documents() {
 
         return right.updatedAt.localeCompare(left.updatedAt);
       });
-  }, [documents, filter, profiles, searchText, sets, sort]);
+  }, [documents, filter, profiles, searchText, sort]);
 
-  const totalLibraryCount = profiles.length + documents.length + sets.length;
+  const totalLibraryCount = profiles.length + documents.length;
 
   const visibleCountText = useMemo(() => {
     if (loading) {
@@ -319,20 +270,6 @@ export function Documents() {
     }
   };
 
-  const handleCreateSet = async () => {
-    setCreatingSet(true);
-    setErrorMessage(null);
-
-    try {
-      const set = await createDocumentSet({ title: "새 지원 묶음" });
-      window.location.href = `/documents/sets/${set.id}`;
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "지원 묶음 생성에 실패했습니다.");
-    } finally {
-      setCreatingSet(false);
-    }
-  };
-
   const handleArchiveToggle = async (item: LibraryItem) => {
     const itemId = getItemId(item);
     const actionId = `${item.kind}-${itemId}`;
@@ -343,10 +280,8 @@ export function Documents() {
     try {
       if (item.kind === "profile") {
         await (isArchived ? restoreProfile(itemId) : archiveProfile(itemId));
-      } else if (item.kind === "document") {
-        await (isArchived ? restoreDocument(itemId) : archiveDocument(itemId));
       } else {
-        await (isArchived ? restoreDocumentSet(itemId) : archiveDocumentSet(itemId));
+        await (isArchived ? restoreDocument(itemId) : archiveDocument(itemId));
       }
 
       await loadLibrary();
@@ -371,17 +306,14 @@ export function Documents() {
           <span>문서함</span>
           <div>
             <h1>문서함</h1>
-            <p>프로필, 이력서, 자기소개서, 지원 묶음을 한 곳에서 확인합니다.</p>
+            <p>프로필과 자기소개서를 한 곳에서 확인합니다.</p>
           </div>
           <div className="documentsHeaderActions">
             <button type="button" onClick={() => { window.location.href = "/documents/profiles/new"; }}>
               프로필 만들기
             </button>
-            <button type="button" onClick={() => { window.location.href = "/documents/new"; }}>
-              새 문서 만들기
-            </button>
-            <button disabled={creatingSet} type="button" onClick={() => { void handleCreateSet(); }}>
-              {creatingSet ? "묶음 생성 중" : "지원 묶음 만들기"}
+            <button type="button" onClick={() => { window.location.href = "/documents/new?type=cover_letter"; }}>
+              자기소개서 만들기
             </button>
           </div>
         </header>
@@ -448,16 +380,13 @@ export function Documents() {
         ) : totalLibraryCount === 0 ? (
           <div className="documentsEmpty">
             <strong>저장된 항목이 없습니다.</strong>
-            <p>프로필, 문서, 지원 묶음을 만들어 지원 자료를 정리합니다.</p>
+            <p>프로필과 자기소개서를 만들어 지원 자료를 정리합니다.</p>
             <div className="documentsEmptyActions">
               <button type="button" onClick={() => { window.location.href = "/documents/profiles/new"; }}>
                 프로필 만들기
               </button>
-              <button type="button" onClick={() => { window.location.href = "/documents/new"; }}>
-                새 문서 만들기
-              </button>
-              <button disabled={creatingSet} type="button" onClick={() => { void handleCreateSet(); }}>
-                {creatingSet ? "묶음 생성 중" : "지원 묶음 만들기"}
+              <button type="button" onClick={() => { window.location.href = "/documents/new?type=cover_letter"; }}>
+                자기소개서 만들기
               </button>
             </div>
           </div>
@@ -510,44 +439,6 @@ export function Documents() {
                         onClick={() => { void handleArchiveToggle(item); }}
                       >
                         {workingId === `profile-${profile.id}` ? "처리 중" : profile.isArchived ? "복원" : "보관"}
-                      </button>
-                    </div>
-                  </article>
-                );
-              }
-
-              if (item.kind === "set") {
-                const set = item.set;
-
-                return (
-                  <article className="documentsCard" key={`set-${set.id}`}>
-                    <div className="documentsCardType">묶음</div>
-                    <div className="documentsCardBody">
-                      <div>
-                        <h2>{set.title}</h2>
-                        <span>{formatDate(set.updatedAt)} 업데이트</span>
-                      </div>
-                      <p>{getSetSummary(set)}</p>
-                      <div className="documentsTags">
-                        {set.profileTitle && <span>프로필</span>}
-                        {set.resumeTitle && <span>이력서</span>}
-                        {set.coverLetterTitle && <span>자기소개서</span>}
-                        {set.isArchived && <span>보관됨</span>}
-                      </div>
-                    </div>
-                    <div className="documentsCardMeta">
-                      <span>{set.isArchived ? "보관됨" : "지원 묶음"}</span>
-                      <strong>{set.resumeTitle ?? set.coverLetterTitle ?? set.profileTitle ?? "미연결"}</strong>
-                      <button type="button" onClick={() => { window.location.href = `/documents/sets/${set.id}`; }}>
-                        묶음 편집
-                      </button>
-                      <button
-                        className={set.isArchived ? "documentsSecondaryButton" : "documentsDangerButton"}
-                        disabled={workingId === `set-${set.id}`}
-                        type="button"
-                        onClick={() => { void handleArchiveToggle(item); }}
-                      >
-                        {workingId === `set-${set.id}` ? "처리 중" : set.isArchived ? "복원" : "보관"}
                       </button>
                     </div>
                   </article>

@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { createDocument as createDocumentRequest } from "./api/documentClient";
 import { createProfile as createProfileRequest } from "./api/profileClient";
-import type { ApplicationSetItem } from "./types/applicationSet";
 import type { DocumentDetail, DocumentListItem } from "./types/document";
 import type { JobPosting } from "./types/job";
 import type { CandidateProfileJson, ProfileDetail, ProfileListItem } from "./types/profile";
@@ -72,8 +71,8 @@ const profile: ProfileDetail = {
 const document: DocumentDetail = {
   id: "document-1",
   candidateKey: "demo-candidate",
-  title: "프론트엔드 이력서",
-  documentType: "resume",
+  title: "프론트엔드 자기소개서",
+  documentType: "cover_letter",
   profileId: profile.id,
   profileTitle: profile.title,
   jobId: "job-001",
@@ -96,21 +95,6 @@ const archivedDocument: DocumentDetail = {
   title: "보관된 자기소개서",
   documentType: "cover_letter",
   isArchived: true
-};
-
-const documentSet: ApplicationSetItem = {
-  id: "set-1",
-  candidateKey: "demo-candidate",
-  title: "프론트엔드 지원 묶음",
-  profileId: profile.id,
-  profileTitle: profile.title,
-  resumeDocumentId: document.id,
-  resumeTitle: document.title,
-  coverLetterDocumentId: null,
-  coverLetterTitle: null,
-  isArchived: false,
-  createdAt: timestamp,
-  updatedAt: timestamp
 };
 
 const job: JobPosting = {
@@ -172,22 +156,6 @@ function setupFetchMock(options: { empty?: boolean; unauthenticated?: boolean } 
     if (path === "/api/documents" && method === "GET") {
       const documents = url.searchParams.get("includeArchived") === "true" ? [document, archivedDocument] : [document];
       return jsonResponse({ data: options.empty ? [] : documents, count: options.empty ? 0 : documents.length });
-    }
-
-    if (path === "/api/document-sets" && method === "GET") {
-      return jsonResponse({ data: options.empty ? [] : [documentSet], count: options.empty ? 0 : 1 });
-    }
-
-    if (path === "/api/document-sets" && method === "POST") {
-      return jsonResponse({ data: { ...documentSet, id: "created-set", title: "새 지원 묶음" } });
-    }
-
-    if (path === "/api/document-sets/set-1" && method === "GET") {
-      return jsonResponse({ data: documentSet });
-    }
-
-    if (path === "/api/document-sets/set-1" && method === "PATCH") {
-      return jsonResponse({ data: documentSet });
     }
 
     if (path === "/api/documents" && method === "POST") {
@@ -261,15 +229,19 @@ describe("profile/document frontend integration flow", () => {
 
     renderAt("/documents");
     expect(await screen.findByRole("heading", { name: "문서함" })).toBeInTheDocument();
-    expect((await screen.findAllByText("프론트엔드 이력서")).length).toBeGreaterThan(0);
+    expect(screen.getByText("프로필과 자기소개서를 한 곳에서 확인합니다.")).toBeInTheDocument();
+    expect((await screen.findAllByText("프론트엔드 자기소개서")).length).toBeGreaterThan(0);
+    expect(screen.queryByText("프론트엔드 이력서")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "지원 묶음 만들기" })).not.toBeInTheDocument();
     expect(screen.queryByText("버전 관리")).not.toBeInTheDocument();
     cleanup();
 
-    renderAt("/documents/new");
+    renderAt("/documents/new?type=cover_letter");
     await screen.findByText("프론트엔드 지원 프로필");
+    expect(screen.getByLabelText("문서 유형")).toHaveValue("cover_letter");
     fireEvent.change(screen.getByLabelText("문서 제목"), { target: { value: "테스트 문서" } });
     fireEvent.change(screen.getByLabelText("문서 본문"), { target: { value: "테스트 문서 본문" } });
-    await createDocumentRequest({ title: "테스트 문서", documentType: "resume", content: "테스트 문서 본문" });
+    await createDocumentRequest({ title: "테스트 문서", documentType: "cover_letter", content: "테스트 문서 본문" });
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/documents"), expect.objectContaining({ method: "POST" })));
     cleanup();
 
@@ -280,17 +252,6 @@ describe("profile/document frontend integration flow", () => {
     fireEvent.change(screen.getByLabelText("문서 본문"), { target: { value: "수정 문서 본문" } });
     fireEvent.click(screen.getByRole("button", { name: "저장" }));
     expect(await screen.findByText("문서를 저장했습니다.")).toBeInTheDocument();
-    cleanup();
-
-    renderAt("/documents/sets/set-1");
-    expect(await screen.findByDisplayValue("프론트엔드 지원 묶음")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "전체 저장" }));
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("/api/document-sets/set-1"),
-        expect.objectContaining({ method: "PATCH" })
-      )
-    );
   });
 
   it("문서함 필터를 URL과 동기화한다", async () => {
@@ -303,26 +264,29 @@ describe("profile/document frontend integration flow", () => {
     expect(window.location.pathname).toBe("/documents");
     expect(window.location.search).toBe("?type=profile");
 
-    fireEvent.click(screen.getByRole("button", { name: "이력서" }));
-    expect(window.location.search).toBe("?type=resume");
+    expect(screen.queryByRole("button", { name: "이력서" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "묶음" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "자기소개서" }));
     expect(window.location.search).toBe("?type=cover_letter");
-
-    fireEvent.click(screen.getByRole("button", { name: "묶음" }));
-    expect(window.location.search).toBe("?type=set");
 
     fireEvent.click(screen.getByRole("button", { name: "전체" }));
     expect(window.location.pathname).toBe("/documents");
     expect(window.location.search).toBe("");
 
-    fireEvent.click(screen.getByRole("button", { name: "이력서" }));
     act(() => {
       window.history.pushState({}, "", "/documents?type=profile");
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
 
     await waitFor(() => expect(screen.getByRole("button", { name: "프로필" })).toHaveClass("active"));
+
+    act(() => {
+      window.history.pushState({}, "", "/documents?type=resume");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "전체" })).toHaveClass("active"));
   });
 
   it("문서함 인증/빈 상태와 검색/보관 토글을 구분한다", async () => {
@@ -338,21 +302,22 @@ describe("profile/document frontend integration flow", () => {
     renderAt("/documents");
     expect(await screen.findByText("저장된 항목이 없습니다.")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "프로필 만들기" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "새 문서 만들기" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "지원 묶음 만들기" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "자기소개서 만들기" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "새 문서 만들기" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "지원 묶음 만들기" })).not.toBeInTheDocument();
     cleanup();
 
     const fetchMock = setupFetchMock();
     renderAt("/documents");
-    expect(await screen.findByText("3개 항목")).toBeInTheDocument();
+    expect(await screen.findByText("2개 항목")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("검색"), { target: { value: "샘플테크" } });
     expect(await screen.findByText("1개 항목")).toBeInTheDocument();
-    expect(screen.getByText("프론트엔드 이력서")).toBeInTheDocument();
+    expect(screen.getByText("프론트엔드 자기소개서")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("검색"), { target: { value: "" } });
     fireEvent.click(screen.getByLabelText("보관 항목 보기"));
-    expect(await screen.findByText("4개 항목")).toBeInTheDocument();
+    expect(await screen.findByText("3개 항목")).toBeInTheDocument();
     expect(await screen.findByText("보관된 자기소개서")).toBeInTheDocument();
 
     const archivedCard = screen.getByText("보관된 자기소개서").closest("article");

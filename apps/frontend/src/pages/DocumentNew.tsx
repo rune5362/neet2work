@@ -9,7 +9,8 @@ import type { JobPosting } from "../types/job";
 import type { ProfileListItem } from "../types/profile";
 
 function getInitialDocumentType(): ApplicationDocumentType {
-  const value = new URLSearchParams(window.location.search).get("documentType");
+  const searchParams = new URLSearchParams(window.location.search);
+  const value = searchParams.get("documentType") ?? searchParams.get("type");
   return value === "cover_letter" ? "cover_letter" : "resume";
 }
 
