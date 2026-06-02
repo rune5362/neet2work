@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   color: #171717;
   background: #ffffff;
   font-family:
@@ -2208,10 +2208,37 @@ textarea:focus {
   min-height: 44px;
   place-items: center;
   border-radius: 8px;
-  background: var(--home-surface-low);
-  color: var(--home-primary);
-  font-size: 0.78rem;
+  font-size: 0.9rem;
   font-weight: 900;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* 기본 프로필 - Royal Lavender (보라) */
+.documentsCardType.default-profile {
+  background: hsl(255, 75%, 96%);
+  color: hsl(255, 65%, 45%);
+  border: 1px solid hsl(255, 70%, 90%);
+}
+
+/* 프로필 - Sky Breeze (하늘) */
+.documentsCardType.profile {
+  background: hsl(205, 85%, 96%);
+  color: hsl(205, 80%, 40%);
+  border: 1px solid hsl(205, 80%, 90%);
+}
+
+/* 이력서 - Emerald Forest (민트/Teal) */
+.documentsCardType.resume {
+  background: hsl(165, 60%, 95%);
+  color: hsl(165, 75%, 32%);
+  border: 1px solid hsl(165, 65%, 88%);
+}
+
+/* 자기소개서 - Coral Sunset (살구/로즈) */
+.documentsCardType.cover-letter {
+  background: hsl(15, 85%, 96%);
+  color: hsl(15, 80%, 45%);
+  border: 1px solid hsl(15, 85%, 91%);
 }
 
 .documentsCardBody {

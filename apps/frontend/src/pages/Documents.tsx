@@ -552,7 +552,7 @@ export function Documents() {
 
                 return (
                   <article className="documentsCard" key={`profile-${profile.id}`}>
-                    <div className="documentsCardType">{profile.isDefault ? "기본 프로필" : "프로필"}</div>
+                    <div className={`documentsCardType ${profile.isDefault ? "default-profile" : "profile"}`}>{profile.isDefault ? "기본 프로필" : "프로필"}</div>
                     <div className="documentsCardBody">
                       <div>
                         <h2>{profile.title}</h2>
@@ -593,7 +593,7 @@ export function Documents() {
 
               return (
                 <article className="documentsCard" key={`document-${document.id}`}>
-                  <div className="documentsCardType">{getDocumentTypeLabel(document.documentType)}</div>
+                  <div className={`documentsCardType ${document.documentType.replace("_", "-")}`}>{getDocumentTypeLabel(document.documentType)}</div>
                   <div className="documentsCardBody">
                     <div>
                       <h2>{document.title}</h2>

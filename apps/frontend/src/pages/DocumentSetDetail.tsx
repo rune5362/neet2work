@@ -335,7 +335,7 @@ export function DocumentSetDetail() {
             </label>
 
             <section className="profileFormWide documentsCard">
-              <div className="documentsCardType">프로필</div>
+              <div className="documentsCardType profile">프로필</div>
               <div className="documentsCardBody">
                 <label>
                   기존 프로필 연결
@@ -427,7 +427,7 @@ export function DocumentSetDetail() {
             </section>
 
             <section className="profileFormWide documentsCard">
-              <div className="documentsCardType">이력서</div>
+              <div className="documentsCardType resume">이력서</div>
               <div className="documentsCardBody">
                 <label>
                   기존 이력서 연결
@@ -479,7 +479,7 @@ export function DocumentSetDetail() {
             </section>
 
             <section className="profileFormWide documentsCard">
-              <div className="documentsCardType">자기소개서</div>
+              <div className="documentsCardType cover-letter">자기소개서</div>
               <div className="documentsCardBody">
                 <label>
                   기존 자기소개서 연결
