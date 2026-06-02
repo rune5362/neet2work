@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { archiveDocument, copyDocument, getDocuments, restoreDocument } from "../api/documentClient";
-import { archiveProfile, copyProfile, getProfiles, restoreProfile } from "../api/profileClient";
+import {
+  archiveDocument as protectDocument,
+  copyDocument,
+  getDocuments,
+  restoreDocument as unprotectDocument
+} from "../api/documentClient";
+import {
+  archiveProfile as protectProfile,
+  copyProfile,
+  getProfiles,
+  restoreProfile as unprotectProfile
+} from "../api/profileClient";
 import { HomeFooter } from "../components/HomeFooter";
 import { HomeTopNav } from "../components/HomeTopNav";
 import type { ApplicationDocumentType, DocumentListItem } from "../types/document";
@@ -84,7 +94,7 @@ function getItemId(item: LibraryItem) {
   return item.document.id;
 }
 
-function getItemArchived(item: LibraryItem) {
+function getItemProtected(item: LibraryItem) {
   if (item.kind === "profile") {
     return item.profile.isArchived;
   }
@@ -140,7 +150,7 @@ export function Documents() {
   const [filter, setFilter] = useState<DocumentsFilter>(() => getInitialFilter());
   const [searchText, setSearchText] = useState("");
   const [sort, setSort] = useState<DocumentsSort>("updated");
-  const [showArchived, setShowArchived] = useState(false);
+  const [showProtectedItems, setShowProtectedItems] = useState(false);
   const [profiles, setProfiles] = useState<ProfileListItem[]>([]);
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,8 +166,8 @@ export function Documents() {
 
     try {
       const [profileResult, documentResult] = await Promise.all([
-        getProfiles({ includeArchived: showArchived }),
-        getDocuments({ documentType: "cover_letter", includeArchived: showArchived })
+        getProfiles({ includeArchived: showProtectedItems }),
+        getDocuments({ documentType: "cover_letter", includeArchived: showProtectedItems })
       ]);
 
       setProfiles(profileResult);
@@ -178,7 +188,7 @@ export function Documents() {
 
   useEffect(() => {
     void loadLibrary();
-  }, [showArchived]);
+  }, [showProtectedItems]);
 
   useEffect(() => {
     const syncFilterFromUrl = () => {
@@ -270,23 +280,31 @@ export function Documents() {
     }
   };
 
-  const handleArchiveToggle = async (item: LibraryItem) => {
+  const getProtectionErrorMessage = (error: unknown, isProtected: boolean) => {
+    if (error instanceof Error && error.message) {
+      return error.message.replaceAll("보관", "보호").replaceAll("복원", "보호 해제");
+    }
+
+    return isProtected ? "보호 해제에 실패했습니다." : "보호에 실패했습니다.";
+  };
+
+  const handleProtectionToggle = async (item: LibraryItem) => {
     const itemId = getItemId(item);
     const actionId = `${item.kind}-${itemId}`;
-    const isArchived = getItemArchived(item);
+    const isProtected = getItemProtected(item);
     setWorkingId(actionId);
     setErrorMessage(null);
 
     try {
       if (item.kind === "profile") {
-        await (isArchived ? restoreProfile(itemId) : archiveProfile(itemId));
+        await (isProtected ? unprotectProfile(itemId) : protectProfile(itemId));
       } else {
-        await (isArchived ? restoreDocument(itemId) : archiveDocument(itemId));
+        await (isProtected ? unprotectDocument(itemId) : protectDocument(itemId));
       }
 
       await loadLibrary();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : isArchived ? "복원에 실패했습니다." : "보관에 실패했습니다.");
+      setErrorMessage(getProtectionErrorMessage(error, isProtected));
     } finally {
       setWorkingId(null);
     }
@@ -352,13 +370,13 @@ export function Documents() {
                 ))}
               </select>
             </label>
-            <label className="documentsArchiveToggle">
+            <label className="documentsProtectionToggle">
               <input
-                checked={showArchived}
+                checked={showProtectedItems}
                 type="checkbox"
-                onChange={(event) => setShowArchived(event.target.checked)}
+                onChange={(event) => setShowProtectedItems(event.target.checked)}
               />
-              보관 항목 보기
+              보호 항목 보기
             </label>
           </div>
         )}
@@ -393,7 +411,7 @@ export function Documents() {
         ) : items.length === 0 ? (
           <div className="documentsEmpty">
             <strong>조건에 맞는 항목이 없습니다.</strong>
-            <p>필터, 검색어, 보관 항목 보기 설정을 조정하세요.</p>
+            <p>필터, 검색어, 보호 항목 보기 설정을 조정하세요.</p>
           </div>
         ) : (
           <section className="documentsList" aria-label="통합 문서 목록">
@@ -415,7 +433,7 @@ export function Documents() {
                           <span key={skill}>{skill}</span>
                         ))}
                         {profile.skills.length === 0 && <span>기술 스택 미입력</span>}
-                        {profile.isArchived && <span>보관됨</span>}
+                        {profile.isArchived && <span>보호됨</span>}
                       </div>
                     </div>
                     <div className="documentsCardMeta">
@@ -436,9 +454,9 @@ export function Documents() {
                         className={profile.isArchived ? "documentsSecondaryButton" : "documentsDangerButton"}
                         disabled={workingId === `profile-${profile.id}`}
                         type="button"
-                        onClick={() => { void handleArchiveToggle(item); }}
+                        onClick={() => { void handleProtectionToggle(item); }}
                       >
-                        {workingId === `profile-${profile.id}` ? "처리 중" : profile.isArchived ? "복원" : "보관"}
+                        {workingId === `profile-${profile.id}` ? "처리 중" : profile.isArchived ? "보호 해제" : "보호"}
                       </button>
                     </div>
                   </article>
@@ -458,11 +476,11 @@ export function Documents() {
                     <p>{getDocumentTarget(document)}</p>
                     <div className="documentsTags">
                       {document.profileTitle && <span>{document.profileTitle}</span>}
-                      {document.isArchived && <span>보관됨</span>}
+                      {document.isArchived && <span>보호됨</span>}
                     </div>
                   </div>
                   <div className="documentsCardMeta">
-                    <span>{document.isArchived ? "보관됨" : "작성 중"}</span>
+                    <span>{document.isArchived ? "보호됨" : "작성 중"}</span>
                     <strong>{document.company ?? document.jobTitle ?? getDocumentTypeLabel(document.documentType)}</strong>
                     <button type="button" onClick={() => { window.location.href = `/documents/${document.id}`; }}>
                       열기
@@ -479,9 +497,9 @@ export function Documents() {
                       className={document.isArchived ? "documentsSecondaryButton" : "documentsDangerButton"}
                       disabled={workingId === `document-${document.id}`}
                       type="button"
-                      onClick={() => { void handleArchiveToggle(item); }}
+                      onClick={() => { void handleProtectionToggle(item); }}
                     >
-                      {workingId === `document-${document.id}` ? "처리 중" : document.isArchived ? "복원" : "보관"}
+                      {workingId === `document-${document.id}` ? "처리 중" : document.isArchived ? "보호 해제" : "보호"}
                     </button>
                   </div>
                 </article>

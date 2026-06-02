@@ -2102,7 +2102,7 @@ textarea:focus {
   border-color: var(--home-primary-container);
 }
 
-.documentsArchiveToggle {
+.documentsProtectionToggle {
   min-height: 42px;
   grid-template-columns: auto 1fr;
   align-items: center;
@@ -2113,7 +2113,7 @@ textarea:focus {
   background: white;
 }
 
-.documentsArchiveToggle input {
+.documentsProtectionToggle input {
   min-height: auto;
   width: auto;
   padding: 0;

@@ -89,10 +89,10 @@ const document: DocumentDetail = {
   updatedAt: timestamp
 };
 
-const archivedDocument: DocumentDetail = {
+const protectedDocument: DocumentDetail = {
   ...document,
-  id: "document-archived",
-  title: "보관된 자기소개서",
+  id: "document-protected",
+  title: "보호된 자기소개서",
   documentType: "cover_letter",
   isArchived: true
 };
@@ -154,7 +154,7 @@ function setupFetchMock(options: { empty?: boolean; unauthenticated?: boolean } 
     }
 
     if (path === "/api/documents" && method === "GET") {
-      const documents = url.searchParams.get("includeArchived") === "true" ? [document, archivedDocument] : [document];
+      const documents = url.searchParams.get("includeArchived") === "true" ? [document, protectedDocument] : [document];
       return jsonResponse({ data: options.empty ? [] : documents, count: options.empty ? 0 : documents.length });
     }
 
@@ -174,8 +174,8 @@ function setupFetchMock(options: { empty?: boolean; unauthenticated?: boolean } 
       return jsonResponse({ data: { ...document, isArchived: true } });
     }
 
-    if (path === "/api/documents/document-archived" && method === "PATCH") {
-      return jsonResponse({ data: { ...archivedDocument, isArchived: false } });
+    if (path === "/api/documents/document-protected" && method === "PATCH") {
+      return jsonResponse({ data: { ...protectedDocument, isArchived: false } });
     }
 
     return Promise.resolve(new Response(JSON.stringify({ message: "not found" }), { status: 404 }));
@@ -289,7 +289,7 @@ describe("profile/document frontend integration flow", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "전체" })).toHaveClass("active"));
   });
 
-  it("문서함 인증/빈 상태와 검색/보관 토글을 구분한다", async () => {
+  it("문서함 인증/빈 상태와 검색/보호 토글을 구분한다", async () => {
     setupFetchMock({ unauthenticated: true });
 
     renderAt("/documents");
@@ -316,16 +316,16 @@ describe("profile/document frontend integration flow", () => {
     expect(screen.getByText("프론트엔드 자기소개서")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("검색"), { target: { value: "" } });
-    fireEvent.click(screen.getByLabelText("보관 항목 보기"));
+    fireEvent.click(screen.getByLabelText("보호 항목 보기"));
     expect(await screen.findByText("3개 항목")).toBeInTheDocument();
-    expect(await screen.findByText("보관된 자기소개서")).toBeInTheDocument();
+    expect(await screen.findByText("보호된 자기소개서")).toBeInTheDocument();
 
-    const archivedCard = screen.getByText("보관된 자기소개서").closest("article");
-    expect(archivedCard).not.toBeNull();
-    fireEvent.click(within(archivedCard as HTMLElement).getByRole("button", { name: "복원" }));
+    const protectedCard = screen.getByText("보호된 자기소개서").closest("article");
+    expect(protectedCard).not.toBeNull();
+    fireEvent.click(within(protectedCard as HTMLElement).getByRole("button", { name: "보호 해제" }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("/api/documents/document-archived"),
+        expect.stringContaining("/api/documents/document-protected"),
         expect.objectContaining({ method: "PATCH" })
       )
     );
