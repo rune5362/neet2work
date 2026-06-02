@@ -303,7 +303,8 @@ async function buildProfileTitleMap(db: DocumentDb, profileIds: string[]) {
     where: {
       id: {
         in: uniqueIds
-      }
+      },
+      deletedAt: null
     },
     select: {
       id: true,
@@ -342,7 +343,8 @@ async function findOwnedDocument(db: DocumentDb, candidateKey: string, documentI
   const document = await db.applicationDocument.findFirst({
     where: {
       id: documentId,
-      candidateKey
+      candidateKey,
+      deletedAt: null
     }
   });
 
@@ -369,7 +371,8 @@ async function findOwnedProfileSnapshot(
   const profile = await db.candidateProfile.findFirst({
     where: {
       id: profileId ?? "",
-      candidateKey
+      candidateKey,
+      deletedAt: null
     }
   });
 
@@ -424,6 +427,7 @@ export async function getDocuments(
       const documents = await prisma.applicationDocument.findMany({
         where: {
           candidateKey,
+          deletedAt: null,
           ...(filters.includeArchived ? {} : { isArchived: false }),
           ...(filters.documentType ? { documentType: filters.documentType } : {})
         },
@@ -645,13 +649,17 @@ export async function deleteDocument(candidateKey: string, documentId: string) {
         throw new HttpError(400, "보호 중인 문서는 삭제할 수 없습니다.");
       }
 
-      await tx.applicationDocument.delete({
+      const softDeletedDocument = await tx.applicationDocument.update({
         where: {
           id: documentId
+        },
+        data: {
+          deletedAt: new Date(),
+          deletedBy: candidateKey
         }
       });
 
-      return document;
+      return softDeletedDocument;
     });
 
     return toDocumentListItem(deletedDocument);

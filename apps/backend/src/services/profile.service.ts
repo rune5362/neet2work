@@ -235,7 +235,8 @@ async function findOwnedProfile(db: ProfileDb, candidateKey: string, profileId: 
   const profile = await db.candidateProfile.findFirst({
     where: {
       id: profileId,
-      candidateKey
+      candidateKey,
+      deletedAt: null
     }
   });
 
@@ -287,6 +288,7 @@ export async function getProfiles(candidateKey: string, options: { includeArchiv
       const profiles = await prisma.candidateProfile.findMany({
         where: {
           candidateKey,
+          deletedAt: null,
           ...(includeArchived ? {} : { isArchived: false })
         },
         orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }]
@@ -316,7 +318,8 @@ export async function createProfile(input: CreateProfileInput) {
         await tx.candidateProfile.updateMany({
           where: {
             candidateKey: input.candidateKey,
-            isDefault: true
+            isDefault: true,
+            deletedAt: null
           },
           data: {
             isDefault: false
@@ -390,6 +393,7 @@ export async function updateProfileMeta(profileId: string, input: UpdateProfileM
           where: {
             candidateKey: input.candidateKey,
             isDefault: true,
+            deletedAt: null,
             id: {
               not: profileId
             }
@@ -492,13 +496,18 @@ export async function deleteProfile(candidateKey: string, profileId: string) {
         throw new HttpError(400, "보호 중인 프로필은 삭제할 수 없습니다.");
       }
 
-      await tx.candidateProfile.delete({
+      const softDeletedProfile = await tx.candidateProfile.update({
         where: {
           id: profileId
+        },
+        data: {
+          deletedAt: new Date(),
+          deletedBy: candidateKey,
+          isDefault: false
         }
       });
 
-      return profile;
+      return softDeletedProfile;
     });
 
     return toProfileListItem(deletedProfile);

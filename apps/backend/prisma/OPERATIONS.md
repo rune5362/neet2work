@@ -88,6 +88,8 @@ For existing tables, newly added actor and soft delete columns stay nullable to 
 Soft delete applies to user-owned or user-visible domain data. Current scope:
 
 - `job_postings`
+- `candidate_profiles`
+- `application_documents`
 - `resume_analyses`
 - `users`
 

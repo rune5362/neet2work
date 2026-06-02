@@ -117,7 +117,8 @@ async function validateProfile(db: ApplicationSetDb, candidateKey: string, profi
   const profile = await db.candidateProfile.findFirst({
     where: {
       id: profileId,
-      candidateKey
+      candidateKey,
+      deletedAt: null
     }
   });
 
@@ -142,7 +143,8 @@ async function validateDocument(
     where: {
       id: documentId,
       candidateKey,
-      documentType
+      documentType,
+      deletedAt: null
     }
   });
 
