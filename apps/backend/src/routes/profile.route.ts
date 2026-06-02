@@ -4,6 +4,7 @@ import {
   archiveProfile,
   copyProfile,
   createProfile,
+  deleteProfile,
   getProfile,
   getProfiles,
   updateProfileMeta
@@ -63,6 +64,7 @@ const profileListQuerySchema = z.object({
 });
 
 const copyProfileSchema = z.object({});
+const deleteProfileSchema = z.object({});
 
 const createProfileSchema = z.object({
   title: z.string().trim().min(1),
@@ -128,6 +130,20 @@ profileRouter.post("/:profileId/copy", async (req, res, next) => {
     const profile = await copyProfile(req.params.profileId, { candidateKey });
 
     res.status(201).json({
+      data: profile
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+profileRouter.post("/:profileId/delete", async (req, res, next) => {
+  try {
+    const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
+    deleteProfileSchema.parse(req.body);
+    const profile = await deleteProfile(candidateKey, req.params.profileId);
+
+    res.json({
       data: profile
     });
   } catch (error) {

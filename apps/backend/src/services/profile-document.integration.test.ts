@@ -5,6 +5,7 @@ import {
   archiveProfile,
   copyProfile,
   createProfile,
+  deleteProfile,
   getProfile,
   getProfiles,
   updateProfileMeta
@@ -13,6 +14,7 @@ import {
   archiveDocument,
   copyDocument,
   createDocument,
+  deleteDocument,
   getDocument,
   getDocuments,
   updateDocumentMeta
@@ -103,6 +105,11 @@ describe("profile/document mock-first integration", () => {
     expect(copiedProfile.profileText).toBe(updatedProfile.profileText);
     expect((await getProfile(candidateKey, firstProfile.id)).title).toBe("프론트엔드 기본 프로필");
     expect((await archiveProfile(copiedProfile.candidateKey, copiedProfile.id)).isArchived).toBe(true);
+    await expectHttpError(deleteProfile(copiedProfile.candidateKey, copiedProfile.id), 400);
+
+    const profileToDelete = await copyProfile(secondProfile.id, { candidateKey });
+    expect((await deleteProfile(candidateKey, profileToDelete.id)).id).toBe(profileToDelete.id);
+    await expectHttpError(getProfile(candidateKey, profileToDelete.id), 404);
 
     await expectHttpError(getProfile("other-candidate", firstProfile.id), 404);
     await expectHttpError(getProfile(candidateKey, "missing-profile"), 404);
@@ -138,6 +145,11 @@ describe("profile/document mock-first integration", () => {
     expect(copiedDocument.content).toBe(updatedDocument.content);
     expect((await getDocument(candidateKey, document.id)).title).toBe("프론트엔드 이력서");
     expect((await archiveDocument(copiedDocument.candidateKey, copiedDocument.id)).isArchived).toBe(true);
+    await expectHttpError(deleteDocument(copiedDocument.candidateKey, copiedDocument.id), 400);
+
+    const documentToDelete = await copyDocument(document.id, { candidateKey });
+    expect((await deleteDocument(candidateKey, documentToDelete.id)).id).toBe(documentToDelete.id);
+    await expectHttpError(getDocument(candidateKey, documentToDelete.id), 404);
 
     await expectHttpError(getDocument("other-candidate", document.id), 404);
 

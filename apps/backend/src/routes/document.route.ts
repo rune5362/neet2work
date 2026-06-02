@@ -4,6 +4,7 @@ import {
   archiveDocument,
   copyDocument,
   createDocument,
+  deleteDocument,
   getDocument,
   getDocuments,
   updateDocumentMeta
@@ -23,6 +24,7 @@ const documentListFilterSchema = documentListQuerySchema.extend({
 });
 
 const copyDocumentSchema = z.object({});
+const deleteDocumentSchema = z.object({});
 
 const createDocumentSchema = z.object({
   title: z.string().trim().min(1),
@@ -88,6 +90,20 @@ documentRouter.post("/:documentId/copy", async (req, res, next) => {
     const document = await copyDocument(req.params.documentId, { candidateKey });
 
     res.status(201).json({
+      data: document
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+documentRouter.post("/:documentId/delete", async (req, res, next) => {
+  try {
+    const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
+    deleteDocumentSchema.parse(req.body);
+    const document = await deleteDocument(candidateKey, req.params.documentId);
+
+    res.json({
       data: document
     });
   } catch (error) {

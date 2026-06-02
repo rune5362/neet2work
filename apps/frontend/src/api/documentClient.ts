@@ -155,3 +155,14 @@ export async function copyDocument(documentId: string): Promise<DocumentDetail> 
 
   return result.data;
 }
+
+export async function deleteDocument(documentId: string): Promise<DocumentDetail> {
+  const result = await sendJson<ApiItemResponse<DocumentDetail>>(
+    `/api/documents/${documentId}/delete`,
+    "POST",
+    {},
+    "문서 삭제에 실패했습니다."
+  );
+
+  return result.data;
+}

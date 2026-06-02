@@ -151,3 +151,14 @@ export async function copyProfile(profileId: string): Promise<ProfileDetail> {
 
   return result.data;
 }
+
+export async function deleteProfile(profileId: string): Promise<ProfileDetail> {
+  const result = await sendJson<ApiItemResponse<ProfileDetail>>(
+    `/api/profiles/${profileId}/delete`,
+    "POST",
+    {},
+    "프로필 삭제에 실패했습니다."
+  );
+
+  return result.data;
+}

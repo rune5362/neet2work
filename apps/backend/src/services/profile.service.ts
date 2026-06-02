@@ -219,6 +219,18 @@ async function copyMemoryProfile(profileId: string, input: CopyProfileInput) {
   return toMemoryProfileDetail(copiedProfile);
 }
 
+async function deleteMemoryProfile(candidateKey: string, profileId: string) {
+  const store = await getProfileMemoryStore();
+  const profile = await findMemoryProfile(candidateKey, profileId);
+
+  if (profile.isArchived) {
+    throw new HttpError(400, "보호 중인 프로필은 삭제할 수 없습니다.");
+  }
+
+  store.profiles = store.profiles.filter((item) => item.id !== profileId);
+  return toMemoryProfileDetail(profile);
+}
+
 async function findOwnedProfile(db: ProfileDb, candidateKey: string, profileId: string) {
   const profile = await db.candidateProfile.findFirst({
     where: {
@@ -463,4 +475,38 @@ export async function archiveProfile(candidateKey: string, profileId: string) {
     isArchived: true,
     isDefault: false
   });
+}
+
+export async function deleteProfile(candidateKey: string, profileId: string) {
+  const prisma = getPrismaClient();
+
+  if (!prisma) {
+    return deleteMemoryProfile(candidateKey, profileId);
+  }
+
+  try {
+    const deletedProfile = await prisma.$transaction(async (tx) => {
+      const profile = await findOwnedProfile(tx, candidateKey, profileId);
+
+      if (profile.isArchived) {
+        throw new HttpError(400, "보호 중인 프로필은 삭제할 수 없습니다.");
+      }
+
+      await tx.candidateProfile.delete({
+        where: {
+          id: profileId
+        }
+      });
+
+      return profile;
+    });
+
+    return toProfileListItem(deletedProfile);
+  } catch (error) {
+    if (error instanceof HttpError) {
+      throw error;
+    }
+  }
+
+  return deleteMemoryProfile(candidateKey, profileId);
 }

@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import {
   archiveDocument as protectDocument,
   copyDocument,
+  deleteDocument,
   getDocuments,
   restoreDocument as unprotectDocument
 } from "../api/documentClient";
 import {
   archiveProfile as protectProfile,
   copyProfile,
+  deleteProfile,
   getProfiles,
   restoreProfile as unprotectProfile
 } from "../api/profileClient";
@@ -155,6 +157,7 @@ export function Documents() {
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [copyingId, setCopyingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -287,6 +290,27 @@ export function Documents() {
     }
   };
 
+  const handleDeleteItem = async (item: LibraryItem) => {
+    const itemId = getItemId(item);
+    const actionId = `${item.kind}-${itemId}`;
+    setDeletingId(actionId);
+    setErrorMessage(null);
+
+    try {
+      if (item.kind === "profile") {
+        await deleteProfile(itemId);
+      } else {
+        await deleteDocument(itemId);
+      }
+
+      await loadLibrary();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "항목 삭제에 실패했습니다.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const getProtectionErrorMessage = (error: unknown, isProtected: boolean) => {
     if (error instanceof Error && error.message) {
       return error.message.replaceAll("보관", "보호").replaceAll("복원", "보호 해제");
@@ -343,6 +367,23 @@ export function Documents() {
         ) : (
           "보호하기"
         )}
+      </button>
+    );
+  };
+
+  const renderDeleteButton = (item: LibraryItem, actionId: string) => {
+    if (getItemProtected(item)) {
+      return null;
+    }
+
+    return (
+      <button
+        className="documentsDangerButton"
+        disabled={deletingId === actionId}
+        type="button"
+        onClick={() => { void handleDeleteItem(item); }}
+      >
+        {deletingId === actionId ? "삭제 중" : "삭제하기"}
       </button>
     );
   };
@@ -483,6 +524,7 @@ export function Documents() {
                         {copyingId === profile.id ? "복사 중" : "복사"}
                       </button>
                       {renderProtectionButton(item, `profile-${profile.id}`, profile.isArchived)}
+                      {renderDeleteButton(item, `profile-${profile.id}`)}
                     </div>
                   </article>
                 );
@@ -519,6 +561,7 @@ export function Documents() {
                       {copyingId === document.id ? "복사 중" : "복사"}
                     </button>
                     {renderProtectionButton(item, `document-${document.id}`, document.isArchived)}
+                    {renderDeleteButton(item, `document-${document.id}`)}
                   </div>
                 </article>
               );

@@ -174,6 +174,10 @@ function setupFetchMock(options: { empty?: boolean; unauthenticated?: boolean } 
       return jsonResponse({ data: { ...document, isArchived: true } });
     }
 
+    if (path === "/api/documents/document-1/delete" && method === "POST") {
+      return jsonResponse({ data: document });
+    }
+
     if (path === "/api/documents/document-protected" && method === "PATCH") {
       return jsonResponse({ data: { ...protectedDocument, isArchived: false } });
     }
@@ -312,6 +316,16 @@ describe("profile/document frontend integration flow", () => {
     expect(await screen.findByText("3개 항목")).toBeInTheDocument();
     expect(screen.getByText("보호된 자기소개서")).toBeInTheDocument();
 
+    const normalDocumentCard = screen.getByRole("heading", { name: "프론트엔드 자기소개서" }).closest("article");
+    expect(normalDocumentCard).not.toBeNull();
+    fireEvent.click(within(normalDocumentCard as HTMLElement).getByRole("button", { name: "삭제하기" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/documents/document-1/delete"),
+        expect.objectContaining({ method: "POST" })
+      )
+    );
+
     fireEvent.change(screen.getByLabelText("검색"), { target: { value: "프론트엔드 자기소개서" } });
     expect(await screen.findByText("1개 항목")).toBeInTheDocument();
     expect(screen.getByText("프론트엔드 자기소개서")).toBeInTheDocument();
@@ -321,6 +335,7 @@ describe("profile/document frontend integration flow", () => {
     expect(await screen.findByText("1개 항목")).toBeInTheDocument();
     expect(await screen.findByText("보호된 자기소개서")).toBeInTheDocument();
     expect(screen.getByText("보호중")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "삭제하기" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "프론트엔드 지원 프로필" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "프론트엔드 자기소개서" })).not.toBeInTheDocument();
 

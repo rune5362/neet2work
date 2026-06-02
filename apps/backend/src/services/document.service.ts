@@ -280,6 +280,18 @@ async function copyMemoryDocument(documentId: string, input: CopyDocumentInput) 
   return toMemoryDocumentDetail(copiedDocument);
 }
 
+async function deleteMemoryDocument(candidateKey: string, documentId: string) {
+  const store = await getDocumentMemoryStore();
+  const document = await findMemoryDocument(candidateKey, documentId);
+
+  if (document.isArchived) {
+    throw new HttpError(400, "보호 중인 문서는 삭제할 수 없습니다.");
+  }
+
+  store.documents = store.documents.filter((item) => item.id !== documentId);
+  return toMemoryDocumentDetail(document);
+}
+
 async function buildProfileTitleMap(db: DocumentDb, profileIds: string[]) {
   const uniqueIds = Array.from(new Set(profileIds.filter(Boolean)));
 
@@ -616,4 +628,38 @@ export async function archiveDocument(candidateKey: string, documentId: string) 
     candidateKey,
     isArchived: true
   });
+}
+
+export async function deleteDocument(candidateKey: string, documentId: string) {
+  const prisma = getPrismaClient();
+
+  if (!prisma) {
+    return deleteMemoryDocument(candidateKey, documentId);
+  }
+
+  try {
+    const deletedDocument = await prisma.$transaction(async (tx) => {
+      const document = await findOwnedDocument(tx, candidateKey, documentId);
+
+      if (document.isArchived) {
+        throw new HttpError(400, "보호 중인 문서는 삭제할 수 없습니다.");
+      }
+
+      await tx.applicationDocument.delete({
+        where: {
+          id: documentId
+        }
+      });
+
+      return document;
+    });
+
+    return toDocumentListItem(deletedDocument);
+  } catch (error) {
+    if (error instanceof HttpError) {
+      throw error;
+    }
+  }
+
+  return deleteMemoryDocument(candidateKey, documentId);
 }
