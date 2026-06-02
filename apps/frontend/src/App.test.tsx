@@ -97,6 +97,13 @@ const protectedDocument: DocumentDetail = {
   isArchived: true
 };
 
+const copiedDocument: DocumentDetail = {
+  ...document,
+  id: "document-copy",
+  title: "프론트엔드 자기소개서 복사본",
+  isArchived: false
+};
+
 const job: JobPosting = {
   id: "job-001",
   title: "프론트엔드 개발자",
@@ -172,6 +179,14 @@ function setupFetchMock(options: { empty?: boolean; unauthenticated?: boolean } 
 
     if (path === "/api/documents/document-1" && method === "DELETE") {
       return jsonResponse({ data: { ...document, isArchived: true } });
+    }
+
+    if (path === "/api/documents/document-1/copy" && method === "POST") {
+      return jsonResponse({ data: copiedDocument });
+    }
+
+    if (path === "/api/documents/document-copy/delete" && method === "POST") {
+      return jsonResponse({ data: copiedDocument });
     }
 
     if (path === "/api/documents/document-1/delete" && method === "POST") {
@@ -318,13 +333,52 @@ describe("profile/document frontend integration flow", () => {
 
     const normalDocumentCard = screen.getByRole("heading", { name: "프론트엔드 자기소개서" }).closest("article");
     expect(normalDocumentCard).not.toBeNull();
-    fireEvent.click(within(normalDocumentCard as HTMLElement).getByRole("button", { name: "삭제하기" }));
+    fireEvent.click(within(normalDocumentCard as HTMLElement).getByRole("button", { name: "복사" }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("/api/documents/document-1/delete"),
+        expect.stringContaining("/api/documents/document-1/copy"),
         expect.objectContaining({ method: "POST" })
       )
     );
+    expect(screen.queryByText("문서함을 불러오는 중입니다.")).not.toBeInTheDocument();
+    expect(await screen.findByText("4개 항목")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "프론트엔드 자기소개서 복사본" })).toBeInTheDocument();
+
+    const copiedDocumentCard = screen.getByRole("heading", { name: "프론트엔드 자기소개서 복사본" }).closest("article");
+    expect(copiedDocumentCard).not.toBeNull();
+    fireEvent.click(within(copiedDocumentCard as HTMLElement).getByRole("button", { name: "삭제하기" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/documents/document-copy/delete"),
+        expect.objectContaining({ method: "POST" })
+      )
+    );
+    expect(screen.queryByText("문서함을 불러오는 중입니다.")).not.toBeInTheDocument();
+    expect(await screen.findByText("3개 항목")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "프론트엔드 자기소개서 복사본" })).not.toBeInTheDocument();
+
+    const documentCardAfterDelete = screen.getByRole("heading", { name: "프론트엔드 자기소개서" }).closest("article");
+    expect(documentCardAfterDelete).not.toBeNull();
+    fireEvent.click(within(documentCardAfterDelete as HTMLElement).getByRole("button", { name: "보호하기" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/documents/document-1"),
+        expect.objectContaining({ method: "DELETE" })
+      )
+    );
+    expect(screen.queryByText("문서함을 불러오는 중입니다.")).not.toBeInTheDocument();
+    expect(await within(documentCardAfterDelete as HTMLElement).findByText("보호중")).toBeInTheDocument();
+    expect(within(documentCardAfterDelete as HTMLElement).queryByRole("button", { name: "삭제하기" })).not.toBeInTheDocument();
+
+    fireEvent.click(within(documentCardAfterDelete as HTMLElement).getByRole("button", { name: "보호해제하기" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/documents/document-1"),
+        expect.objectContaining({ method: "PATCH" })
+      )
+    );
+    expect(screen.queryByText("문서함을 불러오는 중입니다.")).not.toBeInTheDocument();
+    expect(within(documentCardAfterDelete as HTMLElement).getByRole("button", { name: "삭제하기" })).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("검색"), { target: { value: "프론트엔드 자기소개서" } });
     expect(await screen.findByText("1개 항목")).toBeInTheDocument();
@@ -358,5 +412,7 @@ describe("profile/document frontend integration flow", () => {
         expect.objectContaining({ method: "PATCH" })
       )
     );
+    expect(screen.queryByText("문서함을 불러오는 중입니다.")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "보호된 자기소개서" })).not.toBeInTheDocument());
   });
 });

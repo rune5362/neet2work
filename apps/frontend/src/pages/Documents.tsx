@@ -191,7 +191,7 @@ export function Documents() {
 
   useEffect(() => {
     void loadLibrary();
-  }, [showProtectedItems]);
+  }, []);
 
   useEffect(() => {
     const syncFilterFromUrl = () => {
@@ -267,8 +267,8 @@ export function Documents() {
     setErrorMessage(null);
 
     try {
-      await copyProfile(profileId);
-      await loadLibrary();
+      const copiedProfile = await copyProfile(profileId);
+      setProfiles((currentProfiles) => [copiedProfile, ...currentProfiles]);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "프로필 복사에 실패했습니다.");
     } finally {
@@ -281,8 +281,10 @@ export function Documents() {
     setErrorMessage(null);
 
     try {
-      await copyDocument(documentId);
-      await loadLibrary();
+      const copiedDocument = await copyDocument(documentId);
+      if (copiedDocument.documentType === "cover_letter") {
+        setDocuments((currentDocuments) => [copiedDocument, ...currentDocuments]);
+      }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "문서 복사에 실패했습니다.");
     } finally {
@@ -299,11 +301,11 @@ export function Documents() {
     try {
       if (item.kind === "profile") {
         await deleteProfile(itemId);
+        setProfiles((currentProfiles) => currentProfiles.filter((profile) => profile.id !== itemId));
       } else {
         await deleteDocument(itemId);
+        setDocuments((currentDocuments) => currentDocuments.filter((document) => document.id !== itemId));
       }
-
-      await loadLibrary();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "항목 삭제에 실패했습니다.");
     } finally {
@@ -328,12 +330,16 @@ export function Documents() {
 
     try {
       if (item.kind === "profile") {
-        await (isProtected ? unprotectProfile(itemId) : protectProfile(itemId));
+        const updatedProfile = await (isProtected ? unprotectProfile(itemId) : protectProfile(itemId));
+        setProfiles((currentProfiles) =>
+          currentProfiles.map((profile) => (profile.id === itemId ? updatedProfile : profile))
+        );
       } else {
-        await (isProtected ? unprotectDocument(itemId) : protectDocument(itemId));
+        const updatedDocument = await (isProtected ? unprotectDocument(itemId) : protectDocument(itemId));
+        setDocuments((currentDocuments) =>
+          currentDocuments.map((document) => (document.id === itemId ? updatedDocument : document))
+        );
       }
-
-      await loadLibrary();
     } catch (error) {
       setErrorMessage(getProtectionErrorMessage(error, isProtected));
     } finally {
