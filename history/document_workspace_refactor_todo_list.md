@@ -28,38 +28,42 @@
 조사 결과:
 
 * `CandidateProfileVersion` 제거 대상
-  * [ ] Prisma: `apps/backend/prisma/models/candidateProfileVersion.prisma`, `profileVersionSource.prisma`, `profileVersionStatus.prisma`
-  * [ ] Prisma relation: `apps/backend/prisma/models/candidateProfile.prisma`의 `currentVersionId`, `versions`
-  * [ ] Backend type: `apps/backend/src/types/profile.ts`의 `ProfileVersion`, `CreateProfileVersionInput`, `currentVersion*`
-  * [ ] Backend route: `apps/backend/src/routes/profile.route.ts`의 `/api/profiles/:profileId/versions*`
-  * [ ] Backend service: `apps/backend/src/services/profile.service.ts`의 version memory store, version CRUD/apply/restore/archive 함수
-  * [ ] Frontend type/client: `apps/frontend/src/types/profile.ts`, `apps/frontend/src/api/profileClient.ts`의 version 타입/API 함수
-  * [ ] Frontend pages: `ProfileVersions.tsx`, `ProfileDetail.tsx`, `Profiles.tsx`, `DocumentNew.tsx`, `App.tsx`
+  * [x] Prisma: `apps/backend/prisma/models/candidateProfileVersion.prisma`, `profileVersionSource.prisma`, `profileVersionStatus.prisma`
+  * [x] Prisma relation: `apps/backend/prisma/models/candidateProfile.prisma`의 `currentVersionId`, `versions`
+  * [x] Backend type: `apps/backend/src/types/profile.ts`의 `ProfileVersion`, `CreateProfileVersionInput`, `currentVersion*`
+  * [x] Backend route: `apps/backend/src/routes/profile.route.ts`의 `/api/profiles/:profileId/versions*`
+  * [x] Backend service: `apps/backend/src/services/profile.service.ts`의 version memory store, version CRUD/apply/restore/archive 함수
+  * [x] Frontend type/client: `apps/frontend/src/types/profile.ts`, `apps/frontend/src/api/profileClient.ts`의 version 타입/API 함수
+  * [x] Frontend pages: `ProfileVersions.tsx`, `ProfileDetail.tsx`, `Profiles.tsx`, `DocumentNew.tsx`, `App.tsx`
 * `ApplicationDocumentVersion` 제거 대상
-  * [ ] Prisma: `apps/backend/prisma/models/applicationDocumentVersion.prisma`
-  * [ ] Prisma relation: `apps/backend/prisma/models/applicationDocument.prisma`의 `currentVersionId`, `versions`, `profileVersionId`
-  * [ ] Backend type: `apps/backend/src/types/document.ts`의 `DocumentVersion`, `CreateDocumentVersionInput`, `currentVersion*`
-  * [ ] Backend route: `apps/backend/src/routes/document.route.ts`의 `/api/documents/:documentId/versions*`
-  * [ ] Backend service: `apps/backend/src/services/document.service.ts`의 version memory store, version CRUD/apply/restore/archive 함수
-  * [ ] Frontend type/client: `apps/frontend/src/types/document.ts`, `apps/frontend/src/api/documentClient.ts`의 version 타입/API 함수
-  * [ ] Frontend pages: `DocumentVersions.tsx`, `DocumentDetail.tsx`, `Documents.tsx`, `App.tsx`
+  * [x] Prisma: `apps/backend/prisma/models/applicationDocumentVersion.prisma`
+  * [x] Prisma relation: `apps/backend/prisma/models/applicationDocument.prisma`의 `currentVersionId`, `versions`, `profileVersionId`
+  * [x] Backend type: `apps/backend/src/types/document.ts`의 `DocumentVersion`, `CreateDocumentVersionInput`, `currentVersion*`
+  * [x] Backend route: `apps/backend/src/routes/document.route.ts`의 `/api/documents/:documentId/versions*`
+  * [x] Backend service: `apps/backend/src/services/document.service.ts`의 version memory store, version CRUD/apply/restore/archive 함수
+  * [x] Frontend type/client: `apps/frontend/src/types/document.ts`, `apps/frontend/src/api/documentClient.ts`의 version 타입/API 함수
+  * [x] Frontend pages: `DocumentVersions.tsx`, `DocumentDetail.tsx`, `Documents.tsx`, `App.tsx`
 * 프론트 `/profiles/:id/versions` 사용처
-  * [ ] `apps/frontend/src/App.tsx`
-  * [ ] `apps/frontend/src/pages/Profiles.tsx`
-  * [ ] `apps/frontend/src/pages/ProfileDetail.tsx`
-  * [ ] `apps/frontend/src/pages/ProfileVersions.tsx`
-  * [ ] `apps/frontend/src/api/profileClient.ts`
-  * [ ] `apps/frontend/src/App.test.tsx`
+  * [x] `apps/frontend/src/App.tsx`
+  * [x] `apps/frontend/src/pages/Profiles.tsx`
+  * [x] `apps/frontend/src/pages/ProfileDetail.tsx`
+  * [x] `apps/frontend/src/pages/ProfileVersions.tsx`
+  * [x] `apps/frontend/src/api/profileClient.ts`
+  * [x] `apps/frontend/src/App.test.tsx`
 * 프론트 `/documents/:id/versions` 사용처
-  * [ ] `apps/frontend/src/App.tsx`
-  * [ ] `apps/frontend/src/pages/Documents.tsx`
-  * [ ] `apps/frontend/src/pages/DocumentDetail.tsx`
-  * [ ] `apps/frontend/src/pages/DocumentVersions.tsx`
-  * [ ] `apps/frontend/src/api/documentClient.ts`
-  * [ ] `apps/frontend/src/App.test.tsx`
+  * [x] `apps/frontend/src/App.tsx`
+  * [x] `apps/frontend/src/pages/Documents.tsx`
+  * [x] `apps/frontend/src/pages/DocumentDetail.tsx`
+  * [x] `apps/frontend/src/pages/DocumentVersions.tsx`
+  * [x] `apps/frontend/src/api/documentClient.ts`
+  * [x] `apps/frontend/src/App.test.tsx`
 * version 의존 테스트
-  * [ ] `apps/backend/src/services/profile-document.integration.test.ts`
-  * [ ] `apps/frontend/src/App.test.tsx`
+  * [x] `apps/backend/src/services/profile-document.integration.test.ts`
+  * [x] `apps/frontend/src/App.test.tsx`
+
+현재 코드 대조 결과:
+* [x] `apps/backend/src`, `apps/frontend/src`, `apps/backend/prisma/models` 기준으로 version 모델/타입/페이지/API 참조가 제거됨.
+* [x] 과거 migration, 백업 SQL, 작업 로그에 남은 `version` 문자열은 이력 보존용으로 제거 대상에서 제외함.
 
 완료 기준:
 * [x] 제거 대상 파일/함수/API 목록이 TODO에 기록됨.
