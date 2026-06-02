@@ -15,3 +15,11 @@
 - 검증: backend draft-workflow/AI router 관련 30건, frontend AIDraftChatBuilder 45건 통과. frontend build 통과. backend 전체 build는 `DATABASE_URL` 부재로 `prisma generate`에서 중단되어 `tsc --noEmit`으로 타입 검증을 대체했다.
 - 실제 자소서 피드백을 반영해 글쓰기 로직의 최종 다듬기 규칙을 보강했다. 긴 기술 설명 문장 분리, 구현 동사 반복 완화, `저는` 같은 문장 시작 반복 방지를 draft/revise 프롬프트에 추가하고, plan 단계에서 반복 위험어를 `avoidRepeating`에 기록하도록 명시했다.
 - 검증: `corepack pnpm --filter @neet2work/backend exec tsc --noEmit`, `corepack pnpm --filter @neet2work/backend exec vitest run src/services/draft-workflow` 통과. 샌드박스 기본 실행에서는 Vitest/esbuild `spawn EPERM`이 발생해 승인 경로로 재실행했다.
+
+### Google Docs 프로젝트 기술서 정리
+
+- Google Docs 프로젝트 파트의 기존 파란 카테고리 표 셀에 맞춰 `계기/동기/목적`, `제안`, `기획`, `설계`, `개발`, `시행`, `후기` 내용을 재배치했다.
+- 이전에 표 바깥 일반 본문으로 붙은 중복 기술서 내용을 제거하고, 기존 홈, 채용공고, AI 분석 화면 이미지를 추출해 `시행` 카테고리 셀 안의 그림 1~3 위치에 다시 삽입했다.
+- 자소서 성격에 맞지 않는 `작업일지` 기반 작성 표현과 `lucide-react` 의존성 같은 사소한 장애 사례를 제거하고, 담당 기능, API 연동, fallback, AI 작성 흐름 중심 문장으로 다듬었다.
+- 화면 확인 기준으로 `Introduction` 칸에 들어간 별도 제목과 긴 `계기/동기/목적` 본문을 제거하고, 한마디 설명 영역에 맞는 2문단 요약으로 줄였다.
+- 검증: Google Docs connector table readback으로 `제안/기획/설계/개발/시행/후기` 셀 반영과 중복 제목 제거를 확인했고, 이미지 삽입 응답 objectId 3개를 확인했다. PDF 렌더 QA는 별도로 수행하지 못했다.
