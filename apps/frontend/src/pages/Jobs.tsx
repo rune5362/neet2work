@@ -129,6 +129,75 @@ function FilterChevronIcon() {
   );
 }
 
+function JobsAlertIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="jobsStateIcon jobsStateIconError"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <path
+        d="M12 8v5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.9"
+      />
+      <circle cx="12" cy="16.5" r="1" fill="currentColor" />
+      <path
+        d="M10.29 3.86 2.82 17a2 2 0 0 0 1.74 3h14.88a2 2 0 0 0 1.74-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.9"
+      />
+    </svg>
+  );
+}
+
+function JobsEmptyIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="jobsStateIcon jobsStateIconEmpty"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        cx="10.5"
+        cy="10.5"
+        r="5.75"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="m15 15 4.5 4.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="m8.75 8.75 3.5 3.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="m12.25 8.75-3.5 3.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
 function JobsCardGlyph({ children }: { children: ReactNode }) {
   return (
     <svg
@@ -2440,7 +2509,7 @@ export function Jobs() {
 
         {isError ? (
           <div className="jobsErrorState" role="alert">
-            <span className="material-symbols-outlined errorIcon">warning</span>
+            <JobsAlertIcon />
             <h3>서버와의 연결이 원활하지 않습니다</h3>
             <p>데이터를 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.</p>
             <button
@@ -2557,7 +2626,7 @@ export function Jobs() {
 
             {totalJobs === 0 ? (
               <div className="jobsEmptyState">
-                <span className="material-symbols-outlined">search_off</span>
+                <JobsEmptyIcon />
                 <h3>일치하는 채용공고가 없습니다</h3>
                 <p>검색어를 변경하거나 필터를 초기화해 보세요.</p>
                 <button type="button" onClick={handleResetFilters}>
