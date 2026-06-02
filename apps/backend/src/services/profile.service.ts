@@ -36,8 +36,22 @@ function toIsoString(value: Date | string) {
   return value instanceof Date ? value.toISOString() : value;
 }
 
+function toNullableIsoString(value: Date | string | null | undefined) {
+  return value ? toIsoString(value) : null;
+}
+
 function asProfileJson(value: unknown) {
   return value as CandidateProfileJson;
+}
+
+function withProfileLifecycleDefaults(profile: ProfileListItem): ProfileListItem {
+  return {
+    ...profile,
+    deletedAt: profile.deletedAt ?? null,
+    createdBy: profile.createdBy ?? null,
+    updatedBy: profile.updatedBy ?? null,
+    deletedBy: profile.deletedBy ?? null
+  };
 }
 
 function toProfileListItem(profile: CandidateProfile): ProfileListItem {
@@ -59,7 +73,11 @@ function toProfileListItem(profile: CandidateProfile): ProfileListItem {
     isDefault: profile.isDefault,
     isArchived: profile.isArchived,
     createdAt: toIsoString(profile.createdAt),
-    updatedAt: toIsoString(profile.updatedAt)
+    updatedAt: toIsoString(profile.updatedAt),
+    deletedAt: toNullableIsoString(profile.deletedAt),
+    createdBy: profile.createdBy,
+    updatedBy: profile.updatedBy,
+    deletedBy: profile.deletedBy
   };
 }
 
@@ -120,12 +138,12 @@ async function getMemoryProfiles(candidateKey: string, includeArchived = false) 
   return store.profiles
     .filter((profile) => profile.candidateKey === candidateKey && (includeArchived || !profile.isArchived))
     .sort((left, right) => Number(right.isDefault) - Number(left.isDefault) || right.updatedAt.localeCompare(left.updatedAt))
-    .map((profile) => profile);
+    .map(withProfileLifecycleDefaults);
 }
 
 async function getMemoryProfile(candidateKey: string, profileId: string) {
   const profile = await findMemoryProfile(candidateKey, profileId);
-  return toMemoryProfileDetail(profile);
+  return toMemoryProfileDetail(withProfileLifecycleDefaults(profile));
 }
 
 async function createMemoryProfile(input: CreateProfileInput) {
@@ -145,7 +163,11 @@ async function createMemoryProfile(input: CreateProfileInput) {
     isDefault: input.isDefault ?? false,
     isArchived: false,
     createdAt: timestamp,
-    updatedAt: timestamp
+    updatedAt: timestamp,
+    deletedAt: null,
+    createdBy: input.actorUserId ?? null,
+    updatedBy: null,
+    deletedBy: null
   };
 
   store.profiles.push(profile);
@@ -179,6 +201,7 @@ async function updateMemoryProfileMeta(profileId: string, input: UpdateProfileMe
     ...profileJsonUpdate,
     ...(input.isDefault === undefined ? {} : { isDefault: input.isDefault }),
     ...(input.isArchived === undefined ? {} : { isArchived: input.isArchived }),
+    updatedBy: input.actorUserId ?? profile.updatedBy ?? null,
     updatedAt: nowIso()
   };
 
@@ -212,14 +235,18 @@ async function copyMemoryProfile(profileId: string, input: CopyProfileInput) {
     isDefault: false,
     isArchived: false,
     createdAt: timestamp,
-    updatedAt: timestamp
+    updatedAt: timestamp,
+    deletedAt: null,
+    createdBy: input.actorUserId ?? null,
+    updatedBy: null,
+    deletedBy: null
   };
 
   store.profiles.push(copiedProfile);
   return toMemoryProfileDetail(copiedProfile);
 }
 
-async function deleteMemoryProfile(candidateKey: string, profileId: string) {
+async function deleteMemoryProfile(candidateKey: string, profileId: string, actorUserId?: string | null) {
   const store = await getProfileMemoryStore();
   const profile = await findMemoryProfile(candidateKey, profileId);
 
@@ -228,7 +255,12 @@ async function deleteMemoryProfile(candidateKey: string, profileId: string) {
   }
 
   store.profiles = store.profiles.filter((item) => item.id !== profileId);
-  return toMemoryProfileDetail(profile);
+  return toMemoryProfileDetail({
+    ...withProfileLifecycleDefaults(profile),
+    deletedAt: nowIso(),
+    deletedBy: actorUserId ?? null,
+    isDefault: false
+  });
 }
 
 async function findOwnedProfile(db: ProfileDb, candidateKey: string, profileId: string) {
@@ -335,7 +367,8 @@ export async function createProfile(input: CreateProfileInput) {
           profileJson: input.profileJson as Prisma.InputJsonValue,
           schemaVersion: 1,
           source: "user",
-          isDefault: input.isDefault ?? false
+          isDefault: input.isDefault ?? false,
+          createdBy: input.actorUserId ?? null
         }
       });
     });
@@ -415,7 +448,8 @@ export async function updateProfileMeta(profileId: string, input: UpdateProfileM
           ...(input.targetJobId === undefined ? {} : { targetJobId: input.targetJobId }),
           ...profileJsonUpdate,
           ...(input.isDefault === undefined ? {} : { isDefault: input.isDefault }),
-          ...(input.isArchived === undefined ? {} : { isArchived: input.isArchived })
+          ...(input.isArchived === undefined ? {} : { isArchived: input.isArchived }),
+          updatedBy: input.actorUserId ?? null
         }
       });
     });
@@ -458,7 +492,8 @@ export async function copyProfile(profileId: string, input: CopyProfileInput) {
           schemaVersion: sourceProfile.schemaVersion,
           source: sourceProfile.source,
           isDefault: false,
-          isArchived: false
+          isArchived: false,
+          createdBy: input.actorUserId ?? null
         }
       });
     });
@@ -473,19 +508,22 @@ export async function copyProfile(profileId: string, input: CopyProfileInput) {
   return copyMemoryProfile(profileId, input);
 }
 
-export async function archiveProfile(candidateKey: string, profileId: string) {
+export async function protectProfile(candidateKey: string, profileId: string, actorUserId?: string | null) {
   return updateProfileMeta(profileId, {
     candidateKey,
     isArchived: true,
-    isDefault: false
+    isDefault: false,
+    actorUserId
   });
 }
 
-export async function deleteProfile(candidateKey: string, profileId: string) {
+export const archiveProfile = protectProfile;
+
+export async function deleteProfile(candidateKey: string, profileId: string, actorUserId?: string | null) {
   const prisma = getPrismaClient();
 
   if (!prisma) {
-    return deleteMemoryProfile(candidateKey, profileId);
+    return deleteMemoryProfile(candidateKey, profileId, actorUserId);
   }
 
   try {
@@ -502,7 +540,7 @@ export async function deleteProfile(candidateKey: string, profileId: string) {
         },
         data: {
           deletedAt: new Date(),
-          deletedBy: candidateKey,
+          deletedBy: actorUserId ?? null,
           isDefault: false
         }
       });
@@ -517,5 +555,5 @@ export async function deleteProfile(candidateKey: string, profileId: string) {
     }
   }
 
-  return deleteMemoryProfile(candidateKey, profileId);
+  return deleteMemoryProfile(candidateKey, profileId, actorUserId);
 }

@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  archiveDocument as protectDocument,
   copyDocument,
   deleteDocument,
   getDocuments,
-  restoreDocument as unprotectDocument
+  protectDocument,
+  unprotectDocument
 } from "../api/documentClient";
 import {
-  archiveProfile as protectProfile,
   copyProfile,
   deleteProfile,
   getProfiles,
-  restoreProfile as unprotectProfile
+  protectProfile,
+  unprotectProfile
 } from "../api/profileClient";
 import { HomeFooter } from "../components/HomeFooter";
 import { HomeTopNav } from "../components/HomeTopNav";

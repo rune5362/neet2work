@@ -1,15 +1,15 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
-  archiveProfile,
   copyProfile,
   createProfile,
   deleteProfile,
   getProfile,
   getProfiles,
+  protectProfile,
   updateProfileMeta
 } from "../services/profile.service.js";
-import { getAuthenticatedCandidateKey } from "../utils/auth-session.js";
+import { getAuthenticatedCandidateKey, getAuthenticatedUserId } from "../utils/auth-session.js";
 
 export const profileRouter = Router();
 
@@ -109,10 +109,12 @@ profileRouter.get("/", async (req, res, next) => {
 profileRouter.post("/", async (req, res, next) => {
   try {
     const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
     const body = createProfileSchema.parse(req.body);
     const profile = await createProfile({
       ...body,
-      candidateKey
+      candidateKey,
+      actorUserId
     });
 
     res.status(201).json({
@@ -126,8 +128,9 @@ profileRouter.post("/", async (req, res, next) => {
 profileRouter.post("/:profileId/copy", async (req, res, next) => {
   try {
     const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
     copyProfileSchema.parse(req.body);
-    const profile = await copyProfile(req.params.profileId, { candidateKey });
+    const profile = await copyProfile(req.params.profileId, { candidateKey, actorUserId });
 
     res.status(201).json({
       data: profile
@@ -140,8 +143,9 @@ profileRouter.post("/:profileId/copy", async (req, res, next) => {
 profileRouter.post("/:profileId/delete", async (req, res, next) => {
   try {
     const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
     deleteProfileSchema.parse(req.body);
-    const profile = await deleteProfile(candidateKey, req.params.profileId);
+    const profile = await deleteProfile(candidateKey, req.params.profileId, actorUserId);
 
     res.json({
       data: profile
@@ -167,10 +171,12 @@ profileRouter.get("/:profileId", async (req, res, next) => {
 profileRouter.patch("/:profileId", async (req, res, next) => {
   try {
     const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
     const body = updateProfileMetaSchema.parse(req.body);
     const profile = await updateProfileMeta(req.params.profileId, {
       ...body,
-      candidateKey
+      candidateKey,
+      actorUserId
     });
 
     res.json({
@@ -184,7 +190,8 @@ profileRouter.patch("/:profileId", async (req, res, next) => {
 profileRouter.delete("/:profileId", async (req, res, next) => {
   try {
     const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
-    const profile = await archiveProfile(candidateKey, req.params.profileId);
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
+    const profile = await protectProfile(candidateKey, req.params.profileId, actorUserId);
 
     res.json({
       data: profile

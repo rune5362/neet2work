@@ -106,6 +106,10 @@ Soft delete rules:
 - Account recovery is allowed by clearing `deleted_at`/`deleted_by` and restoring a non-deleted status through an explicit recovery flow.
 - Personal data masking for deleted users is deferred until the withdrawal flow is implemented.
 
+For document workspace data, `is_archived` is not deletion. It is a user-facing
+protection flag used to prevent accidental deletion. Deletion lifecycle is tracked
+only through `deleted_at` and `deleted_by`.
+
 ## Audit Logs
 
 Audit logs are append-only security records. Do not store passwords, password hashes, access tokens, refresh tokens, raw credentials, or full request/response bodies in `audit_logs.metadata`.

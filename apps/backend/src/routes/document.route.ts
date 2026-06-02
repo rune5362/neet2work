@@ -1,15 +1,15 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
-  archiveDocument,
   copyDocument,
   createDocument,
   deleteDocument,
   getDocument,
   getDocuments,
+  protectDocument,
   updateDocumentMeta
 } from "../services/document.service.js";
-import { getAuthenticatedCandidateKey } from "../utils/auth-session.js";
+import { getAuthenticatedCandidateKey, getAuthenticatedUserId } from "../utils/auth-session.js";
 
 export const documentRouter = Router();
 
@@ -69,10 +69,12 @@ documentRouter.get("/", async (req, res, next) => {
 documentRouter.post("/", async (req, res, next) => {
   try {
     const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
     const body = createDocumentSchema.parse(req.body);
     const document = await createDocument({
       ...body,
-      candidateKey
+      candidateKey,
+      actorUserId
     });
 
     res.status(201).json({
@@ -86,8 +88,9 @@ documentRouter.post("/", async (req, res, next) => {
 documentRouter.post("/:documentId/copy", async (req, res, next) => {
   try {
     const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
     copyDocumentSchema.parse(req.body);
-    const document = await copyDocument(req.params.documentId, { candidateKey });
+    const document = await copyDocument(req.params.documentId, { candidateKey, actorUserId });
 
     res.status(201).json({
       data: document
@@ -100,8 +103,9 @@ documentRouter.post("/:documentId/copy", async (req, res, next) => {
 documentRouter.post("/:documentId/delete", async (req, res, next) => {
   try {
     const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
     deleteDocumentSchema.parse(req.body);
-    const document = await deleteDocument(candidateKey, req.params.documentId);
+    const document = await deleteDocument(candidateKey, req.params.documentId, actorUserId);
 
     res.json({
       data: document
@@ -127,10 +131,12 @@ documentRouter.get("/:documentId", async (req, res, next) => {
 documentRouter.patch("/:documentId", async (req, res, next) => {
   try {
     const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
     const body = updateDocumentMetaSchema.parse(req.body);
     const document = await updateDocumentMeta(req.params.documentId, {
       ...body,
-      candidateKey
+      candidateKey,
+      actorUserId
     });
 
     res.json({
@@ -144,7 +150,8 @@ documentRouter.patch("/:documentId", async (req, res, next) => {
 documentRouter.delete("/:documentId", async (req, res, next) => {
   try {
     const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
-    const document = await archiveDocument(candidateKey, req.params.documentId);
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
+    const document = await protectDocument(candidateKey, req.params.documentId, actorUserId);
 
     res.json({
       data: document

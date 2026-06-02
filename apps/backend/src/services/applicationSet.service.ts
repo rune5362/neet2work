@@ -10,9 +10,9 @@ import { getProfile } from "./profile.service.js";
 
 type ApplicationSetDb = Pick<PrismaClient, "applicationSet" | "candidateProfile" | "applicationDocument">;
 type ApplicationSetWithRelations = ApplicationSet & {
-  profile?: Pick<CandidateProfile, "title"> | null;
-  resumeDocument?: Pick<ApplicationDocument, "title"> | null;
-  coverLetterDocument?: Pick<ApplicationDocument, "title"> | null;
+  profile?: Pick<CandidateProfile, "title" | "deletedAt"> | null;
+  resumeDocument?: Pick<ApplicationDocument, "title" | "deletedAt"> | null;
+  coverLetterDocument?: Pick<ApplicationDocument, "title" | "deletedAt"> | null;
 };
 
 const serviceDir = path.dirname(fileURLToPath(import.meta.url));
@@ -62,11 +62,11 @@ function toApplicationSetItem(set: ApplicationSetWithRelations): ApplicationSetI
     candidateKey: set.candidateKey,
     title: set.title,
     profileId: set.profileId,
-    profileTitle: set.profile?.title ?? null,
+    profileTitle: set.profile?.deletedAt ? null : set.profile?.title ?? null,
     resumeDocumentId: set.resumeDocumentId,
-    resumeTitle: set.resumeDocument?.title ?? null,
+    resumeTitle: set.resumeDocument?.deletedAt ? null : set.resumeDocument?.title ?? null,
     coverLetterDocumentId: set.coverLetterDocumentId,
-    coverLetterTitle: set.coverLetterDocument?.title ?? null,
+    coverLetterTitle: set.coverLetterDocument?.deletedAt ? null : set.coverLetterDocument?.title ?? null,
     isArchived: set.isArchived,
     createdAt: toIsoString(set.createdAt),
     updatedAt: toIsoString(set.updatedAt)
@@ -77,17 +77,20 @@ function includeApplicationSetRelations() {
   return {
     profile: {
       select: {
-        title: true
+        title: true,
+        deletedAt: true
       }
     },
     resumeDocument: {
       select: {
-        title: true
+        title: true,
+        deletedAt: true
       }
     },
     coverLetterDocument: {
       select: {
-        title: true
+        title: true,
+        deletedAt: true
       }
     }
   };

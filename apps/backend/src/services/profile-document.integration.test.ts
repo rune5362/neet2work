@@ -78,16 +78,21 @@ describe("profile/document mock-first integration", () => {
 
   it("DB 없이 프로필, 문서, 지원 묶음 생성/수정/복사/스코프 검증 플로우가 동작한다", async () => {
     const candidateKey = `candidate-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const actorUserId = `${candidateKey}-actor`;
     const firstProfile = await createProfile({
       candidateKey,
       title: "프론트엔드 기본 프로필",
       isDefault: true,
-      profileJson: createProfileJson("민준")
+      profileJson: createProfileJson("민준"),
+      actorUserId
     });
+    expect(firstProfile.createdBy).toBe(actorUserId);
+    expect(firstProfile.deletedAt).toBeNull();
     const secondProfile = await createProfile({
       candidateKey,
       title: "백엔드 보조 프로필",
-      profileJson: createProfileJson("서연")
+      profileJson: createProfileJson("서연"),
+      actorUserId
     });
 
     const profiles = await getProfiles(candidateKey);
@@ -95,20 +100,28 @@ describe("profile/document mock-first integration", () => {
 
     const updatedProfile = await updateProfileMeta(firstProfile.id, {
       candidateKey,
-      profileJson: createProfileJson("민준-수정")
+      profileJson: createProfileJson("민준-수정"),
+      actorUserId
     });
     expect(updatedProfile.profileText).toContain("민준-수정");
+    expect(updatedProfile.updatedBy).toBe(actorUserId);
 
-    const copiedProfile = await copyProfile(firstProfile.id, { candidateKey });
+    const copiedProfile = await copyProfile(firstProfile.id, { candidateKey, actorUserId });
     expect(copiedProfile.id).not.toBe(firstProfile.id);
     expect(copiedProfile.title).toMatch(/^프론트엔드 기본 프로필 \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
     expect(copiedProfile.profileText).toBe(updatedProfile.profileText);
+    expect(copiedProfile.createdBy).toBe(actorUserId);
     expect((await getProfile(candidateKey, firstProfile.id)).title).toBe("프론트엔드 기본 프로필");
-    expect((await archiveProfile(copiedProfile.candidateKey, copiedProfile.id)).isArchived).toBe(true);
+    const protectedProfile = await archiveProfile(copiedProfile.candidateKey, copiedProfile.id, actorUserId);
+    expect(protectedProfile.isArchived).toBe(true);
+    expect(protectedProfile.updatedBy).toBe(actorUserId);
     await expectHttpError(deleteProfile(copiedProfile.candidateKey, copiedProfile.id), 400);
 
-    const profileToDelete = await copyProfile(secondProfile.id, { candidateKey });
-    expect((await deleteProfile(candidateKey, profileToDelete.id)).id).toBe(profileToDelete.id);
+    const profileToDelete = await copyProfile(secondProfile.id, { candidateKey, actorUserId });
+    const deletedProfile = await deleteProfile(candidateKey, profileToDelete.id, actorUserId);
+    expect(deletedProfile.id).toBe(profileToDelete.id);
+    expect(deletedProfile.deletedAt).not.toBeNull();
+    expect(deletedProfile.deletedBy).toBe(actorUserId);
     await expectHttpError(getProfile(candidateKey, profileToDelete.id), 404);
 
     await expectHttpError(getProfile("other-candidate", firstProfile.id), 404);
@@ -120,9 +133,12 @@ describe("profile/document mock-first integration", () => {
       documentType: "resume",
       profileId: firstProfile.id,
       jobId: "job-001",
-      content: "초기 이력서 본문"
+      content: "초기 이력서 본문",
+      actorUserId
     });
 
+    expect(document.createdBy).toBe(actorUserId);
+    expect(document.deletedAt).toBeNull();
     expect(document.profileSnapshotText).toContain("민준");
     expect(document.jobSnapshotJson).toMatchObject({
       id: "job-001",
@@ -133,22 +149,30 @@ describe("profile/document mock-first integration", () => {
       candidateKey,
       content: "수정된 이력서 본문",
       contentJson: { sections: [] },
-      profileId: null
+      profileId: null,
+      actorUserId
     });
     expect(updatedDocument.content).toBe("수정된 이력서 본문");
     expect(updatedDocument.profileId).toBeNull();
     expect(updatedDocument.profileSnapshotText).toBeNull();
+    expect(updatedDocument.updatedBy).toBe(actorUserId);
 
-    const copiedDocument = await copyDocument(document.id, { candidateKey });
+    const copiedDocument = await copyDocument(document.id, { candidateKey, actorUserId });
     expect(copiedDocument.id).not.toBe(document.id);
     expect(copiedDocument.title).toMatch(/^프론트엔드 이력서 \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
     expect(copiedDocument.content).toBe(updatedDocument.content);
+    expect(copiedDocument.createdBy).toBe(actorUserId);
     expect((await getDocument(candidateKey, document.id)).title).toBe("프론트엔드 이력서");
-    expect((await archiveDocument(copiedDocument.candidateKey, copiedDocument.id)).isArchived).toBe(true);
+    const protectedDocument = await archiveDocument(copiedDocument.candidateKey, copiedDocument.id, actorUserId);
+    expect(protectedDocument.isArchived).toBe(true);
+    expect(protectedDocument.updatedBy).toBe(actorUserId);
     await expectHttpError(deleteDocument(copiedDocument.candidateKey, copiedDocument.id), 400);
 
-    const documentToDelete = await copyDocument(document.id, { candidateKey });
-    expect((await deleteDocument(candidateKey, documentToDelete.id)).id).toBe(documentToDelete.id);
+    const documentToDelete = await copyDocument(document.id, { candidateKey, actorUserId });
+    const deletedDocument = await deleteDocument(candidateKey, documentToDelete.id, actorUserId);
+    expect(deletedDocument.id).toBe(documentToDelete.id);
+    expect(deletedDocument.deletedAt).not.toBeNull();
+    expect(deletedDocument.deletedBy).toBe(actorUserId);
     await expectHttpError(getDocument(candidateKey, documentToDelete.id), 404);
 
     await expectHttpError(getDocument("other-candidate", document.id), 404);
@@ -157,7 +181,8 @@ describe("profile/document mock-first integration", () => {
       candidateKey,
       title: "다른 문서",
       documentType: "cover_letter",
-      content: "자기소개서 본문"
+      content: "자기소개서 본문",
+      actorUserId
     });
 
     const emptySet = await createApplicationSet({

@@ -48,6 +48,20 @@ function toIsoString(value: Date | string) {
   return value instanceof Date ? value.toISOString() : value;
 }
 
+function toNullableIsoString(value: Date | string | null | undefined) {
+  return value ? toIsoString(value) : null;
+}
+
+function withDocumentLifecycleDefaults(document: DocumentListItem): DocumentListItem {
+  return {
+    ...document,
+    deletedAt: document.deletedAt ?? null,
+    createdBy: document.createdBy ?? null,
+    updatedBy: document.updatedBy ?? null,
+    deletedBy: document.deletedBy ?? null
+  };
+}
+
 function toDocumentListItem(
   document: ApplicationDocument,
   profileTitle: string | null = null,
@@ -71,7 +85,11 @@ function toDocumentListItem(
     jobSnapshotJson: document.jobSnapshotJson,
     isArchived: document.isArchived,
     createdAt: toIsoString(document.createdAt),
-    updatedAt: toIsoString(document.updatedAt)
+    updatedAt: toIsoString(document.updatedAt),
+    deletedAt: toNullableIsoString(document.deletedAt),
+    createdBy: document.createdBy,
+    updatedBy: document.updatedBy,
+    deletedBy: document.deletedBy
   };
 }
 
@@ -129,12 +147,12 @@ async function getMemoryDocuments(
         (!filters.documentType || document.documentType === filters.documentType)
     )
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
-    .map((document) => document);
+    .map(withDocumentLifecycleDefaults);
 }
 
 async function getMemoryDocument(candidateKey: string, documentId: string): Promise<DocumentDetail> {
   const document = await findMemoryDocument(candidateKey, documentId);
-  return toMemoryDocumentDetail(document);
+  return toMemoryDocumentDetail(withDocumentLifecycleDefaults(document));
 }
 
 async function findMemoryProfileSnapshot(
@@ -208,7 +226,11 @@ async function createMemoryDocument(input: CreateDocumentInput) {
     jobSnapshotJson: jobSnapshot,
     isArchived: false,
     createdAt: timestamp,
-    updatedAt: timestamp
+    updatedAt: timestamp,
+    deletedAt: null,
+    createdBy: input.actorUserId ?? null,
+    updatedBy: null,
+    deletedBy: null
   };
 
   store.documents.push(document);
@@ -246,6 +268,7 @@ async function updateMemoryDocumentMeta(documentId: string, input: UpdateDocumen
     ...(input.content === undefined ? {} : { content: input.content }),
     ...(input.contentJson === undefined ? {} : { contentJson: input.contentJson }),
     ...(input.isArchived === undefined ? {} : { isArchived: input.isArchived }),
+    updatedBy: input.actorUserId ?? document.updatedBy ?? null,
     updatedAt: nowIso()
   };
 
@@ -273,14 +296,18 @@ async function copyMemoryDocument(documentId: string, input: CopyDocumentInput) 
     title: buildCopyTitle(sourceDocument.title),
     isArchived: false,
     createdAt: timestamp,
-    updatedAt: timestamp
+    updatedAt: timestamp,
+    deletedAt: null,
+    createdBy: input.actorUserId ?? null,
+    updatedBy: null,
+    deletedBy: null
   };
 
   store.documents.push(copiedDocument);
   return toMemoryDocumentDetail(copiedDocument);
 }
 
-async function deleteMemoryDocument(candidateKey: string, documentId: string) {
+async function deleteMemoryDocument(candidateKey: string, documentId: string, actorUserId?: string | null) {
   const store = await getDocumentMemoryStore();
   const document = await findMemoryDocument(candidateKey, documentId);
 
@@ -289,7 +316,11 @@ async function deleteMemoryDocument(candidateKey: string, documentId: string) {
   }
 
   store.documents = store.documents.filter((item) => item.id !== documentId);
-  return toMemoryDocumentDetail(document);
+  return toMemoryDocumentDetail({
+    ...withDocumentLifecycleDefaults(document),
+    deletedAt: nowIso(),
+    deletedBy: actorUserId ?? null
+  });
 }
 
 async function buildProfileTitleMap(db: DocumentDb, profileIds: string[]) {
@@ -485,7 +516,8 @@ export async function createDocument(input: CreateDocumentInput) {
             profileSnapshot.profileSnapshotJson === null
               ? undefined
               : (profileSnapshot.profileSnapshotJson as Prisma.InputJsonValue),
-          jobSnapshotJson: jobSnapshot === null ? undefined : (jobSnapshot as Prisma.InputJsonValue)
+          jobSnapshotJson: jobSnapshot === null ? undefined : (jobSnapshot as Prisma.InputJsonValue),
+          createdBy: input.actorUserId ?? null
         }
       });
       return createdDocument;
@@ -568,7 +600,8 @@ export async function updateDocumentMeta(documentId: string, input: UpdateDocume
               }),
           ...(input.content === undefined ? {} : { content: input.content }),
           ...(input.contentJson === undefined ? {} : { contentJson: input.contentJson as Prisma.InputJsonValue }),
-          ...(input.isArchived === undefined ? {} : { isArchived: input.isArchived })
+          ...(input.isArchived === undefined ? {} : { isArchived: input.isArchived }),
+          updatedBy: input.actorUserId ?? null
         }
       });
     });
@@ -612,7 +645,8 @@ export async function copyDocument(documentId: string, input: CopyDocumentInput)
               : (sourceDocument.profileSnapshotJson as Prisma.InputJsonValue),
           jobSnapshotJson:
             sourceDocument.jobSnapshotJson === null ? undefined : (sourceDocument.jobSnapshotJson as Prisma.InputJsonValue),
-          isArchived: false
+          isArchived: false,
+          createdBy: input.actorUserId ?? null
         }
       });
     });
@@ -627,18 +661,21 @@ export async function copyDocument(documentId: string, input: CopyDocumentInput)
   return copyMemoryDocument(documentId, input);
 }
 
-export async function archiveDocument(candidateKey: string, documentId: string) {
+export async function protectDocument(candidateKey: string, documentId: string, actorUserId?: string | null) {
   return updateDocumentMeta(documentId, {
     candidateKey,
-    isArchived: true
+    isArchived: true,
+    actorUserId
   });
 }
 
-export async function deleteDocument(candidateKey: string, documentId: string) {
+export const archiveDocument = protectDocument;
+
+export async function deleteDocument(candidateKey: string, documentId: string, actorUserId?: string | null) {
   const prisma = getPrismaClient();
 
   if (!prisma) {
-    return deleteMemoryDocument(candidateKey, documentId);
+    return deleteMemoryDocument(candidateKey, documentId, actorUserId);
   }
 
   try {
@@ -655,7 +692,7 @@ export async function deleteDocument(candidateKey: string, documentId: string) {
         },
         data: {
           deletedAt: new Date(),
-          deletedBy: candidateKey
+          deletedBy: actorUserId ?? null
         }
       });
 
@@ -669,5 +706,5 @@ export async function deleteDocument(candidateKey: string, documentId: string) {
     }
   }
 
-  return deleteMemoryDocument(candidateKey, documentId);
+  return deleteMemoryDocument(candidateKey, documentId, actorUserId);
 }

@@ -123,23 +123,26 @@ export async function updateProfileMeta(
   return result.data;
 }
 
-export async function archiveProfile(profileId: string): Promise<ProfileDetail> {
+export async function protectProfile(profileId: string): Promise<ProfileDetail> {
   const query = buildQuery({});
   const response = await authorizedFetch(`/api/profiles/${profileId}?${query}`, {
     method: "DELETE"
   });
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response, "프로필 보관에 실패했습니다."));
+    throw new Error(await readErrorMessage(response, "프로필 보호에 실패했습니다."));
   }
 
   const result = (await response.json()) as ApiItemResponse<ProfileDetail>;
   return result.data;
 }
 
-export async function restoreProfile(profileId: string): Promise<ProfileDetail> {
+export async function unprotectProfile(profileId: string): Promise<ProfileDetail> {
   return updateProfileMeta(profileId, { isArchived: false });
 }
+
+export const archiveProfile = protectProfile;
+export const restoreProfile = unprotectProfile;
 
 export async function copyProfile(profileId: string): Promise<ProfileDetail> {
   const result = await sendJson<ApiItemResponse<ProfileDetail>>(

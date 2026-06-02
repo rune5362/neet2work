@@ -22,6 +22,10 @@ export type DocumentListItem = {
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
+  deletedAt: string | null;
+  createdBy: string | null;
+  updatedBy: string | null;
+  deletedBy: string | null;
 };
 
 export type DocumentDetail = DocumentListItem;
@@ -34,6 +38,7 @@ export type CreateDocumentInput = {
   jobId?: string | null;
   content: string;
   contentJson?: unknown | null;
+  actorUserId?: string | null;
 };
 
 export type UpdateDocumentMetaInput = {
@@ -44,8 +49,10 @@ export type UpdateDocumentMetaInput = {
   content?: string;
   contentJson?: unknown | null;
   isArchived?: boolean;
+  actorUserId?: string | null;
 };
 
 export type CopyDocumentInput = {
   candidateKey: string;
+  actorUserId?: string | null;
 };

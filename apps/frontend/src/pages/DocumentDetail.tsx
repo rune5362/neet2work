@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { getJobs } from "../api/client";
-import { archiveDocument, copyDocument, getDocument, restoreDocument, updateDocumentMeta } from "../api/documentClient";
+import { copyDocument, getDocument, protectDocument, unprotectDocument, updateDocumentMeta } from "../api/documentClient";
 import { getProfiles } from "../api/profileClient";
 import { HomeFooter } from "../components/HomeFooter";
 import { HomeTopNav } from "../components/HomeTopNav";
@@ -103,15 +103,15 @@ export function DocumentDetail() {
     setSuccessMessage(null);
 
     try {
-      const result = document.isArchived ? await restoreDocument(documentId) : await archiveDocument(documentId);
+      const result = document.isArchived ? await unprotectDocument(documentId) : await protectDocument(documentId);
       setDocument(result);
       setTitle(result.title);
       setContent(result.content);
       setProfileId(result.profileId ?? "");
       setJobId(result.jobId ?? "");
-      setSuccessMessage(document.isArchived ? "문서를 복원했습니다." : "문서를 보관했습니다.");
+      setSuccessMessage(document.isArchived ? "문서 보호를 해제했습니다." : "문서를 보호했습니다.");
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : document.isArchived ? "문서 복원에 실패했습니다." : "문서 보관에 실패했습니다.");
+      setErrorMessage(error instanceof Error ? error.message : document.isArchived ? "문서 보호 해제에 실패했습니다." : "문서 보호에 실패했습니다.");
     } finally {
       setArchiving(false);
     }
@@ -157,7 +157,7 @@ export function DocumentDetail() {
               type="button"
               onClick={() => { void handleArchiveToggle(); }}
             >
-              {archiving ? "처리 중" : document?.isArchived ? "복원" : "보관"}
+              {archiving ? "처리 중" : document?.isArchived ? "보호해제" : "보호"}
             </button>
           </div>
         </header>
@@ -178,7 +178,7 @@ export function DocumentDetail() {
               {getDocumentTypeLabel(document.documentType)}
               {document.profileTitle ? ` / ${document.profileTitle}` : ""}
               {document.jobTitle ? ` / ${document.jobTitle}` : ""}
-              {document.isArchived ? " / 보관됨" : ""}
+              {document.isArchived ? " / 보호됨" : ""}
             </div>
             <label className="profileFormWide">
               문서 제목

@@ -20,6 +20,10 @@ export type DocumentListItem = {
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
+  deletedAt: string | null;
+  createdBy: string | null;
+  updatedBy: string | null;
+  deletedBy: string | null;
 };
 
 export type DocumentDetail = DocumentListItem;
