@@ -140,32 +140,32 @@
 
 ## Phase 8. API 클라이언트 사용처 정리
 
-* [ ] `/documents`에서 더 이상 쓰지 않는 import를 제거한다.
-  * [ ] `getDocumentSets`
-  * [ ] `createDocumentSet`
-  * [ ] `archiveDocumentSet`
-  * [ ] `restoreDocumentSet`
-* [ ] 지원 묶음 API 클라이언트 자체는 상세 페이지 등 다른 화면 사용처가 있으면 유지한다.
-* [ ] 이력서 API 자체는 다른 화면에서 필요할 수 있으므로 삭제하지 않는다.
-* [ ] 이번 작업은 `/documents` 화면의 노출/진입점 제거에 한정한다.
+* [x] `/documents`에서 더 이상 쓰지 않는 import를 제거한다.
+  * [x] `getDocumentSets`
+  * [x] `createDocumentSet`
+  * [x] `archiveDocumentSet`
+  * [x] `restoreDocumentSet`
+* [x] 지원 묶음 API 클라이언트 자체는 상세 페이지 등 다른 화면 사용처가 있으면 유지한다.
+* [x] 이력서 API 자체는 다른 화면에서 필요할 수 있으므로 삭제하지 않는다.
+* [x] 이번 작업은 `/documents` 화면의 노출/진입점 제거에 한정한다.
 
 완료 기준:
-* [ ] `/documents` 파일에서 지원 묶음 API import가 사라진다.
-* [ ] 다른 지원 묶음 상세/편집 화면은 의도치 않게 깨지지 않는다.
+* [x] `/documents` 파일에서 지원 묶음 API import가 사라진다.
+* [x] 다른 지원 묶음 상세/편집 화면은 의도치 않게 깨지지 않는다.
 
 ---
 
 ## Phase 9. 최종 검증
 
-* [ ] `corepack pnpm --filter @neet2work/frontend test`
-* [ ] 필요 시 `corepack pnpm --filter @neet2work/frontend lint`
-* [ ] 필요 시 `corepack pnpm --filter @neet2work/frontend build`
-* [ ] 브라우저에서 `/documents`를 열어 화면을 확인한다.
-  * [ ] 프로필/자기소개서만 보임.
-  * [ ] 이력서/지원 묶음 CTA와 카드가 보이지 않음.
-  * [ ] 필터/검색/정렬/보관 토글이 남는 항목 기준으로 동작.
-  * [ ] 모바일 폭에서 카드 액션이 겹치지 않음.
+* [x] `corepack pnpm --filter @neet2work/frontend test`
+* [x] 필요 시 `corepack pnpm --filter @neet2work/frontend lint`
+* [x] 필요 시 `corepack pnpm --filter @neet2work/frontend build`
+* [x] 브라우저에서 `/documents`를 열어 화면을 확인한다.
+  * [x] 프로필/자기소개서만 보임.
+  * [x] 이력서/지원 묶음 CTA와 카드가 보이지 않음.
+  * [x] 필터/검색/정렬/보관 토글이 남는 항목 기준으로 동작.
+  * [x] 모바일 폭에서 카드 액션이 겹치지 않음.
 
 완료 기준:
-* [ ] 기능 범위가 프로필/자기소개서로 축소된다.
-* [ ] 테스트와 실제 화면이 같은 범위를 설명한다.
+* [x] 기능 범위가 프로필/자기소개서로 축소된다.
+* [x] 테스트와 실제 화면이 같은 범위를 설명한다.

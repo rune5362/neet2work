@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { createDocument as createDocumentRequest } from "./api/documentClient";
 import { createProfile as createProfileRequest } from "./api/profileClient";
-import type { DocumentDetail, DocumentListItem } from "./types/document";
+import type { DocumentDetail } from "./types/document";
 import type { JobPosting } from "./types/job";
 import type { CandidateProfileJson, ProfileDetail, ProfileListItem } from "./types/profile";
 
