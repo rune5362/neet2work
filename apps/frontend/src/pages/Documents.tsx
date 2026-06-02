@@ -96,6 +96,14 @@ function getItemId(item: LibraryItem) {
   return item.document.id;
 }
 
+function getItemTitle(item: LibraryItem) {
+  if (item.kind === "profile") {
+    return item.profile.title;
+  }
+
+  return item.document.title;
+}
+
 function getItemProtected(item: LibraryItem) {
   if (item.kind === "profile") {
     return item.profile.isArchived;
@@ -158,6 +166,7 @@ export function Documents() {
   const [loading, setLoading] = useState(true);
   const [copyingId, setCopyingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDeleteItem, setPendingDeleteItem] = useState<LibraryItem | null>(null);
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -306,6 +315,8 @@ export function Documents() {
         await deleteDocument(itemId);
         setDocuments((currentDocuments) => currentDocuments.filter((document) => document.id !== itemId));
       }
+
+      setPendingDeleteItem(null);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "항목 삭제에 실패했습니다.");
     } finally {
@@ -387,10 +398,47 @@ export function Documents() {
         className="documentsDangerButton"
         disabled={deletingId === actionId}
         type="button"
-        onClick={() => { void handleDeleteItem(item); }}
+        onClick={() => setPendingDeleteItem(item)}
       >
         {deletingId === actionId ? "삭제 중" : "삭제하기"}
       </button>
+    );
+  };
+
+  const renderDeleteConfirmation = (item: LibraryItem, actionId: string) => {
+    const pendingItemId = pendingDeleteItem ? `${pendingDeleteItem.kind}-${getItemId(pendingDeleteItem)}` : null;
+
+    if (pendingItemId !== actionId) {
+      return null;
+    }
+
+    return (
+      <div className="documentsDeleteConfirmOverlay" role="alertdialog" aria-modal="false" aria-labelledby={`${actionId}-delete-title`}>
+        <div className="documentsDeleteConfirmDialog">
+          <h3 id={`${actionId}-delete-title`}>정말 삭제할까요?</h3>
+          <p>
+            <strong>{getItemTitle(item)}</strong> 항목을 삭제합니다. 삭제 후에는 목록에서 제거됩니다.
+          </p>
+          <div className="documentsDeleteConfirmActions">
+            <button
+              className="documentsSecondaryButton"
+              disabled={deletingId === actionId}
+              type="button"
+              onClick={() => setPendingDeleteItem(null)}
+            >
+              취소
+            </button>
+            <button
+              className="documentsDangerButton"
+              disabled={deletingId === actionId}
+              type="button"
+              onClick={() => { void handleDeleteItem(item); }}
+            >
+              {deletingId === actionId ? "삭제 중" : "삭제 실행"}
+            </button>
+          </div>
+        </div>
+      </div>
     );
   };
 
@@ -532,6 +580,7 @@ export function Documents() {
                       {renderProtectionButton(item, `profile-${profile.id}`, profile.isArchived)}
                       {renderDeleteButton(item, `profile-${profile.id}`)}
                     </div>
+                    {renderDeleteConfirmation(item, `profile-${profile.id}`)}
                   </article>
                 );
               }
@@ -569,6 +618,7 @@ export function Documents() {
                     {renderProtectionButton(item, `document-${document.id}`, document.isArchived)}
                     {renderDeleteButton(item, `document-${document.id}`)}
                   </div>
+                  {renderDeleteConfirmation(item, `document-${document.id}`)}
                 </article>
               );
             })}

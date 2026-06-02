@@ -2191,6 +2191,7 @@ textarea:focus {
 }
 
 .documentsCard {
+  position: relative;
   display: grid;
   grid-template-columns: 112px minmax(0, 1fr) minmax(200px, 260px);
   gap: 24px;
@@ -2392,6 +2393,63 @@ textarea:focus {
 .documentsProtectionAction.protected:hover .documentsProtectionHover,
 .documentsProtectionAction.protected:focus-visible .documentsProtectionHover {
   display: inline;
+}
+
+.documentsDeleteConfirmOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(4px);
+}
+
+.documentsDeleteConfirmDialog {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 380px);
+  border: 1px solid rgba(190, 18, 60, 0.24);
+  border-radius: 10px;
+  padding: 18px;
+  background: white;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
+  text-align: left;
+}
+
+.documentsDeleteConfirmDialog h3 {
+  margin: 0;
+  color: var(--home-ink);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.documentsDeleteConfirmDialog p {
+  margin: 0;
+  color: var(--home-body-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.documentsDeleteConfirmDialog strong {
+  color: var(--home-ink);
+}
+
+.documentsDeleteConfirmActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.documentsDeleteConfirmActions button {
+  min-height: 38px;
+  border-radius: 8px;
+  padding: 0 14px;
+  cursor: pointer;
+  font-weight: 900;
 }
 
 .documentsAnalysisPending {

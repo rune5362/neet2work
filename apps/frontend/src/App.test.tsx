@@ -347,6 +347,13 @@ describe("profile/document frontend integration flow", () => {
     const copiedDocumentCard = screen.getByRole("heading", { name: "프론트엔드 자기소개서 복사본" }).closest("article");
     expect(copiedDocumentCard).not.toBeNull();
     fireEvent.click(within(copiedDocumentCard as HTMLElement).getByRole("button", { name: "삭제하기" }));
+    expect(within(copiedDocumentCard as HTMLElement).getByRole("alertdialog")).toBeInTheDocument();
+    expect(within(copiedDocumentCard as HTMLElement).getByText("정말 삭제할까요?")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("/api/documents/document-copy/delete"),
+      expect.objectContaining({ method: "POST" })
+    );
+    fireEvent.click(within(copiedDocumentCard as HTMLElement).getByRole("button", { name: "삭제 실행" }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining("/api/documents/document-copy/delete"),
