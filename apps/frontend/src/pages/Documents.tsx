@@ -174,6 +174,16 @@ export function Documents() {
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => {
+        setToastMessage(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
 
   async function loadLibrary() {
     setLoading(true);
@@ -282,6 +292,7 @@ export function Documents() {
     try {
       const copiedProfile = await copyProfile(profileId);
       setProfiles((currentProfiles) => [copiedProfile, ...currentProfiles]);
+      setToastMessage("프로필 복사가 완료되었습니다.");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "프로필 복사에 실패했습니다.");
     } finally {
@@ -298,6 +309,7 @@ export function Documents() {
       if (copiedDocument.documentType === "cover_letter") {
         setDocuments((currentDocuments) => [copiedDocument, ...currentDocuments]);
       }
+      setToastMessage("자기소개서 복사가 완료되었습니다.");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "문서 복사에 실패했습니다.");
     } finally {
@@ -315,9 +327,11 @@ export function Documents() {
       if (item.kind === "profile") {
         await deleteProfile(itemId);
         setProfiles((currentProfiles) => currentProfiles.filter((profile) => profile.id !== itemId));
+        setToastMessage("프로필 삭제가 완료되었습니다.");
       } else {
         await deleteDocument(itemId);
         setDocuments((currentDocuments) => currentDocuments.filter((document) => document.id !== itemId));
+        setToastMessage("자기소개서 삭제가 완료되었습니다.");
       }
 
       setPendingDeleteItem(null);
@@ -355,6 +369,7 @@ export function Documents() {
           currentDocuments.map((document) => (document.id === itemId ? updatedDocument : document))
         );
       }
+      setToastMessage(isProtected ? "보호가 해제되었습니다." : "보호가 설정되었습니다.");
     } catch (error) {
       setErrorMessage(getProtectionErrorMessage(error, isProtected));
     } finally {
@@ -630,6 +645,12 @@ export function Documents() {
         )}
       </section>
 
+      {toastMessage && (
+        <div className="documentsToast" role="status" aria-live="polite">
+          <span className="documentsToastIcon">✓</span>
+          <span className="documentsToastMessage">{toastMessage}</span>
+        </div>
+      )}
       <HomeFooter />
     </main>
   );
