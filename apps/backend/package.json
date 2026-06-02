@@ -25,6 +25,7 @@
     "jobs:operational:sql-artifacts": "tsx src/scripts/jobOperationalSqlArtifacts.ts",
     "jobs:operational:scheduler": "tsx src/scripts/jobOperationalScheduler.ts",
     "jobs:operational:jp-plan": "tsx src/scripts/jobOperationalJpPlan.ts",
+    "codex:bridge:smoke": "tsx src/scripts/codexBridgeSmoke.ts",
     "db:studio": "prisma studio",
     "db:status": "prisma migrate status"
   },

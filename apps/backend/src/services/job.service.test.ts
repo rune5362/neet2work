@@ -95,6 +95,23 @@ describe("getJobs", () => {
     );
   });
 
+  it("keeps inferred job category filters scoped to title and skills", async () => {
+    const { count, findMany } = mockPaginatedJobPostingQuery([dbJob]);
+
+    await getJobsPage({ jobCategory: "AI/데이터", limit: 5 });
+
+    const [countQuery] = count.mock.calls[0] ?? [];
+    const [findManyQuery] = findMany.mock.calls[0] ?? [];
+
+    expect(JSON.stringify(countQuery?.where)).not.toContain("rawText");
+    expect(JSON.stringify(findManyQuery?.where)).not.toContain("rawText");
+    expect(JSON.stringify(countQuery?.where)).not.toContain("description");
+    expect(JSON.stringify(findManyQuery?.where)).not.toContain("description");
+    expect(JSON.stringify(countQuery?.where)).toContain("jobCategory");
+    expect(JSON.stringify(countQuery?.where)).toContain("title");
+    expect(JSON.stringify(countQuery?.where)).toContain("skills");
+  });
+
   it("returns all matching database jobs when limit is omitted", async () => {
     const findMany = vi.fn().mockResolvedValue([
       dbJob,
@@ -815,5 +832,37 @@ describe("getJobById", () => {
         select: expect.any(Object)
       })
     );
+  });
+
+  it("uses cleaned raw detail text for database detail descriptions", async () => {
+    const rawDetailText = [
+      "求人情報詳細",
+      "仕事内容",
+      "大手外資系金融企業内にて、クライアントマネジメントをご担当いただきます。",
+      "【具体的な業務内容】",
+      "・クライアントとの折衝、経営会議",
+      "・チームリーディング、育成、マネジメント",
+      "企業について",
+      "この会社説明は詳細職務説明には含めない"
+    ].join(" ");
+    const findFirst = vi.fn().mockResolvedValue({
+      ...dbJob,
+      description: "大手外資系金融企業内にて、クライアントマネジメントをご担当いただきます。 ・チ",
+      rawJson: {
+        holidays: rawDetailText
+      },
+      rawText: rawDetailText
+    });
+    getPrismaClientMock.mockReturnValue({
+      jobPosting: { findFirst }
+    } as unknown as ReturnType<typeof getPrismaClient>);
+
+    const job = await getJobById("db-job-001");
+
+    expect(job?.description).toContain("チームリーディング");
+    expect(job?.description).toContain("\n・チームリーディング");
+    expect(job?.description).not.toContain("企業について");
+    const [query] = findFirst.mock.calls[0] ?? [];
+    expect(query?.select).toMatchObject({ rawText: true });
   });
 });

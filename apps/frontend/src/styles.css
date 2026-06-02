@@ -5242,6 +5242,36 @@ textarea:focus {
   line-height: 1.5;
 }
 
+.jobsFallbackNotice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  max-width: 720px;
+  margin: -22px auto 32px;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 14px 18px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.jobsFallbackNotice strong {
+  color: #78350f;
+}
+
+.jobsSampleBadge {
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
 .errorRetryBtn {
   border: 0;
   border-radius: 8px;
@@ -5507,6 +5537,7 @@ textarea:focus {
   color: #334155;
   font-size: 0.92rem;
   line-height: 1.7;
+  white-space: pre-line;
 }
 
 .placeholderParagraph {
@@ -5818,6 +5849,19 @@ textarea:focus {
   color: #29d99b;
   border: 1px solid rgba(16, 185, 129, 0.45);
   background: rgba(16, 185, 129, 0.13);
+}
+
+.aiDraftTitleRow strong.aiDraftProviderStatusBadge.offline {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.42);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.aiDraftTitleRow strong.aiDraftProviderStatusBadge.fallback,
+.aiDraftTitleRow strong.aiDraftProviderStatusBadge.checking {
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.42);
+  background: rgba(245, 158, 11, 0.12);
 }
 
 .aiDraftChatHeader p {
@@ -6450,9 +6494,10 @@ textarea:focus {
 
 .aiDraftComposerBar {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 118px 34px;
+  column-gap: 8px;
+  align-items: end;
   min-height: 48px;
   padding: 6px 8px;
   border: 1px solid rgba(226, 232, 240, 0.14);
@@ -6464,12 +6509,13 @@ textarea:focus {
 }
 
 .aiDraftComposerBar textarea {
-  flex: 1 1 auto;
+  grid-column: 2;
+  grid-row: 1;
   width: 100%;
   min-width: 0;
   min-height: 22px;
   max-height: 240px;
-  padding: 0 4px;
+  padding: 5px 4px;
   border: 0;
   outline: none;
   resize: none;
@@ -6479,7 +6525,7 @@ textarea:focus {
   font: inherit;
   font-size: 0.92rem;
   line-height: 22px;
-  align-self: center;
+  align-self: end;
 }
 
 .aiDraftComposerBar textarea::placeholder {
@@ -6491,8 +6537,9 @@ textarea:focus {
 }
 
 .aiDraftComposerPlusButton {
+  grid-column: 1;
+  grid-row: 1;
   display: grid;
-  flex: 0 0 auto;
   place-items: center;
   width: 32px;
   height: 32px;
@@ -6502,6 +6549,12 @@ textarea:focus {
   color: #cbd5e1;
   cursor: pointer;
   transition: background 160ms ease, color 160ms ease;
+}
+
+.aiDraftComposerPlusButton,
+.aiDraftComposerModelButton,
+.aiDraftComposerSendButton {
+  margin-bottom: 1px;
 }
 
 .aiDraftComposerPlusButton .aiDraftIcon {
@@ -6521,8 +6574,9 @@ textarea:focus {
 }
 
 .aiDraftComposerSendButton {
+  grid-column: 4;
+  grid-row: 1;
   display: grid;
-  flex: 0 0 auto;
   place-items: center;
   width: 34px;
   height: 34px;
@@ -6558,13 +6612,17 @@ textarea:focus {
 }
 
 .aiDraftComposerModelButton {
+  grid-column: 3;
+  grid-row: 1;
   display: inline-flex;
-  flex: 0 0 auto;
+  justify-self: center;
   align-items: center;
+  justify-content: center;
   gap: 2px;
-  max-width: 120px;
-  height: auto;
-  padding: 2px 4px;
+  width: 100%;
+  max-width: 110px;
+  min-height: 32px;
+  padding: 0 6px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -6927,6 +6985,7 @@ textarea:focus {
 
 .aiDraftSideHeader button,
 .aiDraftCardTitle button,
+.aiDraftCardAction,
 .aiDraftSummaryButton {
   min-height: 36px;
   padding: 0 14px;
@@ -6934,6 +6993,17 @@ textarea:focus {
   border-color: var(--draft-line);
   background: #f8fafc;
   box-shadow: none;
+}
+
+.aiDraftCardAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--draft-line);
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-weight: 800;
+  text-decoration: none;
 }
 
 .aiDraftInfoCard {
@@ -6948,38 +7018,6 @@ textarea:focus {
   margin-bottom: 16px;
   color: #1b3152;
   font-weight: 800;
-}
-
-.aiDraftJobSearch {
-  display: grid;
-  gap: 10px;
-  margin: -4px 0 14px;
-}
-
-.aiDraftJobSearch input {
-  width: 100%;
-  height: 40px;
-  padding: 0 12px;
-  border: 1px solid var(--draft-line);
-  border-radius: 8px;
-  background: #fff;
-}
-
-.aiDraftJobSearch > div {
-  display: grid;
-  gap: 6px;
-}
-
-.aiDraftJobSearch button {
-  display: grid;
-  gap: 2px;
-  padding: 9px 10px;
-  border: 1px solid var(--draft-line);
-  border-radius: 8px;
-  background: #f8fafc;
-  color: var(--draft-body);
-  text-align: left;
-  cursor: pointer;
 }
 
 .aiDraftJobMeta {
@@ -7055,6 +7093,56 @@ textarea:focus {
   border-color: rgba(16, 185, 129, 0.35);
   background: rgba(16, 185, 129, 0.1);
   animation: draftMatchPulse 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.aiDraftProviderList {
+  display: grid;
+  gap: 9px;
+}
+
+.aiDraftProviderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.aiDraftProviderRow span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #cfd9e7;
+  border-radius: 7px;
+  color: #5f7088;
+  background: #f8fafc;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.aiDraftProviderRow span.matched {
+  color: #087546;
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.aiDraftProviderConnectButton {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(0, 102, 255, 0.22);
+  border-radius: 7px;
+  color: var(--draft-blue);
+  background: rgba(0, 102, 255, 0.08);
+  font-size: 0.78rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.aiDraftProviderConnectButton:disabled {
+  color: #7f8da3;
+  background: #eef3f8;
+  cursor: wait;
 }
 
 .aiDraftFootnote {
@@ -7221,18 +7309,6 @@ textarea:focus {
   font-weight: 700;
 }
 
-.aiDraftTargetField,
-.aiDraftTargetToggle {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 10px;
-  font-size: 0.82rem;
-  color: #cbd5e1;
-}
-
-.aiDraftTargetField textarea,
-.aiDraftTargetField input,
 .aiDraftGapTextarea {
   width: 100%;
   padding: 10px 12px;
@@ -7242,12 +7318,6 @@ textarea:focus {
   color: #f8fafc;
   font: inherit;
   resize: vertical;
-}
-
-.aiDraftTargetToggle {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
 }
 
 .aiDraftGapPanel {

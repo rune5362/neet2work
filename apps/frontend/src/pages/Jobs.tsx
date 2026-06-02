@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { Bot, Code2, ListChecks, Megaphone, Palette, ShieldCheck } from "lucide-react";
 import {
   type DeadlineTypeFilterValue,
   type EmploymentTypeFilterValue,
@@ -198,84 +199,28 @@ function JobsEmptyIcon() {
   );
 }
 
-function JobsCardGlyph({ children }: { children: ReactNode }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className="jobsCardIconSvg"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.9"
-      viewBox="0 0 24 24"
-    >
-      {children}
-    </svg>
-  );
-}
-
 function JobCategoryIcon({ category }: { category: string }) {
   if (category === "AI/데이터") {
-    return (
-      <JobsCardGlyph>
-        <rect x="4.5" y="7" width="15" height="10" rx="3.5" />
-        <path d="M9 7V5.75A3 3 0 0 1 12 3a3 3 0 0 1 3 2.75V7" />
-        <path d="M12 11.25v1.5" />
-        <circle cx="8.25" cy="12" r="0.75" fill="currentColor" stroke="none" />
-        <circle cx="15.75" cy="12" r="0.75" fill="currentColor" stroke="none" />
-      </JobsCardGlyph>
-    );
+    return <Bot aria-hidden="true" className="jobsCardIconSvg" />;
   }
 
   if (category === "디자인") {
-    return (
-      <JobsCardGlyph>
-        <path d="m6 16 8.5-8.5a2.1 2.1 0 1 1 3 3L9 19l-3.5 1L6 16Z" />
-        <path d="m13.5 8.5 3 3" />
-      </JobsCardGlyph>
-    );
+    return <Palette aria-hidden="true" className="jobsCardIconSvg" />;
   }
 
   if (category === "마케팅") {
-    return (
-      <JobsCardGlyph>
-        <path d="M5 13.5V10a1.5 1.5 0 0 1 1.5-1.5H9l7-3v12l-7-3H6.5A1.5 1.5 0 0 1 5 13.5Z" />
-        <path d="M9 14.5 10.5 19" />
-        <path d="M18.5 9a4.5 4.5 0 0 1 0 6" />
-      </JobsCardGlyph>
-    );
+    return <Megaphone aria-hidden="true" className="jobsCardIconSvg" />;
   }
 
   if (category === "보안") {
-    return (
-      <JobsCardGlyph>
-        <path d="M12 3.75 18 6v4.75c0 4.1-2.55 7-6 9.5-3.45-2.5-6-5.4-6-9.5V6l6-2.25Z" />
-        <path d="m9.5 12 1.75 1.75L14.5 10.5" />
-      </JobsCardGlyph>
-    );
+    return <ShieldCheck aria-hidden="true" className="jobsCardIconSvg" />;
   }
 
   if (category === "PM") {
-    return (
-      <JobsCardGlyph>
-        <path d="M10.5 7.5h7" />
-        <path d="M10.5 12h7" />
-        <path d="M10.5 16.5h7" />
-        <path d="m5.5 7.5 1.25 1.25L9 6.5" />
-        <path d="m5.5 12 1.25 1.25L9 11" />
-        <path d="m5.5 16.5 1.25 1.25L9 15.5" />
-      </JobsCardGlyph>
-    );
+    return <ListChecks aria-hidden="true" className="jobsCardIconSvg" />;
   }
 
-  return (
-    <JobsCardGlyph>
-      <path d="m8.5 8-4 4 4 4" />
-      <path d="m15.5 8 4 4-4 4" />
-      <path d="M13.25 5.75 10.75 18.25" />
-    </JobsCardGlyph>
-  );
+  return <Code2 aria-hidden="true" className="jobsCardIconSvg" />;
 }
 
 function jobCategoryIconClass(category: string) {
@@ -1429,6 +1374,17 @@ function isNewlyPosted(postedAt?: string | null) {
   return Date.now() - postedTime <= threeDays;
 }
 
+function safeExternalJobUrl(value?: string | null): string | undefined {
+  if (!value) return undefined;
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function toJobListing(job: JobPosting): JobListing {
   const country = displayCountry(job.country);
   const employmentTypeCategory =
@@ -1447,9 +1403,9 @@ function toJobListing(job: JobPosting): JobListing {
     title: job.title,
     company: job.company,
     source: job.source ?? "unknown",
-    sourceUrl: job.sourceUrl,
+    sourceUrl: safeExternalJobUrl(job.sourceUrl) ?? "",
     sourceValue: job.source,
-    category: inferCategory(job),
+    category: job.jobCategory || inferCategory(job),
     country,
     countryValue: job.country,
     language: displayLanguage(job.language),
@@ -1727,6 +1683,7 @@ function buildPaginationItems(totalPages: number, currentPage: number): Paginati
 
 export function Jobs() {
   const initialUrlStateRef = useRef<JobsUrlState | null>(null);
+  const detailRequestIdRef = useRef(0);
   if (!initialUrlStateRef.current) {
     initialUrlStateRef.current = readJobsUrlState();
   }
@@ -1757,12 +1714,13 @@ export function Jobs() {
   >(() => initialUrlState.deadlineType);
   const [isNewOnly, setIsNewOnly] = useState(() => initialUrlState.newOnly);
   const [currentPage, setCurrentPage] = useState(() => initialUrlState.page);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [retryVersion, setRetryVersion] = useState(0);
-  const [jobs, setJobs] = useState<JobListing[]>(fallbackJobsData.slice(0, JOBS_PER_PAGE));
-  const [totalJobs, setTotalJobs] = useState(fallbackJobsData.length);
-  const [availableSkills, setAvailableSkills] = useState<string[]>(fallbackSkillOptions);
+  const [jobs, setJobs] = useState<JobListing[]>([]);
+  const [totalJobs, setTotalJobs] = useState(0);
+  const [availableSkills, setAvailableSkills] = useState<string[]>([]);
+  const [isUsingFallbackJobs, setIsUsingFallbackJobs] = useState(false);
   const [selectedJobDetail, setSelectedJobDetail] = useState<JobListing | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
@@ -1860,6 +1818,7 @@ export function Jobs() {
 
     setIsLoading(true);
     setIsError(false);
+    setIsUsingFallbackJobs(false);
 
     getJobs({
       q: searchQuery.trim() || undefined,
@@ -1883,6 +1842,7 @@ export function Jobs() {
         setJobs(response.data.map(toJobListing));
         setTotalJobs(response.total);
         setAvailableSkills(response.availableSkills);
+        setIsUsingFallbackJobs(false);
         if (response.page !== currentPage) {
           setCurrentPage(response.page);
         }
@@ -1894,6 +1854,7 @@ export function Jobs() {
         setJobs(fallbackJobsData.slice(0, JOBS_PER_PAGE));
         setTotalJobs(fallbackJobsData.length);
         setAvailableSkills(fallbackSkillOptions);
+        setIsUsingFallbackJobs(true);
       })
       .finally(() => {
         if (isCurrent) {
@@ -2097,6 +2058,10 @@ export function Jobs() {
   const selectedJob = useMemo(() => {
     return selectedJobDetail ?? jobs.find((job) => job.id === selectedJobId) ?? null;
   }, [jobs, selectedJobDetail, selectedJobId]);
+  const selectedJobSourceUrl = useMemo(
+    () => safeExternalJobUrl(selectedJob?.sourceUrl),
+    [selectedJob?.sourceUrl]
+  );
 
   const totalPages = Math.max(1, Math.ceil(totalJobs / JOBS_PER_PAGE));
   const visibleJobs = jobs;
@@ -2118,6 +2083,8 @@ export function Jobs() {
   }, [currentPage]);
 
   const handleOpenDetail = async (id: string) => {
+    const requestId = detailRequestIdRef.current + 1;
+    detailRequestIdRef.current = requestId;
     const listJob = jobs.find((job) => job.id === id) ?? null;
     setSelectedJobId(id);
     setSelectedJobDetail(listJob);
@@ -2125,12 +2092,23 @@ export function Jobs() {
 
     try {
       const detail = await getJobById(id);
+      if (detailRequestIdRef.current !== requestId) return;
       setSelectedJobDetail(toJobListing(detail));
     } catch {
+      if (detailRequestIdRef.current !== requestId) return;
       setSelectedJobDetail(listJob);
     } finally {
-      setIsDetailLoading(false);
+      if (detailRequestIdRef.current === requestId) {
+        setIsDetailLoading(false);
+      }
     }
+  };
+
+  const handleCloseDetail = () => {
+    detailRequestIdRef.current += 1;
+    setSelectedJobId(null);
+    setSelectedJobDetail(null);
+    setIsDetailLoading(false);
   };
 
   const handleResetFilters = () => {
@@ -2142,6 +2120,7 @@ export function Jobs() {
     handleResetAdvancedFilters();
     setLocationSearch("");
     setIsError(false);
+    setIsUsingFallbackJobs(false);
   };
 
   const handleResetAdvancedFilters = () => {
@@ -2522,6 +2501,15 @@ export function Jobs() {
           </div>
         ) : null}
 
+        {isUsingFallbackJobs ? (
+          <div className="jobsFallbackNotice" role="status">
+            <strong>샘플 데이터 표시 중</strong>
+            <span>
+              백엔드 응답을 가져오지 못해 데모용 공고를 대신 보여주고 있습니다.
+            </span>
+          </div>
+        ) : null}
+
         {isLoading ? (
           <section className="jobsGrid skeletonGrid" aria-label="채용공고를 불러오는 중">
             {[1, 2, 3].map((item) => (
@@ -2562,6 +2550,9 @@ export function Jobs() {
                       <JobCategoryIcon category={job.category} />
                     </div>
                     <div className="jobsCardBadges">
+                      {isUsingFallbackJobs ? (
+                        <span className="jobsSampleBadge">Sample</span>
+                      ) : null}
                       {job.isNew ? <span className="jobsNewBadge">New</span> : null}
                       <span className="jobsSourceBadge">{job.source}</span>
                     </div>
@@ -2679,7 +2670,7 @@ export function Jobs() {
           <div
             aria-hidden="true"
             className="jobsDrawerBackdrop"
-            onClick={() => setSelectedJobId(null)}
+            onClick={handleCloseDetail}
           />
           <aside
             aria-labelledby="drawer-title"
@@ -2691,7 +2682,7 @@ export function Jobs() {
                 aria-label="상세 보기 닫기"
                 className="drawerCloseBtn"
                 type="button"
-                onClick={() => setSelectedJobId(null)}
+                onClick={handleCloseDetail}
               >
                 ×
               </button>
@@ -2792,23 +2783,25 @@ export function Jobs() {
                 </section>
 
                 <div className="drawerActions">
-                  <a
-                    className="drawerOriginalLink"
-                    href={selectedJob.sourceUrl}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    원문 공고 열기
-                    <svg
-                      aria-hidden="true"
-                      className="externalIcon"
-                      viewBox="0 0 24 24"
+                  {selectedJobSourceUrl ? (
+                    <a
+                      className="drawerOriginalLink"
+                      href={selectedJobSourceUrl}
+                      rel="noopener noreferrer"
+                      target="_blank"
                     >
-                      <path d="M15 3h6v6" />
-                      <path d="M10 14 21 3" />
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                    </svg>
-                  </a>
+                      원문 공고 열기
+                      <svg
+                        aria-hidden="true"
+                        className="externalIcon"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M15 3h6v6" />
+                        <path d="M10 14 21 3" />
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      </svg>
+                    </a>
+                  ) : null}
                   <a className="drawerAnalyzeBtn" href={`/ai-analysis?jobId=${selectedJob.id}`}>
                     이 공고로 AI 분석하기
                   </a>

@@ -202,6 +202,15 @@ function apiResponse(body: unknown) {
   } as Response);
 }
 
+function deferredApiResponse() {
+  let resolve!: (response: Response) => void;
+  const promise = new Promise<Response>((innerResolve) => {
+    resolve = innerResolve;
+  });
+
+  return { promise, resolve };
+}
+
 describe("Jobs page backend integration", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
   let scrollToMock: ReturnType<typeof vi.fn>;
@@ -376,6 +385,94 @@ describe("Jobs page backend integration", () => {
     expect(fetchMock.mock.calls.some((call) => String(call[0]).includes("/api/jobs/api-job-1"))).toBe(
       true
     );
+  });
+
+  it("ignores stale detail responses when another job is selected", async () => {
+    const firstDetail = deferredApiResponse();
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.includes("/api/jobs/api-job-1")) {
+        return firstDetail.promise;
+      }
+
+      if (url.includes("/api/jobs/api-job-2")) {
+        return apiResponse({
+          data: {
+            ...krApiJob,
+            description: "Second selected detail"
+          }
+        });
+      }
+
+      if (url.includes("/api/jobs")) {
+        return apiResponse(jobsPageResponse([apiJob, krApiJob], { total: 2 }));
+      }
+
+      return Promise.resolve({
+        ok: false,
+        json: async () => ({ message: "not found" })
+      } as Response);
+    });
+
+    render(<Jobs />);
+
+    await screen.findByText("API 백엔드 연결 공고");
+    const detailButtons = Array.from(
+      document.querySelectorAll<HTMLButtonElement>(".jobsDetailLinkBtn")
+    );
+    fireEvent.click(detailButtons[0]);
+    fireEvent.click(detailButtons[1]);
+
+    expect(await screen.findByText("Second selected detail")).toBeInTheDocument();
+
+    firstDetail.resolve({
+      ok: true,
+      json: async () => ({
+        data: {
+          ...apiJob,
+          description: "First stale detail"
+        }
+      })
+    } as Response);
+
+    await waitFor(() => {
+      expect(screen.queryByText("First stale detail")).not.toBeInTheDocument();
+      expect(screen.getByText("Second selected detail")).toBeInTheDocument();
+    });
+  });
+
+  it("does not render an original job link for unsafe source URLs", async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.includes("/api/jobs/api-job-1")) {
+        return apiResponse({
+          data: {
+            ...apiJob,
+            sourceUrl: "javascript:alert(1)",
+            description: "Unsafe URL detail"
+          }
+        });
+      }
+
+      if (url.includes("/api/jobs")) {
+        return apiResponse(jobsPageResponse([apiJob], { total: 1 }));
+      }
+
+      return Promise.resolve({
+        ok: false,
+        json: async () => ({ message: "not found" })
+      } as Response);
+    });
+
+    render(<Jobs />);
+
+    const detailButtons = await screen.findAllByRole("button", { name: "상세 보기" });
+    fireEvent.click(detailButtons[0]);
+
+    expect(await screen.findByText("Unsafe URL detail")).toBeInTheDocument();
+    expect(document.querySelector(".drawerOriginalLink")).toBeNull();
   });
 
   it("shows salary supplementary notes only inside the detail drawer", async () => {
@@ -798,6 +895,10 @@ describe("Jobs page backend integration", () => {
 
     expect(await screen.findByText("시니어 풀스택 엔지니어 (SaaS)")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("서버와의 연결이 원활하지 않습니다");
+    expect(document.querySelector(".jobsFallbackNotice")).toHaveTextContent("샘플 데이터 표시 중");
+    expect(document.querySelectorAll(".jobsSampleBadge")).toHaveLength(
+      document.querySelectorAll(".jobsCard").length
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "다시 시도하기" }));
 

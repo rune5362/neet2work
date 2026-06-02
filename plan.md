@@ -95,9 +95,10 @@ AI_PROVIDER_TIMEOUT_MS=180000
 
 # Codex Bridge
 CODEX_BRIDGE_ENABLED=false
-CODEX_BRIDGE_COMMAND=codex
+CODEX_BRIDGE_COMMAND=
+CODEX_BRIDGE_HOME=
 CODEX_BRIDGE_MODEL=
-CODEX_BRIDGE_PROFILE=
+CODEX_BRIDGE_REASONING_EFFORT=
 
 # Gemini
 GEMINI_ENABLED=false
@@ -383,19 +384,26 @@ type DraftWorkflowDraft = {
 ### `CodexBridgeProvider`
 
 - `CODEX_BRIDGE_ENABLED=true`일 때만 configured 후보가 된다.
-- 로컬 `codex exec`를 사용한다.
-- 읽기 전용 실행만 허용한다.
-- 권장 실행:
+- `CODEX_BRIDGE_COMMAND`는 비워두면 자동 탐색한다. 우선순위는 explicit env, `CODEX_CLI_PATH`, Windows `%LOCALAPPDATA%\OpenAI\Codex\bin\*\codex.exe`, PATH의 `codex` 순서다.
+- `CODEX_BRIDGE_HOME`은 app-server child process의 `CODEX_HOME`으로 전달한다. 비워두면 사용자 홈의 `.codex`를 우선 사용하고, 없을 때만 기존 `CODEX_HOME`을 사용한다.
+- 로컬 `codex app-server --listen stdio://`를 실행하고 JSON-RPC 2.0(JSONL)으로 통신한다.
+- provider status는 `account/read`를 사용해 로컬 Codex의 기존 ChatGPT OAuth/API key 로그인 상태를 확인한다.
+- 로컬 Codex가 이미 로그인되어 있으면 Neet2Work가 토큰을 직접 읽거나 저장하지 않고 app-server가 보유한 세션으로 자동 연결된다.
+- 미로그인 진단/연결 시작은 app-server `account/login/start`를 사용한다. ChatGPT OAuth 응답은 `loginId`와 `authUrl`이며, 완료는 `account/login/completed` notification으로 확인한다.
+- Neet2Work는 OAuth access token, refresh token, API key를 직접 읽거나 저장하지 않는다. 계정 캐시와 refresh는 Codex CLI/app-server에 위임한다.
+- 미로그인 상태는 `online=false`, `reason="codex_not_logged_in"`으로 처리한다.
+- turn 실행은 읽기 전용 sandbox와 `approvalPolicy: "never"`를 사용한다.
+- 실행 흐름:
 
 ```txt
-codex exec --ephemeral --sandbox read-only --ask-for-approval never --json
+initialize -> initialized -> account/read -> thread/start -> turn/start -> turn/completed
+initialize -> initialized -> account/read -> account/login/start -> account/login/completed -> account/read
 ```
 
-- `CODEX_BRIDGE_MODEL`이 있으면 `-m`으로 전달한다.
-- `CODEX_BRIDGE_PROFILE`이 있으면 `-p`로 전달한다.
-- stdout JSON/JSONL에서 최종 assistant output만 추출한다.
+- `CODEX_BRIDGE_MODEL`이 있으면 `thread/start`/`turn/start`의 `model`로 전달한다.
+- `CODEX_BRIDGE_REASONING_EFFORT`가 있으면 `turn/start`의 `effort`로 전달한다.
+- streamed `agentMessage` item에서 최종 assistant output만 추출한다.
 - 최종 output은 JSON이어야 하며 Zod schema를 통과해야 한다.
-- login/session 실패는 `online=false`, `reason="codex_not_logged_in"`으로 처리한다.
 
 ### `GeminiProvider`
 

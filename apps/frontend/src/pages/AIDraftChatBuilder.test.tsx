@@ -381,7 +381,7 @@ describe("AIDraftChatBuilder job context", () => {
     vi.unstubAllGlobals();
   });
 
-  it("loads the selected job from the jobId query instead of keeping the mock card", async () => {
+  it("loads the selected job from the jobId query", async () => {
     window.history.pushState({}, "", "/ai-analysis?jobId=careercross-1591647");
 
     render(<AIDraftChatBuilder />);
@@ -389,20 +389,191 @@ describe("AIDraftChatBuilder job context", () => {
     expect(await screen.findByText("실전 백엔드 엔지니어")).toBeInTheDocument();
     expect(screen.getByText("Backend Bridge")).toBeInTheDocument();
     expect(screen.getByText("선택된 공고")).toBeInTheDocument();
-    expect(screen.queryByText("선택된 공고 (Mock)")).not.toBeInTheDocument();
+    expect(screen.queryByText("선택된 공고 없음")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "수정" })).toHaveAttribute("href", "/jobs");
+    const skillCard = screen.getByText("직무 핵심 스킬").closest("section");
+    expect(skillCard).toBeTruthy();
+    expect(within(skillCard as HTMLElement).getByText(/Node\.js/)).toBeInTheDocument();
+    expect(within(skillCard as HTMLElement).getByText(/REST API/)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/api/jobs/careercross-1591647")
     );
   });
 
-  it("keeps the existing mock card when no jobId query is provided", async () => {
+  it("starts without a hardcoded selected job when no jobId query is provided", async () => {
     render(<AIDraftChatBuilder />);
 
     await waitFor(() => {
-      expect(screen.getByText("선택된 공고 (Mock)")).toBeInTheDocument();
+      expect(screen.getByText("선택된 공고 없음")).toBeInTheDocument();
     });
-    expect(screen.getByText("네이트워크 테크")).toBeInTheDocument();
+    expect(screen.getByText("채용공고에서 공고를 선택하면 여기에 표시됩니다.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "공고 선택" })).toHaveAttribute("href", "/jobs");
+    expect(screen.queryByText("네이트워크 테크")).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/draft-workflow/providers"));
+  });
+
+  it("does not show default job skills until the user selects a real job or mentions skills", async () => {
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("선택된 공고 없음");
+    const skillCard = screen.getByText("직무 핵심 스킬").closest("section");
+    expect(skillCard).toBeTruthy();
+    expect(within(skillCard as HTMLElement).getByText("아직 감지된 스킬 없음")).toBeInTheDocument();
+    expect(within(skillCard as HTMLElement).queryByText(/JavaScript/)).not.toBeInTheDocument();
+
+    await submitUserResume("Node.js와 PostgreSQL로 REST API 서버를 구축하고 운영한 경험이 있습니다.");
+
+    expect(within(skillCard as HTMLElement).getByText(/Node\.js/)).toBeInTheDocument();
+    expect(within(skillCard as HTMLElement).getByText(/PostgreSQL/)).toBeInTheDocument();
+    expect(within(skillCard as HTMLElement).getByText(/REST API/)).toBeInTheDocument();
+  });
+
+  it("calculates ATS fit from selected job keywords and chat input", async () => {
+    window.history.pushState({}, "", "/ai-analysis?jobId=careercross-1591647");
+
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+    const atsCard = screen.getByText("ATS 적합도").closest("section");
+    expect(atsCard).toBeTruthy();
+    expect(within(atsCard as HTMLElement).getByText("대화 후 계산")).toBeInTheDocument();
+    expect(within(atsCard as HTMLElement).getByText("대기")).toBeInTheDocument();
+    expect(within(atsCard as HTMLElement).getByText("입력 후 계산")).toBeInTheDocument();
+    expect(within(atsCard as HTMLElement).getByText("대화를 시작하면 적합도를 계산합니다.")).toBeInTheDocument();
+    expect(within(atsCard as HTMLElement).queryByText("52")).not.toBeInTheDocument();
+    expect(within(atsCard as HTMLElement).queryByText("경험 구체성 (추정)")).not.toBeInTheDocument();
+    expect(within(atsCard as HTMLElement).queryByText("구조화 STAR (추정)")).not.toBeInTheDocument();
+
+    await submitUserResume(
+      "Node.js와 PostgreSQL로 REST API 서버를 구축하고 운영했습니다. 장애 원인을 분석해 배포 자동화를 개선했고 API 응답 시간을 30% 줄였습니다."
+    );
+
+    await waitFor(() => {
+      expect(within(atsCard as HTMLElement).getByText("입력 기반 계산")).toBeInTheDocument();
+    });
+    expect(within(atsCard as HTMLElement).queryByText("대기")).not.toBeInTheDocument();
+    expect(within(atsCard as HTMLElement).getByText("/100")).toBeInTheDocument();
+    expect(within(atsCard as HTMLElement).getByText("공고 키워드 일치")).toBeInTheDocument();
+    expect(within(atsCard as HTMLElement).getByText("경험 구체성")).toBeInTheDocument();
+    expect(within(atsCard as HTMLElement).getByText("STAR 구조")).toBeInTheDocument();
+    expect(within(atsCard as HTMLElement).getByText("문장 명료성")).toBeInTheDocument();
+    expect(within(atsCard as HTMLElement).getByText("공고 적합도")).toBeInTheDocument();
+    expect(within(atsCard as HTMLElement).queryByText("경험 구체성 (추정)")).not.toBeInTheDocument();
+    expect(within(atsCard as HTMLElement).queryByText("기업/직무 적합도 (추정)")).not.toBeInTheDocument();
+  });
+
+  it("uses job description keywords for ATS when the selected job has no skill tags", async () => {
+    window.history.pushState({}, "", "/ai-analysis?jobId=careercross-1591647");
+    const defaultFetchMock = createDraftWorkflowFetchMock();
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.includes("/api/jobs/careercross-1591647")) {
+        return apiResponse({
+          data: {
+            ...apiJob,
+            title: "SaaS Account Executive",
+            skills: [],
+            description: "SaaS account executive sales pipeline customer success revenue"
+          }
+        });
+      }
+
+      return defaultFetchMock(input, init);
+    });
+
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("SaaS Account Executive");
+    const atsCard = screen.getByText("ATS 적합도").closest("section");
+    expect(atsCard).toBeTruthy();
+
+    await submitUserResume(
+      "SaaS account executive로 sales pipeline을 관리하고 customer success 팀과 협업했습니다. 신규 revenue 기회를 분석해 전환율을 20% 개선했습니다."
+    );
+
+    await waitFor(() => {
+      expect(within(atsCard as HTMLElement).getByText("입력 기반 계산")).toBeInTheDocument();
+    });
+    const keywordMetric = Array.from((atsCard as HTMLElement).querySelectorAll(".aiDraftScoreBars > div")).find((row) =>
+      row.textContent?.includes("공고 키워드 일치")
+    );
+    expect(keywordMetric).toBeTruthy();
+    expect(keywordMetric?.textContent).not.toMatch(/공고 키워드 일치\s*0$/);
+  });
+
+  it("adds detected skills to the selected job skill panel without calling the AI workflow", async () => {
+    window.history.pushState({}, "", "/ai-analysis?jobId=careercross-1591647");
+    const defaultFetchMock = createDraftWorkflowFetchMock();
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.includes("/api/jobs/careercross-1591647")) {
+        return apiResponse({
+          data: {
+            ...apiJob,
+            title: "SaaS Account Executive",
+            skills: [],
+            description: "SaaS account executive sales pipeline customer success revenue"
+          }
+        });
+      }
+
+      return defaultFetchMock(input, init);
+    });
+
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("SaaS Account Executive");
+    const skillCard = screen.getByText("직무 핵심 스킬").closest("section");
+    expect(skillCard).toBeTruthy();
+    expect(within(skillCard as HTMLElement).getByText("아직 감지된 스킬 없음")).toBeInTheDocument();
+
+    await submitUserResume(
+      "SaaS account executive로 sales pipeline을 관리하고 customer success 팀과 협업했습니다."
+    );
+
+    expect(within(skillCard as HTMLElement).getByText(/saas/i)).toBeInTheDocument();
+    expect(within(skillCard as HTMLElement).queryAllByText(/sales/i).length).toBeGreaterThan(0);
+    expect(within(skillCard as HTMLElement).queryAllByText(/pipeline/i).length).toBeGreaterThan(0);
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/api/draft-workflow/plan"))).toBe(false);
+  });
+
+  it("detects role skill aliases locally without requiring the AI workflow", async () => {
+    window.history.pushState({}, "", "/ai-analysis?jobId=daijob-1522029");
+    const defaultFetchMock = createDraftWorkflowFetchMock();
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.includes("/api/jobs/daijob-1522029")) {
+        return apiResponse({
+          data: {
+            ...apiJob,
+            id: "daijob-1522029",
+            title: "外資系企業内アカウントマネジャー",
+            skills: [],
+            description: "運営統括マネジャーとしてステークホルダーと予算を管理します"
+          }
+        });
+      }
+
+      return defaultFetchMock(input, init);
+    });
+
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("外資系企業内アカウントマネジャー");
+    const skillCard = screen.getByText("직무 핵심 스킬").closest("section");
+    expect(skillCard).toBeTruthy();
+    expect(within(skillCard as HTMLElement).getByText("아직 감지된 스킬 없음")).toBeInTheDocument();
+
+    await submitUserResume("고객사 관리와 운영 총괄을 맡고 이해관계자 조율, 예산 관리를 진행했습니다.");
+
+    expect(within(skillCard as HTMLElement).getByText(/Account Management/i)).toBeInTheDocument();
+    expect(within(skillCard as HTMLElement).getByText(/Operations Management/i)).toBeInTheDocument();
+    expect(within(skillCard as HTMLElement).getByText(/Stakeholder Management/i)).toBeInTheDocument();
+    expect(within(skillCard as HTMLElement).getByText(/Budget\/Cost Management/i)).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/api/draft-workflow/plan"))).toBe(false);
   });
 });
 
@@ -439,11 +610,22 @@ describe("AIDraftChatBuilder draft workflow flow", () => {
     );
   });
 
-  it("sends the user resume text and target fields in the plan payload", async () => {
+  it("keeps writing conditions out of the side panel", async () => {
     render(<AIDraftChatBuilder />);
 
     await screen.findByText("실전 백엔드 엔지니어");
-    await submitUserResume();
+    expect(screen.queryByLabelText("대화 기반 작성 기준")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("자소서 조건 입력")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("작성 규칙")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("직무 요구사항")).not.toBeInTheDocument();
+  });
+
+  it("sends chat-derived writing conditions in the plan payload", async () => {
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+    await submitUserResume(`${USER_RESUME}\n\n800자로 두괄식으로 작성하고 학교명은 쓰지 마세요.`);
+    expect(screen.getByText(/800자로 두괄식으로 작성하고 학교명은 쓰지 마세요\. 조건으로 기억할게요/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /문항 분석 시작/i }));
 
@@ -456,6 +638,9 @@ describe("AIDraftChatBuilder draft workflow flow", () => {
 
     const body = getPlanCallBody(fetchMock);
     expect(body.target.questionText).toContain("지원 직무");
+    expect(body.target.charLimit).toBe(800);
+    expect(body.target.blindRecruitment).toBe(true);
+    expect(body.target.requirementSourceText).toContain("두괄식");
     expect(body.target.writingStyle).toBe("담백한 실무형");
     expect(body.experienceInput.manualExperienceText).toContain("Node.js와 PostgreSQL");
     expect(body.experienceInput.manualExperienceText).not.toContain(SAMPLE_DEMO_RESUME_SNIPPET);
@@ -723,63 +908,6 @@ describe("AIDraftChatBuilder draft workflow flow", () => {
     });
   });
 
-  it("clears previous draft results when the selected job changes", async () => {
-    render(<AIDraftChatBuilder />);
-
-    await screen.findByText("실전 백엔드 엔지니어");
-    await submitUserResume();
-    await runDraftWorkflowGeneration(fetchMock);
-    expect(await screen.findByText(/Fallback \(사용 가능한 AI 없음\)/)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "수정" }));
-    fireEvent.click(screen.getByRole("button", { name: /네이트워크 테크/i }));
-
-    await waitFor(() => {
-      expect(screen.queryByText(/Fallback \(사용 가능한 AI 없음\)/)).not.toBeInTheDocument();
-    });
-    expect(screen.queryByText("결과 수치가 확인되면 설득력이 더 높아집니다.")).not.toBeInTheDocument();
-  });
-
-  it("ignores stale draft responses after the job changes during loading", async () => {
-    let resolvePlan: ((value: Response) => void) | undefined;
-
-    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
-
-      if (url.includes("/api/jobs/careercross-1591647")) {
-        return apiResponse({ data: apiJob });
-      }
-
-      if (url.includes("/api/draft-workflow/providers")) {
-        return apiResponse({ data: providerStatuses });
-      }
-
-      if (url.includes("/api/draft-workflow/plan") && init?.method === "POST") {
-        return new Promise<Response>((resolve) => {
-          resolvePlan = resolve;
-        });
-      }
-
-      return errorResponse();
-    });
-
-    render(<AIDraftChatBuilder />);
-
-    await screen.findByText("실전 백엔드 엔지니어");
-    await submitUserResume();
-    fireEvent.click(screen.getByRole("button", { name: /문항 분석 시작/i }));
-
-    fireEvent.click(screen.getByRole("button", { name: "수정" }));
-    fireEvent.click(screen.getByRole("button", { name: /네이트워크 테크/i }));
-
-    resolvePlan?.(apiResponse({ data: workflowPlanResult }) as Response);
-
-    await waitFor(() => {
-      expect(screen.queryByText(/Fallback \(사용 가능한 AI 없음\)/)).not.toBeInTheDocument();
-    });
-    expect(screen.queryByText("결과 수치가 확인되면 설득력이 더 높아집니다.")).not.toBeInTheDocument();
-  });
-
   it("clears draft results when the user sends a new message after success", async () => {
     render(<AIDraftChatBuilder />);
 
@@ -949,6 +1077,18 @@ describe("AIDraftChatBuilder chat UX", () => {
     expect(screen.queryByRole("option", { name: "성과 강조형" })).not.toBeInTheDocument();
   });
 
+  it("closes composer options when the chat input is clicked", async () => {
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+    fireEvent.click(screen.getByRole("button", { name: "작성 옵션" }));
+    expect(screen.getByRole("dialog", { name: "작성 옵션" })).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByPlaceholderText("메시지를 입력하세요..."));
+
+    expect(screen.queryByRole("dialog", { name: "작성 옵션" })).not.toBeInTheDocument();
+  });
+
   it("opens the tone submenu from the composer options dialog", async () => {
     render(<AIDraftChatBuilder />);
 
@@ -1022,7 +1162,7 @@ describe("AIDraftChatBuilder chat UX", () => {
     render(<AIDraftChatBuilder />);
 
     await screen.findByText("실전 백엔드 엔지니어");
-    fireEvent.click(screen.getByRole("button", { name: /AI provider 선택, 현재 자동/i }));
+    fireEvent.click(screen.getByRole("button", { name: /AI provider 선택, 현재 AI 자동선택/i }));
 
     fireEvent.click(screen.getByRole("menuitemradio", { name: /Fallback · 온라인/i }));
 
@@ -1042,6 +1182,19 @@ describe("AIDraftChatBuilder chat UX", () => {
     await waitFor(() => {
       expect(getUserMessage()).toBeInTheDocument();
     });
+  });
+
+  it("focuses the input when the composer surface is clicked", async () => {
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+    const textarea = screen.getByPlaceholderText("메시지를 입력하세요...");
+    const composerBar = textarea.closest(".aiDraftComposerBar");
+    expect(composerBar).toBeTruthy();
+
+    fireEvent.click(composerBar as HTMLElement);
+
+    expect(document.activeElement).toBe(textarea);
   });
 
   it("expands the composer textarea without vertical scrolling as input grows", async () => {
@@ -1139,6 +1292,63 @@ describe("AIDraftChatBuilder plan test plan coverage", () => {
     expect(screen.getByText(/Fallback · 온라인/)).toBeInTheDocument();
   });
 
+  it("does not mark the header online when only fallback is available", async () => {
+    render(<AIDraftChatBuilder />);
+
+    expect(await screen.findByText("AI OFFLINE")).toBeInTheDocument();
+    expect(screen.queryByText("ONLINE")).not.toBeInTheDocument();
+  });
+
+  it("starts Codex OAuth login from the provider status card", async () => {
+    const defaultFetchMock = createDraftWorkflowFetchMock();
+    const openMock = vi.fn();
+    vi.stubGlobal("open", openMock);
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.includes("/api/draft-workflow/providers/codex/login") && init?.method === "POST") {
+        return apiResponse({
+          data: {
+            loginId: "login_test",
+            status: "pending",
+            error: null,
+            account: null,
+            login: {
+              type: "chatgpt",
+              loginId: "login_test",
+              authUrl: "https://auth.openai.com/oauth/test",
+              verificationUrl: null,
+              userCode: null
+            },
+            expiresAt: "2026-06-02T00:00:00.000Z"
+          }
+        });
+      }
+
+      if (url.includes("/api/draft-workflow/providers")) {
+        return apiResponse({
+          data: providerStatuses.map((provider) =>
+            provider.providerId === "codex_bridge"
+              ? { ...provider, configured: true, reason: "codex_not_logged_in" }
+              : provider
+          )
+        });
+      }
+
+      return defaultFetchMock(input, init);
+    });
+
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByRole("button", { name: "Codex 연결" });
+    fireEvent.click(screen.getByRole("button", { name: "Codex 연결" }));
+
+    await waitFor(() => {
+      expect(openMock).toHaveBeenCalledWith("https://auth.openai.com/oauth/test", "_blank", "noopener,noreferrer");
+    });
+    expect(screen.getByText("브라우저에서 Codex 로그인을 완료해 주세요.")).toBeInTheDocument();
+  });
+
   it("uses auto routing by default in the plan payload", async () => {
     render(<AIDraftChatBuilder />);
 
@@ -1163,7 +1373,7 @@ describe("AIDraftChatBuilder plan test plan coverage", () => {
     await screen.findByText("실전 백엔드 엔지니어");
     await submitUserResume();
 
-    fireEvent.click(screen.getByRole("button", { name: /AI provider 선택, 현재 자동/i }));
+    fireEvent.click(screen.getByRole("button", { name: /AI provider 선택, 현재 AI 자동선택/i }));
     fireEvent.click(screen.getByRole("menuitemradio", { name: /Gemini · 오프라인/i }));
 
     fireEvent.click(screen.getByRole("button", { name: /문항 분석 시작/i }));

@@ -1,3 +1,5 @@
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import type { AiProviderId, AiRoutingMode } from "../types/ai-routing.js";
 
 function parseProviderOrder(raw: string | undefined): AiProviderId[] {
@@ -14,6 +16,58 @@ function parseProviderOrder(raw: string | undefined): AiProviderId[] {
   return parsed.length > 0 ? parsed : allowed;
 }
 
+function resolveCodexBridgeCommand() {
+  const explicit = process.env.CODEX_BRIDGE_COMMAND?.trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  const codexCliPath = process.env.CODEX_CLI_PATH?.trim();
+  if (codexCliPath) {
+    return codexCliPath;
+  }
+
+  if (process.platform === "win32" && process.env.LOCALAPPDATA) {
+    const baseDir = join(process.env.LOCALAPPDATA, "OpenAI", "Codex", "bin");
+
+    try {
+      const candidates = readdirSync(baseDir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => join(baseDir, entry.name, "codex.exe"))
+        .filter((candidate) => existsSync(candidate))
+        .map((candidate) => ({ path: candidate, mtimeMs: statSync(candidate).mtimeMs }))
+        .sort((left, right) => right.mtimeMs - left.mtimeMs);
+
+      if (candidates[0]) {
+        return candidates[0].path;
+      }
+    } catch {
+      // Fall through to PATH lookup below.
+    }
+  }
+
+  return "codex";
+}
+
+function defaultUserCodexHome() {
+  const home = process.env.USERPROFILE || process.env.HOME;
+  return home ? join(home, ".codex") : "";
+}
+
+function resolveCodexBridgeHome() {
+  const explicit = process.env.CODEX_BRIDGE_HOME?.trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  const defaultHome = defaultUserCodexHome();
+  if (defaultHome && existsSync(defaultHome)) {
+    return defaultHome;
+  }
+
+  return process.env.CODEX_HOME?.trim() ?? "";
+}
+
 export const aiConfig = {
   routingDefault: (process.env.AI_ROUTING_DEFAULT ?? "auto") as AiRoutingMode,
   providerOrder: parseProviderOrder(process.env.AI_PROVIDER_ORDER),
@@ -21,10 +75,10 @@ export const aiConfig = {
 
   codexBridge: {
     enabled: process.env.CODEX_BRIDGE_ENABLED === "true",
-    command: process.env.CODEX_BRIDGE_COMMAND ?? "codex",
+    command: resolveCodexBridgeCommand(),
+    home: resolveCodexBridgeHome(),
     model: process.env.CODEX_BRIDGE_MODEL ?? "",
-    reasoningEffort: process.env.CODEX_BRIDGE_REASONING_EFFORT ?? "",
-    profile: process.env.CODEX_BRIDGE_PROFILE ?? ""
+    reasoningEffort: process.env.CODEX_BRIDGE_REASONING_EFFORT ?? ""
   },
 
   gemini: {

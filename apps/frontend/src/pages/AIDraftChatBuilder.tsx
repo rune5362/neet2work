@@ -1,11 +1,13 @@
-import { type ChangeEvent, type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, type CSSProperties, type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createDraftWorkflowDraft,
   createDraftWorkflowPlan,
   extractResumeFile,
+  getCodexBridgeLoginStatus,
   getDraftWorkflowProviders,
   getJobById,
-  reviseDraftWorkflowDraft
+  reviseDraftWorkflowDraft,
+  startCodexBridgeLogin
 } from "../api/client";
 import arrowUpIcon from "../assets/icons/ai-draft-arrow-up.svg";
 import attachIcon from "../assets/icons/ai-draft-attach.svg";
@@ -35,6 +37,7 @@ import { fallbackReasonLabel, providerBadgeLabel } from "../types/draft-workflow
 type Sender = "ai" | "user";
 type DraftState = "idle" | "ready" | "planning" | "plan_ready" | "drafting" | "complete" | "revising";
 type WorkflowStatus = "idle" | "loading" | "complete" | "error";
+type CodexLoginUiStatus = "idle" | "starting" | "pending" | "succeeded" | "failed";
 
 type DraftTargetForm = {
   questionText: string;
@@ -55,7 +58,7 @@ type Job = {
   title: string;
   link: string;
   skills: string[];
-  isMock?: boolean;
+  description: string;
 };
 
 type AiSettings = {
@@ -78,34 +81,93 @@ type AttachedFile = {
   loading: boolean;
 };
 
+type AtsMetric = {
+  label: string;
+  value: number;
+};
+
 type AudioWindow = Window & {
   webkitAudioContext?: typeof AudioContext;
 };
 
-const mockJobs: Job[] = [
+const COMMON_SKILL_CATALOG = [
+  "JavaScript",
+  "React",
+  "HTML/CSS",
+  "Git",
+  "REST API",
+  "TypeScript",
+  "Next.js",
+  "Node.js",
+  "Express",
+  "PostgreSQL",
+  "Python",
+  "SQL",
+  "SaaS",
+  "Account Executive",
+  "Sales",
+  "Sales Pipeline",
+  "Customer Success",
+  "Revenue",
+  "CRM",
+  "B2B",
+  "Account Management",
+  "Operations Management",
+  "Stakeholder Management",
+  "Client Communication",
+  "Project Management",
+  "Team Leadership",
+  "Budget/Cost Management",
+  "영업",
+  "고객 관리",
+  "계약",
+  "매출",
+  "성능 최적화",
+  "테스트 코드",
+  "배포/CI-CD"
+];
+
+type SkillAliasDefinition = {
+  label: string;
+  aliases: string[];
+};
+
+const SKILL_ALIAS_DEFINITIONS: SkillAliasDefinition[] = [
   {
-    id: "frontend",
-    company: "네이트워크 테크",
-    title: "프론트엔드 개발자 (신입)",
-    link: "https://careers.neet2work.com/mock-frontend",
-    skills: ["JavaScript", "React", "HTML/CSS", "Git", "REST API", "TypeScript", "Next.js", "성능 최적화", "테스트 코드", "배포/CI-CD"],
-    isMock: true
+    label: "Account Management",
+    aliases: ["account management", "account manager", "account executive", "고객사 관리", "거래처 관리", "アカウントマネジャー", "アカウント エグゼクティブ"]
   },
   {
-    id: "backend",
-    company: "니트투워크 랩스",
-    title: "백엔드 소프트웨어 엔지니어",
-    link: "https://careers.neet2work.com/mock-backend",
-    skills: ["Node.js", "Express", "PostgreSQL", "REST API", "Git", "테스트 코드", "배포/CI-CD", "성능 최적화"],
-    isMock: true
+    label: "Operations Management",
+    aliases: ["operations management", "operation management", "운영 관리", "운영 총괄", "운영총괄", "運営", "統括"]
   },
   {
-    id: "data",
-    company: "일했음 데이터",
-    title: "데이터 자동화 주니어",
-    link: "https://careers.neet2work.com/mock-data",
-    skills: ["Python", "SQL", "Git", "REST API", "테스트 코드", "배포/CI-CD"],
-    isMock: true
+    label: "Stakeholder Management",
+    aliases: ["stakeholder", "스테이크홀더", "이해관계자", "ステークホルダー"]
+  },
+  {
+    label: "Client Communication",
+    aliases: ["client communication", "client", "customer", "클라이언트", "고객 커뮤니케이션", "고객 응대", "コミュニケーション"]
+  },
+  {
+    label: "Project Management",
+    aliases: ["project management", "프로젝트 관리", "프로젝트 리딩", "マネジメント"]
+  },
+  {
+    label: "Team Leadership",
+    aliases: ["team leadership", "팀 리딩", "리더십", "leader", "매니저", "マネジャー", "育成"]
+  },
+  {
+    label: "Budget/Cost Management",
+    aliases: ["budget", "cost management", "cost", "예산", "비용", "손익", "コスト"]
+  },
+  {
+    label: "Sales Pipeline",
+    aliases: ["sales pipeline", "영업 파이프라인", "세일즈 파이프라인", "파이프라인"]
+  },
+  {
+    label: "Customer Success",
+    aliases: ["customer success", "고객 성공", "고객 성공팀", "cs 팀", "cs팀"]
   }
 ];
 
@@ -116,7 +178,7 @@ function toSelectedJob(job: JobPosting): Job {
     title: job.title,
     link: job.sourceUrl,
     skills: job.skills,
-    isMock: false
+    description: job.description
   };
 }
 
@@ -158,8 +220,9 @@ const draftText =
 const COMPOSER_INPUT_MIN_HEIGHT = 22;
 const COMPOSER_INPUT_MAX_HEIGHT = 240;
 const FILE_ACCEPT = ".txt,.md,.pdf,.docx";
+const EMPTY_JOB_POSTING_TEXT = "선택된 공고 없음. 사용자 대화와 첨부 자료를 기준으로 작성합니다.";
 function buildDefaultJobPostingText(job: Job) {
-  return `${job.title}\n${job.skills.join(", ")}`;
+  return [job.title, job.skills.join(", "), job.description].filter((part) => part.trim().length > 0).join("\n");
 }
 
 function buildGapAnswersFromDrafts(
@@ -176,8 +239,16 @@ function buildGapAnswersFromDrafts(
 
 const DEFAULT_QUESTION_TEXT =
   "지원 직무에서 가장 중요한 역량을 발휘했던 경험을 구체적으로 작성해 주세요.";
-const AI_PROVIDER_AUTO_LABEL = "자동";
+const AI_PROVIDER_AUTO_LABEL = "AI 자동선택";
 const AI_TONE_OPTIONS: AiSettings["tone"][] = ["담백한 실무형", "성과 강조형", "성장 서사형"];
+const CONDITION_PATTERNS = [
+  /(\d{2,4})\s*(자|글자|byte|바이트)/i,
+  /분량|제한|조건|요구\s*사항|작성\s*(규칙|요령|방법|지침)|가이드/,
+  /문항|항목|질문|지원\s*동기|직무\s*역량|입사\s*후\s*포부/,
+  /두괄식|STAR|소\s*제\s*목|문단|어조|톤|담백|성과|성장\s*서사/,
+  /블라인드|학교명|나이|성별|사진|출신|개인정보|언급\s*금지|쓰지\s*마/
+];
+const BLIND_RECRUITMENT_PATTERN = /블라인드|학교명|나이|성별|사진|출신|개인정보|언급\s*금지|쓰지\s*마/;
 
 function isTextAttachment(file: File) {
   const lowerName = file.name.toLowerCase();
@@ -229,6 +300,223 @@ function buildResumeTextParts(messages: Message[], input: string, attachedFiles:
   const attachedText = buildPortfolioSourceText(attachedFiles);
 
   return [userMessageText, trimmedInput, attachedText].filter((part) => part.length > 0);
+}
+
+function getUserText(messages: Message[], input = "") {
+  const sentText = messages
+    .filter((message) => message.sender === "user")
+    .map((message) => message.text)
+    .join("\n\n");
+
+  return [sentText, input.trim()].filter((text) => text.length > 0).join("\n\n");
+}
+
+function splitConditionCandidates(text: string) {
+  return text
+    .split(/\n+|(?<=[.!?。！？])\s+/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
+function isConversationConditionText(text: string) {
+  return CONDITION_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function buildConversationRequirementSourceText(messages: Message[], input = "") {
+  return splitConditionCandidates(getUserText(messages, input))
+    .filter(isConversationConditionText)
+    .join("\n")
+    .trim();
+}
+
+function inferCharLimitFromText(text: string) {
+  const match = text.match(/(\d{2,4})\s*(자|글자|byte|바이트)/i);
+  if (!match) {
+    return null;
+  }
+
+  const value = Number(match[1]);
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+
+  return Math.min(5000, Math.max(200, value));
+}
+
+function inferQuestionTextFromText(text: string) {
+  const candidates = splitConditionCandidates(text);
+  const explicit = candidates.find((line) => /문항|항목|질문/.test(line));
+  return explicit && explicit.length >= 5 ? explicit.replace(/^(문항|항목|질문)\s*[:：-]?\s*/, "").trim() : null;
+}
+
+function uniqueSkillLabels(skills: string[]) {
+  const seen = new Set<string>();
+  return skills.filter((skill) => {
+    const key = skill.trim().toLowerCase();
+    const isCoveredByExistingPhrase = Array.from(seen).some((existing) => {
+      if (existing.length <= key.length || !existing.includes(" ")) {
+        return false;
+      }
+
+      return existing.split(/[\s/.-]+/).includes(key);
+    });
+
+    if (!key || seen.has(key) || isCoveredByExistingPhrase) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+function includesSkillAlias(text: string, skill: string) {
+  const normalizedSkill = skill.trim().toLowerCase();
+  if (!normalizedSkill) {
+    return false;
+  }
+
+  if (text.includes(normalizedSkill)) {
+    return true;
+  }
+
+  return SKILL_ALIAS_DEFINITIONS.some(
+    ({ label, aliases }) =>
+      label.toLowerCase() === normalizedSkill && aliases.some((alias) => text.includes(alias.toLowerCase()))
+  );
+}
+
+function detectAliasedSkills(text: string) {
+  return SKILL_ALIAS_DEFINITIONS.filter(({ aliases }) =>
+    aliases.some((alias) => text.includes(alias.toLowerCase()))
+  ).map(({ label }) => label);
+}
+
+function clampScore(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function countMatches(text: string, patterns: RegExp[]) {
+  return patterns.reduce((count, pattern) => count + (pattern.test(text) ? 1 : 0), 0);
+}
+
+const ATS_KEYWORD_STOP_WORDS = new Set([
+  "and",
+  "or",
+  "the",
+  "with",
+  "for",
+  "from",
+  "job",
+  "role",
+  "company",
+  "株式会社",
+  "有限会社"
+]);
+
+function normalizeAtsKeyword(keyword: string) {
+  return keyword.trim().toLowerCase().replace(/^[•・,，.。:：;；()[\]【】「」『』]+|[•・,，.。:：;；()[\]【】「」『』]+$/g, "");
+}
+
+function buildJobKeywordCandidates(job: Job) {
+  const source = [job.title, job.description, ...job.skills].join("\n");
+  const explicitSkillKeywords = job.skills.map(normalizeAtsKeyword);
+  const alphaNumericTerms = source.match(/[A-Za-z][A-Za-z0-9+#./-]{1,}/g)?.map(normalizeAtsKeyword) ?? [];
+  const separatedTerms = source
+    .split(/[^\p{L}\p{N}+#.]+/u)
+    .map(normalizeAtsKeyword);
+
+  return Array.from(new Set([...explicitSkillKeywords, ...alphaNumericTerms, ...separatedTerms]))
+    .filter((keyword) => keyword.length >= 2 && !ATS_KEYWORD_STOP_WORDS.has(keyword))
+    .slice(0, 80);
+}
+
+function calculateJobKeywordScore(text: string, selectedJob: Job | null) {
+  if (!selectedJob) {
+    return 0;
+  }
+
+  const keywords = buildJobKeywordCandidates(selectedJob);
+  if (keywords.length === 0) {
+    return 0;
+  }
+
+  const matchCount = keywords.filter((keyword) => text.includes(keyword)).length;
+  return clampScore((matchCount / Math.min(10, keywords.length)) * 100);
+}
+
+function calculateInputAtsMetrics({
+  resumeText,
+  selectedJob,
+  detectedConversationSkills,
+  matchPercent
+}: {
+  resumeText: string;
+  selectedJob: Job | null;
+  detectedConversationSkills: string[];
+  matchPercent: number;
+}): { score: number; metrics: AtsMetric[] } | null {
+  const text = resumeText.trim();
+  if (text.length < 10) {
+    return null;
+  }
+
+  const lowerText = text.toLowerCase();
+  const sentenceCount = Math.max(1, splitConditionCandidates(text).length);
+  const averageSentenceLength = text.length / sentenceCount;
+  const specificitySignals = countMatches(text, [
+    /\d/,
+    /결과|성과|개선|달성|감소|증가|수상|운영|배포|출시/,
+    /담당|주도|설계|구현|분석|해결|개선/,
+    /사용자|고객|팀|프로젝트|서비스|데이터/
+  ]);
+  const starSignals = countMatches(text, [
+    /상황|문제|이슈|과제|목표|초기/,
+    /역할|담당|맡아|주도|책임/,
+    /행동|설계|구현|분석|도입|개선|해결/,
+    /결과|성과|달성|향상|감소|증가|수상|운영/
+  ]);
+  const readabilityPenalty = averageSentenceLength > 95 ? (averageSentenceLength - 95) * 0.8 : 0;
+  const readabilityBonus = sentenceCount > 1 ? 10 : 0;
+  const titleTokens = selectedJob
+    ? selectedJob.title
+        .toLowerCase()
+        .split(/[^\p{L}\p{N}+#.]+/u)
+        .filter((token) => token.length >= 2)
+    : [];
+  const titleMatchPercent =
+    titleTokens.length > 0
+      ? (titleTokens.filter((token) => lowerText.includes(token)).length / titleTokens.length) * 100
+      : 0;
+  const jobKeywordScore = calculateJobKeywordScore(lowerText, selectedJob);
+  const keywordScore = selectedJob
+    ? Math.max(matchPercent, jobKeywordScore)
+    : clampScore(detectedConversationSkills.length * 16);
+  const specificityScore = clampScore(Math.min(42, text.length / 4) + specificitySignals * 14);
+  const starScore = clampScore(starSignals * 25);
+  const readabilityScore = clampScore(72 + readabilityBonus - readabilityPenalty);
+  const jobFitScore = selectedJob
+    ? clampScore(keywordScore * 0.72 + titleMatchPercent * 0.28)
+    : null;
+  const metrics: AtsMetric[] = [
+    { label: selectedJob ? "공고 키워드 일치" : "기술 언급량", value: keywordScore },
+    { label: "경험 구체성", value: specificityScore },
+    { label: "STAR 구조", value: starScore },
+    { label: "문장 명료성", value: readabilityScore }
+  ];
+
+  if (jobFitScore !== null) {
+    metrics.push({ label: "공고 적합도", value: jobFitScore });
+  }
+
+  const weightedScore = selectedJob
+    ? keywordScore * 0.3 + specificityScore * 0.25 + starScore * 0.2 + readabilityScore * 0.15 + (jobFitScore ?? 0) * 0.1
+    : (keywordScore + specificityScore + starScore + readabilityScore) / 4;
+
+  return {
+    score: clampScore(weightedScore),
+    metrics
+  };
 }
 
 function readyTextAttachments(attachedFiles: AttachedFile[]) {
@@ -320,9 +608,7 @@ function playTone(enabled: boolean, type: "send" | "ready" | "open" | "success")
 export function AIDraftChatBuilder() {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
-  const [selectedJobId, setSelectedJobId] = useState(mockJobs[0].id);
   const [selectedApiJob, setSelectedApiJob] = useState<Job | null>(null);
-  const [jobQuery, setJobQuery] = useState("");
   const [draftState, setDraftState] = useState<DraftState>("idle");
   const [workflowPlan, setWorkflowPlan] = useState<DraftWorkflowPlan | null>(null);
   const [workflowDraft, setWorkflowDraft] = useState<DraftWorkflowDraft | null>(null);
@@ -334,9 +620,14 @@ export function AIDraftChatBuilder() {
   const [targetForm, setTargetForm] = useState<DraftTargetForm>({
     questionText: DEFAULT_QUESTION_TEXT,
     charLimit: 800,
-    jobPostingText: buildDefaultJobPostingText(mockJobs[0])
+    jobPostingText: ""
   });
   const [providerStatuses, setProviderStatuses] = useState<AiProviderStatus[]>([]);
+  const [codexLoginState, setCodexLoginState] = useState<{
+    status: CodexLoginUiStatus;
+    loginId: string | null;
+    message: string | null;
+  }>({ status: "idle", loginId: null, message: null });
   const [aiSelection, setAiSelection] = useState<AiSelection>({ mode: "auto" });
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [toneMenuOpen, setToneMenuOpen] = useState(false);
@@ -352,7 +643,6 @@ export function AIDraftChatBuilder() {
     blindRecruitment: false,
   });
   const [didFallback, setDidFallback] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
   const [newChatConfirmOpen, setNewChatConfirmOpen] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -389,34 +679,103 @@ export function AIDraftChatBuilder() {
     textarea.style.overflowY = "hidden";
   }, []);
 
-  const selectableJobs = useMemo(() => {
-    if (!selectedApiJob) {
-      return mockJobs;
-    }
-
-    return [selectedApiJob, ...mockJobs.filter((job) => job.id !== selectedApiJob.id)];
-  }, [selectedApiJob]);
-  const selectedJob = selectableJobs.find((job) => job.id === selectedJobId) ?? selectableJobs[0];
+  const selectedJob = selectedApiJob;
   const resumeText = useMemo(() => {
     return buildResumeTextParts(messages, input, attachedFiles).join("\n\n");
   }, [messages, input, attachedFiles]);
   const canAnalyze = resumeText.trim().length >= 10;
   const allText = `${resumeText}`.toLowerCase();
+  const selectedJobSkills = useMemo(() => selectedJob?.skills ?? [], [selectedJob]);
+  const selectedJobKeywordCandidates = useMemo(
+    () => (selectedJob ? buildJobKeywordCandidates(selectedJob) : []),
+    [selectedJob]
+  );
+  const aliasedConversationSkills = useMemo(() => detectAliasedSkills(allText), [allText]);
+  const skillCatalog = useMemo(
+    () =>
+      uniqueSkillLabels([
+        ...selectedJobSkills,
+        ...COMMON_SKILL_CATALOG,
+        ...selectedJobKeywordCandidates,
+        ...aliasedConversationSkills
+      ]),
+    [aliasedConversationSkills, selectedJobKeywordCandidates, selectedJobSkills]
+  );
   const inferredFrontendSkills =
-    selectedJob.id === "frontend" && /(앱|개발|프로젝트|mvp|사용자|인터뷰|팀|공모전)/.test(allText)
+    selectedJob?.id === "frontend" && /(앱|개발|프로젝트|mvp|사용자|인터뷰|팀|공모전)/.test(allText)
       ? ["JavaScript", "React", "HTML/CSS", "Git", "REST API", "Next.js", "테스트 코드"]
       : [];
-  const matchedSkills = selectedJob.skills.filter((skill) => allText.includes(skill.toLowerCase()) || inferredFrontendSkills.includes(skill));
+  const detectedConversationSkills = skillCatalog.filter(
+    (skill) => includesSkillAlias(allText, skill) || inferredFrontendSkills.includes(skill)
+  );
+  const visibleSkillCandidates = selectedJob
+    ? uniqueSkillLabels([...selectedJobSkills, ...detectedConversationSkills])
+    : detectedConversationSkills;
+  const matchedSkills = visibleSkillCandidates.filter(
+    (skill) => includesSkillAlias(allText, skill) || inferredFrontendSkills.includes(skill)
+  );
+  const matchedSelectedJobSkills = selectedJobSkills.filter(
+    (skill) => includesSkillAlias(allText, skill) || inferredFrontendSkills.includes(skill)
+  );
   const matchPercent =
-    selectedJob.skills.length > 0
-      ? Math.round((matchedSkills.length / selectedJob.skills.length) * 100)
+    selectedJobSkills.length > 0
+      ? Math.round((matchedSelectedJobSkills.length / selectedJobSkills.length) * 100)
       : 0;
-  const estimatedFitScore = Math.min(92, 52 + matchedSkills.length * 3 + (draftState === "complete" ? 9 : 0));
+  const skillPanelModeLabel = selectedJobSkills.length > 0
+    ? "공고 기반 후보 · 대화 기반 추가"
+    : visibleSkillCandidates.length > 0
+      ? "대화에서 감지"
+      : "대화 후 생성";
+  const skillPanelFootnote = selectedJobSkills.length > 0
+    ? "선택한 공고의 요구 스킬을 먼저 보여주고, 대화에서 새로 감지한 항목은 추가로 붙입니다."
+    : selectedJob
+      ? visibleSkillCandidates.length > 0
+        ? "이 공고에는 스킬 태그가 없어, 채팅에서 감지한 기술과 공고 키워드만 정리했습니다."
+        : "이 공고에는 스킬 태그가 없어, 채팅에서 기술이나 직무 키워드를 말하면 여기에 추가됩니다."
+    : visibleSkillCandidates.length > 0
+      ? "대화에서 언급한 기술만 정리했습니다. 공고를 선택하면 요구 스킬과 비교합니다."
+      : "공고를 선택하거나 채팅에서 사용한 기술을 말하면 여기에 정리됩니다.";
+  const inputAtsResult = useMemo(
+    () =>
+      calculateInputAtsMetrics({
+        resumeText,
+        selectedJob,
+        detectedConversationSkills,
+        matchPercent
+      }),
+    [detectedConversationSkills, matchPercent, resumeText, selectedJob]
+  );
+  const reviewAtsMetrics: AtsMetric[] | null = workflowDraft
+    ? [
+        { label: "문항 적합도", value: workflowDraft.reviewReport.scores.promptFit },
+        { label: "직무 적합도", value: workflowDraft.reviewReport.scores.jobFit },
+        { label: "구체성", value: workflowDraft.reviewReport.scores.specificity },
+        { label: "증거 안전성", value: workflowDraft.reviewReport.scores.evidenceSafety },
+        { label: "한국어 가독성", value: workflowDraft.reviewReport.scores.koreanReadability }
+      ]
+    : null;
+  const planFitScore = workflowPlan?.fitAssessments[0]?.fitScore;
+  const planAtsMetrics: AtsMetric[] | null =
+    !workflowDraft && workflowPlan
+      ? [
+          ...(typeof planFitScore === "number" ? [{ label: "문항-경험 매칭", value: planFitScore }] : []),
+          ...(inputAtsResult?.metrics ?? [])
+        ]
+      : null;
+  const atsMetrics = reviewAtsMetrics ?? planAtsMetrics ?? inputAtsResult?.metrics ?? [];
+  const atsScore = workflowDraft?.reviewReport.scores.promptFit ?? planFitScore ?? inputAtsResult?.score ?? null;
+  const atsCardMode = workflowDraft
+    ? "검수 리포트"
+    : workflowPlan
+      ? "AI 분석 결과"
+      : inputAtsResult
+        ? "입력 기반 계산"
+        : "대화 후 계산";
   const draftFitTargetScore =
     workflowDraft?.reviewReport.scores.promptFit ??
     workflowPlan?.fitAssessments[0]?.fitScore ??
-    estimatedFitScore;
-  const atsScore = draftFitTargetScore;
+    inputAtsResult?.score ??
+    0;
   const resultBody = workflowDraft?.draftText ?? draftText;
   const completedProgressStepCount = draftProgressSteps.filter((step) => draftFitProgress >= Math.min(step.threshold, draftFitTargetScore)).length;
   const withSpaces = workflowDraft?.charCount.withSpaces ?? resultBody.length;
@@ -426,6 +785,19 @@ export function AIDraftChatBuilder() {
       ? AI_PROVIDER_AUTO_LABEL
       : providerBadgeLabel(aiSelection.providerId ?? "fallback");
   const activeAiMeta = workflowDraft?.aiMeta ?? workflowPlan?.aiMeta;
+  const realAiProviderOnline = providerStatuses.some(
+    (provider) => provider.providerId !== "fallback" && provider.online && !provider.quotaExceeded
+  );
+  const headerAiStatus = activeAiMeta
+    ? {
+        label: activeAiMeta.usedFallback ? "FALLBACK" : "AI ONLINE",
+        status: activeAiMeta.usedFallback ? "fallback" : "online"
+      }
+    : providerStatuses.length === 0
+      ? { label: "상태 확인중", status: "checking" }
+      : realAiProviderOnline
+        ? { label: "AI ONLINE", status: "online" }
+        : { label: "AI OFFLINE", status: "offline" };
   const displayDraft =
     textFormat === "Markdown"
       ? `## 팀 리더십 기반 문제 해결 경험\n\n${resultBody
@@ -434,13 +806,27 @@ export function AIDraftChatBuilder() {
           .join("\n")}`
       : resultBody;
 
-  const filteredJobs = useMemo(() => {
-    const query = jobQuery.trim().toLowerCase();
-    if (!query) return selectableJobs;
-    return selectableJobs.filter((job) =>
-      `${job.company} ${job.title} ${job.skills.join(" ")}`.toLowerCase().includes(query)
-    );
-  }, [jobQuery, selectableJobs]);
+  const conversationRequirementText = useMemo(
+    () => buildConversationRequirementSourceText(messages, input),
+    [messages, input]
+  );
+  const attachmentRequirementText = useMemo(
+    () => buildRequirementSourceText(attachedFiles),
+    [attachedFiles]
+  );
+  const requirementInputText = useMemo(
+    () => [conversationRequirementText, attachmentRequirementText].filter((text) => text.length > 0).join("\n\n").trim(),
+    [conversationRequirementText, attachmentRequirementText]
+  );
+  const inferredQuestionText = useMemo(
+    () => inferQuestionTextFromText(requirementInputText) || targetForm.questionText,
+    [requirementInputText, targetForm.questionText]
+  );
+  const inferredCharLimit = useMemo(
+    () => inferCharLimitFromText(requirementInputText) ?? targetForm.charLimit,
+    [requirementInputText, targetForm.charLimit]
+  );
+  const inferredBlindRecruitment = settings.blindRecruitment || BLIND_RECRUITMENT_PATTERN.test(requirementInputText);
 
   const conversationSummaryItems = useMemo(() => {
     const fromUser = messages
@@ -463,11 +849,65 @@ export function AIDraftChatBuilder() {
     return [];
   }, [messages, workflowDraft]);
 
-  useEffect(() => {
-    getDraftWorkflowProviders()
+  const refreshProviderStatuses = useCallback(() => {
+    return getDraftWorkflowProviders()
       .then((providers) => setProviderStatuses(providers))
       .catch(() => setProviderStatuses([]));
   }, []);
+
+  useEffect(() => {
+    void refreshProviderStatuses();
+  }, [refreshProviderStatuses]);
+
+  useEffect(() => {
+    if (codexLoginState.status !== "pending" || !codexLoginState.loginId) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    const intervalId = window.setInterval(() => {
+      void getCodexBridgeLoginStatus(codexLoginState.loginId ?? "")
+        .then((status) => {
+          if (cancelled || status.status === "pending") {
+            return;
+          }
+
+          window.clearInterval(intervalId);
+          if (status.status === "succeeded") {
+            setCodexLoginState({
+              status: "succeeded",
+              loginId: status.loginId,
+              message: "Codex 연결 완료"
+            });
+            void refreshProviderStatuses();
+            return;
+          }
+
+          setCodexLoginState({
+            status: "failed",
+            loginId: status.loginId,
+            message: status.error ?? "Codex 연결에 실패했습니다."
+          });
+        })
+        .catch(() => {
+          if (cancelled) {
+            return;
+          }
+
+          window.clearInterval(intervalId);
+          setCodexLoginState({
+            status: "failed",
+            loginId: codexLoginState.loginId,
+            message: "Codex 연결 상태를 확인하지 못했습니다."
+          });
+        });
+    }, 1_500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [codexLoginState.loginId, codexLoginState.status, refreshProviderStatuses]);
 
   useEffect(() => {
     timelineRef.current?.scrollTo({
@@ -501,7 +941,16 @@ export function AIDraftChatBuilder() {
     }
 
     const handlePointerDown = (event: MouseEvent) => {
-      if (composerBarRef.current?.contains(event.target as Node)) {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      const target = event.target;
+      if (
+        target.closest(
+          ".aiDraftComposerPopover, .aiDraftComposerToneSubmenu, .aiDraftComposerPlusButton, .aiDraftComposerModelButton"
+        )
+      ) {
         return;
       }
 
@@ -530,7 +979,7 @@ export function AIDraftChatBuilder() {
     const queryJobId = new URLSearchParams(window.location.search).get("jobId")?.trim();
     if (!queryJobId) {
       setSelectedApiJob(null);
-      setSelectedJobId(mockJobs[0].id);
+      setTargetForm((prev) => ({ ...prev, jobPostingText: "" }));
       return;
     }
 
@@ -542,14 +991,13 @@ export function AIDraftChatBuilder() {
 
         const nextJob = toSelectedJob(job);
         setSelectedApiJob(nextJob);
-        setSelectedJobId(nextJob.id);
         syncTargetFormForJob(nextJob);
       })
       .catch(() => {
         if (!isCurrent) return;
 
         setSelectedApiJob(null);
-        setSelectedJobId(mockJobs[0].id);
+        setTargetForm((prev) => ({ ...prev, jobPostingText: "" }));
       });
 
     return () => {
@@ -643,15 +1091,15 @@ export function AIDraftChatBuilder() {
   };
 
   const buildDraftTarget = () => ({
-    company: selectedJob.company,
-    role: selectedJob.title,
-    questionText: targetForm.questionText.trim() || DEFAULT_QUESTION_TEXT,
-    charLimit: targetForm.charLimit,
+    company: selectedJob?.company ?? "지원 기업 미정",
+    role: selectedJob?.title ?? "지원 직무 미정",
+    questionText: inferredQuestionText.trim() || DEFAULT_QUESTION_TEXT,
+    charLimit: inferredCharLimit,
     charCountRule: "with_spaces" as const,
-    jobPostingText: targetForm.jobPostingText.trim() || buildDefaultJobPostingText(selectedJob),
-    blindRecruitment: settings.blindRecruitment,
+    jobPostingText: targetForm.jobPostingText.trim() || (selectedJob ? buildDefaultJobPostingText(selectedJob) : EMPTY_JOB_POSTING_TEXT),
+    blindRecruitment: inferredBlindRecruitment,
     writingStyle: settings.tone,
-    requirementSourceText: buildRequirementSourceText(attachedFiles) || undefined,
+    requirementSourceText: requirementInputText || undefined,
     previousDraftText: workflowDraft?.draftText
   });
 
@@ -664,8 +1112,8 @@ export function AIDraftChatBuilder() {
   const canConfirmDraft =
     (draftState === "plan_ready" || draftState === "complete") &&
     pendingGapQuestions.length === 0 &&
-    targetForm.questionText.trim().length >= 5 &&
-    targetForm.jobPostingText.trim().length >= 10;
+    inferredQuestionText.trim().length >= 5 &&
+    (targetForm.jobPostingText.trim() || (selectedJob ? buildDefaultJobPostingText(selectedJob) : EMPTY_JOB_POSTING_TEXT)).length >= 10;
 
   const updateGapAnswerDraft = (questionId: string, answer: string) => {
     setGapAnswerDrafts((prev) => ({ ...prev, [questionId]: answer }));
@@ -815,15 +1263,38 @@ export function AIDraftChatBuilder() {
     }));
   };
 
-  const handleJobSelect = (jobId: string) => {
-    const nextJob = selectableJobs.find((job) => job.id === jobId) ?? selectableJobs[0];
-    setSelectedJobId(jobId);
-    syncTargetFormForJob(nextJob);
-    setShowSearch(false);
-    clearSendReplyTimeout();
-    resetWorkflow();
-    setDraftState(messages.some((message) => message.sender === "user") ? "ready" : "idle");
-    playTone(settings.sound, "open");
+  const handleCodexLoginStart = async () => {
+    setCodexLoginState({ status: "starting", loginId: null, message: "Codex 연결 시작 중" });
+
+    try {
+      const loginStatus = await startCodexBridgeLogin();
+      if (loginStatus.status === "succeeded") {
+        setCodexLoginState({
+          status: "succeeded",
+          loginId: loginStatus.loginId,
+          message: "Codex 연결 완료"
+        });
+        void refreshProviderStatuses();
+        return;
+      }
+
+      const authUrl = loginStatus.login?.authUrl ?? loginStatus.login?.verificationUrl;
+      if (authUrl) {
+        window.open(authUrl, "_blank", "noopener,noreferrer");
+      }
+
+      setCodexLoginState({
+        status: "pending",
+        loginId: loginStatus.loginId,
+        message: authUrl ? "브라우저에서 Codex 로그인을 완료해 주세요." : "Codex 로그인 완료를 기다리는 중"
+      });
+    } catch {
+      setCodexLoginState({
+        status: "failed",
+        loginId: null,
+        message: "Codex 연결을 시작하지 못했습니다."
+      });
+    }
   };
 
   const handleSend = () => {
@@ -844,6 +1315,9 @@ export function AIDraftChatBuilder() {
         text: trimmed,
       },
     ];
+    const detectedConditionText = splitConditionCandidates(
+      buildConversationRequirementSourceText(nextMessages)
+    ).slice(-3).join(" / ");
     setMessages(nextMessages);
     setInput("");
     window.requestAnimationFrame(syncComposerHeight);
@@ -873,7 +1347,9 @@ export function AIDraftChatBuilder() {
           id: crypto.randomUUID(),
           sender: "ai",
           time: nowTime(),
-          text: "충분한 경험 데이터가 확보되었습니다. 지금 초안을 생성하면 공고의 요구 역량과 연결해 문장을 재구성할 수 있습니다.",
+          text: detectedConditionText
+            ? `좋아요. ${detectedConditionText} 조건으로 기억할게요.\n\n충분한 경험 데이터가 확보되었습니다. 지금 초안을 생성하면 공고의 요구 역량과 연결해 문장을 재구성할 수 있습니다.`
+            : "충분한 경험 데이터가 확보되었습니다. 지금 초안을 생성하면 공고의 요구 역량과 연결해 문장을 재구성할 수 있습니다.",
         },
       ]);
       setDraftState("ready");
@@ -1032,7 +1508,7 @@ export function AIDraftChatBuilder() {
     setTargetForm({
       questionText: DEFAULT_QUESTION_TEXT,
       charLimit: 800,
-      jobPostingText: buildDefaultJobPostingText(mockJobs[0])
+      jobPostingText: selectedApiJob ? buildDefaultJobPostingText(selectedApiJob) : ""
     });
     resetWorkflow();
     setNewChatConfirmOpen(false);
@@ -1048,6 +1524,19 @@ export function AIDraftChatBuilder() {
     window.requestAnimationFrame(syncComposerHeight);
   };
 
+  const handleComposerBarClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (
+      event.target instanceof Element &&
+      event.target.closest(
+        "button, input, textarea, .aiDraftComposerPopover, .aiDraftComposerToneSubmenu"
+      )
+    ) {
+      return;
+    }
+
+    composerInputRef.current?.focus();
+  };
+
   return (
     <main className="homePage aiDraftChatPage">
       <HomeTopNav active="analysis" />
@@ -1060,7 +1549,9 @@ export function AIDraftChatBuilder() {
                 <div className="aiDraftTitleRow">
                   <h1>AI 자소서 채팅</h1>
                   <span>{selectedProviderLabel}</span>
-                  <strong>{activeAiMeta?.usedFallback ? "FALLBACK" : "ONLINE"}</strong>
+                  <strong className={`aiDraftProviderStatusBadge ${headerAiStatus.status}`}>
+                    {headerAiStatus.label}
+                  </strong>
                 </div>
                 <p>소크라테스처럼 질문하고, 당신의 경험을 구조화합니다.</p>
               </div>
@@ -1402,7 +1893,7 @@ export function AIDraftChatBuilder() {
                   </div>
                 )}
 
-                <div className="aiDraftComposerBar" ref={composerBarRef}>
+                <div className="aiDraftComposerBar" ref={composerBarRef} onClick={handleComposerBarClick}>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -1587,107 +2078,42 @@ export function AIDraftChatBuilder() {
               </div>
             </section>
 
-            <section className="aiDraftInfoCard" aria-label="자소서 목표 입력">
-              <div className="aiDraftCardTitle">
-                <span>자소서 목표</span>
-                <small>문항 · 공고 · 제한</small>
-              </div>
-              <label className="aiDraftTargetField">
-                <span>문항</span>
-                <textarea
-                  value={targetForm.questionText}
-                  rows={3}
-                  onChange={(event) => {
-                    setTargetForm((prev) => ({ ...prev, questionText: event.target.value }));
-                    resetWorkflow();
-                  }}
-                />
-              </label>
-              <label className="aiDraftTargetField">
-                <span>글자 수 제한</span>
-                <input
-                  type="number"
-                  min={200}
-                  max={5000}
-                  value={targetForm.charLimit}
-                  onChange={(event) => {
-                    setTargetForm((prev) => ({
-                      ...prev,
-                      charLimit: Number(event.target.value) || prev.charLimit
-                    }));
-                    resetWorkflow();
-                  }}
-                />
-              </label>
-              <label className="aiDraftTargetField">
-                <span>공고 텍스트</span>
-                <textarea
-                  value={targetForm.jobPostingText}
-                  rows={4}
-                  onChange={(event) => {
-                    setTargetForm((prev) => ({ ...prev, jobPostingText: event.target.value }));
-                    resetWorkflow();
-                  }}
-                />
-              </label>
-              <label className="aiDraftTargetToggle">
-                <input
-                  type="checkbox"
-                  checked={settings.blindRecruitment}
-                  onChange={(event) => {
-                    updateSettings("blindRecruitment", event.target.checked);
-                    resetWorkflow();
-                  }}
-                />
-                <span>블라인드 채용 모드</span>
-              </label>
-            </section>
-
             <section className="aiDraftInfoCard">
               <div className="aiDraftCardTitle">
-                <span>{selectedJob.isMock ? "선택된 공고 (Mock)" : "선택된 공고"}</span>
-                <button type="button" onClick={() => setShowSearch((value) => !value)}>수정</button>
+                <span>{selectedJob ? "선택된 공고" : "선택된 공고 없음"}</span>
+                <a className="aiDraftCardAction" href="/jobs">{selectedJob ? "수정" : "공고 선택"}</a>
               </div>
-              {showSearch && (
-                <div className="aiDraftJobSearch">
-                  <input value={jobQuery} onChange={(event) => setJobQuery(event.target.value)} placeholder="공고 또는 기술 검색" />
+              {selectedJob ? (
+                <dl className="aiDraftJobMeta">
                   <div>
-                    {filteredJobs.map((job) => (
-                      <button key={job.id} type="button" onClick={() => handleJobSelect(job.id)}>
-                        <strong>{job.company}</strong>
-                        <span>{job.title}</span>
-                      </button>
-                    ))}
+                    <dt>기업</dt>
+                    <dd>{selectedJob.company}</dd>
                   </div>
-                </div>
+                  <div>
+                    <dt>직무</dt>
+                    <dd>{selectedJob.title}</dd>
+                  </div>
+                  <div>
+                    <dt>공고 링크</dt>
+                    <dd>
+                      <a href={selectedJob.link}>{selectedJob.link}</a>
+                      <Icon name="external" />
+                    </dd>
+                  </div>
+                </dl>
+              ) : (
+                <p className="aiDraftEmptyNote">채용공고에서 공고를 선택하면 여기에 표시됩니다.</p>
               )}
-              <dl className="aiDraftJobMeta">
-                <div>
-                  <dt>기업</dt>
-                  <dd>{selectedJob.company}</dd>
-                </div>
-                <div>
-                  <dt>직무</dt>
-                  <dd>{selectedJob.title}</dd>
-                </div>
-                <div>
-                  <dt>공고 링크</dt>
-                  <dd>
-                    <a href={selectedJob.link}>{selectedJob.link}</a>
-                    <Icon name="external" />
-                  </dd>
-                </div>
-              </dl>
             </section>
 
             <section className="aiDraftInfoCard">
               <div className="aiDraftCardTitle">
                 <span>직무 핵심 스킬</span>
-                <small>대화 기반 체크</small>
+                <small>{skillPanelModeLabel}</small>
               </div>
               <div className="aiDraftSkillGrid">
-                {selectedJob.skills.length > 0 ? (
-                  selectedJob.skills.map((skill) => {
+                {visibleSkillCandidates.length > 0 ? (
+                  visibleSkillCandidates.map((skill) => {
                     const matched = matchedSkills.includes(skill);
                     return (
                       <span className={matched ? "matched" : ""} key={skill}>
@@ -1696,31 +2122,25 @@ export function AIDraftChatBuilder() {
                     );
                   })
                 ) : (
-                  <span>핵심 스킬 정보 없음</span>
+                  <p className="aiDraftEmptyNote">아직 감지된 스킬 없음</p>
                 )}
               </div>
-              <p className="aiDraftFootnote">대화에서 언급한 스킬은 자동으로 체크됩니다.</p>
+              <p className="aiDraftFootnote">{skillPanelFootnote}</p>
             </section>
 
             <section className="aiDraftInfoCard ats">
               <div className="aiDraftCardTitle">
                 <span>ATS 적합도</span>
-                <small>{workflowDraft ? "검수 리포트" : "대화 기반 추정"}</small>
+                <small>{atsCardMode}</small>
               </div>
               <div className="aiDraftAtsGrid">
-                <div className="aiDraftScoreRing" style={{ "--score": `${atsScore}%` } as CSSProperties}>
-                  <strong>{atsScore}</strong>
-                  <span>/100</span>
+                <div className="aiDraftScoreRing" style={{ "--score": `${atsScore ?? 0}%` } as CSSProperties}>
+                  <strong>{atsScore ?? "대기"}</strong>
+                  <span>{atsScore === null ? "입력 후 계산" : "/100"}</span>
                 </div>
                 <div className="aiDraftScoreBars">
-                  {workflowDraft ? (
-                    [
-                      ["문항 적합도", workflowDraft.reviewReport.scores.promptFit],
-                      ["직무 적합도", workflowDraft.reviewReport.scores.jobFit],
-                      ["구체성", workflowDraft.reviewReport.scores.specificity],
-                      ["증거 안전성", workflowDraft.reviewReport.scores.evidenceSafety],
-                      ["한국어 가독성", workflowDraft.reviewReport.scores.koreanReadability],
-                    ].map(([label, value]) => (
+                  {atsMetrics.length > 0 ? (
+                    atsMetrics.map(({ label, value }) => (
                       <div key={label}>
                         <span>{label}</span>
                         <i><b style={{ width: `${value}%` }} /></i>
@@ -1728,19 +2148,7 @@ export function AIDraftChatBuilder() {
                       </div>
                     ))
                   ) : (
-                    [
-                      ["키워드 적합도", matchPercent],
-                      ["경험 구체성 (추정)", 78],
-                      ["구조화 STAR (추정)", 86],
-                      ["문장 명료성 (추정)", draftState === "complete" ? 84 : 80],
-                      ["기업/직무 적합도 (추정)", 82],
-                    ].map(([label, value]) => (
-                      <div key={label}>
-                        <span>{label}</span>
-                        <i><b style={{ width: `${value}%` }} /></i>
-                        <em>{value}</em>
-                      </div>
-                    ))
+                    <p className="aiDraftEmptyNote">대화를 시작하면 적합도를 계산합니다.</p>
                   )}
                 </div>
               </div>
@@ -1748,7 +2156,9 @@ export function AIDraftChatBuilder() {
                 <strong>TIP</strong>
                 {workflowDraft
                   ? " 검수 리포트 점수와 이슈는 초안 결과 영역에서 확인할 수 있습니다."
-                  : " 더 구체적인 수치와 도구 사용 경험을 추가하면 점수가 상승합니다."}
+                  : inputAtsResult
+                    ? " 공고 키워드, 구체적 수치, 본인 역할, 결과를 더 말하면 점수가 다시 계산됩니다."
+                    : " 경험과 조건을 채팅에 입력하면 대화 내용을 기준으로 점수를 계산합니다."}
               </p>
             </section>
 
@@ -1798,17 +2208,37 @@ export function AIDraftChatBuilder() {
                 <div className="aiDraftCardTitle">
                   <span>AI Provider 상태</span>
                 </div>
-                <div className="aiDraftSkillGrid">
-                  {providerStatuses.map((provider) => (
-                    <span
-                      className={provider.online && !provider.quotaExceeded ? "matched" : ""}
-                      key={provider.providerId}
-                    >
-                      {providerBadgeLabel(provider.providerId)} ·{" "}
-                      {provider.quotaExceeded ? "할당량 초과" : provider.online ? "온라인" : "오프라인"}
-                    </span>
-                  ))}
+                <div className="aiDraftProviderList">
+                  {providerStatuses.map((provider) => {
+                    const canStartCodexLogin =
+                      provider.providerId === "codex_bridge" &&
+                      provider.configured &&
+                      !provider.online &&
+                      provider.reason === "codex_not_logged_in";
+                    const isCodexLoginBusy =
+                      codexLoginState.status === "starting" || codexLoginState.status === "pending";
+
+                    return (
+                      <div className="aiDraftProviderRow" key={provider.providerId}>
+                        <span className={provider.online && !provider.quotaExceeded ? "matched" : ""}>
+                          {providerBadgeLabel(provider.providerId)} ·{" "}
+                          {provider.quotaExceeded ? "할당량 초과" : provider.online ? "온라인" : "오프라인"}
+                        </span>
+                        {canStartCodexLogin && (
+                          <button
+                            type="button"
+                            className="aiDraftProviderConnectButton"
+                            onClick={handleCodexLoginStart}
+                            disabled={isCodexLoginBusy}
+                          >
+                            {isCodexLoginBusy ? "연결 중" : "Codex 연결"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
+                {codexLoginState.message && <p className="aiDraftFootnote">{codexLoginState.message}</p>}
               </section>
             )}
 
