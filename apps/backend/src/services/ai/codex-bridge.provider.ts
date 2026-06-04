@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { aiConfig } from "../../config/ai-config.js";
 import type {
   AiProvider,
@@ -7,12 +6,16 @@ import type {
   AiProviderStatus
 } from "../../types/ai-routing.js";
 import { buildDraftWorkflowPrompt } from "../draft-workflow/prompt-builder.js";
-import {
-  extractAssistantOutputFromJsonl,
-  extractJsonObject,
-  ProviderExecutionError,
-  withTimeout
-} from "./provider-utils.js";
+import { CodexAppServerClient } from "./codex-app-server-client.js";
+import { extractJsonObject, ProviderExecutionError, withTimeout } from "./provider-utils.js";
+
+function codexModelId() {
+  return aiConfig.codexBridge.model || "codex-app-server";
+}
+
+function accountIsUsable(accountState: Awaited<ReturnType<CodexAppServerClient["readAccount"]>>) {
+  return Boolean(accountState.account) || !accountState.requiresOpenaiAuth;
+}
 
 export class CodexBridgeProvider implements AiProvider {
   readonly id = "codex_bridge" as const;
@@ -32,9 +35,35 @@ export class CodexBridgeProvider implements AiProvider {
     }
 
     const startedAt = Date.now();
+    let client: CodexAppServerClient | undefined;
+
     try {
-      await withTimeout(this.probeLogin(), 5_000, "codex probe");
-      const modelId = aiConfig.codexBridge.model || "codex-default";
+      client = new CodexAppServerClient({
+        command: aiConfig.codexBridge.command,
+        home: aiConfig.codexBridge.home
+      });
+      const accountState = await withTimeout(client.readAccount(true), 8_000, "codex app-server account/read");
+      const modelId = codexModelId();
+
+      if (!accountIsUsable(accountState)) {
+        return {
+          providerId: this.id,
+          label: this.label,
+          online: false,
+          configured: true,
+          quotaExceeded: false,
+          reason: "codex_not_logged_in",
+          models: [
+            {
+              modelId,
+              label: modelId,
+              online: false,
+              quotaExceeded: false
+            }
+          ]
+        };
+      }
+
       return {
         providerId: this.id,
         label: this.label,
@@ -56,7 +85,8 @@ export class CodexBridgeProvider implements AiProvider {
       const reason =
         error instanceof ProviderExecutionError && error.code === "timeout"
           ? "codex_probe_timeout"
-          : "codex_not_logged_in";
+          : "codex_app_server_unavailable";
+
       return {
         providerId: this.id,
         label: this.label,
@@ -75,6 +105,8 @@ export class CodexBridgeProvider implements AiProvider {
             ]
           : []
       };
+    } finally {
+      client?.close();
     }
   }
 
@@ -85,68 +117,38 @@ export class CodexBridgeProvider implements AiProvider {
 
     const startedAt = Date.now();
     const prompt = buildDraftWorkflowPrompt(input.operation, input.payload);
-    const args = ["--ask-for-approval", "never"];
+    const modelId = input.modelId ?? aiConfig.codexBridge.model;
+    let client: CodexAppServerClient | undefined;
 
-    if (aiConfig.codexBridge.reasoningEffort) {
-      args.push("-c", `model_reasoning_effort=${JSON.stringify(aiConfig.codexBridge.reasoningEffort)}`);
+    try {
+      client = new CodexAppServerClient({
+        command: aiConfig.codexBridge.command,
+        home: aiConfig.codexBridge.home
+      });
+      const accountState = await withTimeout(client.readAccount(true), 8_000, "codex app-server account/read");
+      if (!accountIsUsable(accountState)) {
+        throw new ProviderExecutionError("offline", "codex_not_logged_in");
+      }
+
+      const assistantOutput = await withTimeout(
+        client.runPrompt({
+          prompt,
+          model: modelId || undefined,
+          reasoningEffort: aiConfig.codexBridge.reasoningEffort || undefined,
+          cwd: process.cwd()
+        }),
+        input.timeoutMs,
+        "codex app-server turn"
+      );
+      const parsed = extractJsonObject(assistantOutput);
+
+      return {
+        data: parsed as T,
+        modelId: modelId || "codex-app-server",
+        latencyMs: Date.now() - startedAt
+      };
+    } finally {
+      client?.close();
     }
-
-    args.push("exec", "--ephemeral", "--sandbox", "read-only", "--json");
-
-    if (aiConfig.codexBridge.model || input.modelId) {
-      args.push("-m", input.modelId ?? aiConfig.codexBridge.model);
-    }
-    if (aiConfig.codexBridge.profile) {
-      args.push("-p", aiConfig.codexBridge.profile);
-    }
-    args.push("-");
-
-    const stdout = await withTimeout(this.runCommand(args, prompt), input.timeoutMs, "codex exec");
-    const assistantOutput = extractAssistantOutputFromJsonl(stdout);
-    const parsed = extractJsonObject(assistantOutput);
-
-    return {
-      data: parsed as T,
-      modelId: input.modelId ?? aiConfig.codexBridge.model ?? "codex-default",
-      latencyMs: Date.now() - startedAt
-    };
-  }
-
-  private probeLogin() {
-    return this.runCommand(["login", "status"]);
-  }
-
-  private runCommand(args: string[], stdin?: string) {
-    return new Promise<string>((resolve, reject) => {
-      const child = spawn(aiConfig.codexBridge.command, args, {
-        shell: false,
-        windowsHide: true
-      });
-
-      let stdout = "";
-      let stderr = "";
-
-      child.stdin?.end(stdin);
-      child.stdout.on("data", (chunk: Buffer | string) => {
-        stdout += String(chunk);
-      });
-      child.stderr.on("data", (chunk: Buffer | string) => {
-        stderr += String(chunk);
-      });
-      child.on("error", () => reject(new ProviderExecutionError("offline", "codex_not_logged_in")));
-      child.on("close", (code) => {
-        if (code === 0) {
-          resolve(stdout);
-          return;
-        }
-
-        const combined = `${stderr}\n${stdout}`.toLowerCase();
-        if (combined.includes("login") || combined.includes("auth")) {
-          reject(new ProviderExecutionError("offline", "codex_not_logged_in"));
-          return;
-        }
-        reject(new ProviderExecutionError("provider_error", stderr || `codex exited with ${code}`));
-      });
-    });
   }
 }

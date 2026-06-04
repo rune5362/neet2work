@@ -1,28 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import logoUrl from "../assets/logo/neet2work_logo_lockup_reference_curve 1.png";
+import { clearLoginSession, getStoredAuthUser, getStoredRefreshToken } from "../api/authSession";
 import { logout, type AuthUser } from "../api/client";
 import { UNREAD_NOTIFICATIONS } from "../data/notifications";
 
 type HomeTopNavProps = {
   active?: "home" | "jobs" | "analysis" | "community" | "account" | "notifications";
 };
-
-function getStoredAuthUser(): AuthUser | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const storedUser = window.localStorage.getItem("neet2work.auth.user");
-  if (!storedUser) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(storedUser) as AuthUser;
-  } catch {
-    return null;
-  }
-}
 
 function isPathInSection(currentPath: string, sectionPath: string) {
   return currentPath === sectionPath || currentPath.startsWith(`${sectionPath}/`);
@@ -96,17 +80,12 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
   }, [isAccountMenuOpen, isNotificationMenuOpen]);
 
   const handleLogout = async () => {
-    const refreshToken = window.localStorage.getItem("neet2work.auth.refreshToken");
+    const refreshToken = getStoredRefreshToken();
     if (refreshToken) {
       await logout(refreshToken).catch(() => null);
     }
 
-    window.localStorage.removeItem("neet2work.auth.user");
-    window.localStorage.removeItem("neet2work.auth.accessToken");
-    window.localStorage.removeItem("neet2work.auth.refreshToken");
-    window.localStorage.removeItem("neet2work.auth.tokenType");
-    window.localStorage.removeItem("neet2work.auth.expiresAt");
-    window.localStorage.removeItem("neet2work.auth.refreshExpiresAt");
+    clearLoginSession();
     setAuthUser(null);
     setIsAccountMenuOpen(false);
     setIsNavMenuOpen(false);

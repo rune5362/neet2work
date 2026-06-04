@@ -51,7 +51,11 @@ function isAllowedOrigin(origin?: string) {
 
   try {
     const url = new URL(origin);
-    return LOCALHOST_HOSTNAMES.has(url.hostname);
+    const allowsLocalhostOrigins =
+      (process.env.NODE_ENV || NODE_ENV) !== "production" ||
+      process.env.ALLOW_LOCALHOST_ORIGINS === "true";
+
+    return allowsLocalhostOrigins && LOCALHOST_HOSTNAMES.has(url.hostname);
   } catch {
     return false;
   }
@@ -180,8 +184,6 @@ export function createApp() {
       res: express.Response,
       _next: express.NextFunction
     ) => {
-      logServerError(err);
-
       if (err instanceof ZodError) {
         res.status(400).json({
           message: "요청 데이터 형식이 올바르지 않습니다.",
@@ -192,12 +194,18 @@ export function createApp() {
       }
 
       if (err instanceof HttpError) {
+        if (err.statusCode >= 500) {
+          logServerError(err);
+        }
+
         res.status(err.statusCode).json({
           message: err.message,
           fallback: true
         });
         return;
       }
+
+      logServerError(err);
 
       res.status(500).json({
         message: "서버 오류가 발생했습니다.",

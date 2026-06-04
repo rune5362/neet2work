@@ -78,6 +78,24 @@ describe("draft workflow routes", () => {
     expect(body.data.some((item: { providerId: string; online: boolean }) => item.providerId === "fallback" && item.online)).toBe(true);
   });
 
+  it("POST /providers/codex/login returns 400 when Codex Bridge is disabled", async () => {
+    const response = await request("/api/draft-workflow/providers/codex/login", {
+      method: "POST"
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.message).toContain("Codex Bridge");
+  });
+
+  it("GET /providers/codex/login/:loginId returns 404 for unknown sessions", async () => {
+    const response = await request("/api/draft-workflow/providers/codex/login/missing-login-id");
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body.message).toContain("찾을 수 없습니다");
+  });
+
   it("POST /plan returns 400 when required target fields are missing", async () => {
     const response = await request("/api/draft-workflow/plan", {
       method: "POST",

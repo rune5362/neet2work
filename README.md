@@ -116,7 +116,7 @@ AI 라우팅 정책:
 
 ### AI
 
-- Codex Bridge
+- Codex Bridge(Codex app-server 기반 로컬 OAuth 세션 연동)
 - Gemini API
 - Local AI provider(Gemma 등 로컬 모델 연결용)
 - Hardcoded fallback demo
@@ -236,10 +236,10 @@ AI_ROUTING_DEFAULT=auto
 AI_PROVIDER_ORDER=codex_bridge,gemini,local,fallback
 AI_PROVIDER_TIMEOUT_MS=180000
 CODEX_BRIDGE_ENABLED=false
-CODEX_BRIDGE_COMMAND=codex
+CODEX_BRIDGE_COMMAND=
+CODEX_BRIDGE_HOME=
 CODEX_BRIDGE_MODEL=
 CODEX_BRIDGE_REASONING_EFFORT=
-CODEX_BRIDGE_PROFILE=
 GEMINI_ENABLED=false
 GEMINI_API_KEY=
 GEMINI_MODEL=
@@ -259,6 +259,25 @@ R2_BUCKET=
 R2_ACCESS_KEY_ID=
 R2_SECRET_ACCESS_KEY=
 ```
+
+Codex Bridge는 `codex exec`가 아니라 공식 Codex app-server 프로토콜을 사용합니다. `CODEX_BRIDGE_ENABLED=true`로 켜면 backend가 `codex app-server --listen stdio://`를 실행하고, `account/read`로 로컬 Codex의 기존 ChatGPT OAuth/API key 로그인 상태를 확인합니다. `CODEX_BRIDGE_COMMAND`를 비워두면 Windows에서는 `%LOCALAPPDATA%\OpenAI\Codex\bin\*\codex.exe`, 그 외 환경에서는 `CODEX_CLI_PATH` 또는 PATH의 `codex`를 사용합니다. `CODEX_BRIDGE_HOME`을 비워두면 사용자 홈의 `.codex`를 우선 사용하므로 Codex 내부 샌드박스의 `CODEX_HOME`을 잘못 물지 않습니다. 로컬 Codex가 이미 로그인되어 있으면 별도 OpenAI API key를 Neet2Work에 저장하지 않고 연결되고, 미로그인 상태면 provider는 `codex_not_logged_in`으로 offline 처리되어 fallback으로 내려갑니다. OAuth를 새로 시작할 때도 Neet2Work는 토큰을 읽거나 저장하지 않고, app-server의 `account/login/start`가 반환하는 로그인 URL과 완료 notification만 다룹니다.
+
+로컬 Codex OAuth 연결만 확인하려면 아래 smoke check를 사용합니다. 이 명령은 모델 turn을 시작하지 않고 `account/read`만 수행합니다.
+
+```bash
+corepack pnpm run codex:bridge:smoke
+```
+
+Codex app-server는 `CODEX_HOME` 아래 state/auth 파일을 읽고 일부 sqlite 상태를 갱신합니다. 제한된 샌드박스나 읽기 전용 권한에서 `attempt to write a readonly database`가 나오면, 실제 사용자 권한으로 실행하거나 `CODEX_BRIDGE_HOME`을 쓰기 가능한 Codex 홈으로 지정합니다.
+
+미로그인 상태에서 app-server OAuth URL 발급까지 확인하려면 아래처럼 실행합니다. `--wait-login`을 붙이면 URL을 먼저 출력한 뒤 로그인 완료 notification을 기다리고, 완료되면 다시 `account/read`를 수행합니다.
+
+```bash
+corepack pnpm run codex:bridge:smoke -- --start-login
+corepack pnpm run codex:bridge:smoke -- --start-login --wait-login
+```
+
+Windows에서 앱을 바로 실행하려면 프로젝트 루트의 `start-codex-bridge.cmd`를 더블클릭합니다. 이 파일은 현재 창에서만 `CODEX_BRIDGE_ENABLED=true`를 설정하고 기존 `corepack pnpm run dev`를 실행합니다.
 
 ## 실행 방법
 

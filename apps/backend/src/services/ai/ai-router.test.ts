@@ -71,6 +71,63 @@ describe("AiRouter", () => {
     expect(result.aiMeta.providerId).toBe("gemini");
   });
 
+  it("manual mode uses the selected provider on success and does not execute fallback", async () => {
+    let fallbackExecuteCount = 0;
+    const router = new AiRouter([
+      createStubProvider({
+        id: "gemini",
+        status: {
+          providerId: "gemini",
+          label: "Gemini",
+          online: true,
+          configured: true,
+          quotaExceeded: false,
+          models: [{ modelId: "gemini-pro", label: "gemini-pro", online: true, quotaExceeded: false }]
+        }
+      }),
+      {
+        id: "fallback",
+        label: "Fallback",
+        getStatus: async () => ({
+          providerId: "fallback",
+          label: "Fallback",
+          online: true,
+          configured: true,
+          quotaExceeded: false,
+          models: [{ modelId: "hardcoded-demo", label: "Demo", online: true, quotaExceeded: false }]
+        }),
+        execute: async () => {
+          fallbackExecuteCount += 1;
+          return {
+            data: { ok: true, provider: "fallback" },
+            modelId: "hardcoded-demo",
+            latencyMs: 12
+          };
+        }
+      }
+    ]);
+
+    const result = await router.execute({
+      operation: "plan",
+      payload: {
+        target: {
+          company: "Neet2Work",
+          role: "Frontend",
+          questionText: "Describe a practical work experience.",
+          charCountRule: "with_spaces",
+          jobPostingText: "Frontend Product Work",
+          blindRecruitment: false
+        },
+        experienceInput: { manualExperienceText: "I collaborated on React product work." }
+      },
+      aiSelection: { mode: "manual", providerId: "gemini", modelId: "gemini-pro" }
+    });
+
+    expect(result.aiMeta.usedFallback).toBe(false);
+    expect(result.aiMeta.providerId).toBe("gemini");
+    expect(fallbackExecuteCount).toBe(0);
+  });
+
   it("manual mode falls back when selected provider is offline", async () => {
     const router = new AiRouter([
       createStubProvider({

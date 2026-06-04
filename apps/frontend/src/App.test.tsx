@@ -231,7 +231,7 @@ describe("profile/document frontend integration flow", () => {
     cleanup();
 
     renderAt("/documents/profiles/new");
-    fireEvent.change(screen.getByLabelText("프로필 제목"), { target: { value: "테스트 프로필" } });
+    fireEvent.change(await screen.findByLabelText("프로필 제목"), { target: { value: "테스트 프로필" } });
     fireEvent.change(screen.getByLabelText("이름"), { target: { value: "테스트" } });
     await createProfileRequest({ title: "테스트 프로필", profileJson: profileJson("테스트") });
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/profiles"), expect.objectContaining({ method: "POST" })));

@@ -1,6 +1,7 @@
 import type { AnalysisResult } from "../types/analysis";
 import type {
   AiProviderStatus,
+  CodexBridgeLoginStatus,
   DraftWorkflowDraft,
   DraftWorkflowDraftRequest,
   DraftWorkflowPlan,
@@ -198,6 +199,30 @@ export async function getDraftWorkflowProviders(): Promise<AiProviderStatus[]> {
   }
 
   const result = (await response.json()) as ApiItemResponse<AiProviderStatus[]>;
+  return result.data;
+}
+
+export async function startCodexBridgeLogin(): Promise<CodexBridgeLoginStatus> {
+  const response = await fetch(`${API_BASE_URL}/api/draft-workflow/providers/codex/login`, {
+    method: "POST"
+  });
+
+  if (!response.ok) {
+    throw new Error("Codex 연결 시작에 실패했습니다.");
+  }
+
+  const result = (await response.json()) as ApiItemResponse<CodexBridgeLoginStatus>;
+  return result.data;
+}
+
+export async function getCodexBridgeLoginStatus(loginId: string): Promise<CodexBridgeLoginStatus> {
+  const response = await fetch(`${API_BASE_URL}/api/draft-workflow/providers/codex/login/${encodeURIComponent(loginId)}`);
+
+  if (!response.ok) {
+    throw new Error("Codex 연결 상태 확인에 실패했습니다.");
+  }
+
+  const result = (await response.json()) as ApiItemResponse<CodexBridgeLoginStatus>;
   return result.data;
 }
 

@@ -32,6 +32,7 @@
     "jobs:operational:sql-artifacts": "corepack pnpm --filter @neet2work/backend run jobs:operational:sql-artifacts",
     "jobs:operational:scheduler": "corepack pnpm --filter @neet2work/backend run jobs:operational:scheduler",
     "jobs:operational:jp-plan": "corepack pnpm --filter @neet2work/backend run jobs:operational:jp-plan",
+    "codex:bridge:smoke": "corepack pnpm --filter @neet2work/backend run codex:bridge:smoke",
     "db:studio": "corepack pnpm --filter @neet2work/backend run db:studio",
     "db:status": "corepack pnpm --filter @neet2work/backend run db:status",
     "crawl:saramin:check": "corepack pnpm --filter @neet2work/backend exec tsx src/scripts/jobCrawlerImportCheck.ts --source saramin",

@@ -6,6 +6,11 @@ type AccessTokenPayload = {
   status: string;
 };
 
+type AccessTokenHeader = {
+  alg?: string;
+  typ?: string;
+};
+
 const defaultAccessTokenTtlSeconds = 60 * 60;
 const defaultRefreshTokenTtlSeconds = 60 * 60 * 24 * 30;
 
@@ -84,10 +89,21 @@ export function issueAccessToken(payload: AccessTokenPayload) {
 }
 
 export function verifyAccessToken(accessToken: string): AccessTokenPayload {
-  const [encodedHeader, encodedClaims, signature] = accessToken.split(".");
+  const tokenParts = accessToken.split(".");
+
+  if (tokenParts.length !== 3) {
+    throw new Error("Invalid access token");
+  }
+
+  const [encodedHeader, encodedClaims, signature] = tokenParts;
 
   if (!encodedHeader || !encodedClaims || !signature) {
     throw new Error("Invalid access token");
+  }
+
+  const header = JSON.parse(base64UrlDecode(encodedHeader)) as AccessTokenHeader;
+  if (header.alg !== "HS256" || header.typ !== "JWT") {
+    throw new Error("Invalid access token header");
   }
 
   const expectedSignature = base64UrlEncode(

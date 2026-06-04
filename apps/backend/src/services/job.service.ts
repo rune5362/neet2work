@@ -60,6 +60,10 @@ type PublicJobRow = {
   jobCategory: string | null;
 };
 
+type DetailedPublicJobRow = PublicJobRow & {
+  rawText: string | null;
+};
+
 export type JobListQuery = {
   q?: string;
   source?: string;
@@ -122,10 +126,15 @@ export type JobFacets = {
 const MAX_JOB_LIMIT = 100;
 const DEFAULT_JOB_PAGE = 1;
 const DEFAULT_JOB_PAGE_LIMIT = 9;
-const ACTIVE_PUBLIC_JOB_WHERE = {
-  ...activeRecordWhere,
-  status: "active"
-} satisfies Prisma.JobPostingWhereInput;
+
+function buildActivePublicJobWhere(
+  options: { includeSoftDelete?: boolean } = {}
+): Prisma.JobPostingWhereInput {
+  return {
+    ...(options.includeSoftDelete === false ? {} : activeRecordWhere),
+    status: "active"
+  };
+}
 
 export const PUBLIC_JOB_SELECT = {
   id: true,
@@ -156,6 +165,10 @@ export const PUBLIC_JOB_SELECT = {
 const INTERNAL_PUBLIC_JOB_SELECT = {
   ...PUBLIC_JOB_SELECT,
   rawJson: true
+} satisfies Prisma.JobPostingSelect;
+const DETAIL_PUBLIC_JOB_SELECT = {
+  ...INTERNAL_PUBLIC_JOB_SELECT,
+  rawText: true
 } satisfies Prisma.JobPostingSelect;
 
 const publicCareerStages = new Set<PublicCareerStage>(["entry", "junior", "senior"]);
@@ -844,20 +857,43 @@ function buildEmploymentTypeUnspecifiedWhere(): Prisma.JobPostingWhereInput {
   };
 }
 
+function buildMissingJobCategoryWhere(): Prisma.JobPostingWhereInput {
+  return {
+    OR: [{ jobCategory: null }, { jobCategory: "" }]
+  };
+}
+
+function buildInferredJobCategorySignalWhere(searchTerms: readonly string[]): Prisma.JobPostingWhereInput {
+  return {
+    OR: [
+      ...searchTerms.map((term) => buildContainsWhere("title", term)),
+      ...searchTerms.map((term) => ({
+        skills: {
+          has: term
+        }
+      }))
+    ]
+  };
+}
+
 function buildJobCategoryWhere(category: string): Prisma.JobPostingWhereInput {
   if (category === "개발") {
     return {
       OR: [
-        buildContainsWhere("jobCategory", "개발"),
+        { jobCategory: category },
         {
-          NOT: {
-            OR: nonDevelopmentCategories.map((otherCategory) =>
-              buildAnyContainsWhere(
-                ["title", "description", "jobCategory", "rawText"],
-                inferredJobCategorySearchTerms[otherCategory]
-              )
-            )
-          }
+          AND: [
+            buildMissingJobCategoryWhere(),
+            {
+              NOT: {
+                OR: nonDevelopmentCategories.map((otherCategory) =>
+                  buildInferredJobCategorySignalWhere(
+                    inferredJobCategorySearchTerms[otherCategory]
+                  )
+                )
+              }
+            }
+          ]
         }
       ]
     };
@@ -870,8 +906,13 @@ function buildJobCategoryWhere(category: string): Prisma.JobPostingWhereInput {
 
   return {
     OR: [
-      buildContainsWhere("jobCategory", category),
-      buildAnyContainsWhere(["title", "description", "jobCategory", "rawText"], searchTerms)
+      { jobCategory: category },
+      {
+        AND: [
+          buildMissingJobCategoryWhere(),
+          buildInferredJobCategorySignalWhere(searchTerms)
+        ]
+      }
     ]
   };
 }
@@ -880,8 +921,13 @@ function buildRegionWhere(country: string | undefined, regionLabel: string): Pri
   return buildAnyContainsWhere(regionSearchFields, getLocationSearchAliases(country, regionLabel));
 }
 
-function buildJobWhere(query: NormalizedJobListQuery): Prisma.JobPostingWhereInput {
-  const where: Prisma.JobPostingWhereInput = { ...ACTIVE_PUBLIC_JOB_WHERE };
+function buildJobWhere(
+  query: NormalizedJobListQuery,
+  options: { includeSoftDelete?: boolean } = {}
+): Prisma.JobPostingWhereInput {
+  const where: Prisma.JobPostingWhereInput = {
+    ...buildActivePublicJobWhere(options)
+  };
   const andConditions: Prisma.JobPostingWhereInput[] = [];
 
   if (query.source) {
@@ -1204,6 +1250,46 @@ function readErrorString(error: unknown, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+function isMissingSoftDeleteColumnError(error: unknown): boolean {
+  const code = readErrorString(error, "code")?.toLowerCase() ?? "";
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  const meta =
+    typeof error === "object" && error !== null && !Array.isArray(error)
+      ? JSON.stringify((error as Record<string, unknown>).meta ?? {}).toLowerCase()
+      : "";
+  const text = `${message} ${meta}`;
+
+  return (
+    (code === "42703" || code === "p2022" || text.includes("does not exist")) &&
+    (text.includes("deleted_at") || text.includes("deletedat"))
+  );
+}
+
+async function runPublicJobQuery<T>(
+  context: string,
+  operation: (options: { includeSoftDelete: boolean }) => Promise<T>
+): Promise<T | undefined> {
+  try {
+    return await operation({ includeSoftDelete: true });
+  } catch (error) {
+    if (!isMissingSoftDeleteColumnError(error)) {
+      if (!shouldFallbackToSamples(error, context)) {
+        throw error;
+      }
+      return undefined;
+    }
+  }
+
+  try {
+    return await operation({ includeSoftDelete: false });
+  } catch (error) {
+    if (!shouldFallbackToSamples(error, context)) {
+      throw error;
+    }
+    return undefined;
+  }
+}
+
 function shouldFallbackToSamples(error: unknown, context: string): boolean {
   if (!isDatabaseUnavailableError(error)) {
     return false;
@@ -1218,6 +1304,132 @@ function shouldFallbackToSamples(error: unknown, context: string): boolean {
 
 function isJobPostingStatus(value: string | null): value is NonNullable<JobPosting["status"]> {
   return value === "active" || value === "closed" || value === "inactive" || value === "unknown";
+}
+
+const detailDescriptionStartMarkers = [
+  "仕事内容",
+  "업무내용",
+  "담당업무",
+  "직무내용",
+  "Job Description",
+  "Responsibilities"
+];
+const detailDescriptionStopMarkers = [
+  "企業について",
+  "勤務時間",
+  "応募条件",
+  "英語能力",
+  "日本語能力",
+  "年収",
+  "給与に関する説明",
+  "休日",
+  "Requirements",
+  "Qualifications",
+  "근무조건",
+  "자격요건",
+  "지원자격",
+  "우대사항",
+  "복리후생"
+];
+const rawJsonDetailTextKeys = [
+  "description",
+  "jobDescription",
+  "job_description",
+  "responsibilities",
+  "duties",
+  "仕事内容",
+  "holidays"
+];
+
+function normalizeDetailSourceText(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function formatDetailedDescriptionText(value: string): string {
+  return normalizeDetailSourceText(value)
+    .replace(/\s+(【[^】]+】)/g, "\n\n$1")
+    .replace(/\s+([・●])\s*/g, "\n$1")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function findMarkerIndex(text: string, marker: string, startIndex = 0): number {
+  return text.toLocaleLowerCase().indexOf(marker.toLocaleLowerCase(), startIndex);
+}
+
+function findEarliestMarker(
+  text: string,
+  markers: readonly string[],
+  startIndex = 0
+): { index: number; marker: string } | undefined {
+  return markers.reduce<{ index: number; marker: string } | undefined>((earliest, marker) => {
+    const index = findMarkerIndex(text, marker, startIndex);
+
+    if (index === -1) {
+      return earliest;
+    }
+
+    if (!earliest || index < earliest.index) {
+      return { index, marker };
+    }
+
+    return earliest;
+  }, undefined);
+}
+
+function extractDetailedDescriptionSection(value: string): string | undefined {
+  const normalized = normalizeDetailSourceText(value);
+  const start = findEarliestMarker(normalized, detailDescriptionStartMarkers);
+
+  if (!start) {
+    return undefined;
+  }
+
+  const sectionStartIndex = start.index + start.marker.length;
+  const afterStart = normalized.slice(sectionStartIndex).trim();
+  const stop = findEarliestMarker(afterStart, detailDescriptionStopMarkers);
+  const section = stop ? afterStart.slice(0, stop.index).trim() : afterStart;
+  const formatted = formatDetailedDescriptionText(section);
+
+  return formatted.length > 0 ? formatted : undefined;
+}
+
+function getRawJsonRecord(value: Prisma.JsonValue | null): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function getRawJsonDetailTextCandidates(value: Prisma.JsonValue | null): string[] {
+  const record = getRawJsonRecord(value);
+
+  if (!record) {
+    return [];
+  }
+
+  return rawJsonDetailTextKeys
+    .map((key) => record[key])
+    .filter((candidate): candidate is string => typeof candidate === "string" && candidate.trim().length > 0);
+}
+
+function resolveDetailedDescription(job: DetailedPublicJobRow): string {
+  const fallbackDescription = job.description.trim();
+  const sourceTexts = [...getRawJsonDetailTextCandidates(job.rawJson), job.rawText]
+    .filter((candidate): candidate is string => typeof candidate === "string" && candidate.trim().length > 0);
+  const detailedCandidates = Array.from(
+    new Set(
+      sourceTexts
+        .map(extractDetailedDescriptionSection)
+        .filter((candidate): candidate is string => Boolean(candidate))
+    )
+  ).sort((left, right) => right.length - left.length);
+
+  return (
+    detailedCandidates.find((candidate) => candidate.length > fallbackDescription.length) ??
+    fallbackDescription
+  );
 }
 
 function toJobPosting(job: PublicJobRow): JobPosting {
@@ -1256,6 +1468,13 @@ function toJobPosting(job: PublicJobRow): JobPosting {
   };
 }
 
+function toDetailedJobPosting(job: DetailedPublicJobRow): JobPosting {
+  return {
+    ...toJobPosting(job),
+    description: resolveDetailedDescription(job)
+  };
+}
+
 async function getFallbackJobs(): Promise<JobPosting[]> {
   try {
     const file = await fs.readFile(sampleJobsPath, "utf-8");
@@ -1286,9 +1505,9 @@ export async function getJobs(query: JobListQuery = {}): Promise<JobPosting[]> {
   );
 
   if (prisma) {
-    try {
+    const result = await runPublicJobQuery("getJobs", async ({ includeSoftDelete }) => {
       const jobs = await prisma.jobPosting.findMany({
-        where: buildJobWhere(normalizedQuery),
+        where: buildJobWhere(normalizedQuery, { includeSoftDelete }),
         select: INTERNAL_PUBLIC_JOB_SELECT,
         orderBy: [{ collectedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
         take: hasExplicitFilters ? undefined : normalizedQuery.limit
@@ -1300,10 +1519,10 @@ export async function getJobs(query: JobListQuery = {}): Promise<JobPosting[]> {
       return normalizedQuery.limit === undefined
         ? filteredJobs
         : filteredJobs.slice(0, normalizedQuery.limit);
-    } catch (error) {
-      if (!shouldFallbackToSamples(error, "getJobs")) {
-        throw error;
-      }
+    });
+
+    if (result) {
+      return result;
     }
   }
 
@@ -1321,8 +1540,8 @@ export async function getJobsPage(query: JobListQuery = {}): Promise<JobPage> {
   const prisma = getPrismaClient();
 
   if (prisma) {
-    try {
-      const where = buildJobWhere(normalizedQuery);
+    const result = await runPublicJobQuery("getJobsPage", async ({ includeSoftDelete }) => {
+      const where = buildJobWhere(normalizedQuery, { includeSoftDelete });
       const postQueryFiltering = requiresPostQueryFiltering(normalizedQuery);
 
       if (!postQueryFiltering) {
@@ -1380,10 +1599,10 @@ export async function getJobsPage(query: JobListQuery = {}): Promise<JobPage> {
         limit,
         availableSkills: buildAvailableSkills(filteredJobs)
       };
-    } catch (error) {
-      if (!shouldFallbackToSamples(error, "getJobsPage")) {
-        throw error;
-      }
+    });
+
+    if (result) {
+      return result;
     }
   }
 
@@ -1410,25 +1629,26 @@ export async function getJobFacets(): Promise<JobFacets> {
   const prisma = getPrismaClient();
 
   if (prisma) {
-    try {
+    const result = await runPublicJobQuery("getJobFacets", async ({ includeSoftDelete }) => {
+      const where = buildActivePublicJobWhere({ includeSoftDelete });
       const [sources, countries, languages, total] = await Promise.all([
         prisma.jobPosting.groupBy({
           by: ["source"],
-          where: ACTIVE_PUBLIC_JOB_WHERE,
+          where,
           _count: { _all: true }
         }),
         prisma.jobPosting.groupBy({
           by: ["country"],
-          where: ACTIVE_PUBLIC_JOB_WHERE,
+          where,
           _count: { _all: true }
         }),
         prisma.jobPosting.groupBy({
           by: ["language"],
-          where: ACTIVE_PUBLIC_JOB_WHERE,
+          where,
           _count: { _all: true }
         }),
         prisma.jobPosting.count({
-          where: ACTIVE_PUBLIC_JOB_WHERE
+          where
         })
       ]);
 
@@ -1444,10 +1664,10 @@ export async function getJobFacets(): Promise<JobFacets> {
           .sort(compareFacetOption),
         total
       };
-    } catch (error) {
-      if (!shouldFallbackToSamples(error, "getJobFacets")) {
-        throw error;
-      }
+    });
+
+    if (result) {
+      return result;
     }
   }
 
@@ -1459,17 +1679,17 @@ export async function getJobById(id: string): Promise<JobPosting | undefined> {
   const prisma = getPrismaClient();
 
   if (prisma) {
-    try {
+    const result = await runPublicJobQuery("getJobById", async ({ includeSoftDelete }) => {
       const job = await prisma.jobPosting.findFirst({
-        where: { id, ...ACTIVE_PUBLIC_JOB_WHERE },
-        select: INTERNAL_PUBLIC_JOB_SELECT
+        where: { id, ...buildActivePublicJobWhere({ includeSoftDelete }) },
+        select: DETAIL_PUBLIC_JOB_SELECT
       });
 
-      return job ? toJobPosting(job) : undefined;
-    } catch (error) {
-      if (!shouldFallbackToSamples(error, "getJobById")) {
-        throw error;
-      }
+      return job ? toDetailedJobPosting(job) : undefined;
+    });
+
+    if (result !== undefined) {
+      return result;
     }
   }
 

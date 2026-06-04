@@ -27,6 +27,25 @@ export type AiProviderStatus = {
   }>;
 };
 
+export type CodexBridgeLoginStatus = {
+  loginId: string | null;
+  status: "pending" | "succeeded" | "failed" | "expired";
+  error: string | null;
+  account: {
+    type?: string;
+    email?: string;
+    planType?: string;
+  } | null;
+  login: {
+    type: string;
+    loginId: string;
+    authUrl: string | null;
+    verificationUrl: string | null;
+    userCode: string | null;
+  } | null;
+  expiresAt: string | null;
+};
+
 export type AiSelection = {
   mode: AiRoutingMode;
   providerId?: AiProviderId;

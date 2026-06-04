@@ -90,6 +90,8 @@ describe("server HTTP contract", () => {
 
   afterEach(() => {
     delete process.env.AI_API_KEY;
+    delete process.env.ALLOW_LOCALHOST_ORIGINS;
+    delete process.env.NODE_ENV;
     delete process.env.R2_ACCESS_KEY_ID;
   });
 
@@ -117,18 +119,53 @@ describe("server HTTP contract", () => {
     expect(response.headers.get("access-control-allow-credentials")).toBe("true");
   });
 
+  it("rejects unconfigured localhost origins in production by default", async () => {
+    process.env.NODE_ENV = "production";
+
+    const response = await request(createApp(), "/api/jobs", {
+      headers: {
+        Origin: "http://localhost:5174"
+      }
+    });
+
+    expect(response.headers.get("access-control-allow-origin")).toBeNull();
+    expect(response.headers.get("access-control-allow-credentials")).toBeNull();
+  });
+
+  it("allows unconfigured localhost origins in production only when explicitly enabled", async () => {
+    process.env.ALLOW_LOCALHOST_ORIGINS = "true";
+    process.env.NODE_ENV = "production";
+
+    const response = await request(createApp(), "/api/jobs", {
+      headers: {
+        Origin: "http://localhost:5174"
+      }
+    });
+
+    expect(response.headers.get("access-control-allow-origin")).toBe("http://localhost:5174");
+    expect(response.headers.get("access-control-allow-credentials")).toBe("true");
+  });
+
   it("requires authentication for candidate-owned library routes", async () => {
-    const protectedPaths = ["/api/profiles", "/api/documents", "/api/document-sets"];
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    for (const path of protectedPaths) {
-      const response = await request(createApp(), path);
-      const body = await response.json();
+    try {
+      const protectedPaths = ["/api/profiles", "/api/documents", "/api/document-sets"];
 
-      expect(response.status).toBe(401);
-      expect(body).toEqual({
-        message: "인증이 필요합니다.",
-        fallback: true
-      });
+      for (const path of protectedPaths) {
+        const response = await request(createApp(), path);
+        const body = await response.json();
+
+        expect(response.status).toBe(401);
+        expect(body).toEqual({
+          message: "인증이 필요합니다.",
+          fallback: true
+        });
+      }
+
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
     }
   });
 
@@ -153,21 +190,28 @@ describe("server HTTP contract", () => {
   });
 
   it("returns 400 for unsupported image resume extract requests", async () => {
-    const response = await request(createApp(), "/api/resume/extract", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        fileName: "resume.png",
-        mimeType: "image/png",
-        contentBase64: Buffer.from("png", "utf-8").toString("base64")
-      })
-    });
-    const body = await response.json();
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    expect(response.status).toBe(400);
-    expect(body.message).toContain("이미지 파일은 지원하지 않습니다");
+    try {
+      const response = await request(createApp(), "/api/resume/extract", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          fileName: "resume.png",
+          mimeType: "image/png",
+          contentBase64: Buffer.from("png", "utf-8").toString("base64")
+        })
+      });
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(errorSpy).not.toHaveBeenCalled();
+      expect(body.message).toContain("이미지 파일은 지원하지 않습니다");
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it("keeps the resume extract route envelope stable for txt files", async () => {
