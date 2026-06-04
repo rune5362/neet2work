@@ -101,6 +101,100 @@ AI 라우팅 정책:
 | Automation | Playwright, Python/public HTML collector 후보 |
 | Optional Infra | Docker Compose, AWS RDS, Cloudflare R2, Oracle Cloud |
 
+### Frontend
+
+- React 19 기반 SPA입니다.
+- TypeScript로 화면 상태, API 응답, 도메인 타입을 관리합니다.
+- Vite 7을 사용해 개발 서버와 production build를 처리합니다.
+- `React.lazy`와 `Suspense`로 page 단위 code splitting을 적용합니다.
+- `apps/frontend/src/pages`는 URL 단위 화면을 담당합니다.
+- `apps/frontend/src/components`는 반복 UI와 독립 컴포넌트를 담당합니다.
+- `apps/frontend/src/api`는 backend REST API client를 담당합니다.
+- frontend는 DB provider에 직접 접근하지 않고 `VITE_API_BASE_URL`로 backend만 호출합니다.
+- `lucide-react`를 아이콘 라이브러리로 사용합니다.
+- Vitest와 Testing Library로 주요 사용자 flow를 검증합니다.
+
+### Backend
+
+- Express 5 기반 REST API 서버입니다.
+- TypeScript와 ESM module 구조를 사용합니다.
+- Zod로 request body와 query string을 검증합니다.
+- route는 HTTP 계약과 response shape를 담당합니다.
+- service는 인증, 채용공고, 문서함, AI workflow 같은 도메인 로직을 담당합니다.
+- middleware는 rate limit, CORS, HTTPS guard 같은 공통 정책을 담당합니다.
+- `HttpError`와 전역 error handler로 validation 오류와 서버 오류를 구분합니다.
+- `dotenv`로 root/backend `.env`를 로딩하되 test 환경에서는 로컬 `.env` 영향이 테스트를 흔들지 않게 분리합니다.
+- 현재 주요 API는 jobs, analyze, draft-workflow, resume extract, auth, profiles, documents, document-sets입니다.
+
+### Database & Storage
+
+- PostgreSQL 17 호환 DB를 기준으로 합니다.
+- Prisma 7과 Prisma Migrate로 schema, migration, seed를 관리합니다.
+- Prisma model source는 `apps/backend/prisma/models/*.prisma`입니다.
+- `apps/backend/prisma/schema.prisma`는 generator/datasource 중심으로 유지합니다.
+- 생성된 Prisma Client는 `apps/backend/src/generated/prisma/`에 생성되며 직접 수정하지 않습니다.
+- 팀원별 개인 개발 DB를 사용할 수 있고, 공통 스키마는 migration으로 통일합니다.
+- `User`, `RefreshToken`, `AuditLog`로 인증과 감사 기록을 관리합니다.
+- `JobPosting`, `ResumeAnalysis`로 채용공고와 분석 결과를 관리합니다.
+- `CandidateProfile`, `ApplicationDocument`, `ApplicationSet`으로 통합 문서함 데이터를 관리합니다.
+- DB가 없거나 연결이 불안정한 개발/발표 환경에서도 local JSON 또는 in-memory fallback이 동작하도록 설계합니다.
+- Cloudflare R2 관련 환경변수는 준비되어 있지만 현재 핵심 runtime은 DB와 local/fallback 중심입니다.
+
+### Job Collection / Browser Automation
+
+- 채용공고 수집은 공개 HTML 기반 collector/ETL 결과 JSON을 import하는 구조입니다.
+- collector는 표준 `JobPosting` JSON 생성에 집중하고 DB에는 직접 쓰지 않습니다.
+- backend import script가 dry-run, 형식 검증, 실제 upsert를 담당합니다.
+- Saramin, JobKorea, Linkareer, Mynavi Tenshoku, Daijob, CareerCross, Green Japan check 명령이 준비되어 있습니다.
+- 채용공고 운영 lifecycle을 위해 dry-run/apply, operational plan, manual run, scheduler, SQL artifact 명령을 제공합니다.
+- Playwright는 브라우저 자동화가 필요한 future RPA 또는 검증 경로로 분리되어 있습니다.
+
+### AI
+
+- AI workflow는 provider router를 통해 Codex Bridge, Gemini, Local AI, fallback demo를 선택합니다.
+- 기본 routing mode는 `auto`입니다.
+- 기본 provider 순서는 `codex_bridge`, `gemini`, `local`, `fallback`입니다.
+- manual mode에서 선택 provider가 실패하면 다른 유료 provider가 아니라 fallback demo로 내려갑니다.
+- fallback 결과는 `aiMeta.usedFallback`과 `fallbackReason`으로 실제 AI 결과와 구분합니다.
+- Codex Bridge는 Codex CLI app-server 프로토콜을 사용합니다.
+- Neet2Work는 Codex OAuth token이나 OpenAI API key를 저장하지 않습니다.
+- Gemini provider는 API key와 model이 설정된 경우에만 online 후보가 됩니다.
+- Local AI provider는 Ollama 또는 OpenAI-compatible endpoint 연결을 염두에 둡니다.
+- hardcoded fallback demo provider는 발표와 개발 안정성을 위한 deterministic output을 제공합니다.
+- 자기소개서 작성 flow는 `/plan`, `/draft`, `/revise` 단계로 분리되어 있습니다.
+- material store, experience cards, evidence map, review report를 통해 근거 기반 초안 작성을 지향합니다.
+
+### Document Parsing
+
+- TXT와 MD는 UTF-8 텍스트로 처리합니다.
+- DOCX는 `mammoth`로 raw text를 추출합니다.
+- PDF는 `pdf-parse`로 text layer를 추출합니다.
+- 이미지 기반 PDF나 스캔본처럼 text layer가 없는 파일은 지원하지 않습니다.
+- legacy `.doc` 파일은 DOCX 변환 후 업로드하는 흐름을 전제로 합니다.
+- 추출된 본문은 AI workflow의 경험 입력 또는 요구사항 입력으로 사용됩니다.
+
+### Code Quality & Test
+
+- ESLint로 frontend/backend TypeScript source를 검사합니다.
+- Prettier로 repository formatting 기준을 맞춥니다.
+- Vitest로 frontend와 backend test를 실행합니다.
+- Testing Library로 React 화면 flow와 사용자 상호작용을 검증합니다.
+- backend test는 route validation, service fallback, provider 상태, 인증, 문서 lifecycle을 확인합니다.
+- `corepack pnpm run check`는 lint, test, build를 순서대로 실행하는 통합 검증 명령입니다.
+
+### Deployment & DevOps
+
+- pnpm workspace 기반 monorepo입니다.
+- frontend와 backend는 같은 저장소에서 관리하되 package script로 분리합니다.
+- Docker Compose는 선택적 로컬 실행 경로로 제공합니다.
+- PostgreSQL은 로컬 PostgreSQL, Docker PostgreSQL, Supabase Postgres, AWS RDS PostgreSQL 같은 호환 DB를 사용할 수 있습니다.
+- AWS, Cloudflare R2, Oracle Cloud 관련 환경변수는 확장 후보로 준비되어 있습니다.
+- `.env.example`을 기준으로 환경변수 계약을 공유하고 실제 secret은 Git에 올리지 않습니다.
+- `setup/` 아래 OS별 초기 세팅 문서를 제공합니다.
+- `docs/` 아래 API 계약, architecture, AI workflow, DB/API handoff 문서를 유지합니다.
+- work-log와 Figma bridge 관련 script가 포함되어 작업 기록과 디자인 연계 흐름을 지원합니다.
+- Windows 개발 환경에서는 `start-codex-bridge.cmd`로 Codex Bridge를 켠 개발 서버를 실행할 수 있습니다.
+
 ## 폴더 구조
 
 ```txt
@@ -436,4 +530,3 @@ corepack pnpm run jobs:operational:jp-plan
 - Prisma model source는 `apps/backend/prisma/models/*.prisma`입니다.
 - 공유된 migration은 수정하지 않고 새 migration으로 누적합니다.
 - 기능 제거 시 UI뿐 아니라 route, type, sample data, API client 잔재까지 같이 확인합니다.
-
