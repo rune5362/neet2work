@@ -5971,15 +5971,20 @@ textarea:focus {
 }
 
 .aiDraftTimeline {
+  --draft-timeline-bottom-gutter: 18px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 12px;
   min-height: 0;
-  padding: 24px 22px 14px;
+  padding: 24px 22px var(--draft-timeline-bottom-gutter);
   overflow-y: auto;
-  scroll-padding-bottom: 18px;
+  scroll-padding-bottom: calc(var(--draft-timeline-bottom-gutter) + 8px);
   scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+
+.aiDraftTimeline.hasActiveProgress {
+  --draft-timeline-bottom-gutter: 112px;
 }
 
 .aiDraftMessage {
@@ -6221,6 +6226,7 @@ textarea:focus {
 }
 
 .aiDraftProgressCard {
+  box-sizing: border-box;
   position: relative;
   overflow: hidden;
   isolation: isolate;
@@ -6228,7 +6234,13 @@ textarea:focus {
   grid-template-columns: 132px minmax(0, 1fr) auto;
   gap: 22px;
   align-items: center;
+  min-height: 142px;
   padding: 24px 28px;
+  scroll-margin-bottom: 112px;
+}
+
+.aiDraftProgressCard.isLoading {
+  min-height: 148px;
 }
 
 .aiDraftProgressCard.isLoading::before {
@@ -6705,8 +6717,10 @@ textarea:focus {
   bottom: calc(100% + 8px);
   z-index: 30;
   display: grid;
-  min-width: 184px;
-  padding: 6px;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  min-width: 72px;
+  padding: 4px;
   border: 1px solid rgba(226, 232, 240, 0.14);
   border-radius: 8px;
   background: #101827;
@@ -6714,15 +6728,15 @@ textarea:focus {
 }
 
 .aiDraftResultToolbar .aiDraftDownloadMenu button {
-  justify-content: space-between;
+  justify-content: center;
   width: 100%;
-  min-height: 38px;
-  padding: 6px 9px;
+  min-height: 30px;
+  padding: 0 8px;
   border: 0;
   border-radius: 6px;
   background: transparent;
   color: #e2e8f0;
-  text-align: left;
+  text-align: center;
   transform: none;
 }
 
@@ -6730,20 +6744,10 @@ textarea:focus {
   background: rgba(0, 102, 255, 0.15);
 }
 
-.aiDraftDownloadMenu span,
-.aiDraftDownloadMenu small {
-  display: block;
-}
-
 .aiDraftDownloadMenu span {
+  display: block;
   font-size: 0.78rem;
   font-weight: 900;
-}
-
-.aiDraftDownloadMenu small {
-  color: #94a3b8;
-  font-size: 0.68rem;
-  font-weight: 800;
 }
 
 .aiDraftComposer {
@@ -8231,7 +8235,7 @@ textarea:focus {
     gap: 11px;
     padding-top: 18px;
     padding-right: 14px;
-    padding-bottom: 10px;
+    padding-bottom: var(--draft-timeline-bottom-gutter);
     padding-left: 14px;
   }
 

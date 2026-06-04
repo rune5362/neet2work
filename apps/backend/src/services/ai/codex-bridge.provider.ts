@@ -9,8 +9,15 @@ import { buildDraftWorkflowPrompt } from "../draft-workflow/prompt-builder.js";
 import { CodexAppServerClient } from "./codex-app-server-client.js";
 import { extractJsonObject, ProviderExecutionError, withTimeout } from "./provider-utils.js";
 
+const CODEX_APP_SERVER_DEFAULT_MODEL_ID = "codex-app-server";
+
 function codexModelId() {
-  return aiConfig.codexBridge.model || "codex-app-server";
+  return aiConfig.codexBridge.model || CODEX_APP_SERVER_DEFAULT_MODEL_ID;
+}
+
+function resolveCodexModelOverride(modelId?: string) {
+  const requestedModel = modelId === CODEX_APP_SERVER_DEFAULT_MODEL_ID ? "" : modelId;
+  return requestedModel ?? aiConfig.codexBridge.model;
 }
 
 function accountIsUsable(accountState: Awaited<ReturnType<CodexAppServerClient["readAccount"]>>) {
@@ -117,7 +124,7 @@ export class CodexBridgeProvider implements AiProvider {
 
     const startedAt = Date.now();
     const prompt = buildDraftWorkflowPrompt(input.operation, input.payload);
-    const modelId = input.modelId ?? aiConfig.codexBridge.model;
+    const modelId = resolveCodexModelOverride(input.modelId);
     let client: CodexAppServerClient | undefined;
 
     try {
@@ -144,7 +151,7 @@ export class CodexBridgeProvider implements AiProvider {
 
       return {
         data: parsed as T,
-        modelId: modelId || "codex-app-server",
+        modelId: modelId || CODEX_APP_SERVER_DEFAULT_MODEL_ID,
         latencyMs: Date.now() - startedAt
       };
     } finally {

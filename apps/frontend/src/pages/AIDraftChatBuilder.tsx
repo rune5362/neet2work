@@ -28,6 +28,7 @@ import { buildSelfIntroReferenceText } from "../data/selfIntroReferenceLibrary";
 import type { DocumentListItem } from "../types/document";
 import type { JobPosting } from "../types/job";
 import type {
+  AiExecutionMeta,
   AiProviderId,
   AiProviderStatus,
   AiSelection,
@@ -56,6 +57,17 @@ type Message = {
   time: string;
 };
 
+function formatAiExecutionLabel(meta: AiExecutionMeta) {
+  const providerLabel = providerBadgeLabel(meta.providerId);
+
+  if (!meta.usedFallback) {
+    return `${providerLabel} · AI`;
+  }
+
+  const reasonLabel = fallbackReasonLabel(meta.fallbackReason);
+  return reasonLabel ? `${providerLabel} (${reasonLabel})` : providerLabel;
+}
+
 const USER_MESSAGE_COLLAPSE_THRESHOLD = 180;
 
 type Job = {
@@ -80,7 +92,6 @@ type DraftDownloadFormat = "txt" | "markdown" | "doc" | "pdf";
 type DraftDownloadOption = {
   format: DraftDownloadFormat;
   label: string;
-  helper: string;
 };
 
 type ResultInsightSection = {
@@ -243,11 +254,21 @@ const COMPOSER_INPUT_MAX_HEIGHT = 240;
 const FILE_ACCEPT = ".txt,.md,.pdf,.docx";
 const EMPTY_JOB_POSTING_TEXT = "선택된 공고 없음. 사용자 대화와 첨부 자료를 기준으로 작성합니다.";
 const DRAFT_DOWNLOAD_OPTIONS: DraftDownloadOption[] = [
-  { format: "txt", label: "TXT", helper: "일반 텍스트" },
-  { format: "markdown", label: "Markdown", helper: "마크다운 문서" },
-  { format: "doc", label: "Word 문서", helper: "Word 호환 .doc" },
-  { format: "pdf", label: "PDF 저장", helper: "인쇄 화면에서 저장" }
+  { format: "txt", label: "TXT" },
+  { format: "markdown", label: "MD" },
+  { format: "doc", label: "DOCS" },
+  { format: "pdf", label: "PDF" }
 ];
+
+function getProviderModelIdForSelection(provider?: AiProviderStatus) {
+  const modelId = provider?.models.find((model) => model.recommended)?.modelId ?? provider?.models[0]?.modelId;
+
+  if (provider?.providerId === "codex_bridge" && modelId === "codex-app-server") {
+    return undefined;
+  }
+
+  return modelId;
+}
 
 function buildDefaultJobPostingText(job: Job) {
   return [job.title, job.skills.join(", "), job.description].filter((part) => part.trim().length > 0).join("\n");
@@ -892,6 +913,7 @@ export function AIDraftChatBuilder() {
   const [selectedReferenceDocumentId, setSelectedReferenceDocumentId] = useState<string | null>(null);
   const [referenceLoadStatus, setReferenceLoadStatus] = useState<ReferenceLoadStatus>("idle");
   const timelineRef = useRef<HTMLDivElement>(null);
+  const progressCardRef = useRef<HTMLElement>(null);
   const composerBarRef = useRef<HTMLDivElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1056,7 +1078,7 @@ export function AIDraftChatBuilder() {
     (provider) => provider.providerId !== "fallback" && provider.online && !provider.quotaExceeded
   );
   const actualProviderSummary = activeAiMeta
-    ? `${providerBadgeLabel(activeAiMeta.providerId)}${activeAiMeta.usedFallback ? " (FALLBACK)" : ""}`
+    ? formatAiExecutionLabel(activeAiMeta)
     : "문항 분석 시작 후 결정됨";
   const headerAiStatus = providerStatuses.length === 0
     ? { label: "확인 중", status: "checking" }
@@ -1263,11 +1285,44 @@ export function AIDraftChatBuilder() {
   }, [codexLoginState.loginId, codexLoginState.status, refreshProviderStatuses]);
 
   useEffect(() => {
-    timelineRef.current?.scrollTo({
-      top: timelineRef.current.scrollHeight,
-      behavior: "smooth",
+    const timeline = timelineRef.current;
+
+    if (!timeline) {
+      return undefined;
+    }
+
+    const scrollToLatest = (behavior: ScrollBehavior) => {
+      if (isDraftProgressActive && progressCardRef.current?.scrollIntoView) {
+        progressCardRef.current.scrollIntoView({
+          block: "end",
+          behavior
+        });
+        return;
+      }
+
+      timeline.scrollTo({
+        top: timeline.scrollHeight,
+        behavior
+      });
+    };
+
+    scrollToLatest("smooth");
+
+    let secondFrameId: number | null = null;
+    const firstFrameId = window.requestAnimationFrame(() => {
+      scrollToLatest("auto");
+      secondFrameId = window.requestAnimationFrame(() => {
+        scrollToLatest("auto");
+      });
     });
-  }, [messages, draftState]);
+
+    return () => {
+      window.cancelAnimationFrame(firstFrameId);
+      if (secondFrameId !== null) {
+        window.cancelAnimationFrame(secondFrameId);
+      }
+    };
+  }, [messages, draftState, isDraftProgressActive]);
 
   useEffect(() => {
     syncComposerHeight();
@@ -1442,7 +1497,7 @@ export function AIDraftChatBuilder() {
       setAiSelection({
         mode: "manual",
         providerId,
-        modelId: provider?.models.find((model) => model.recommended)?.modelId ?? provider?.models[0]?.modelId
+        modelId: getProviderModelIdForSelection(provider)
       });
     }
     closeComposerMenus();
@@ -1995,7 +2050,7 @@ export function AIDraftChatBuilder() {
               </div>
             </header>
 
-            <div className="aiDraftTimeline" ref={timelineRef}>
+            <div className={`aiDraftTimeline ${isDraftProgressActive ? "hasActiveProgress" : ""}`} ref={timelineRef}>
               {messages.map((message) => {
                 const expandable = isExpandableUserMessage(message);
                 const expanded = expandedUserMessageIds.has(message.id);
@@ -2066,8 +2121,7 @@ export function AIDraftChatBuilder() {
                       <h2>문항 분석 및 경험 매칭</h2>
                       {workflowPlan.aiMeta && (
                         <span className={`aiDraftModeBadge ${workflowPlan.aiMeta.usedFallback ? "fallback" : "ai"}`}>
-                          {providerBadgeLabel(workflowPlan.aiMeta.providerId)}
-                          {workflowPlan.aiMeta.usedFallback ? " · Fallback" : ""}
+                          {formatAiExecutionLabel(workflowPlan.aiMeta)}
                         </span>
                       )}
                     </div>
@@ -2146,6 +2200,7 @@ export function AIDraftChatBuilder() {
                 <section
                   className={`aiDraftProgressCard ${isDraftProgressActive ? "isLoading" : "isComplete"}`}
                   aria-label="AI 초안 생성 진행"
+                  ref={progressCardRef}
                 >
                   <div
                     className={`aiDraftFitMeter ${draftState}`}
@@ -2209,10 +2264,7 @@ export function AIDraftChatBuilder() {
                       <span>초안 v1</span>
                       {activeAiMeta && (
                         <span className={`aiDraftModeBadge ${activeAiMeta.usedFallback ? "fallback" : "ai"}`}>
-                          {providerBadgeLabel(activeAiMeta.providerId)}
-                          {activeAiMeta.usedFallback
-                            ? ` · Fallback${activeAiMeta.fallbackReason ? ` (${fallbackReasonLabel(activeAiMeta.fallbackReason)})` : ""}`
-                            : " · AI"}
+                          {formatAiExecutionLabel(activeAiMeta)}
                         </span>
                       )}
                     </div>
@@ -2328,7 +2380,6 @@ export function AIDraftChatBuilder() {
                               onClick={() => handleDownloadDraft(option.format)}
                             >
                               <span>{option.label}</span>
-                              <small>{option.helper}</small>
                             </button>
                           ))}
                         </div>

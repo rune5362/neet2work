@@ -999,7 +999,7 @@ describe("AIDraftChatBuilder draft workflow flow", () => {
     await screen.findByText("실전 백엔드 엔지니어");
     await submitUserResume();
     await runDraftWorkflowGeneration(fetchMock);
-    expect(await screen.findByText(/Fallback \(사용 가능한 AI 없음\)/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/Fallback \(사용 가능한 AI 없음\)/)).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", { name: "작성 옵션" }));
     await attachTextFile("extra.txt", "새로 첨부한 추가 자기소개 본문 텍스트입니다.");
@@ -1059,7 +1059,7 @@ describe("AIDraftChatBuilder draft workflow flow", () => {
     await submitUserResume();
     await runDraftWorkflowGeneration(fetchMock);
 
-    expect(await screen.findByText(/Fallback \(사용 가능한 AI 없음\)/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/Fallback \(사용 가능한 AI 없음\)/)).length).toBeGreaterThan(0);
     expect(screen.getAllByText("결과 수치가 확인되면 설득력이 더 높아집니다.").length).toBeGreaterThan(0);
     expect(screen.getAllByText("API 장애 대응 경험을 설명해 주세요.").length).toBeGreaterThan(0);
     expect(screen.getAllByText("프로젝트 경험을 문제 상황, 해결 방법, 결과 중심으로 작성하세요.").length).toBeGreaterThan(0);
@@ -1160,7 +1160,7 @@ describe("AIDraftChatBuilder draft workflow flow", () => {
     await screen.findByText("실전 백엔드 엔지니어");
     await submitUserResume();
     await runDraftWorkflowGeneration(fetchMock);
-    expect(await screen.findByText(/Fallback \(사용 가능한 AI 없음\)/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/Fallback \(사용 가능한 AI 없음\)/)).length).toBeGreaterThan(0);
 
     const textarea = screen.getByPlaceholderText("메시지를 입력하세요...");
     fireEvent.change(textarea, { target: { value: "추가로 캐시 최적화 경험도 있습니다." } });
@@ -1736,6 +1736,56 @@ describe("AIDraftChatBuilder plan test plan coverage", () => {
     expect(body.aiSelection.providerId).toBe("gemini");
   });
 
+  it("does not send the Codex app-server display model as a manual model override", async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.includes("/api/draft-workflow/providers")) {
+        return apiResponse({
+          data: providerStatuses.map((provider) =>
+            provider.providerId === "codex_bridge"
+              ? {
+                  ...provider,
+                  online: true,
+                  configured: true,
+                  models: [
+                    {
+                      modelId: "codex-app-server",
+                      label: "codex-app-server",
+                      online: true,
+                      quotaExceeded: false,
+                      recommended: true
+                    }
+                  ]
+                }
+              : provider
+          )
+        });
+      }
+
+      return createDraftWorkflowFetchMock()(input, init);
+    });
+
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText(/Codex/);
+    await submitUserResume();
+
+    fireEvent.click(screen.getByRole("button", { name: /AI provider/i }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Codex/i }));
+    fireEvent.click(screen.getByRole("button", { name: /문항 분석 시작/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/draft-workflow/plan"),
+        expect.objectContaining({ method: "POST" })
+      );
+    });
+
+    const body = getPlanCallBody(fetchMock);
+    expect(body.aiSelection).toEqual({ mode: "manual", providerId: "codex_bridge" });
+  });
+
   it("shows fallback badge with quota exceeded reason", async () => {
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -1781,7 +1831,7 @@ describe("AIDraftChatBuilder plan test plan coverage", () => {
     await submitUserResume();
     await runDraftWorkflowGeneration(fetchMock);
 
-    expect(await screen.findByText(/Fallback · Fallback \(할당량 초과\)/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/Fallback \(할당량 초과\)/)).length).toBeGreaterThan(0);
   });
 
   it("renders experience cards, outline, draft, and review report in order", async () => {
@@ -1850,6 +1900,11 @@ describe("AIDraftChatBuilder plan test plan coverage", () => {
   });
 
   it("shows animated loading graphics while AI analysis is pending", async () => {
+    const scrollIntoViewMock = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoViewMock
+    });
     const planResponse = deferredApiResponse({ data: workflowPlanResult });
     const defaultFetchMock = createDraftWorkflowFetchMock();
 
@@ -1871,6 +1926,14 @@ describe("AIDraftChatBuilder plan test plan coverage", () => {
 
     const progressCard = await screen.findByLabelText("AI 초안 생성 진행");
     expect(progressCard).toHaveClass("isLoading");
+    expect(document.querySelector(".aiDraftTimeline.hasActiveProgress")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(scrollIntoViewMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          block: "end"
+        })
+      );
+    });
     expect(progressCard.querySelector(".aiDraftMotionGraph")).toBeInTheDocument();
     expect(progressCard.querySelector(".aiDraftProgressStep.active")).toBeInTheDocument();
     expect(within(progressCard).getByText("문항과 경험을 분석하고 있습니다...")).toBeInTheDocument();
@@ -1892,9 +1955,12 @@ describe("AIDraftChatBuilder plan test plan coverage", () => {
 
     const menu = screen.getByRole("menu", { name: "다운로드 형식 선택" });
     expect(within(menu).getByRole("menuitem", { name: /TXT/ })).toBeInTheDocument();
-    expect(within(menu).getByRole("menuitem", { name: /Markdown/ })).toBeInTheDocument();
-    expect(within(menu).getByRole("menuitem", { name: /Word 문서/ })).toBeInTheDocument();
-    expect(within(menu).getByRole("menuitem", { name: /PDF 저장/ })).toBeInTheDocument();
+    expect(within(menu).getByRole("menuitem", { name: /MD/ })).toBeInTheDocument();
+    expect(within(menu).getByRole("menuitem", { name: /DOCS/ })).toBeInTheDocument();
+    expect(within(menu).getByRole("menuitem", { name: /PDF/ })).toBeInTheDocument();
+    expect(within(menu).queryByText("마크다운 문서")).not.toBeInTheDocument();
+    expect(within(menu).queryByText("Word 호환 .doc")).not.toBeInTheDocument();
+    expect(within(menu).queryByText("인쇄 화면에서 저장")).not.toBeInTheDocument();
   });
 
   it("shows Socratic follow-up questions one at a time", async () => {
@@ -1960,8 +2026,8 @@ describe("AIDraftChatBuilder plan test plan coverage", () => {
     await submitUserResume();
     await runDraftWorkflowGeneration(fetchMock);
 
-    expect(await screen.findByText(/Fallback \(사용 가능한 AI 없음\)/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/Fallback \(사용 가능한 AI 없음\)/)).length).toBeGreaterThan(0);
     expect(document.querySelector(".aiDraftModeBadge.fallback")).toBeTruthy();
-    expect(screen.getByText(/실제 생성 provider:/)).toHaveTextContent("Fallback (FALLBACK)");
+    expect(screen.getByText(/실제 생성 provider:/)).toHaveTextContent("Fallback (사용 가능한 AI 없음)");
   });
 });
