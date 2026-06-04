@@ -1,4 +1,5 @@
 import { type ChangeEvent, type CSSProperties, type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronUp, FileText, X } from "lucide-react";
 import {
   createDraftWorkflowDraft,
   createDraftWorkflowPlan,
@@ -9,6 +10,7 @@ import {
   reviseDraftWorkflowDraft,
   startCodexBridgeLogin
 } from "../api/client";
+import { getDocuments as getSavedDocuments } from "../api/documentClient";
 import arrowUpIcon from "../assets/icons/ai-draft-arrow-up.svg";
 import attachIcon from "../assets/icons/ai-draft-attach.svg";
 import chevronIcon from "../assets/icons/ai-draft-chevron.svg";
@@ -20,9 +22,10 @@ import followUpIcon from "../assets/icons/ai-draft-follow-up.svg";
 import historyIcon from "../assets/icons/ai-draft-history.svg";
 import plusIcon from "../assets/icons/ai-draft-plus.svg";
 import sparkIcon from "../assets/icons/ai-draft-spark.svg";
-import aiSymbol from "../assets/logo/neet2work_symbol_reference_curve 1.png";
 import { HomeFooter } from "../components/HomeFooter";
 import { HomeTopNav } from "../components/HomeTopNav";
+import { buildSelfIntroReferenceText } from "../data/selfIntroReferenceLibrary";
+import type { DocumentListItem } from "../types/document";
 import type { JobPosting } from "../types/job";
 import type {
   AiProviderId,
@@ -38,6 +41,7 @@ type Sender = "ai" | "user";
 type DraftState = "idle" | "ready" | "planning" | "plan_ready" | "drafting" | "complete" | "revising";
 type WorkflowStatus = "idle" | "loading" | "complete" | "error";
 type CodexLoginUiStatus = "idle" | "starting" | "pending" | "succeeded" | "failed";
+type ReferenceLoadStatus = "idle" | "loading" | "ready" | "unavailable";
 
 type DraftTargetForm = {
   questionText: string;
@@ -51,6 +55,8 @@ type Message = {
   text: string;
   time: string;
 };
+
+const USER_MESSAGE_COLLAPSE_THRESHOLD = 180;
 
 type Job = {
   id: string;
@@ -69,6 +75,21 @@ type AiSettings = {
 };
 
 type TextFormat = "TXT" | "Markdown";
+type DraftDownloadFormat = "txt" | "markdown" | "doc" | "pdf";
+
+type DraftDownloadOption = {
+  format: DraftDownloadFormat;
+  label: string;
+  helper: string;
+};
+
+type ResultInsightSection = {
+  id: string;
+  title: string;
+  helper: string;
+  tone?: "warning";
+  items: string[];
+};
 
 type AttachedFileKind = "text" | "binary";
 
@@ -221,6 +242,13 @@ const COMPOSER_INPUT_MIN_HEIGHT = 22;
 const COMPOSER_INPUT_MAX_HEIGHT = 240;
 const FILE_ACCEPT = ".txt,.md,.pdf,.docx";
 const EMPTY_JOB_POSTING_TEXT = "선택된 공고 없음. 사용자 대화와 첨부 자료를 기준으로 작성합니다.";
+const DRAFT_DOWNLOAD_OPTIONS: DraftDownloadOption[] = [
+  { format: "txt", label: "TXT", helper: "일반 텍스트" },
+  { format: "markdown", label: "Markdown", helper: "마크다운 문서" },
+  { format: "doc", label: "Word 문서", helper: "Word 호환 .doc" },
+  { format: "pdf", label: "PDF 저장", helper: "인쇄 화면에서 저장" }
+];
+
 function buildDefaultJobPostingText(job: Job) {
   return [job.title, job.skills.join(", "), job.description].filter((part) => part.trim().length > 0).join("\n");
 }
@@ -291,6 +319,39 @@ function getAttachmentChipSuffix(file: AttachedFile) {
   return "";
 }
 
+function getAttachmentTypeLabel(file: AttachedFile) {
+  const extension = file.name.split(".").pop()?.trim().toUpperCase();
+  if (extension && extension !== file.name.toUpperCase()) {
+    return extension;
+  }
+
+  return file.kind === "text" ? "TXT" : "FILE";
+}
+
+function getAttachmentVisual(file: AttachedFile) {
+  const typeLabel = getAttachmentTypeLabel(file);
+  const normalizedType = typeLabel.toLowerCase();
+
+  if (normalizedType === "pdf") {
+    return { typeLabel, tone: "pdf", badge: null };
+  }
+  if (normalizedType === "doc" || normalizedType === "docx") {
+    return { typeLabel, tone: "docx", badge: "W" };
+  }
+  if (normalizedType === "md" || normalizedType === "markdown") {
+    return { typeLabel, tone: "markdown", badge: "M" };
+  }
+  if (normalizedType === "txt" || normalizedType === "text") {
+    return { typeLabel, tone: "text", badge: "T" };
+  }
+
+  return {
+    typeLabel,
+    tone: file.kind === "binary" ? "file" : "text",
+    badge: typeLabel.slice(0, 1)
+  };
+}
+
 function buildResumeTextParts(messages: Message[], input: string, attachedFiles: AttachedFile[]) {
   const userMessageText = messages
     .filter((message) => message.sender === "user")
@@ -309,6 +370,10 @@ function getUserText(messages: Message[], input = "") {
     .join("\n\n");
 
   return [sentText, input.trim()].filter((text) => text.length > 0).join("\n\n");
+}
+
+function isExpandableUserMessage(message: Message) {
+  return message.sender === "user" && (message.text.length >= USER_MESSAGE_COLLAPSE_THRESHOLD || message.text.split(/\n/).length >= 5);
 }
 
 function splitConditionCandidates(text: string) {
@@ -400,6 +465,90 @@ function countMatches(text: string, patterns: RegExp[]) {
   return patterns.reduce((count, pattern) => count + (pattern.test(text) ? 1 : 0), 0);
 }
 
+function maxConsecutiveCharRun(text: string) {
+  if (text.length === 0) {
+    return 0;
+  }
+
+  let maxRun = 1;
+  let currentRun = 1;
+
+  for (let i = 1; i < text.length; i += 1) {
+    if (text[i] === text[i - 1]) {
+      currentRun += 1;
+      maxRun = Math.max(maxRun, currentRun);
+    } else {
+      currentRun = 1;
+    }
+  }
+
+  return maxRun;
+}
+
+function isKeyboardMashToken(token: string) {
+  return /qwerty|asdf|zxcv|hjkl|uiop/.test(token);
+}
+
+function calculateInputQualityPenalty(text: string) {
+  const trimmed = text.trim();
+  const compact = trimmed.replace(/\s+/g, "");
+  if (trimmed.length < 10 || compact.length < 10) {
+    return 0;
+  }
+
+  const words = trimmed
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/gu)
+    .filter((token) => token.length > 0);
+  const wordChars = compact.replace(/[^\p{L}\p{N}]/gu, "");
+  const normalized = wordChars.toLowerCase();
+  const uniqueChars = new Set([...normalized]).size;
+  const uniqueRatio = uniqueChars / Math.max(1, normalized.length);
+  const asciiTokens = words.filter((word) => /^[a-z]+$/.test(word));
+  const asciiTokensNoVowel = asciiTokens.filter((word) => !/[aeiou]/.test(word));
+  const keyboardMashTokenCount = asciiTokens.filter(isKeyboardMashToken).length;
+  const shortWordRatio = words.length > 0 ? words.filter((word) => word.length <= 2).length / words.length : 0;
+  const onlyJamoPattern = /^[\u1100-\u11FF\u3131-\u318E\uA960-\uA97F\uD7B0-\uD7FF]+$/u;
+  const hasOnlyJamo = onlyJamoPattern.test(compact);
+  const maxRunRatio = maxConsecutiveCharRun(compact) / compact.length;
+
+  let penalty = 0;
+
+  if (hasOnlyJamo) {
+    penalty += 48;
+  }
+
+  if (asciiTokensNoVowel.length >= 1 && asciiTokensNoVowel.some((token) => token.length >= 7)) {
+    penalty += 30;
+  }
+
+  if (keyboardMashTokenCount >= 2) {
+    penalty += 30;
+  }
+
+  if (asciiTokens.length >= 2 && asciiTokens.every((token) => !/[aeiou]/.test(token))) {
+    penalty += 10;
+  }
+
+  if (maxRunRatio >= 0.45) {
+    penalty += 15;
+  }
+
+  if (uniqueRatio <= 0.28 && wordChars.length >= 12) {
+    penalty += 12;
+  }
+
+  if (words.length >= 4 && shortWordRatio >= 0.75) {
+    penalty += 10;
+  }
+
+  if (compact.length <= 18 && words.length <= 3 && uniqueRatio <= 0.5) {
+    penalty += 8;
+  }
+
+  return Math.min(60, penalty);
+}
+
 const ATS_KEYWORD_STOP_WORDS = new Set([
   "and",
   "or",
@@ -478,6 +627,8 @@ function calculateInputAtsMetrics({
   ]);
   const readabilityPenalty = averageSentenceLength > 95 ? (averageSentenceLength - 95) * 0.8 : 0;
   const readabilityBonus = sentenceCount > 1 ? 10 : 0;
+  const inputQualityPenalty = calculateInputQualityPenalty(text);
+  const qualityFactor = Math.max(0.2, 1 - inputQualityPenalty / 100);
   const titleTokens = selectedJob
     ? selectedJob.title
         .toLowerCase()
@@ -489,12 +640,15 @@ function calculateInputAtsMetrics({
       ? (titleTokens.filter((token) => lowerText.includes(token)).length / titleTokens.length) * 100
       : 0;
   const jobKeywordScore = calculateJobKeywordScore(lowerText, selectedJob);
-  const keywordScore = selectedJob
-    ? Math.max(matchPercent, jobKeywordScore)
-    : clampScore(detectedConversationSkills.length * 16);
-  const specificityScore = clampScore(Math.min(42, text.length / 4) + specificitySignals * 14);
-  const starScore = clampScore(starSignals * 25);
-  const readabilityScore = clampScore(72 + readabilityBonus - readabilityPenalty);
+  const keywordScore = clampScore(
+    (selectedJob
+      ? Math.max(matchPercent, jobKeywordScore)
+      : clampScore(detectedConversationSkills.length * 16)
+    ) * qualityFactor
+  );
+  const specificityScore = clampScore((Math.min(42, text.length / 4) + specificitySignals * 14) * qualityFactor);
+  const starScore = clampScore(starSignals * 25 * qualityFactor);
+  const readabilityScore = clampScore((72 + readabilityBonus - readabilityPenalty) * qualityFactor);
   const jobFitScore = selectedJob
     ? clampScore(keywordScore * 0.72 + titleMatchPercent * 0.28)
     : null;
@@ -547,6 +701,93 @@ function buildPortfolioSourceText(attachedFiles: AttachedFile[]) {
     .filter((text) => !isRequirementLikeText(text))
     .join("\n\n")
     .trim();
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildMarkdownDraft(text: string) {
+  const body = text
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter((paragraph) => paragraph.length > 0)
+    .map((paragraph) => `- ${paragraph.replace(/\n/g, "\n  ")}`)
+    .join("\n");
+
+  return `## 자기소개서 초안\n\n${body}`;
+}
+
+function buildWordCompatibleHtml(text: string) {
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter((paragraph) => paragraph.length > 0)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br />")}</p>`)
+    .join("\n");
+
+  return `<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>Neet2Work 자기소개서 초안</title>
+  <style>
+    body { font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; line-height: 1.75; color: #111827; }
+    p { margin: 0 0 14px; }
+  </style>
+</head>
+<body>
+${paragraphs}
+</body>
+</html>`;
+}
+
+function buildPrintableDraftHtml(text: string) {
+  return `<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>Neet2Work 자기소개서 초안 PDF 저장</title>
+  <style>
+    @page { margin: 18mm; }
+    body {
+      margin: 0;
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+      color: #111827;
+      line-height: 1.75;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>${escapeHtml(text)}</body>
+</html>`;
+}
+
+function buildDownloadFileName(extension: string) {
+  const stamp = new Date()
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}Z$/, "");
+
+  return `neet2work-draft-${stamp}.${extension}`;
+}
+
+function downloadBlob(content: string, mimeType: string, extension: string) {
+  const url = URL.createObjectURL(new Blob([content], { type: mimeType }));
+  const anchor = document.createElement("a");
+
+  anchor.href = url;
+  anchor.download = buildDownloadFileName(extension);
+  anchor.style.display = "none";
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 const iconSources = {
@@ -607,6 +848,7 @@ function playTone(enabled: boolean, type: "send" | "ready" | "open" | "success")
 
 export function AIDraftChatBuilder() {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [expandedUserMessageIds, setExpandedUserMessageIds] = useState<Set<string>>(new Set());
   const [input, setInput] = useState("");
   const [selectedApiJob, setSelectedApiJob] = useState<Job | null>(null);
   const [draftState, setDraftState] = useState<DraftState>("idle");
@@ -632,6 +874,7 @@ export function AIDraftChatBuilder() {
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [toneMenuOpen, setToneMenuOpen] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [textFormat, setTextFormat] = useState<TextFormat>("TXT");
   const [editorFontSize, setEditorFontSize] = useState(15);
@@ -642,15 +885,19 @@ export function AIDraftChatBuilder() {
     followUp: true,
     blindRecruitment: false,
   });
-  const [didFallback, setDidFallback] = useState(false);
   const [newChatConfirmOpen, setNewChatConfirmOpen] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [sentAttachmentSignature, setSentAttachmentSignature] = useState("");
+  const [coverLetterReferences, setCoverLetterReferences] = useState<DocumentListItem[]>([]);
+  const [selectedReferenceDocumentId, setSelectedReferenceDocumentId] = useState<string | null>(null);
+  const [referenceLoadStatus, setReferenceLoadStatus] = useState<ReferenceLoadStatus>("idle");
   const timelineRef = useRef<HTMLDivElement>(null);
   const composerBarRef = useRef<HTMLDivElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const draftFitProgressRef = useRef(0);
   const workflowRequestIdRef = useRef(0);
+  const referenceLoadRequestIdRef = useRef(0);
   const sendReplyTimeoutRef = useRef<number | null>(null);
 
   const clearSendReplyTimeout = () => {
@@ -684,6 +931,22 @@ export function AIDraftChatBuilder() {
     return buildResumeTextParts(messages, input, attachedFiles).join("\n\n");
   }, [messages, input, attachedFiles]);
   const canAnalyze = resumeText.trim().length >= 10;
+  const readyAttachments = useMemo(() => readyTextAttachments(attachedFiles), [attachedFiles]);
+  const readyAttachmentNames = useMemo(
+    () => readyAttachments.map((file) => file.name),
+    [readyAttachments]
+  );
+  const readyAttachmentSignature = useMemo(
+    () => readyAttachments.map((file) => file.id).join("|"),
+    [readyAttachments]
+  );
+  const hasUnsentReadyAttachments =
+    readyAttachmentSignature.length > 0 && readyAttachmentSignature !== sentAttachmentSignature;
+  const canSendComposerMessage = input.trim().length > 0 || hasUnsentReadyAttachments;
+  const selectedReferenceDocument = useMemo(
+    () => coverLetterReferences.find((document) => document.id === selectedReferenceDocumentId) ?? null,
+    [coverLetterReferences, selectedReferenceDocumentId]
+  );
   const allText = `${resumeText}`.toLowerCase();
   const selectedJobSkills = useMemo(() => selectedJob?.skills ?? [], [selectedJob]);
   const selectedJobKeywordCandidates = useMemo(
@@ -778,6 +1041,10 @@ export function AIDraftChatBuilder() {
     0;
   const resultBody = workflowDraft?.draftText ?? draftText;
   const completedProgressStepCount = draftProgressSteps.filter((step) => draftFitProgress >= Math.min(step.threshold, draftFitTargetScore)).length;
+  const isDraftProgressActive = draftState === "planning" || draftState === "drafting" || draftState === "revising";
+  const activeProgressStepIndex = isDraftProgressActive
+    ? Math.min(completedProgressStepCount, draftProgressSteps.length - 1)
+    : -1;
   const withSpaces = workflowDraft?.charCount.withSpaces ?? resultBody.length;
   const withoutSpaces = workflowDraft?.charCount.withoutSpaces ?? resultBody.replace(/\s/g, "").length;
   const selectedProviderLabel =
@@ -788,23 +1055,66 @@ export function AIDraftChatBuilder() {
   const realAiProviderOnline = providerStatuses.some(
     (provider) => provider.providerId !== "fallback" && provider.online && !provider.quotaExceeded
   );
-  const headerAiStatus = activeAiMeta
-    ? {
-        label: activeAiMeta.usedFallback ? "FALLBACK" : "AI ONLINE",
-        status: activeAiMeta.usedFallback ? "fallback" : "online"
-      }
-    : providerStatuses.length === 0
-      ? { label: "상태 확인중", status: "checking" }
-      : realAiProviderOnline
-        ? { label: "AI ONLINE", status: "online" }
-        : { label: "AI OFFLINE", status: "offline" };
+  const actualProviderSummary = activeAiMeta
+    ? `${providerBadgeLabel(activeAiMeta.providerId)}${activeAiMeta.usedFallback ? " (FALLBACK)" : ""}`
+    : "문항 분석 시작 후 결정됨";
+  const headerAiStatus = providerStatuses.length === 0
+    ? { label: "확인 중", status: "checking" }
+    : realAiProviderOnline
+      ? { label: "연결됨", status: "online" }
+      : { label: "연결 안됨", status: "offline" };
   const displayDraft =
     textFormat === "Markdown"
-      ? `## 팀 리더십 기반 문제 해결 경험\n\n${resultBody
-          .split("\n\n")
-          .map((paragraph) => `- ${paragraph}`)
-          .join("\n")}`
+      ? buildMarkdownDraft(resultBody)
       : resultBody;
+  const resultInsightSections = useMemo<ResultInsightSection[]>(() => {
+    if (!workflowDraft) {
+      return [];
+    }
+
+    const sections: ResultInsightSection[] = [];
+
+    if (workflowDraft.revisionOptions.length > 0) {
+      sections.push({
+        id: "revision",
+        title: "수정 우선순위",
+        helper: "다음 수정 요청에 바로 반영할 항목입니다.",
+        items: workflowDraft.revisionOptions
+      });
+    }
+
+    if (workflowDraft.reviewReport.issues.length > 0) {
+      sections.push({
+        id: "issues",
+        title: "주의해서 쓴 부분",
+        helper: "근거가 부족하거나 조심스럽게 표현한 지점입니다.",
+        tone: "warning",
+        items: workflowDraft.reviewReport.issues.map((issue) => issue.message)
+      });
+    }
+
+    if (workflowDraft.reviewReport.likelyInterviewQuestions.length > 0) {
+      sections.push({
+        id: "questions",
+        title: "추가 확인 질문",
+        helper: "답하면 초안의 구체성이 올라가는 질문입니다.",
+        items: workflowDraft.reviewReport.likelyInterviewQuestions
+      });
+    }
+
+    if (workflowDraft.evidenceMap.length > 0) {
+      sections.push({
+        id: "evidence",
+        title: "문단별 근거",
+        helper: "각 문단이 어떤 작성 근거에 기대는지 표시합니다.",
+        items: workflowDraft.evidenceMap.map(
+          (item) => `${item.textRangeLabel} · 작성 근거 ${item.claimIds.length}개`
+        )
+      });
+    }
+
+    return sections;
+  }, [workflowDraft]);
 
   const conversationRequirementText = useMemo(
     () => buildConversationRequirementSourceText(messages, input),
@@ -855,9 +1165,52 @@ export function AIDraftChatBuilder() {
       .catch(() => setProviderStatuses([]));
   }, []);
 
+  const loadCoverLetterReferences = useCallback(() => {
+    const requestId = referenceLoadRequestIdRef.current + 1;
+    referenceLoadRequestIdRef.current = requestId;
+    setReferenceLoadStatus("loading");
+
+    return getSavedDocuments({ documentType: "cover_letter" })
+      .then((documents) => {
+        if (referenceLoadRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        const usableDocuments = documents.filter((document) => document.content.trim().length > 0);
+        setCoverLetterReferences(usableDocuments);
+        setSelectedReferenceDocumentId((currentId) =>
+          currentId && usableDocuments.some((document) => document.id === currentId) ? currentId : null
+        );
+        setReferenceLoadStatus("ready");
+      })
+      .catch(() => {
+        if (referenceLoadRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        setCoverLetterReferences([]);
+        setSelectedReferenceDocumentId(null);
+        setReferenceLoadStatus("unavailable");
+      });
+  }, []);
+
   useEffect(() => {
     void refreshProviderStatuses();
   }, [refreshProviderStatuses]);
+
+  useEffect(() => {
+    void loadCoverLetterReferences();
+
+    const handleAuthChange = () => {
+      void loadCoverLetterReferences();
+    };
+
+    window.addEventListener("neet2work.auth.changed", handleAuthChange);
+    return () => {
+      referenceLoadRequestIdRef.current += 1;
+      window.removeEventListener("neet2work.auth.changed", handleAuthChange);
+    };
+  }, [loadCoverLetterReferences]);
 
   useEffect(() => {
     if (codexLoginState.status !== "pending" || !codexLoginState.loginId) {
@@ -936,7 +1289,7 @@ export function AIDraftChatBuilder() {
   }, [newChatConfirmOpen]);
 
   useEffect(() => {
-    if (!composerMenuOpen && !modelMenuOpen && !toneMenuOpen) {
+    if (!composerMenuOpen && !modelMenuOpen && !toneMenuOpen && !downloadMenuOpen) {
       return undefined;
     }
 
@@ -948,7 +1301,7 @@ export function AIDraftChatBuilder() {
       const target = event.target;
       if (
         target.closest(
-          ".aiDraftComposerPopover, .aiDraftComposerToneSubmenu, .aiDraftComposerPlusButton, .aiDraftComposerModelButton"
+          ".aiDraftComposerPopover, .aiDraftComposerToneSubmenu, .aiDraftComposerPlusButton, .aiDraftComposerModelButton, .aiDraftDownloadMenu, .aiDraftDownloadButton"
         )
       ) {
         return;
@@ -957,6 +1310,7 @@ export function AIDraftChatBuilder() {
       setComposerMenuOpen(false);
       setToneMenuOpen(false);
       setModelMenuOpen(false);
+      setDownloadMenuOpen(false);
     };
 
     const handleEscape = (event: KeyboardEvent) => {
@@ -964,6 +1318,7 @@ export function AIDraftChatBuilder() {
         setComposerMenuOpen(false);
         setToneMenuOpen(false);
         setModelMenuOpen(false);
+        setDownloadMenuOpen(false);
       }
     };
 
@@ -973,7 +1328,7 @@ export function AIDraftChatBuilder() {
       document.removeEventListener("mousedown", handlePointerDown);
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [composerMenuOpen, modelMenuOpen, toneMenuOpen]);
+  }, [composerMenuOpen, modelMenuOpen, toneMenuOpen, downloadMenuOpen]);
 
   useEffect(() => {
     const queryJobId = new URLSearchParams(window.location.search).get("jobId")?.trim();
@@ -1054,11 +1409,13 @@ export function AIDraftChatBuilder() {
     setComposerMenuOpen(false);
     setToneMenuOpen(false);
     setModelMenuOpen(false);
+    setDownloadMenuOpen(false);
   };
 
   const toggleComposerMenu = () => {
     setModelMenuOpen(false);
     setToneMenuOpen(false);
+    setDownloadMenuOpen(false);
     setComposerMenuOpen((value) => !value);
     playTone(settings.sound, "open");
   };
@@ -1066,11 +1423,13 @@ export function AIDraftChatBuilder() {
   const toggleModelMenu = () => {
     setComposerMenuOpen(false);
     setToneMenuOpen(false);
+    setDownloadMenuOpen(false);
     setModelMenuOpen((value) => !value);
     playTone(settings.sound, "open");
   };
 
   const toggleToneMenu = () => {
+    setDownloadMenuOpen(false);
     setToneMenuOpen((value) => !value);
     playTone(settings.sound, "open");
   };
@@ -1148,7 +1507,17 @@ export function AIDraftChatBuilder() {
       .filter((message) => message.sender === "user")
       .map((message) => message.text)
       .join("\n\n"),
-    additionalContext: input.trim() || undefined
+    additionalContext: input.trim() || undefined,
+    referenceSelfIntroText: buildSelfIntroReferenceText({
+      userReference: selectedReferenceDocument
+        ? {
+            title: selectedReferenceDocument.title,
+            content: selectedReferenceDocument.content,
+            company: selectedReferenceDocument.company,
+            jobTitle: selectedReferenceDocument.jobTitle
+          }
+        : null
+    })
   });
 
   const handleToneSelect = (tone: AiSettings["tone"]) => {
@@ -1167,6 +1536,7 @@ export function AIDraftChatBuilder() {
     }
 
     resetWorkflow();
+    setSentAttachmentSignature("");
     setDraftState((prev) => (prev === "planning" || prev === "drafting" ? prev : "idle"));
 
     const fileEntries = Array.from(selectedFiles).map((file) => {
@@ -1239,6 +1609,7 @@ export function AIDraftChatBuilder() {
 
   const removeAttachedFile = (fileId: string) => {
     setAttachedFiles((prev) => prev.filter((file) => file.id !== fileId));
+    setSentAttachmentSignature("");
     resetWorkflow();
     playTone(settings.sound, "open");
   };
@@ -1254,6 +1625,12 @@ export function AIDraftChatBuilder() {
     setRevisionRequest("");
     setDraftFitProgress(0);
     draftFitProgressRef.current = 0;
+  };
+
+  const handleReferenceDocumentSelect = (documentId: string | null) => {
+    setSelectedReferenceDocumentId(documentId);
+    resetWorkflow();
+    playTone(settings.sound, "open");
   };
 
   const syncTargetFormForJob = (job: Job) => {
@@ -1297,9 +1674,17 @@ export function AIDraftChatBuilder() {
     }
   };
 
+  const buildSendAssistantHint = (detectedConditionText: string) => {
+    const conditionHint = detectedConditionText.length > 0 ? "입력한 작성 조건을 반영해 둘게요. " : "";
+    return `${conditionHint}현재는 안내형 응답 모드입니다. 실제 초안 생성은 "문항 분석 시작"에서 진행됩니다.`;
+  };
+
   const handleSend = () => {
     const trimmed = input.trim();
-    if (!trimmed) return;
+    const attachmentOnlyText =
+      hasUnsentReadyAttachments ? `첨부 파일: ${readyAttachmentNames.join(", ")}` : "";
+    const userMessageText = trimmed || attachmentOnlyText;
+    if (!userMessageText) return;
 
     clearSendReplyTimeout();
     resetWorkflow();
@@ -1312,34 +1697,21 @@ export function AIDraftChatBuilder() {
         id: crypto.randomUUID(),
         sender: "user",
         time: nowTime(),
-        text: trimmed,
+        text: userMessageText,
       },
     ];
     const detectedConditionText = splitConditionCandidates(
       buildConversationRequirementSourceText(nextMessages)
     ).slice(-3).join(" / ");
     setMessages(nextMessages);
+    if (readyAttachmentSignature) {
+      setSentAttachmentSignature(readyAttachmentSignature);
+    }
     setInput("");
     window.requestAnimationFrame(syncComposerHeight);
 
     sendReplyTimeoutRef.current = window.setTimeout(() => {
       sendReplyTimeoutRef.current = null;
-
-      if (settings.followUp && trimmed.length < 35 && !didFallback) {
-        setDidFallback(true);
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            sender: "ai",
-            time: nowTime(),
-            text: "답변이 조금 간결한 편입니다. 그 활동을 하면서 구체적으로 어떤 기술적 시도를 했거나, 어떤 점에 가장 집중했는지 한 가지만 더 말해줄 수 있나요?",
-          },
-        ]);
-        setDraftState("idle");
-        playTone(settings.sound, "ready");
-        return;
-      }
 
       setMessages((prev) => [
         ...prev,
@@ -1347,9 +1719,7 @@ export function AIDraftChatBuilder() {
           id: crypto.randomUUID(),
           sender: "ai",
           time: nowTime(),
-          text: detectedConditionText
-            ? `좋아요. ${detectedConditionText} 조건으로 기억할게요.\n\n충분한 경험 데이터가 확보되었습니다. 지금 초안을 생성하면 공고의 요구 역량과 연결해 문장을 재구성할 수 있습니다.`
-            : "충분한 경험 데이터가 확보되었습니다. 지금 초안을 생성하면 공고의 요구 역량과 연결해 문장을 재구성할 수 있습니다.",
+          text: buildSendAssistantHint(detectedConditionText),
         },
       ]);
       setDraftState("ready");
@@ -1498,13 +1868,56 @@ export function AIDraftChatBuilder() {
     window.setTimeout(() => setCopied(false), 1600);
   };
 
+  const handleDownloadDraft = (format: DraftDownloadFormat) => {
+    setDownloadMenuOpen(false);
+
+    if (!resultBody.trim()) {
+      return;
+    }
+
+    if (format === "pdf") {
+      const printableHtml = buildPrintableDraftHtml(resultBody);
+      const printWindow = window.open("", "_blank", "width=760,height=920");
+
+      if (!printWindow) {
+        downloadBlob(printableHtml, "text/html;charset=utf-8", "html");
+        return;
+      }
+
+      printWindow.document.open();
+      printWindow.document.write(printableHtml);
+      printWindow.document.close();
+      printWindow.focus();
+      window.setTimeout(() => printWindow.print(), 200);
+      playTone(settings.sound, "success");
+      return;
+    }
+
+    if (format === "markdown") {
+      downloadBlob(buildMarkdownDraft(resultBody), "text/markdown;charset=utf-8", "md");
+      playTone(settings.sound, "success");
+      return;
+    }
+
+    if (format === "doc") {
+      downloadBlob(buildWordCompatibleHtml(resultBody), "application/msword;charset=utf-8", "doc");
+      playTone(settings.sound, "success");
+      return;
+    }
+
+    downloadBlob(resultBody, "text/plain;charset=utf-8", "txt");
+    playTone(settings.sound, "success");
+  };
+
   const handleNewChat = () => {
     clearSendReplyTimeout();
     setMessages([initialMessages[0]]);
+    setExpandedUserMessageIds(new Set());
     setInput("");
     setAttachedFiles([]);
+    setSentAttachmentSignature("");
     setDraftState("idle");
-    setDidFallback(false);
+    setDownloadMenuOpen(false);
     setTargetForm({
       questionText: DEFAULT_QUESTION_TEXT,
       charLimit: 800,
@@ -1537,6 +1950,18 @@ export function AIDraftChatBuilder() {
     composerInputRef.current?.focus();
   };
 
+  const toggleUserMessageExpansion = (messageId: string) => {
+    setExpandedUserMessageIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(messageId)) {
+        next.delete(messageId);
+      } else {
+        next.add(messageId);
+      }
+      return next;
+    });
+  };
+
   return (
     <main className="homePage aiDraftChatPage">
       <HomeTopNav active="analysis" />
@@ -1551,6 +1976,9 @@ export function AIDraftChatBuilder() {
                   <span>{selectedProviderLabel}</span>
                   <strong className={`aiDraftProviderStatusBadge ${headerAiStatus.status}`}>
                     {headerAiStatus.label}
+                  </strong>
+                  <strong className="aiDraftProviderStatusBadge checking">
+                    실제 생성 provider: {actualProviderSummary}
                   </strong>
                 </div>
                 <p>소크라테스처럼 질문하고, 당신의 경험을 구조화합니다.</p>
@@ -1568,25 +1996,50 @@ export function AIDraftChatBuilder() {
             </header>
 
             <div className="aiDraftTimeline" ref={timelineRef}>
-              {messages.map((message) => (
-                <article
-                  className={`aiDraftMessage ${message.sender}`}
-                  key={message.id}
-                  aria-label={message.sender === "ai" ? "AI 답변" : "내 메시지"}
-                >
-                  <div className="aiDraftAvatar" aria-hidden="true">
-                    {message.sender === "ai" ? (
-                      <img src={aiSymbol} alt="" className="aiDraftAvatarLogo" />
+              {messages.map((message) => {
+                const expandable = isExpandableUserMessage(message);
+                const expanded = expandedUserMessageIds.has(message.id);
+                const bubbleClassName = [
+                  "aiDraftBubble",
+                  expandable ? "expandable" : "",
+                  expandable && !expanded ? "collapsed" : "",
+                  expandable && expanded ? "expanded" : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                return (
+                  <article
+                    className={`aiDraftMessage ${message.sender}`}
+                    key={message.id}
+                    aria-label={message.sender === "ai" ? "AI 답변" : "내 메시지"}
+                  >
+                    {message.sender === "user" ? (
+                      <div className={bubbleClassName}>
+                        <div className="aiDraftBubbleContent">
+                          <p>{message.text}</p>
+                        </div>
+                        {expandable && (
+                          <button
+                            type="button"
+                            className="aiDraftBubbleMoreButton"
+                            aria-expanded={expanded}
+                            onClick={() => toggleUserMessageExpansion(message.id)}
+                          >
+                            {expanded ? "접기" : "더 보기"}
+                            {expanded ? <ChevronUp size={15} strokeWidth={2.4} /> : <ChevronDown size={15} strokeWidth={2.4} />}
+                          </button>
+                        )}
+                      </div>
                     ) : (
-                      "나"
+                      <div className="aiDraftAssistantResponse">
+                        <p>{message.text}</p>
+                        <time>{message.time}</time>
+                      </div>
                     )}
-                  </div>
-                  <div className="aiDraftBubble">
-                    <p>{message.text}</p>
-                    <time>{message.time}</time>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
 
               {(draftState === "ready" || draftState === "complete") && !workflowPlan && (
                 <div className="aiDraftReadyRow">
@@ -1690,7 +2143,10 @@ export function AIDraftChatBuilder() {
               )}
 
               {(draftState === "planning" || draftState === "drafting" || draftState === "revising" || draftState === "complete") && (
-                <section className="aiDraftProgressCard" aria-label="AI 초안 생성 진행">
+                <section
+                  className={`aiDraftProgressCard ${isDraftProgressActive ? "isLoading" : "isComplete"}`}
+                  aria-label="AI 초안 생성 진행"
+                >
                   <div
                     className={`aiDraftFitMeter ${draftState}`}
                     role="meter"
@@ -1715,17 +2171,32 @@ export function AIDraftChatBuilder() {
                           : "AI 초안 결과"}
                     </h2>
                     <div className="aiDraftProgressSteps">
-                      {draftProgressSteps.map((step, index) => (
-                        <div className="aiDraftProgressStep" key={step.label}>
-                          <span className={index < completedProgressStepCount ? "complete" : ""} />
-                          <strong>{step.label}</strong>
-                          <small>{step.helper}</small>
-                        </div>
-                      ))}
+                      {draftProgressSteps.map((step, index) => {
+                        const isComplete = index < completedProgressStepCount;
+                        const isActive = index === activeProgressStepIndex;
+
+                        return (
+                          <div
+                            className={`aiDraftProgressStep ${isComplete ? "complete" : ""} ${isActive ? "active" : ""}`}
+                            aria-current={isActive ? "step" : undefined}
+                            key={step.label}
+                          >
+                            <span />
+                            <strong>{step.label}</strong>
+                            <small>{step.helper}</small>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                   {(draftState === "planning" || draftState === "drafting" || draftState === "revising") && (
-                    <b aria-hidden="true">...</b>
+                    <div className="aiDraftMotionGraph" aria-hidden="true">
+                      <span className="aiDraftMotionTrack" />
+                      <span className="aiDraftMotionNode nodeOne" />
+                      <span className="aiDraftMotionNode nodeTwo" />
+                      <span className="aiDraftMotionNode nodeThree" />
+                      <span className="aiDraftMotionPulse" />
+                    </div>
                   )}
                 </section>
               )}
@@ -1774,35 +2245,26 @@ export function AIDraftChatBuilder() {
                     </div>
                   </div>
                   <p className="aiDraftResultText" style={{ "--draft-editor-font": `${editorFontSize}px` } as CSSProperties}>{displayDraft}</p>
-                  {workflowDraft.revisionOptions.length > 0 && (
-                    <ul className="aiDraftGuideList" aria-label="개선 가이드">
-                      {workflowDraft.revisionOptions.map((guide) => (
-                        <li key={guide}>{guide}</li>
+                  {resultInsightSections.length > 0 && (
+                    <div className="aiDraftResultInsights" aria-label="초안 검토 요약">
+                      {resultInsightSections.map((section) => (
+                        <div
+                          key={section.id}
+                          className={`aiDraftResultInsightSection ${section.tone === "warning" ? "warning" : ""}`}
+                        >
+                          <div className="aiDraftResultInsightHeader">
+                            <h3>{section.title}</h3>
+                            <span>{section.items.length}개</span>
+                          </div>
+                          <p>{section.helper}</p>
+                          <ul>
+                            {section.items.map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
                       ))}
-                    </ul>
-                  )}
-                  {workflowDraft.reviewReport.issues.length > 0 && (
-                    <ul className="aiDraftGuideList aiDraftSummaryWarn" aria-label="검수 이슈">
-                      {workflowDraft.reviewReport.issues.map((issue) => (
-                        <li key={`${issue.type}-${issue.message}`}>{issue.message}</li>
-                      ))}
-                    </ul>
-                  )}
-                  {workflowDraft.reviewReport.likelyInterviewQuestions.length > 0 && (
-                    <ul className="aiDraftGuideList" aria-label="예상 면접 질문">
-                      {workflowDraft.reviewReport.likelyInterviewQuestions.map((question) => (
-                        <li key={question}>{question}</li>
-                      ))}
-                    </ul>
-                  )}
-                  {workflowDraft.evidenceMap.length > 0 && (
-                    <ul className="aiDraftGuideList" aria-label="근거 연결">
-                      {workflowDraft.evidenceMap.map((item) => (
-                        <li key={item.textRangeLabel}>
-                          {item.textRangeLabel} · 작성 근거 {item.claimIds.length}개
-                        </li>
-                      ))}
-                    </ul>
+                    </div>
                   )}
                   <div className="aiDraftRevisePanel" aria-label="초안 수정">
                     <label htmlFor="aiDraftRevisionRequest">수정 요청</label>
@@ -1835,15 +2297,43 @@ export function AIDraftChatBuilder() {
                       <Icon name="copy" />
                       {copied ? "복사 완료" : "복사"}
                     </button>
-                    <button
-                      type="button"
-                      aria-label="TXT로 다운로드"
-                      title="TXT로 다운로드"
-                      data-tooltip="TXT로 다운로드"
-                    >
-                      <Icon name="download" />
-                      다운로드 (TXT)
-                    </button>
+                    <div className="aiDraftDownloadMenuWrap">
+                      <button
+                        type="button"
+                        className="aiDraftDownloadButton"
+                        aria-label="다운로드"
+                        aria-expanded={downloadMenuOpen}
+                        aria-haspopup="menu"
+                        title="다운로드"
+                        data-tooltip="다운로드"
+                        onClick={() => {
+                          setComposerMenuOpen(false);
+                          setToneMenuOpen(false);
+                          setModelMenuOpen(false);
+                          setDownloadMenuOpen((value) => !value);
+                          playTone(settings.sound, "open");
+                        }}
+                      >
+                        <Icon name="download" />
+                        다운로드
+                        <ChevronDown aria-hidden="true" size={14} strokeWidth={2.4} />
+                      </button>
+                      {downloadMenuOpen && (
+                        <div className="aiDraftDownloadMenu" role="menu" aria-label="다운로드 형식 선택">
+                          {DRAFT_DOWNLOAD_OPTIONS.map((option) => (
+                            <button
+                              type="button"
+                              role="menuitem"
+                              key={option.format}
+                              onClick={() => handleDownloadDraft(option.format)}
+                            >
+                              <span>{option.label}</span>
+                              <small>{option.helper}</small>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <button
                       type="button"
                       aria-label="편집기로 열기"
@@ -1869,31 +2359,11 @@ export function AIDraftChatBuilder() {
 
             <footer className="aiDraftComposer">
               <div className="aiDraftComposerDock">
-                {attachedFiles.length > 0 && (
-                  <div className="aiDraftAttachedFiles" aria-label="첨부 파일">
-                    {attachedFiles.map((file) => (
-                      <span
-                        className={`aiDraftAttachedFileChip ${file.readError ? "error" : ""} ${file.kind === "binary" ? "binary" : ""} ${file.loading ? "loading" : ""}`}
-                        key={file.id}
-                      >
-                        <span className="aiDraftAttachedFileChipLabel">
-                          {file.name}
-                          {getAttachmentChipSuffix(file)}
-                        </span>
-                        <button
-                          type="button"
-                          className="aiDraftAttachedFileChipRemove"
-                          aria-label={`${file.name} 제거`}
-                          onClick={() => removeAttachedFile(file.id)}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <div className="aiDraftComposerBar" ref={composerBarRef} onClick={handleComposerBarClick}>
+                <div
+                  className={`aiDraftComposerBar ${attachedFiles.length > 0 ? "withAttachments" : ""}`}
+                  ref={composerBarRef}
+                  onClick={handleComposerBarClick}
+                >
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -1902,6 +2372,43 @@ export function AIDraftChatBuilder() {
                     multiple
                     onChange={handleFileInputChange}
                   />
+
+                  {attachedFiles.length > 0 && (
+                    <div className="aiDraftAttachedFiles" aria-label="첨부 파일">
+                      {attachedFiles.map((file) => {
+                        const attachmentVisual = getAttachmentVisual(file);
+
+                        return (
+                          <span
+                            className={`aiDraftAttachedFileChip type-${attachmentVisual.tone} ${file.readError ? "error" : ""} ${file.kind === "binary" ? "binary" : ""} ${file.loading ? "loading" : ""}`}
+                            key={file.id}
+                          >
+                            <span className={`aiDraftAttachedFileIcon ${attachmentVisual.tone}`} aria-hidden="true">
+                              <FileText size={18} strokeWidth={2.2} />
+                              {attachmentVisual.badge && (
+                                <span className="aiDraftAttachedFileIconBadge">{attachmentVisual.badge}</span>
+                              )}
+                            </span>
+                            <span className="aiDraftAttachedFileChipBody">
+                              <span className="aiDraftAttachedFileName">
+                                {file.name}
+                                {getAttachmentChipSuffix(file)}
+                              </span>
+                              <span className="aiDraftAttachedFileType">{attachmentVisual.typeLabel}</span>
+                            </span>
+                            <button
+                              type="button"
+                              className="aiDraftAttachedFileChipRemove"
+                              aria-label={`${file.name} 제거`}
+                              onClick={() => removeAttachedFile(file.id)}
+                            >
+                              <X size={13} strokeWidth={3} />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   {composerMenuOpen && (
                     <div
@@ -2053,7 +2560,7 @@ export function AIDraftChatBuilder() {
                     type="button"
                     className="aiDraftComposerSendButton"
                     onClick={handleSend}
-                    disabled={!input.trim()}
+                    disabled={!canSendComposerMessage}
                     aria-label="메시지 보내기"
                     title="메시지 보내기"
                     data-tooltip="메시지 보내기"
@@ -2103,6 +2610,51 @@ export function AIDraftChatBuilder() {
                 </dl>
               ) : (
                 <p className="aiDraftEmptyNote">채용공고에서 공고를 선택하면 여기에 표시됩니다.</p>
+              )}
+            </section>
+
+            <section className="aiDraftInfoCard" aria-label="자소서 레퍼런스">
+              <div className="aiDraftCardTitle">
+                <span>자소서 레퍼런스</span>
+                <a className="aiDraftCardAction" href="/documents/new?documentType=cover_letter">저장</a>
+              </div>
+              {referenceLoadStatus === "loading" || referenceLoadStatus === "idle" ? (
+                <p className="aiDraftEmptyNote">저장된 자소서를 불러오는 중입니다.</p>
+              ) : coverLetterReferences.length > 0 ? (
+                <>
+                  <div className="aiDraftProviderList">
+                    {coverLetterReferences.map((document) => {
+                      const selected = selectedReferenceDocumentId === document.id;
+                      const meta = [document.company, document.jobTitle].filter(Boolean).join(" · ");
+
+                      return (
+                        <div className="aiDraftProviderRow" key={document.id}>
+                          <span className={selected ? "matched" : ""} title={meta || document.title}>
+                            {document.title}
+                          </span>
+                          <button
+                            type="button"
+                            className="aiDraftProviderConnectButton"
+                            onClick={() => handleReferenceDocumentSelect(selected ? null : document.id)}
+                          >
+                            {selected ? "해제" : "선택"}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="aiDraftFootnote">
+                    {selectedReferenceDocument
+                      ? "선택한 자소서는 문체와 구성만 참고합니다. 내용의 사실, 수치, 회사명은 새 초안 근거로 쓰지 않습니다."
+                      : "선택하지 않으면 기본 레퍼런스 규칙만 사용합니다."}
+                  </p>
+                </>
+              ) : (
+                <p className="aiDraftEmptyNote">
+                  {referenceLoadStatus === "unavailable"
+                    ? "로그인하면 저장한 자소서를 레퍼런스로 선택할 수 있습니다."
+                    : "저장된 자기소개서가 없습니다."}
+                </p>
               )}
             </section>
 

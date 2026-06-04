@@ -1,4 +1,4 @@
-import { refreshSession, type LoginResult } from "./client";
+import { refreshSession, type AuthUser, type LoginResult } from "./client";
 
 const ACCESS_TOKEN_KEY = "neet2work.auth.accessToken";
 const REFRESH_TOKEN_KEY = "neet2work.auth.refreshToken";
@@ -8,15 +8,24 @@ const TOKEN_TYPE_KEY = "neet2work.auth.tokenType";
 const USER_KEY = "neet2work.auth.user";
 const ACCESS_TOKEN_REFRESH_BUFFER_MS = 30_000;
 
-function ensureBrowserSession() {
+function getBrowserSession() {
   if (typeof window === "undefined") {
-    throw new Error("로그인이 필요합니다.");
+    return null;
   }
 
   return window;
 }
 
-function saveLoginSession(result: LoginResult) {
+function ensureBrowserSession() {
+  const currentWindow = getBrowserSession();
+  if (!currentWindow) {
+    throw new Error("로그인이 필요합니다.");
+  }
+
+  return currentWindow;
+}
+
+export function saveLoginSession(result: LoginResult) {
   const currentWindow = ensureBrowserSession();
   currentWindow.localStorage.setItem(USER_KEY, JSON.stringify(result.user));
   currentWindow.localStorage.setItem(ACCESS_TOKEN_KEY, result.accessToken);
@@ -27,6 +36,46 @@ function saveLoginSession(result: LoginResult) {
     REFRESH_EXPIRES_AT_KEY,
     String(Date.now() + result.refreshTokenExpiresIn * 1000)
   );
+  currentWindow.dispatchEvent(new Event("neet2work.auth.changed"));
+}
+
+export function getStoredAuthUser(): AuthUser | null {
+  const currentWindow = getBrowserSession();
+  if (!currentWindow) {
+    return null;
+  }
+
+  const storedUser = currentWindow.localStorage.getItem(USER_KEY);
+  if (!storedUser) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(storedUser) as AuthUser;
+  } catch {
+    return null;
+  }
+}
+
+export function saveStoredAuthUser(user: AuthUser) {
+  const currentWindow = ensureBrowserSession();
+  currentWindow.localStorage.setItem(USER_KEY, JSON.stringify(user));
+  currentWindow.dispatchEvent(new Event("neet2work.auth.changed"));
+}
+
+export function getStoredRefreshToken() {
+  const currentWindow = getBrowserSession();
+  return currentWindow?.localStorage.getItem(REFRESH_TOKEN_KEY) ?? null;
+}
+
+export function clearLoginSession() {
+  const currentWindow = ensureBrowserSession();
+  currentWindow.localStorage.removeItem(USER_KEY);
+  currentWindow.localStorage.removeItem(ACCESS_TOKEN_KEY);
+  currentWindow.localStorage.removeItem(REFRESH_TOKEN_KEY);
+  currentWindow.localStorage.removeItem(TOKEN_TYPE_KEY);
+  currentWindow.localStorage.removeItem(EXPIRES_AT_KEY);
+  currentWindow.localStorage.removeItem(REFRESH_EXPIRES_AT_KEY);
   currentWindow.dispatchEvent(new Event("neet2work.auth.changed"));
 }
 

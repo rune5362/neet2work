@@ -1,20 +1,42 @@
-import { Home } from "./pages/Home";
-import { AIAnalysisDetails } from "./pages/AIAnalysisDetails";
-import { AIDraftChatBuilder } from "./pages/AIDraftChatBuilder";
-import { AuthChoice } from "./pages/AuthChoice";
-import { DocumentDetail } from "./pages/DocumentDetail";
-import { DocumentNew } from "./pages/DocumentNew";
-import { DocumentSetDetail } from "./pages/DocumentSetDetail";
-import { DocumentVersions } from "./pages/DocumentVersions";
-import { Documents } from "./pages/Documents";
-import { Jobs } from "./pages/Jobs";
-import { Login } from "./pages/Login";
-import { MyAccount } from "./pages/MyAccount";
-import { Notifications } from "./pages/Notifications";
-import { ProfileDetail } from "./pages/ProfileDetail";
-import { ProfileNew } from "./pages/ProfileNew";
-import { ProfileVersions } from "./pages/ProfileVersions";
-import { SignUp } from "./pages/SignUp";
+import { lazy, Suspense, type ReactNode } from "react";
+
+const Home = lazy(() => import("./pages/Home").then((module) => ({ default: module.Home })));
+const AIAnalysisDetails = lazy(() =>
+  import("./pages/AIAnalysisDetails").then((module) => ({ default: module.AIAnalysisDetails }))
+);
+const AIDraftChatBuilder = lazy(() =>
+  import("./pages/AIDraftChatBuilder").then((module) => ({ default: module.AIDraftChatBuilder }))
+);
+const AuthChoice = lazy(() => import("./pages/AuthChoice").then((module) => ({ default: module.AuthChoice })));
+const DocumentDetail = lazy(() =>
+  import("./pages/DocumentDetail").then((module) => ({ default: module.DocumentDetail }))
+);
+const DocumentNew = lazy(() => import("./pages/DocumentNew").then((module) => ({ default: module.DocumentNew })));
+const DocumentSetDetail = lazy(() =>
+  import("./pages/DocumentSetDetail").then((module) => ({ default: module.DocumentSetDetail }))
+);
+const DocumentVersions = lazy(() =>
+  import("./pages/DocumentVersions").then((module) => ({ default: module.DocumentVersions }))
+);
+const Documents = lazy(() => import("./pages/Documents").then((module) => ({ default: module.Documents })));
+const Jobs = lazy(() => import("./pages/Jobs").then((module) => ({ default: module.Jobs })));
+const Login = lazy(() => import("./pages/Login").then((module) => ({ default: module.Login })));
+const MyAccount = lazy(() => import("./pages/MyAccount").then((module) => ({ default: module.MyAccount })));
+const Notifications = lazy(() =>
+  import("./pages/Notifications").then((module) => ({ default: module.Notifications }))
+);
+const ProfileDetail = lazy(() =>
+  import("./pages/ProfileDetail").then((module) => ({ default: module.ProfileDetail }))
+);
+const ProfileNew = lazy(() => import("./pages/ProfileNew").then((module) => ({ default: module.ProfileNew })));
+const ProfileVersions = lazy(() =>
+  import("./pages/ProfileVersions").then((module) => ({ default: module.ProfileVersions }))
+);
+const SignUp = lazy(() => import("./pages/SignUp").then((module) => ({ default: module.SignUp })));
+
+function DeferredPage({ children }: { children: ReactNode }) {
+  return <Suspense fallback={null}>{children}</Suspense>;
+}
 
 function Redirect({ to }: { to: string }) {
   window.location.replace(to);
@@ -26,35 +48,67 @@ export default function App() {
   const segments = pathname.split("/").filter(Boolean);
 
   if (pathname === "/login") {
-    return <Login />;
+    return (
+      <DeferredPage>
+        <Login />
+      </DeferredPage>
+    );
   }
 
   if (pathname === "/signup") {
-    return <SignUp />;
+    return (
+      <DeferredPage>
+        <SignUp />
+      </DeferredPage>
+    );
   }
 
   if (pathname === "/auth") {
-    return <AuthChoice />;
+    return (
+      <DeferredPage>
+        <AuthChoice />
+      </DeferredPage>
+    );
   }
 
   if (pathname === "/ai-analysis/details") {
-    return <AIAnalysisDetails />;
+    return (
+      <DeferredPage>
+        <AIAnalysisDetails />
+      </DeferredPage>
+    );
   }
 
   if (pathname === "/ai-analysis") {
-    return <AIDraftChatBuilder />;
+    return (
+      <DeferredPage>
+        <AIDraftChatBuilder />
+      </DeferredPage>
+    );
   }
 
   if (pathname === "/jobs") {
-    return <Jobs />;
+    return (
+      <DeferredPage>
+        <Jobs />
+      </DeferredPage>
+    );
   }
 
   if (segments[0] === "documents" && segments[1] === "profiles" && segments[2] === "new" && segments.length === 3) {
-    return <ProfileNew />;
+    return (
+      <DeferredPage>
+        <ProfileNew />
+      </DeferredPage>
+    );
   }
 
   if (segments[0] === "documents" && segments[1] === "profiles" && segments[2] && segments.length === 3) {
-    return <ProfileDetail />;
+    return (
+      <DeferredPage>
+        <ProfileDetail />
+      </DeferredPage>
+    );
   }
 
   if (segments[0] === "profiles" && segments[1] === "new" && segments.length === 2) {
@@ -62,7 +116,11 @@ export default function App() {
   }
 
   if (segments[0] === "profiles" && segments[1] && segments[2] === "versions" && segments.length === 3) {
-    return <ProfileVersions />;
+    return (
+      <DeferredPage>
+        <ProfileVersions />
+      </DeferredPage>
+    );
   }
 
   if (segments[0] === "profiles" && segments[1] && segments.length === 2) {
@@ -78,36 +136,72 @@ export default function App() {
   }
 
   if (segments[0] === "documents" && segments[1] === "new" && segments.length === 2) {
-    return <DocumentNew />;
+    return (
+      <DeferredPage>
+        <DocumentNew />
+      </DeferredPage>
+    );
   }
 
   if (segments[0] === "documents" && segments[1] === "sets" && segments[2] && segments.length === 3) {
-    return <DocumentSetDetail />;
+    return (
+      <DeferredPage>
+        <DocumentSetDetail />
+      </DeferredPage>
+    );
   }
 
   if (segments[0] === "documents" && segments[1] && segments[2] === "versions" && segments.length === 3) {
-    return <DocumentVersions />;
+    return (
+      <DeferredPage>
+        <DocumentVersions />
+      </DeferredPage>
+    );
   }
 
   if (segments[0] === "documents" && segments[1] && segments.length === 2) {
-    return <DocumentDetail />;
+    return (
+      <DeferredPage>
+        <DocumentDetail />
+      </DeferredPage>
+    );
   }
 
   if (pathname === "/documents") {
-    return <Documents />;
+    return (
+      <DeferredPage>
+        <Documents />
+      </DeferredPage>
+    );
   }
 
   if (segments[0] === "documents") {
-    return <Documents />;
+    return (
+      <DeferredPage>
+        <Documents />
+      </DeferredPage>
+    );
   }
 
   if (pathname === "/notifications") {
-    return <Notifications />;
+    return (
+      <DeferredPage>
+        <Notifications />
+      </DeferredPage>
+    );
   }
 
   if (pathname === "/myaccount") {
-    return <MyAccount />;
+    return (
+      <DeferredPage>
+        <MyAccount />
+      </DeferredPage>
+    );
   }
 
-  return <Home />;
+  return (
+    <DeferredPage>
+      <Home />
+    </DeferredPage>
+  );
 }

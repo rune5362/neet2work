@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { getStoredAuthUser, saveLoginSession, saveStoredAuthUser } from "../api/authSession";
 import {
   getAccountSecuritySummary,
   refreshSession,
   updateProfile,
   type AccountSecuritySummary,
-  type AuthUser,
-  type LoginResult
+  type AuthUser
 } from "../api/client";
 import { HomeFooter } from "../components/HomeFooter";
 import { HomeTopNav } from "../components/HomeTopNav";
@@ -14,37 +14,8 @@ type EditableField = "name" | "nickname" | "profileImageUrl";
 
 type ProfileForm = Pick<AuthUser, EditableField>;
 
-function getStoredAuthUser(): AuthUser | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const storedUser = window.localStorage.getItem("neet2work.auth.user");
-  if (!storedUser) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(storedUser) as AuthUser;
-  } catch {
-    return null;
-  }
-}
-
 function getAccessToken() {
   return window.localStorage.getItem("neet2work.auth.accessToken");
-}
-
-function saveLoginSession(result: LoginResult) {
-  window.localStorage.setItem("neet2work.auth.user", JSON.stringify(result.user));
-  window.localStorage.setItem("neet2work.auth.accessToken", result.accessToken);
-  window.localStorage.setItem("neet2work.auth.refreshToken", result.refreshToken);
-  window.localStorage.setItem("neet2work.auth.tokenType", result.tokenType);
-  window.localStorage.setItem("neet2work.auth.expiresAt", String(Date.now() + result.expiresIn * 1000));
-  window.localStorage.setItem(
-    "neet2work.auth.refreshExpiresAt",
-    String(Date.now() + result.refreshTokenExpiresIn * 1000)
-  );
 }
 
 async function getUsableAccessToken() {
@@ -62,14 +33,8 @@ async function getUsableAccessToken() {
 
   const refreshedSession = await refreshSession(refreshToken);
   saveLoginSession(refreshedSession);
-  window.dispatchEvent(new Event("neet2work.auth.changed"));
 
   return refreshedSession.accessToken;
-}
-
-function saveStoredAuthUser(user: AuthUser) {
-  window.localStorage.setItem("neet2work.auth.user", JSON.stringify(user));
-  window.dispatchEvent(new Event("neet2work.auth.changed"));
 }
 
 function formatDateTime(value: string | null | undefined) {

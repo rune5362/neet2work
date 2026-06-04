@@ -1,4 +1,5 @@
 import { FormEvent, useMemo, useState } from "react";
+import { saveLoginSession } from "../api/authSession";
 import { login } from "../api/client";
 import { HomeFooter } from "../components/HomeFooter";
 import { HomeTopNav } from "../components/HomeTopNav";
@@ -25,18 +26,6 @@ function validateLoginForm(form: LoginForm) {
   }
 
   return errors;
-}
-
-function saveLoginSession(result: Awaited<ReturnType<typeof login>>) {
-  window.localStorage.setItem("neet2work.auth.user", JSON.stringify(result.user));
-  window.localStorage.setItem("neet2work.auth.accessToken", result.accessToken);
-  window.localStorage.setItem("neet2work.auth.refreshToken", result.refreshToken);
-  window.localStorage.setItem("neet2work.auth.tokenType", result.tokenType);
-  window.localStorage.setItem("neet2work.auth.expiresAt", String(Date.now() + result.expiresIn * 1000));
-  window.localStorage.setItem(
-    "neet2work.auth.refreshExpiresAt",
-    String(Date.now() + result.refreshTokenExpiresIn * 1000)
-  );
 }
 
 export function AuthChoice() {
