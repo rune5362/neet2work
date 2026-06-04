@@ -1,18 +1,21 @@
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client.js";
+import { resolveDatabaseUrl } from "./connection.js";
 
 let pool: Pool | null = null;
 let prisma: PrismaClient | null = null;
 
 export function getPrismaClient(): PrismaClient | null {
-  if (!process.env.DATABASE_URL) {
+  const connectionString = resolveDatabaseUrl();
+
+  if (!connectionString) {
     return null;
   }
 
   if (!pool) {
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL
+      connectionString
     });
   }
 

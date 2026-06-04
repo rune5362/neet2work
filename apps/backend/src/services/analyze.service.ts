@@ -6,18 +6,7 @@ type AnalyzeInput = {
 };
 
 export async function analyzeResume(input: AnalyzeInput): Promise<AnalysisResult> {
-  const hasAiKey = Boolean(process.env.AI_API_KEY);
-
-  if (!hasAiKey) {
-    return mockAnalyze(input);
-  }
-
-  try {
-    // 실제 생성형 AI API는 이 지점에서만 호출합니다.
-    return mockAnalyze(input, "ai");
-  } catch {
-    return mockAnalyze(input);
-  }
+  return mockAnalyze(input);
 }
 
 function mockAnalyze(input: AnalyzeInput, mode: "mock" | "ai" = "mock"): AnalysisResult {

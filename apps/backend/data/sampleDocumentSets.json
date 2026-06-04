@@ -1,0 +1,16 @@
+[
+  {
+    "id": "document-set-demo-frontend",
+    "candidateKey": "demo-candidate",
+    "title": "프론트엔드 지원 묶음",
+    "profileId": "profile-demo-frontend",
+    "profileTitle": "프론트엔드 지원 기본 프로필",
+    "resumeDocumentId": "document-demo-resume",
+    "resumeTitle": "프론트엔드 지원 이력서",
+    "coverLetterDocumentId": null,
+    "coverLetterTitle": null,
+    "isArchived": false,
+    "createdAt": "2026-05-01T00:20:00.000Z",
+    "updatedAt": "2026-05-01T00:20:00.000Z"
+  }
+]

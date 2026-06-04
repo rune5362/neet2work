@@ -43,6 +43,28 @@ SKILL_KEYWORDS = [
     "Data",
 ]
 
+SHORT_SKILL_CONTEXTS = {
+    "AI": [
+        "AI 개발",
+        "AI 엔지니어",
+        "AI 서비스",
+        "AI 모델",
+        "인공지능 개발",
+        "인공지능 모델",
+        "인공지능 서비스",
+        "인공지능 엔지니어",
+    ],
+    "ML": ["ML 개발", "ML 엔지니어", "ML 모델", "MLOps", "머신러닝"],
+    "Data": [
+        "Data Engineer",
+        "Data Analyst",
+        "Data Scientist",
+        "데이터 분석",
+        "데이터 엔지니어",
+        "데이터 파이프라인",
+    ],
+}
+
 
 class LinkTextParser(HTMLParser):
     def __init__(self) -> None:
@@ -267,7 +289,16 @@ def find_first(patterns: list[str], text: str, default: str) -> str:
 
 def infer_skills(text: str) -> list[str]:
     lowered = text.lower()
-    found = [skill for skill in SKILL_KEYWORDS if skill.lower() in lowered]
+    found: list[str] = []
+    for skill in SKILL_KEYWORDS:
+        if skill in SHORT_SKILL_CONTEXTS:
+            if any(marker.lower() in lowered for marker in SHORT_SKILL_CONTEXTS[skill]):
+                found.append(skill)
+            continue
+
+        pattern = rf"(?<![A-Za-z0-9]){re.escape(skill.lower())}(?![A-Za-z0-9])"
+        if re.search(pattern, lowered):
+            found.append(skill)
     return found[:12]
 
 

@@ -3,13 +3,14 @@ import fs from "node:fs/promises";
 import { resolve } from "node:path";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { resolveDatabaseUrl } from "../src/database/connection.js";
 import { PrismaClient } from "../src/generated/prisma/client.js";
 import type { CollectedJobPosting } from "../src/types/job.js";
 
 config({ path: resolve(process.cwd(), "../../.env") });
 config({ path: resolve(process.cwd(), ".env"), override: true });
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString = resolveDatabaseUrl();
 
 if (!connectionString) {
   throw new Error("DATABASE_URL이 없어 Prisma seed를 실행할 수 없습니다.");
@@ -45,7 +46,15 @@ async function main() {
       companyInfo: job.companyInfo,
       rawText: job.rawText,
       rawJson: job.rawJson,
-      collectedAt: job.collectedAt ? new Date(job.collectedAt) : undefined
+      collectedAt: job.collectedAt ? new Date(job.collectedAt) : undefined,
+      status: job.status,
+      firstSeenAt: job.firstSeenAt ? new Date(job.firstSeenAt) : undefined,
+      lastSeenAt: job.lastSeenAt ? new Date(job.lastSeenAt) : undefined,
+      closedAt: job.closedAt ? new Date(job.closedAt) : undefined,
+      jobCategory: job.jobCategory,
+      careerStage: job.careerStage,
+      crawlBatchId: job.crawlBatchId,
+      classifierMeta: job.classifierMeta
     };
 
     await prisma.jobPosting.upsert({

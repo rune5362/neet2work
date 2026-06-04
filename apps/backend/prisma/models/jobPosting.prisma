@@ -1,0 +1,48 @@
+model JobPosting {
+  id              String           @id @default(uuid())
+  title           String
+  company         String
+  location        String
+  careerLevel     String           @map("career_level")
+  skills          String[]         @default([])
+  description     String
+  source          String           @default("manual")
+  sourceJobId     String?          @map("source_job_id")
+  sourceUrl       String           @map("source_url")
+  country         String           @default("KR")
+  language        String           @default("ko")
+  employmentType  String?          @map("employment_type")
+  educationLevel  String?          @map("education_level")
+  salaryText      String?          @map("salary_text")
+  deadlineText    String?          @map("deadline_text")
+  applyMethod     String?          @map("apply_method")
+  companyInfo     Json?            @map("company_info")
+  rawText         String?          @map("raw_text")
+  rawJson         Json?            @map("raw_json")
+  collectedAt     DateTime?        @map("collected_at")
+  status          JobPostingStatus @default(active)
+  firstSeenAt     DateTime         @default(now()) @map("first_seen_at")
+  lastSeenAt      DateTime?        @map("last_seen_at")
+  closedAt        DateTime?        @map("closed_at")
+  jobCategory     String?          @map("job_category")
+  careerStage     String?          @map("career_stage")
+  crawlBatchId    String?          @map("crawl_batch_id")
+  classifierMeta  Json?            @map("classifier_meta")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at")
+  deletedAt       DateTime?        @map("deleted_at")
+  createdBy       String?          @map("created_by")
+  updatedBy       String?          @map("updated_by")
+  deletedBy       String?          @map("deleted_by")
+  analyses        ResumeAnalysis[]
+
+  @@unique([source, sourceJobId])
+  @@index([country])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@index([jobCategory])
+  @@index([careerStage])
+  @@index([status, lastSeenAt])
+  @@index([source, collectedAt])
+  @@map("job_postings")
+}

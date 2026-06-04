@@ -1,0 +1,6 @@
+enum JobPostingStatus {
+  active
+  closed
+  inactive
+  unknown
+}

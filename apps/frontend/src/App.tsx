@@ -1,122 +1,185 @@
-import { useEffect, useState } from "react";
-import { analyzeResume, getJobs } from "./api/client";
-import { AnalysisPanel } from "./components/AnalysisPanel";
-import { JobCard } from "./components/JobCard";
-import type { AnalysisResult } from "./types/analysis";
-import type { JobPosting } from "./types/job";
+import { lazy, Suspense, type ReactNode } from "react";
 
-const defaultResume =
-  "React와 TypeScript를 활용한 웹 프로젝트에서 채용공고 데이터를 조회하고 API와 연동한 경험이 있습니다. 사용자 관점에서 입력 흐름과 예외 상황을 고려하며 기능을 구현했습니다.";
+const Home = lazy(() => import("./pages/Home").then((module) => ({ default: module.Home })));
+const AIAnalysisDetails = lazy(() =>
+  import("./pages/AIAnalysisDetails").then((module) => ({ default: module.AIAnalysisDetails }))
+);
+const AIDraftChatBuilder = lazy(() =>
+  import("./pages/AIDraftChatBuilder").then((module) => ({ default: module.AIDraftChatBuilder }))
+);
+const AuthChoice = lazy(() => import("./pages/AuthChoice").then((module) => ({ default: module.AuthChoice })));
+const DocumentDetail = lazy(() =>
+  import("./pages/DocumentDetail").then((module) => ({ default: module.DocumentDetail }))
+);
+const DocumentNew = lazy(() => import("./pages/DocumentNew").then((module) => ({ default: module.DocumentNew })));
+const DocumentSetDetail = lazy(() =>
+  import("./pages/DocumentSetDetail").then((module) => ({ default: module.DocumentSetDetail }))
+);
+const Documents = lazy(() => import("./pages/Documents").then((module) => ({ default: module.Documents })));
+const Jobs = lazy(() => import("./pages/Jobs").then((module) => ({ default: module.Jobs })));
+const Login = lazy(() => import("./pages/Login").then((module) => ({ default: module.Login })));
+const MyAccount = lazy(() => import("./pages/MyAccount").then((module) => ({ default: module.MyAccount })));
+const Notifications = lazy(() =>
+  import("./pages/Notifications").then((module) => ({ default: module.Notifications }))
+);
+const ProfileDetail = lazy(() =>
+  import("./pages/ProfileDetail").then((module) => ({ default: module.ProfileDetail }))
+);
+const ProfileNew = lazy(() => import("./pages/ProfileNew").then((module) => ({ default: module.ProfileNew })));
+const SignUp = lazy(() => import("./pages/SignUp").then((module) => ({ default: module.SignUp })));
+
+function DeferredPage({ children }: { children: ReactNode }) {
+  return <Suspense fallback={null}>{children}</Suspense>;
+}
+
+function Redirect({ to }: { to: string }) {
+  window.location.replace(to);
+  return null;
+}
 
 export default function App() {
-  const [jobs, setJobs] = useState<JobPosting[]>([]);
-  const [selectedJobId, setSelectedJobId] = useState<string>("");
-  const [resumeText, setResumeText] = useState(defaultResume);
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
-  const [isLoadingJobs, setIsLoadingJobs] = useState(true);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const pathname = window.location.pathname;
+  const segments = pathname.split("/").filter(Boolean);
 
-  useEffect(() => {
-    async function loadJobs() {
-      try {
-        const loadedJobs = await getJobs();
-        setJobs(loadedJobs);
-        setSelectedJobId(loadedJobs[0]?.id ?? "");
-      } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.");
-      } finally {
-        setIsLoadingJobs(false);
-      }
-    }
-
-    void loadJobs();
-  }, []);
-
-  async function handleAnalyze() {
-    if (!selectedJobId) {
-      setErrorMessage("분석할 채용공고를 먼저 선택해 주세요.");
-      return;
-    }
-
-    setIsAnalyzing(true);
-    setErrorMessage("");
-
-    try {
-      const result = await analyzeResume({
-        resumeText,
-        jobId: selectedJobId
-      });
-      setAnalysis(result);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.");
-    } finally {
-      setIsAnalyzing(false);
-    }
+  if (pathname === "/login") {
+    return (
+      <DeferredPage>
+        <Login />
+      </DeferredPage>
+    );
   }
 
-  const selectedJob = jobs.find((job) => job.id === selectedJobId);
+  if (pathname === "/signup") {
+    return (
+      <DeferredPage>
+        <SignUp />
+      </DeferredPage>
+    );
+  }
+
+  if (pathname === "/auth") {
+    return (
+      <DeferredPage>
+        <AuthChoice />
+      </DeferredPage>
+    );
+  }
+
+  if (pathname === "/ai-analysis/details") {
+    return (
+      <DeferredPage>
+        <AIAnalysisDetails />
+      </DeferredPage>
+    );
+  }
+
+  if (pathname === "/ai-analysis") {
+    return (
+      <DeferredPage>
+        <AIDraftChatBuilder />
+      </DeferredPage>
+    );
+  }
+
+  if (pathname === "/jobs") {
+    return (
+      <DeferredPage>
+        <Jobs />
+      </DeferredPage>
+    );
+  }
+
+  if (segments[0] === "documents" && segments[1] === "profiles" && segments[2] === "new" && segments.length === 3) {
+    return (
+      <DeferredPage>
+        <ProfileNew />
+      </DeferredPage>
+    );
+  }
+
+  if (segments[0] === "documents" && segments[1] === "profiles" && segments[2] && segments.length === 3) {
+    return (
+      <DeferredPage>
+        <ProfileDetail />
+      </DeferredPage>
+    );
+  }
+
+  if (segments[0] === "profiles" && segments[1] === "new" && segments.length === 2) {
+    return <Redirect to="/documents/profiles/new" />;
+  }
+
+  if (segments[0] === "profiles" && segments[1] && segments.length === 2) {
+    return <Redirect to={`/documents/profiles/${segments[1]}`} />;
+  }
+
+  if (pathname === "/profiles") {
+    return <Redirect to="/documents?type=profile" />;
+  }
+
+  if (segments[0] === "profiles") {
+    return <Redirect to="/documents?type=profile" />;
+  }
+
+  if (segments[0] === "documents" && segments[1] === "new" && segments.length === 2) {
+    return (
+      <DeferredPage>
+        <DocumentNew />
+      </DeferredPage>
+    );
+  }
+
+  if (segments[0] === "documents" && segments[1] === "sets" && segments[2] && segments.length === 3) {
+    return (
+      <DeferredPage>
+        <DocumentSetDetail />
+      </DeferredPage>
+    );
+  }
+
+  if (segments[0] === "documents" && segments[1] && segments.length === 2) {
+    return (
+      <DeferredPage>
+        <DocumentDetail />
+      </DeferredPage>
+    );
+  }
+
+  if (pathname === "/documents") {
+    return (
+      <DeferredPage>
+        <Documents />
+      </DeferredPage>
+    );
+  }
+
+  if (segments[0] === "documents") {
+    return (
+      <DeferredPage>
+        <Documents />
+      </DeferredPage>
+    );
+  }
+
+  if (pathname === "/notifications") {
+    return (
+      <DeferredPage>
+        <Notifications />
+      </DeferredPage>
+    );
+  }
+
+  if (pathname === "/myaccount") {
+    return (
+      <DeferredPage>
+        <MyAccount />
+      </DeferredPage>
+    );
+  }
 
   return (
-    <main className="shell">
-      <section className="hero">
-        <div>
-          <p className="eyebrow">Mock-first career consulting</p>
-          <h1>일했음 청년</h1>
-          <p className="heroText">
-            채용공고와 자기소개서를 비교해 직무 적합도, 부족한 키워드, 수정 방향을 빠르게
-            확인하는 AI 커리어 컨설팅 데모입니다.
-          </p>
-        </div>
-        <div className="heroCard">
-          <span>API 상태</span>
-          <strong>키 없이도 실행</strong>
-          <p>DB, R2, AI 키가 없어도 로컬 JSON과 Mock 분석으로 발표 흐름을 유지합니다.</p>
-        </div>
-      </section>
-
-      {errorMessage ? <p className="alert">{errorMessage}</p> : null}
-
-      <section className="workspace">
-        <div className="panel">
-          <div className="sectionTitle">
-            <p>Step 1</p>
-            <h2>채용공고 선택</h2>
-          </div>
-
-          {isLoadingJobs ? (
-            <p className="muted">채용공고를 불러오는 중입니다.</p>
-          ) : (
-            <div className="jobList">
-              {jobs.map((job) => (
-                <JobCard
-                  key={job.id}
-                  job={job}
-                  isSelected={job.id === selectedJobId}
-                  onSelect={setSelectedJobId}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="panel">
-          <div className="sectionTitle">
-            <p>Step 2</p>
-            <h2>자기소개서 입력</h2>
-          </div>
-          <textarea
-            value={resumeText}
-            onChange={(event) => setResumeText(event.target.value)}
-            placeholder="자기소개서 내용을 입력해 주세요."
-          />
-          <button type="button" onClick={handleAnalyze} disabled={isAnalyzing}>
-            {isAnalyzing ? "분석 중..." : "적합도 분석하기"}
-          </button>
-        </div>
-      </section>
-
-      <AnalysisPanel analysis={analysis} selectedJob={selectedJob} />
-    </main>
+    <DeferredPage>
+      <Home />
+    </DeferredPage>
   );
 }

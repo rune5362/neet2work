@@ -1,0 +1,21 @@
+model ApplicationSet {
+  id                    String               @id @default(cuid())
+  candidateKey          String               @map("candidate_key")
+  title                 String
+  profileId             String?              @map("profile_id")
+  resumeDocumentId      String?              @map("resume_document_id")
+  coverLetterDocumentId String?              @map("cover_letter_document_id")
+  isArchived            Boolean              @default(false) @map("is_archived")
+  createdAt             DateTime             @default(now()) @map("created_at")
+  updatedAt             DateTime             @updatedAt @map("updated_at")
+  profile               CandidateProfile?    @relation("ApplicationSetProfile", fields: [profileId], references: [id], onDelete: SetNull)
+  resumeDocument        ApplicationDocument? @relation("ApplicationSetResumeDocument", fields: [resumeDocumentId], references: [id], onDelete: SetNull)
+  coverLetterDocument   ApplicationDocument? @relation("ApplicationSetCoverLetterDocument", fields: [coverLetterDocumentId], references: [id], onDelete: SetNull)
+
+  @@index([candidateKey])
+  @@index([candidateKey, isArchived])
+  @@index([profileId])
+  @@index([resumeDocumentId])
+  @@index([coverLetterDocumentId])
+  @@map("application_sets")
+}

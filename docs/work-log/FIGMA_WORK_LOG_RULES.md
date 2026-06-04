@@ -1,0 +1,100 @@
+# Figma Work Log Rules
+
+Use this file before editing or syncing the Figma work log.
+
+## Files
+
+- `docs/work-log/WORK_SESSIONS.md` is the current-day detailed session-note source.
+- `docs/work-log/WORK_LOG.md` is the current-day short Figma-facing summary source.
+- `docs/work-log/archive/YYYY-MM-DD/` stores archived daily snapshots.
+- The canonical work log root is the main `sungho` worktree. Work log scripts
+  resolve that root automatically even when they are run from linked worktrees
+  such as `neet2work-codex`, `neet2work-antigravity`, or Codex app worktrees.
+- Override the root only when needed with `NEET2WORK_WORK_LOG_ROOT` or
+  `--work-log-root <repo-root>`.
+- The Figma text layer is named `WORK_LOG`.
+- The helper plugin lives in `tools/figma-work-log-plugin`.
+
+## Recording Workflow
+
+- Use KST dates.
+- Write work session notes and Figma summaries in Korean.
+- Before writing session notes, run `corepack pnpm run worklog:prepare`.
+- Active `docs/work-log/WORK_SESSIONS.md` and `docs/work-log/WORK_LOG.md`
+  should contain only the current KST date. Older date sections belong in
+  `docs/work-log/archive/`.
+- If manually editing from a linked worktree, edit the canonical main worktree
+  work log files, not the local worktree copy.
+- Before the final response after any meaningful repo work, append a concise
+  record of what changed and what was verified to
+  `docs/work-log/WORK_SESSIONS.md`, unless the user explicitly asks not to.
+- For multi-session or long-running work, keep an in-progress entry in
+  `docs/work-log/WORK_SESSIONS.md` with:
+  `thread`, `status`, `scope`, `latest checkpoint`, and `next step`.
+- Update that entry when the work is paused, handed off, completed, or used for
+  a Figma summary.
+- Do not automatically backfill old work into `docs/work-log/WORK_SESSIONS.md`
+  unless the user asks for it.
+- Do not update `docs/work-log/WORK_LOG.md` just because session notes changed.
+- When the user asks to summarize or sync to Figma, read
+  `docs/work-log/WORK_SESSIONS.md`, preserve any manual
+  `docs/work-log/WORK_LOG.md` entries, update the matching date's
+  `Figma Summary` only as needed, then sync.
+- Keep Figma summaries short. They are not full session logs.
+
+## Figma Summary Budget
+
+- Write bullets in Korean. `worklog:export` rejects Figma summary bullets that
+  contain no Korean text.
+- Default to the number of bullets needed to capture the actual day, usually
+  3-6 bullets for meaningful work and fewer for tiny updates.
+- Do not force the summary into exactly 3 lines.
+- Keep each bullet under 100 characters.
+- Write outcome-level bullets only: plan, decision, implementation, verification.
+- Do not include command lists, long file paths, detailed source lists, error
+  traces, or nested bullets.
+- Put detailed commands, files, evidence, and verification output in
+  `WORK_SESSIONS.md`.
+
+## Sync Rules
+
+- Before syncing to Figma, make sure the local bridge is running from the repo
+  root:
+
+```bash
+corepack pnpm run figma:bridge
+```
+
+- Bridge URL: `http://localhost:3927`
+- Bridge server script: `scripts/serve-figma-work-log.mjs`
+- Optional Windows startup task:
+  `corepack pnpm run figma:bridge:startup:register`
+  - This starts only the local bridge at Windows logon.
+  - It does not start Figma or the plugin runner.
+  - It uses `scripts/start-figma-work-log-bridge.ps1`, which avoids
+    `worklog:prepare` so booting Windows does not mutate work log files.
+- Figma plugin manifest:
+  `tools/figma-work-log-plugin/manifest.json`
+- Figma runner path:
+  `Figma -> Plugins -> Development -> Neet2Work Work Log Sync`
+- Keep the Figma plugin runner window open while syncing.
+- After the bridge and runner are ready, sync with:
+
+```bash
+corepack pnpm run figma:apply-log
+```
+
+- Replace the same display-date section instead of appending duplicate dates.
+- Preserve existing Figma text outside the target date section.
+- Preserve the current Figma text box width.
+- Let text height grow naturally with content.
+- Keep the current font as the default style.
+
+## Commands
+
+```bash
+corepack pnpm run worklog:prepare
+corepack pnpm run worklog:export
+corepack pnpm run figma:bridge
+corepack pnpm run figma:apply-log
+```

@@ -1,0 +1,12 @@
+{
+  "name": "Neet2Work Work Log Sync",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["http://localhost:3927"],
+    "reasoning": "Fetches generated work log text from the local Neet2Work repository server."
+  }
+}
