@@ -10,6 +10,15 @@
 
 현재 프로젝트는 발표와 로컬 개발을 안정적으로 유지하기 위해 **Mock-first + DB optional** 구조를 유지합니다. PostgreSQL, AI provider, R2 같은 외부 의존성이 없어도 기본 화면과 fallback workflow가 동작하고, 각 기능은 실제 연동을 붙일 수 있도록 backend REST API와 Prisma migration을 기준으로 설계되어 있습니다.
 
+
+## 팀원 및 역할 분담
+
+| 이름 | 역할 |
+| --- | --- |
+| 김대균 | 팀장, 프로젝트 관리, 일정 관리, 기능 통합 관리 |
+| 이성호 | AI 기술 담당, 생성형 AI 분석 로직 설계 |
+
+
 ## 현재 구현된 주요 기능
 
 - 채용공고 목록/상세 조회, 검색, 필터, 페이지네이션, URL 동기화
@@ -428,9 +437,3 @@ corepack pnpm run jobs:operational:jp-plan
 - 공유된 migration은 수정하지 않고 새 migration으로 누적합니다.
 - 기능 제거 시 UI뿐 아니라 route, type, sample data, API client 잔재까지 같이 확인합니다.
 
-## 팀원 및 역할 분담
-
-| 이름 | 역할 |
-| --- | --- |
-| 김대균 | 팀장, 프로젝트 관리, 일정 관리, 기능 통합 관리 |
-| 이성호 | AI 기술 담당, 생성형 AI 분석 로직 설계 |
