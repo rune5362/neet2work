@@ -117,6 +117,18 @@ const savedCandidateProfile = {
   deletedBy: null
 };
 
+const savedSecondaryCandidateProfile = {
+  ...savedCandidateProfile,
+  id: "candidate-profile-2",
+  title: "프론트엔드 지원 프로필",
+  targetRole: "프론트엔드 엔지니어",
+  desiredRoles: ["프론트엔드 엔지니어"],
+  skills: ["React", "TypeScript", "Accessibility"],
+  profileText: "React와 TypeScript로 접근성 높은 화면을 구현한 프로필 본문입니다.",
+  isDefault: false,
+  updatedAt: "2026-06-03T00:00:00.000Z"
+};
+
 const aiMeta = {
   providerId: "fallback" as const,
   modelId: "hardcoded-demo",
@@ -306,7 +318,11 @@ const providerStatuses = [
   }
 ];
 
-function createDraftWorkflowFetchMock(options?: { planFails?: boolean; draftFails?: boolean }) {
+function createDraftWorkflowFetchMock(options?: {
+  planFails?: boolean;
+  draftFails?: boolean;
+  profiles?: Array<typeof savedCandidateProfile>;
+}) {
   return vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
 
@@ -315,7 +331,8 @@ function createDraftWorkflowFetchMock(options?: { planFails?: boolean; draftFail
     }
 
     if (url.includes("/api/profiles")) {
-      return apiResponse({ data: [savedCandidateProfile], count: 1 });
+      const profiles = options?.profiles ?? [savedCandidateProfile];
+      return apiResponse({ data: profiles, count: profiles.length });
     }
 
     if (url.includes("/api/draft-workflow/providers")) {
@@ -1489,6 +1506,59 @@ describe("AIDraftChatBuilder chat UX", () => {
     fireEvent.keyDown(screen.getByRole("option", { name: /백엔드 지원 프로필/ }), { key: "ArrowLeft" });
     await waitFor(() => expect(profileButton).toHaveFocus());
     expect(screen.queryByRole("listbox", { name: "프로필 추가" })).not.toBeInTheDocument();
+  });
+
+  it("selects a focused profile option with Tab", async () => {
+    setStoredAuthSession();
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+    const textarea = screen.getByPlaceholderText("메시지를 입력하세요...");
+    fireEvent.change(textarea, { target: { value: "/" } });
+
+    const profileButton = screen.getByRole("button", { name: "프로필 추가" });
+    fireEvent.keyDown(profileButton, { key: "ArrowRight" });
+
+    const profileOption = await screen.findByRole("option", { name: /백엔드 지원 프로필/ });
+    await waitFor(() => expect(profileOption).toHaveFocus());
+
+    fireEvent.keyDown(profileOption, { key: "Tab" });
+
+    expect(screen.getByText("프로필 근거")).toBeInTheDocument();
+    expect(screen.getByText("백엔드 지원 프로필")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "작성 옵션" })).not.toBeInTheDocument();
+    await waitFor(() => expect(textarea).toHaveFocus());
+  });
+
+  it("removes the most recently added profile chip after two Backspace presses on an empty input", async () => {
+    fetchMock = createDraftWorkflowFetchMock({
+      profiles: [savedCandidateProfile, savedSecondaryCandidateProfile]
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    setStoredAuthSession();
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+    const textarea = screen.getByPlaceholderText("메시지를 입력하세요...");
+    fireEvent.click(screen.getByRole("button", { name: "작성 옵션" }));
+    fireEvent.click(screen.getByRole("button", { name: "프로필 추가" }));
+    fireEvent.click(await screen.findByRole("option", { name: /백엔드 지원 프로필/ }));
+    fireEvent.click(screen.getByRole("button", { name: "작성 옵션" }));
+    fireEvent.click(screen.getByRole("button", { name: "프로필 추가" }));
+    fireEvent.click(await screen.findByRole("option", { name: /프론트엔드 지원 프로필/ }));
+
+    expect(screen.getByText("백엔드 지원 프로필")).toBeInTheDocument();
+    expect(screen.getByText("프론트엔드 지원 프로필")).toBeInTheDocument();
+    await waitFor(() => expect(textarea).toHaveFocus());
+
+    fireEvent.keyDown(textarea, { key: "Backspace" });
+    expect(screen.getByText("프론트엔드 지원 프로필")).toBeInTheDocument();
+
+    fireEvent.keyDown(textarea, { key: "Backspace" });
+
+    await waitFor(() => expect(screen.queryByText("프론트엔드 지원 프로필")).not.toBeInTheDocument());
+    expect(screen.getByText("백엔드 지원 프로필")).toBeInTheDocument();
+    expect(textarea).toHaveValue("");
   });
 
   it("excludes removed profile contexts from the plan payload", async () => {

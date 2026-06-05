@@ -908,6 +908,7 @@ export function AIDraftChatBuilder() {
   const workflowRequestIdRef = useRef(0);
   const referenceLoadRequestIdRef = useRef(0);
   const profileLoadRequestIdRef = useRef(0);
+  const emptyComposerBackspaceCountRef = useRef(0);
   const sendReplyTimeoutRef = useRef<number | null>(null);
 
   const clearSendReplyTimeout = () => {
@@ -1613,6 +1614,17 @@ export function AIDraftChatBuilder() {
       return;
     }
 
+    if (
+      event.key === "Tab" &&
+      !event.shiftKey &&
+      event.target instanceof HTMLButtonElement &&
+      event.target.closest(".aiDraftComposerProfileSubmenu")
+    ) {
+      event.preventDefault();
+      event.target.click();
+      return;
+    }
+
     if (event.key === "Escape") {
       event.preventDefault();
       closeComposerMenus();
@@ -1791,6 +1803,16 @@ export function AIDraftChatBuilder() {
   const removeProfileContext = (profileId: string) => {
     setSelectedProfileContexts((prev) => prev.filter((profile) => profile.profileId !== profileId));
     setInput((current) => (typeof current === "string" ? current : ""));
+    emptyComposerBackspaceCountRef.current = 0;
+    resetWorkflow();
+    window.requestAnimationFrame(syncComposerHeight);
+    playTone(settings.sound, "open");
+  };
+
+  const removeLastProfileContextFromComposer = () => {
+    setSelectedProfileContexts((prev) => prev.slice(0, -1));
+    setInput((current) => (typeof current === "string" ? current : ""));
+    emptyComposerBackspaceCountRef.current = 0;
     resetWorkflow();
     window.requestAnimationFrame(syncComposerHeight);
     playTone(settings.sound, "open");
@@ -2205,6 +2227,8 @@ export function AIDraftChatBuilder() {
   };
 
   const handleComposerChange = (value: string) => {
+    emptyComposerBackspaceCountRef.current = 0;
+
     if (value === "/") {
       setInput("");
       setComposerMenuOpen(true);
@@ -2218,6 +2242,32 @@ export function AIDraftChatBuilder() {
 
     setInput(value);
     window.requestAnimationFrame(syncComposerHeight);
+  };
+
+  const handleComposerKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      emptyComposerBackspaceCountRef.current = 0;
+      handleSend();
+      return;
+    }
+
+    if (event.key !== "Backspace") {
+      emptyComposerBackspaceCountRef.current = 0;
+      return;
+    }
+
+    if (input.length > 0 || selectedProfileContexts.length === 0) {
+      emptyComposerBackspaceCountRef.current = 0;
+      return;
+    }
+
+    event.preventDefault();
+    emptyComposerBackspaceCountRef.current += 1;
+
+    if (emptyComposerBackspaceCountRef.current >= 2) {
+      removeLastProfileContextFromComposer();
+    }
   };
 
   const handleComposerBarClick = (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -2894,12 +2944,7 @@ export function AIDraftChatBuilder() {
                     ref={composerInputRef}
                     value={input}
                     onChange={(event) => handleComposerChange(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && !event.shiftKey) {
-                        event.preventDefault();
-                        handleSend();
-                      }
-                    }}
+                    onKeyDown={handleComposerKeyDown}
                     placeholder="메시지를 입력하세요..."
                     rows={1}
                   />
