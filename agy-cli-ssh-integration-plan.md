@@ -59,7 +59,7 @@
 ```env
 # Agy CLI & SSH integration
 AGY_CLI_ENABLED=false
-AGY_CLI_COMMAND=C:\Users\pc07-00\AppData\Local\agy\bin\agy.exe
+AGY_CLI_COMMAND=
 AGY_CLI_MODEL=
 AGY_CLI_TIMEOUT_MS=120000
 AGY_CLI_SANDBOX_ENABLED=true
@@ -103,6 +103,8 @@ AGY_SSH_EXEC_TIMEOUT_MS=120000
 - `AGY_SSH_REMOTE_WRAPPER`: 원격 서버에 사전 배치된 sandbox print wrapper의 absolute path다. argument, 공백, quote, shell metacharacter를 포함하지 않는다.
 - `AGY_SSH_CONNECT_TIMEOUT_MS`: SSH 연결 수립 제한 시간이다.
 - `AGY_SSH_EXEC_TIMEOUT_MS`: 원격 wrapper 실행 제한 시간이다.
+
+확인된 개발 PC의 로컬 `agy.exe` 경로 예시는 `C:\Users\pc07-00\AppData\Local\agy\bin\agy.exe`다. `.env.example` 기본값에는 개인 경로를 넣지 않고, 실제 `.env`에서 수동 설정한다.
 
 로컬 실행과 SSH 실행을 모두 설정한 경우에는 `AGY_SSH_ENABLED=true`일 때 SSH 실행을 우선 사용한다. 운영자는 둘 중 하나의 실행 방식을 명확히 선택하는 것을 권장한다.
 
@@ -157,6 +159,8 @@ AGY_SSH_EXEC_TIMEOUT_MS=120000
 - `AiProviderId` 유니온 타입에 `"agy_cli"`를 추가한다.
 - draft-workflow 요청 schema의 manual provider 선택 enum에 `"agy_cli"`를 추가한다.
 - draft-workflow 응답 schema의 `aiMeta.providerId` enum에도 `"agy_cli"`를 추가한다.
+- frontend의 `apps/frontend/src/types/draft-workflow.ts`에도 `AiProviderId` 유니온 타입과 `providerBadgeLabel()` 분기에 `"agy_cli"`를 추가한다.
+- provider 라벨은 `"Agy CLI"`로 통일한다.
 
 #### draft-workflow prompt contract
 
@@ -164,9 +168,11 @@ AGY_SSH_EXEC_TIMEOUT_MS=120000
 - envelope에는 아래 내용을 항상 포함한다.
   - 역할: "사용자 프로필과 자기소개서 초안을 바탕으로 채용 자기소개서를 첨삭하는 한국어 AI reviewer"
   - 입력: 지원자 프로필, 목표 회사/직무, 채용 문항, 기존 초안, 경력/프로젝트/역량 근거
-  - 출력: 기존 draft-workflow zod schema와 호환되는 JSON만 반환
+  - 출력: `plan`, `draft`, `revise` operation별 body JSON만 반환
   - 금지: 파일 수정, 셸 명령 실행 요청, SSH/로컬 환경 탐색, provider 설정 변경, 프로필에 없는 사실 창작, 민감정보 노출
   - 기준: 프로필 근거 기반 첨삭, 문항 적합도, 직무 적합도, 구체성, 블라인드 채용 리스크, 한국어 가독성, 면접 방어 가능성
+- `agy_cli` 출력에는 `aiMeta`와 `mode`를 포함하지 않는다. 현재 `DraftWorkflowService.parseWorkflowResult()`가 provider 결과에 backend-generated `aiMeta`와 `mode`를 주입하는 구조를 유지한다.
+- `agy_cli` 출력 body는 최종적으로 기존 draft-workflow zod schema가 검증할 수 있어야 한다.
 - 사용자의 자유 입력이 있더라도 provider 목적을 바꾸는 instruction은 무시한다.
 - `agy.exe`가 별도 system prompt 옵션을 제공하더라도 자유 입력으로 구성한 셸 문자열에 넣지 않는다. 필요하면 wrapper 내부 고정 설정 또는 prompt envelope의 고정 instruction으로만 반영한다.
 
@@ -191,8 +197,9 @@ AGY_SSH_EXEC_TIMEOUT_MS=120000
 - `id`는 `"agy_cli"`로 지정한다.
 - `getStatus()`는 설정 검증 결과, 로컬 실행 파일 존재 여부, SSH 설정 완성도, host key 검증 가능 여부를 기반으로 상태를 반환한다.
 - `execute()`는 draft-workflow prompt를 생성한 뒤 최대 prompt 크기를 검증한다.
-- `execute()`는 `AGY_CLI_TASK_PROFILE=cover_letter_review`를 확인하고, profile context가 없는 요청은 실행하지 않는다.
+- `execute()`는 `AGY_CLI_TASK_PROFILE=cover_letter_review`를 확인하고, `experienceInput.profileContexts`가 없는 요청은 `agy_cli`에서만 실행하지 않는다. 이 precondition은 다른 provider나 기존 draft-workflow 요청 schema에는 적용하지 않는다.
 - 동시 실행 수가 `AGY_CLI_MAX_CONCURRENCY`를 초과하면 provider를 실행하지 않고 fallback 가능 오류를 반환한다.
+- provider 실행 timeout은 `Math.min(input.timeoutMs, aiConfig.agyCli.timeoutMs)`를 적용한다. 현재 `AiRouter`가 공통 `providerTimeoutMs`를 넘기는 구조는 유지하고, `agy_cli` 내부에서 더 짧은 제한을 추가한다.
 - 실행 모드 선택은 `AGY_SSH_ENABLED` 하나로 결정한다. SSH 모드에서는 로컬 executable fallback을 시도하지 않고, 로컬 모드에서는 SSH 설정을 사용하지 않는다.
 - 로컬 실행 시 cwd는 `AGY_CLI_WORKDIR` 또는 안전한 임시 디렉터리로 고정하고, child process env는 allowlist된 최소값만 전달한다.
 - 로컬 실행은 아래와 같이 고정 args 배열로만 수행한다.
@@ -205,7 +212,7 @@ spawn(command, ["--sandbox", "--print-timeout", timeoutText, "--print", prompt],
 - model 값을 지원해야 한다면 셸 문자열이나 자유 command argument가 아니라 검증된 prompt envelope 또는 wrapper 내부 고정 설정으로 처리한다.
 - 요청에서 들어온 `modelId`는 `AGY_CLI_MODEL_ALLOWLIST`에 포함된 경우에만 사용한다.
 - prompt envelope의 task instruction은 백엔드 상수로 생성하며 API 요청에서 덮어쓸 수 없게 한다.
-- CLI stdout은 JSON만 허용한다. 임의 텍스트에서 첫 `{`와 마지막 `}`를 잘라 파싱하는 fallback은 사용하지 않는다.
+- CLI stdout은 JSON만 허용한다. 공용 `extractJsonObject()`는 임의 텍스트에서 첫 `{`와 마지막 `}`를 잘라 파싱하므로 `agy_cli`에서는 사용하지 않고, stdout 전체가 JSON인 경우만 성공하는 strict parser를 별도로 사용한다.
 - JSON 파싱 후 기존 draft-workflow zod schema로 검증 가능한 결과만 반환한다.
 - stderr는 진단용으로만 제한 크기까지 수집하고, 응답/로그에는 원문을 노출하지 않는다.
 
@@ -239,12 +246,14 @@ spawn(command, ["--sandbox", "--print-timeout", timeoutText, "--print", prompt],
   - `--sandbox` 적용
   - 유효한 JSON 응답 수신
   - 원문 prompt와 원격 stderr가 로그에 노출되지 않음
+- frontend provider 선택 UI와 라벨 표시 테스트에 `agy_cli` provider status mock을 추가한다.
 
 실행 명령:
 
 ```powershell
 corepack pnpm --filter @neet2work/backend run agy:local:smoke
 corepack pnpm --filter @neet2work/backend run agy:ssh:smoke
+corepack pnpm --filter @neet2work/frontend test
 ```
 
 ## 보안 검토 결과
@@ -268,6 +277,8 @@ stdout/stderr를 무제한 누적하면 원격 CLI 오작동 또는 악의적 �
 `agy.exe`를 범용 agent처럼 사용하면 프로필 첨삭 범위를 벗어나 파일/환경 탐색이나 사실 창작 위험이 커진다. 백엔드는 `cover_letter_review` 작업 프로필을 고정하고, 프로필과 채용 문항에 근거한 자기소개서 첨삭만 요청해야 한다.
 
 임의 텍스트에서 JSON 객체를 추출하는 방식은 로그/경고 문자열을 정상 출력처럼 오인할 수 있다. `agy_cli`는 stdout 전체가 JSON envelope인 경우만 성공으로 처리하고, 스키마 검증에 실패하면 fallback으로 전환해야 한다.
+
+현재 공용 `extractJsonObject()`는 다른 provider 호환을 위해 느슨한 추출을 제공한다. `agy_cli`는 보안상 이 함수를 재사용하지 않고 strict JSON-only parser를 사용해야 한다.
 
 외부 프로세스와 SSH 호출은 요청 수만큼 프로세스를 늘릴 수 있으므로 동시 실행 제한이 필요하다. 제한 초과 시 provider error로 실패시키고 기존 fallback 흐름을 사용한다.
 
@@ -294,8 +305,10 @@ stdout/stderr를 무제한 누적하면 원격 CLI 오작동 또는 악의적 �
 - prompt는 셸 command 문자열에 포함되지 않는다. 로컬은 args 배열의 `--print` 값으로 전달하고, SSH는 wrapper stdin으로 전달한다.
 - `modelId`가 allowlist에 없으면 CLI 실행 인자나 원격 wrapper에 반영되지 않는다.
 - `AGY_CLI_TASK_PROFILE`이 `cover_letter_review`가 아니면 provider가 실행되지 않는다.
-- profile context가 없는 요청은 `agy_cli`로 실행되지 않는다.
+- profile context가 없는 요청은 `agy_cli`로 실행되지 않지만, 기존 draft-workflow schema와 다른 provider 동작은 변경하지 않는다.
 - prompt envelope에 프로필 기반 자기소개서 첨삭 역할, 금지 동작, JSON-only 출력 요구가 포함된다.
+- `agy_cli` 출력에는 `aiMeta`와 `mode`가 포함되지 않고, `DraftWorkflowService`가 기존처럼 이를 주입한다.
+- `agy_cli`는 공용 `extractJsonObject()`를 사용하지 않고 strict JSON-only parser를 사용한다.
 - stdout/stderr 최대 크기 초과 시 provider가 실패하고 자원을 정리한다.
 - timeout 시 local child process와 SSH channel/connection이 정리된다.
 - 동시 실행 제한 초과 시 새 process 또는 SSH channel을 만들지 않는다.
@@ -304,11 +317,13 @@ stdout/stderr를 무제한 누적하면 원격 CLI 오작동 또는 악의적 �
 - `AI_PROVIDER_ORDER=agy_cli,fallback` 파싱이 정상 동작한다.
 - manual provider selection에서 `agy_cli`가 zod schema를 통과한다.
 - provider 결과의 `aiMeta.providerId="agy_cli"`가 draft-workflow schema를 통과한다.
+- frontend `AiProviderId`, `providerBadgeLabel()`, provider 선택 UI 테스트가 `agy_cli`를 처리한다.
 
 ### Commands
 
 ```powershell
 corepack pnpm --filter @neet2work/backend test
+corepack pnpm --filter @neet2work/frontend test
 ```
 
 로컬 `agy.exe` 또는 SSH 환경이 실제로 준비된 경우에만 아래 smoke test를 실행한다.
