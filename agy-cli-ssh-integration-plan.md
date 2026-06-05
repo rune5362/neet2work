@@ -113,6 +113,7 @@ AGY_SSH_EXEC_TIMEOUT_MS=120000
 - SSH 원격 실행을 사용할 경우 원격 서버의 `AGY_SSH_USERNAME` 계정으로 접속한 뒤, 그 계정에서 `agy.exe`를 미리 실행하고 로그인 절차를 완료해 둔다.
 - 백엔드는 로그인 UI나 대화형 인증을 처리하지 않는다. 로그인 세션이 없으면 `agy.exe`가 대화형 로그인 대기 상태로 멈출 수 있으므로, probe timeout을 auth/session unavailable 상태로 분류하고 process/channel을 강제 정리한다.
 - 로그인 세션 파일이나 token은 repo, `.env`, 로그에 기록하지 않고, `agy.exe`가 관리하는 기본 인증 저장소에만 둔다.
+- 실행 계정은 `agy.exe`가 사용하는 app data/config/log 디렉터리에 읽기/쓰기 권한이 있어야 한다. 현재 로컬 실행에서는 `C:\Users\pc07-00\.gemini\antigravity-cli`와 `C:\Users\pc07-00\.gemini\config` 접근이 시도되는 것을 확인했다.
 
 ### Local Connection Plan
 
@@ -124,7 +125,8 @@ AGY_SSH_EXEC_TIMEOUT_MS=120000
   3. `AGY_CLI_COMMAND` 또는 공식 설치 후보 경로 확인
   4. 실행 파일명 allowlist와 절대 경로 검증
   5. `AGY_CLI_WORKDIR` 검증 또는 안전한 임시 cwd 준비 가능 여부 확인
-  6. `agy.exe` 로그인 세션 확인용 read-only probe를 timeout 안에서 실행
+  6. `agy.exe models`로 로그인 세션과 app data 쓰기 권한을 짧은 timeout 안에서 확인
+  7. 실제 `--print` 실행은 미로그인 시 OAuth 대기 상태로 멈출 수 있으므로 별도 실행 timeout으로 감싼다.
 - `execute()`는 로컬 child process를 만들 때 backend process 환경 변수를 그대로 넘기지 않는다. 필요한 최소 환경 변수만 allowlist로 구성한다.
 - 로컬 child process에는 stdout/stderr pipe만 연결하고, shell/stdio inherit/interactive prompt는 사용하지 않는다.
 - 로컬 prompt는 셸 문자열이 아니라 `spawn` args 배열의 `--print` 값으로 전달한다. 이 값은 프로세스 인자에 노출될 수 있으므로 로그에 남기지 않고 최대 크기를 제한한다.
@@ -144,7 +146,7 @@ AGY_SSH_EXEC_TIMEOUT_MS=120000
   3. host fingerprint 또는 known_hosts 설정 존재 확인
   4. wrapper path absolute path 정규식 검증
   5. SSH connect timeout 안에서 연결 및 host key 검증
-  6. wrapper read-only probe로 `agy.exe` 로그인 세션과 JSON 응답 가능 여부를 exec timeout 안에서 확인
+  6. wrapper read-only probe로 `agy.exe` 로그인 세션, app data 쓰기 권한, JSON 응답 가능 여부를 exec timeout 안에서 확인
 - `ssh2` 연결 옵션은 private key 인증만 사용하고 password auth, keyboard-interactive, agent forwarding, X11, PTY를 사용하지 않는다.
 - known_hosts를 사용할 경우 host와 port를 함께 검증한다. fingerprint를 사용할 경우 SHA256 fingerprint가 정확히 일치해야 한다.
 - SSH 연결 실패, host key 불일치, wrapper probe timeout, wrapper exit code non-zero는 provider offline 또는 provider error로 처리하고 sanitized reason만 남긴다.
@@ -223,6 +225,7 @@ spawn(command, ["--sandbox", "--print-timeout", timeoutText, "--print", prompt],
 - 로컬 smoke test 성공 조건은 다음과 같다.
   - 로컬 실행 파일 탐색 및 allowlist 검증 통과
   - 백엔드 실행 계정의 `agy.exe` 로그인 세션 확인
+  - 백엔드 실행 계정의 Antigravity/Gemini app data 쓰기 권한 확인
   - 안전한 cwd 사용
   - 고정 args와 `shell: false` 사용
 - prompt가 `--print` args 배열로 전달됨
@@ -231,6 +234,7 @@ spawn(command, ["--sandbox", "--print-timeout", timeoutText, "--print", prompt],
 - SSH smoke test 성공 조건은 다음과 같다.
   - SSH host key 검증 통과
   - 원격 `AGY_SSH_USERNAME` 계정의 `agy.exe` 로그인 세션 확인
+  - 원격 `AGY_SSH_USERNAME` 계정의 Antigravity/Gemini app data 쓰기 권한 확인
   - wrapper command 실행 성공
 - prompt가 wrapper stdin으로 전달됨
 - `--sandbox` 적용
@@ -281,11 +285,13 @@ stdout/stderr를 무제한 누적하면 원격 CLI 오작동 또는 악의적 �
 - 로컬 실행 파일 경로가 상대 경로이거나 파일명 allowlist에 없으면 provider가 offline으로 보고된다.
 - 로컬 실행 cwd가 상대 경로이거나 접근할 수 없으면 provider가 offline으로 보고된다.
 - 로컬 `agy.exe` 로그인 세션이 없거나 대화형 로그인 대기로 probe가 timeout되면 provider가 offline으로 보고되고 child process가 정리된다.
+- 로컬 실행 계정이 `agy.exe` app data/config/log 디렉터리에 쓸 수 없으면 provider가 offline으로 보고된다.
 - 로컬 child process env에 backend 전체 환경 변수가 그대로 전달되지 않는다.
 - SSH private key 파일이 없거나 읽을 수 없으면 provider가 offline으로 보고된다.
 - known_hosts 검증은 host와 port를 함께 확인한다.
 - SSH wrapper probe가 실패하거나 timeout되면 provider가 offline으로 보고된다.
 - 원격 `AGY_SSH_USERNAME` 계정의 `agy.exe` 로그인 세션이 없거나 대화형 로그인 대기로 probe가 timeout되면 provider가 offline으로 보고되고 SSH channel이 정리된다.
+- 원격 `AGY_SSH_USERNAME` 계정이 `agy.exe` app data/config/log 디렉터리에 쓸 수 없으면 provider가 offline으로 보고된다.
 - prompt는 셸 command 문자열에 포함되지 않는다. 로컬은 args 배열의 `--print` 값으로 전달하고, SSH는 wrapper stdin으로 전달한다.
 - `modelId`가 allowlist에 없으면 CLI 실행 인자나 원격 wrapper에 반영되지 않는다.
 - `AGY_CLI_TASK_PROFILE`이 `cover_letter_review`가 아니면 provider가 실행되지 않는다.
@@ -319,6 +325,7 @@ corepack pnpm --filter @neet2work/backend run agy:ssh:smoke
 - wrapper command는 내부에서 `agy.exe --sandbox --print-timeout <timeout> --print <prompt>`와 동등한 안전한 명령만 실행하고, 외부 argument를 받지 않는다.
 - `agy.exe` 자체의 영구 system prompt 설정은 필수 전제가 아니다. 작업 역할은 백엔드의 prompt envelope로 강제한다.
 - 로컬 또는 원격 실행 계정은 사전에 `agy.exe` 로그인을 완료한 상태다.
+- 로컬 또는 원격 실행 계정은 `agy.exe`의 app data/config/log 디렉터리에 필요한 읽기/쓰기 권한을 가진다.
 - 원격 서버의 SSH 계정은 최소 권한 계정이며, 필요한 CLI 실행 권한만 가진다.
 - 원격 SSH 계정에는 가능하면 forced command, restricted shell, 제한된 파일 권한을 적용한다.
 - 실제 credential, private key, passphrase는 repo 파일이나 로그에 기록하지 않는다.
