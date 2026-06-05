@@ -42,7 +42,6 @@
   1. `AGY_CLI_COMMAND` 명시 경로
   2. Windows 공식 설치 후보 경로
      - `%LOCALAPPDATA%\agy\bin\agy.exe`
-
   3. PATH fallback은 개발 환경에서만 허용하거나 경고 상태로 처리
 - `AGY_CLI_COMMAND`는 절대 경로만 허용하고, 파일명은 `agy.exe`, `agy`, `Antigravity.exe`, `Antigravity` 중 하나로 제한한다.
 - `AGY_CLI_SANDBOX_ENABLED`는 `true`만 허용한다. `false` 또는 미설정 약화는 환경과 무관하게 설정 오류로 처리한다.
@@ -228,7 +227,7 @@ spawn(command, ["--sandbox", "--print-timeout", timeoutText, "--print", prompt],
   - 백엔드 실행 계정의 Antigravity/Gemini app data 쓰기 권한 확인
   - 안전한 cwd 사용
   - 고정 args와 `shell: false` 사용
-- prompt가 `--print` args 배열로 전달됨
+  - prompt가 `--print` args 배열로 전달됨
   - JSON-only 응답 수신
   - 원문 prompt와 stderr가 로그에 노출되지 않음
 - SSH smoke test 성공 조건은 다음과 같다.
@@ -236,8 +235,8 @@ spawn(command, ["--sandbox", "--print-timeout", timeoutText, "--print", prompt],
   - 원격 `AGY_SSH_USERNAME` 계정의 `agy.exe` 로그인 세션 확인
   - 원격 `AGY_SSH_USERNAME` 계정의 Antigravity/Gemini app data 쓰기 권한 확인
   - wrapper command 실행 성공
-- prompt가 wrapper stdin으로 전달됨
-- `--sandbox` 적용
+  - prompt가 wrapper stdin으로 전달됨
+  - `--sandbox` 적용
   - 유효한 JSON 응답 수신
   - 원문 prompt와 원격 stderr가 로그에 노출되지 않음
 
