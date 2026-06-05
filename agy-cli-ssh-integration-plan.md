@@ -4,6 +4,8 @@
 
 핵심 목표는 프롬프트를 셸 명령어 인자로 전달하지 않고 stdin으로만 전송하며, 로컬/원격 실행 모두 검증된 고정 명령과 안전한 기본값을 사용하도록 제한하는 것이다. `agy_cli`는 외부 프로세스 실행 기능이므로 기본 비활성화하고, 활성화 후에도 읽기 전용 분석 provider로만 동작하게 한다.
 
+`agy_cli`의 제품 역할은 "프로필을 입력받아 자기소개서 초안을 첨삭하는 AI provider"로 제한한다. `agy.exe` 자체에 영구 역할 설정을 주입할 수 있는지는 CLI 기능에 의존하므로 전제로 두지 않는다. 대신 백엔드에서 stdin으로 전달하는 prompt envelope에 고정 역할 지시, 입력 스키마, 출력 스키마, 금지 동작을 포함해 매 호출마다 동일한 역할을 강제한다.
+
 ## 보안 원칙
 
 - 프롬프트, 사용자 입력, model id, 원격 경로, sandbox policy 값을 셸 명령 문자열에 직접 섞지 않는다.
@@ -16,6 +18,7 @@
 - prompt, stdout/stderr 원문, SSH key path, 사용자 식별 정보, 원격 호스트 정보는 로그에 남기지 않는다.
 - prompt와 출력 크기, 실행 시간, 동시 실행 수를 제한해 메모리/프로세스 DoS를 방지한다.
 - provider 설정은 서버 환경 변수에서만 읽고, API 요청 본문에서 SSH host/path/command를 받지 않는다.
+- `agy_cli`는 프로필 기반 자기소개서 첨삭 목적 외 작업 지시를 수행하지 않는다.
 
 ## Proposed Changes
 
@@ -43,6 +46,7 @@
 - 숫자 설정은 양의 정수로 검증하고 유효하지 않으면 안전한 기본값을 사용한다.
 - `AGY_CLI_MODEL` 또는 요청의 `modelId`를 지원할 경우 allowlist된 값만 허용한다. allowlist가 없으면 model override를 무시하고 기본 모델만 사용한다.
 - `AGY_CLI_MAX_CONCURRENCY`를 추가해 동시에 실행되는 local child process 또는 SSH command 수를 제한한다.
+- `agy_cli`의 용도는 코드 수정/셸 실행 agent가 아니라 자기소개서 첨삭 provider로 고정한다. 이 용도는 API 요청에서 변경할 수 없고, backend prompt builder의 상수 instruction으로 관리한다.
 
 #### .env.example
 
@@ -59,6 +63,7 @@ AGY_CLI_MAX_PROMPT_BYTES=200000
 AGY_CLI_MAX_OUTPUT_BYTES=1000000
 AGY_CLI_MAX_CONCURRENCY=1
 AGY_CLI_MODEL_ALLOWLIST=
+AGY_CLI_TASK_PROFILE=cover_letter_review
 
 AGY_SSH_ENABLED=false
 AGY_SSH_HOST=
@@ -72,13 +77,46 @@ AGY_SSH_CONNECT_TIMEOUT_MS=10000
 AGY_SSH_EXEC_TIMEOUT_MS=120000
 ```
 
-`AGY_SSH_REMOTE_WRAPPER`는 임의 명령이 아니라 absolute path만 받는다. 값에는 공백, quote, shell metacharacter, argument를 허용하지 않는다. 운영 환경에서는 이 값을 기본 wrapper 경로로 고정하고 변경을 배포 설정에서만 관리한다.
+수동 설정 시에는 아래 기준을 따른다.
+
+- `AGY_CLI_ENABLED`: 로컬 또는 SSH `agy_cli` provider를 실제로 사용할 때만 `true`로 변경한다.
+- `AGY_CLI_COMMAND`: 로컬 실행을 사용할 때만 설정한다. 절대 경로만 입력하고, 파일명은 `agy.exe`, `agy`, `Antigravity.exe`, `Antigravity` 중 하나여야 한다.
+- `AGY_CLI_MODEL`: 기본 모델을 고정해야 할 때만 설정한다. 요청별 `modelId`를 허용하려면 `AGY_CLI_MODEL_ALLOWLIST`에 허용 모델을 쉼표로 나열한다.
+- `AGY_CLI_TASK_PROFILE`: provider의 고정 작업 프로필이다. 현재는 `cover_letter_review`만 허용하며, 프로필 기반 자기소개서 첨삭 이외의 값은 설정 오류로 처리한다.
+- `AGY_CLI_TIMEOUT_MS`: CLI 전체 실행 제한 시간이다. 너무 크게 잡으면 요청 점유 시간이 길어지므로 기본값을 우선 사용한다.
+- `AGY_CLI_MAX_PROMPT_BYTES`: stdin으로 전달할 prompt 최대 크기다. 초과 시 provider 실행을 거부한다.
+- `AGY_CLI_MAX_OUTPUT_BYTES`: stdout/stderr 누적 최대 크기다. 초과 시 provider 실행을 중단한다.
+- `AGY_CLI_MAX_CONCURRENCY`: 동시에 실행할 수 있는 `agy_cli` 작업 수다. 원격/로컬 프로세스 폭증을 막기 위해 기본값 `1`을 권장한다.
+- `AGY_SSH_ENABLED`: 원격 SSH 실행을 사용할 때만 `true`로 변경한다. `true`일 때는 host, username, key path, host key 검증 값이 모두 필요하다.
+- `AGY_SSH_HOST`: 원격 서버 주소다. API 요청에서 받지 않고 서버 환경 변수로만 관리한다.
+- `AGY_SSH_PORT`: SSH 포트다. 기본값은 `22`이며 양의 정수만 허용한다.
+- `AGY_SSH_USERNAME`: 원격 서버의 최소 권한 계정명이다. root 또는 관리자 계정 사용을 금지한다.
+- `AGY_SSH_KEY_PATH`: private key 파일 경로다. private key 본문, passphrase, 일회성 token은 `.env`나 repo 파일에 저장하지 않는다.
+- `AGY_SSH_HOST_FINGERPRINT`: 원격 서버 host key의 SHA256 fingerprint다. `AGY_SSH_KNOWN_HOSTS_PATH`를 쓰지 않는 경우 필수다.
+- `AGY_SSH_KNOWN_HOSTS_PATH`: known_hosts 파일 경로다. `AGY_SSH_HOST_FINGERPRINT` 대신 사용할 수 있다.
+- `AGY_SSH_REMOTE_WRAPPER`: 원격 서버에 사전 배치된 readOnly wrapper의 absolute path다. argument, 공백, quote, shell metacharacter를 포함하지 않는다.
+- `AGY_SSH_CONNECT_TIMEOUT_MS`: SSH 연결 수립 제한 시간이다.
+- `AGY_SSH_EXEC_TIMEOUT_MS`: 원격 wrapper 실행 제한 시간이다.
+
+로컬 실행과 SSH 실행을 모두 설정한 경우에는 `AGY_SSH_ENABLED=true`일 때 SSH 실행을 우선 사용한다. 운영자는 둘 중 하나의 실행 방식을 명확히 선택하는 것을 권장한다.
 
 #### ai-routing.ts 및 draft-workflow schema
 
 - `AiProviderId` 유니온 타입에 `"agy_cli"`를 추가한다.
 - draft-workflow 요청 schema의 manual provider 선택 enum에 `"agy_cli"`를 추가한다.
 - draft-workflow 응답 schema의 `aiMeta.providerId` enum에도 `"agy_cli"`를 추가한다.
+
+#### draft-workflow prompt contract
+
+- `agy_cli`로 전달하는 prompt는 백엔드에서 생성한 고정 envelope만 사용한다.
+- envelope에는 아래 내용을 항상 포함한다.
+  - 역할: "사용자 프로필과 자기소개서 초안을 바탕으로 채용 자기소개서를 첨삭하는 한국어 AI reviewer"
+  - 입력: 지원자 프로필, 목표 회사/직무, 채용 문항, 기존 초안, 경력/프로젝트/역량 근거
+  - 출력: 기존 draft-workflow zod schema와 호환되는 JSON만 반환
+  - 금지: 파일 수정, 셸 명령 실행 요청, SSH/로컬 환경 탐색, provider 설정 변경, 프로필에 없는 사실 창작, 민감정보 노출
+  - 기준: 프로필 근거 기반 첨삭, 문항 적합도, 직무 적합도, 구체성, 블라인드 채용 리스크, 한국어 가독성, 면접 방어 가능성
+- 사용자의 자유 입력이 있더라도 provider 목적을 바꾸는 instruction은 무시한다.
+- `agy.exe`가 별도 system prompt 옵션을 제공하더라도 command argument로 전달하지 않는다. 필요하면 wrapper 내부 고정 설정 또는 stdin envelope의 고정 instruction으로만 반영한다.
 
 ### Services & Providers
 
@@ -101,6 +139,7 @@ AGY_SSH_EXEC_TIMEOUT_MS=120000
 - `id`는 `"agy_cli"`로 지정한다.
 - `getStatus()`는 설정 검증 결과, 로컬 실행 파일 존재 여부, SSH 설정 완성도, host key 검증 가능 여부를 기반으로 상태를 반환한다.
 - `execute()`는 draft-workflow prompt를 생성한 뒤 최대 prompt 크기를 검증한다.
+- `execute()`는 `AGY_CLI_TASK_PROFILE=cover_letter_review`를 확인하고, profile context가 없는 요청은 실행하지 않는다.
 - 동시 실행 수가 `AGY_CLI_MAX_CONCURRENCY`를 초과하면 provider를 실행하지 않고 fallback 가능 오류를 반환한다.
 - 로컬 실행은 아래와 같이 고정 args 배열로만 수행한다.
 
@@ -111,6 +150,7 @@ spawn(command, ["--stdin", "--sandbox-policy", "readOnly"], { shell: false })
 - SSH 실행은 `AGY_SSH_REMOTE_WRAPPER` wrapper를 호출하고 prompt는 stdin으로만 전달한다.
 - model 값을 지원해야 한다면 셸 문자열이나 command argument가 아니라 검증된 stdin envelope 또는 wrapper 내부 고정 설정으로 처리한다.
 - 요청에서 들어온 `modelId`는 `AGY_CLI_MODEL_ALLOWLIST`에 포함된 경우에만 사용한다.
+- prompt envelope의 task instruction은 백엔드 상수로 생성하며 API 요청에서 덮어쓸 수 없게 한다.
 - CLI stdout은 JSON만 허용한다. 임의 텍스트에서 첫 `{`와 마지막 `}`를 잘라 파싱하는 fallback은 사용하지 않는다.
 - JSON 파싱 후 기존 draft-workflow zod schema로 검증 가능한 결과만 반환한다.
 - stderr는 진단용으로만 제한 크기까지 수집하고, 응답/로그에는 원문을 노출하지 않는다.
@@ -158,6 +198,8 @@ stdout/stderr를 무제한 누적하면 원격 CLI 오작동 또는 악의적 �
 
 `modelId`는 사용자 요청에서 들어올 수 있으므로 외부 입력으로 취급한다. allowlist 없이 CLI argument나 원격 command에 반영하면 명령 주입 또는 provider 정책 우회로 이어질 수 있다.
 
+`agy.exe`를 범용 agent처럼 사용하면 프로필 첨삭 범위를 벗어나 파일/환경 탐색이나 사실 창작 위험이 커진다. 백엔드는 `cover_letter_review` 작업 프로필을 고정하고, 프로필과 채용 문항에 근거한 자기소개서 첨삭만 요청해야 한다.
+
 임의 텍스트에서 JSON 객체를 추출하는 방식은 로그/경고 문자열을 정상 출력처럼 오인할 수 있다. `agy_cli`는 stdout 전체가 JSON envelope인 경우만 성공으로 처리하고, 스키마 검증에 실패하면 fallback으로 전환해야 한다.
 
 외부 프로세스와 SSH 호출은 요청 수만큼 프로세스를 늘릴 수 있으므로 동시 실행 제한이 필요하다. 제한 초과 시 provider error로 실패시키고 기존 fallback 흐름을 사용한다.
@@ -172,6 +214,9 @@ stdout/stderr를 무제한 누적하면 원격 CLI 오작동 또는 악의적 �
 - 원격 command가 allowlist wrapper가 아니면 실행이 실패한다.
 - prompt는 command 또는 args 문자열에 포함되지 않고 stdin으로만 전달된다.
 - `modelId`가 allowlist에 없으면 CLI 실행 인자나 원격 wrapper에 반영되지 않는다.
+- `AGY_CLI_TASK_PROFILE`이 `cover_letter_review`가 아니면 provider가 실행되지 않는다.
+- profile context가 없는 요청은 `agy_cli`로 실행되지 않는다.
+- prompt envelope에 프로필 기반 자기소개서 첨삭 역할, 금지 동작, JSON-only 출력 요구가 포함된다.
 - stdout/stderr 최대 크기 초과 시 provider가 실패하고 자원을 정리한다.
 - timeout 시 local child process와 SSH channel/connection이 정리된다.
 - 동시 실행 제한 초과 시 새 process 또는 SSH channel을 만들지 않는다.
@@ -197,6 +242,7 @@ corepack pnpm --filter @neet2work/backend run agy:ssh:smoke
 
 - 원격 서버에는 `/opt/neet2work/run-agy-readonly` 같은 readOnly 전용 wrapper command가 사전에 배치된다.
 - wrapper command는 내부에서 `agy.exe --stdin --sandbox-policy readOnly`와 동등한 안전한 명령만 실행하고, 외부 argument를 받지 않는다.
+- `agy.exe` 자체의 영구 system prompt 설정은 필수 전제가 아니다. 작업 역할은 백엔드의 stdin prompt envelope로 강제한다.
 - 원격 서버의 SSH 계정은 최소 권한 계정이며, 필요한 CLI 실행 권한만 가진다.
 - 원격 SSH 계정에는 가능하면 forced command, restricted shell, 제한된 파일 권한을 적용한다.
 - 실제 credential, private key, passphrase는 repo 파일이나 로그에 기록하지 않는다.
