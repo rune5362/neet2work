@@ -11,6 +11,7 @@ import {
   startCodexBridgeLogin
 } from "../api/client";
 import { getDocuments as getSavedDocuments } from "../api/documentClient";
+import { getProfiles } from "../api/profileClient";
 import arrowUpIcon from "../assets/icons/ai-draft-arrow-up.svg";
 import attachIcon from "../assets/icons/ai-draft-attach.svg";
 import chevronIcon from "../assets/icons/ai-draft-chevron.svg";
@@ -27,9 +28,11 @@ import { HomeTopNav } from "../components/HomeTopNav";
 import { buildSelfIntroReferenceText } from "../data/selfIntroReferenceLibrary";
 import type { DocumentListItem } from "../types/document";
 import type { JobPosting } from "../types/job";
+import type { ProfileListItem } from "../types/profile";
 import type {
   AiProviderId,
   AiProviderStatus,
+  DraftProfileContext,
   AiSelection,
   DraftWorkflowDraft,
   DraftWorkflowPlan,
@@ -42,6 +45,7 @@ type DraftState = "idle" | "ready" | "planning" | "plan_ready" | "drafting" | "c
 type WorkflowStatus = "idle" | "loading" | "complete" | "error";
 type CodexLoginUiStatus = "idle" | "starting" | "pending" | "succeeded" | "failed";
 type ReferenceLoadStatus = "idle" | "loading" | "ready" | "unavailable";
+type ProfileLoadStatus = "idle" | "loading" | "ready" | "unavailable";
 
 type DraftTargetForm = {
   questionText: string;
@@ -873,6 +877,7 @@ export function AIDraftChatBuilder() {
   const [aiSelection, setAiSelection] = useState<AiSelection>({ mode: "auto" });
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [toneMenuOpen, setToneMenuOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -888,6 +893,9 @@ export function AIDraftChatBuilder() {
   const [newChatConfirmOpen, setNewChatConfirmOpen] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [sentAttachmentSignature, setSentAttachmentSignature] = useState("");
+  const [profileOptions, setProfileOptions] = useState<ProfileListItem[]>([]);
+  const [selectedProfileContexts, setSelectedProfileContexts] = useState<DraftProfileContext[]>([]);
+  const [profileLoadStatus, setProfileLoadStatus] = useState<ProfileLoadStatus>("idle");
   const [coverLetterReferences, setCoverLetterReferences] = useState<DocumentListItem[]>([]);
   const [selectedReferenceDocumentId, setSelectedReferenceDocumentId] = useState<string | null>(null);
   const [referenceLoadStatus, setReferenceLoadStatus] = useState<ReferenceLoadStatus>("idle");
@@ -898,6 +906,7 @@ export function AIDraftChatBuilder() {
   const draftFitProgressRef = useRef(0);
   const workflowRequestIdRef = useRef(0);
   const referenceLoadRequestIdRef = useRef(0);
+  const profileLoadRequestIdRef = useRef(0);
   const sendReplyTimeoutRef = useRef<number | null>(null);
 
   const clearSendReplyTimeout = () => {
@@ -930,7 +939,7 @@ export function AIDraftChatBuilder() {
   const resumeText = useMemo(() => {
     return buildResumeTextParts(messages, input, attachedFiles).join("\n\n");
   }, [messages, input, attachedFiles]);
-  const canAnalyze = resumeText.trim().length >= 10;
+  const canAnalyze = resumeText.trim().length >= 10 || selectedProfileContexts.length > 0;
   const readyAttachments = useMemo(() => readyTextAttachments(attachedFiles), [attachedFiles]);
   const readyAttachmentNames = useMemo(
     () => readyAttachments.map((file) => file.name),
@@ -942,6 +951,7 @@ export function AIDraftChatBuilder() {
   );
   const hasUnsentReadyAttachments =
     readyAttachmentSignature.length > 0 && readyAttachmentSignature !== sentAttachmentSignature;
+  const hasComposerContextChips = attachedFiles.length > 0 || selectedProfileContexts.length > 0;
   const canSendComposerMessage = input.trim().length > 0 || hasUnsentReadyAttachments;
   const selectedReferenceDocument = useMemo(
     () => coverLetterReferences.find((document) => document.id === selectedReferenceDocumentId) ?? null,
@@ -1194,6 +1204,33 @@ export function AIDraftChatBuilder() {
       });
   }, []);
 
+  const loadProfileOptions = useCallback(() => {
+    const requestId = profileLoadRequestIdRef.current + 1;
+    profileLoadRequestIdRef.current = requestId;
+    setProfileLoadStatus("loading");
+
+    return getProfiles({ includeArchived: false })
+      .then((profiles) => {
+        if (profileLoadRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        setProfileOptions(profiles);
+        setSelectedProfileContexts((currentContexts) =>
+          currentContexts.filter((context) => profiles.some((profile) => profile.id === context.profileId))
+        );
+        setProfileLoadStatus("ready");
+      })
+      .catch(() => {
+        if (profileLoadRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        setProfileOptions([]);
+        setProfileLoadStatus("unavailable");
+      });
+  }, []);
+
   useEffect(() => {
     void refreshProviderStatuses();
   }, [refreshProviderStatuses]);
@@ -1203,14 +1240,16 @@ export function AIDraftChatBuilder() {
 
     const handleAuthChange = () => {
       void loadCoverLetterReferences();
+      void loadProfileOptions();
     };
 
     window.addEventListener("neet2work.auth.changed", handleAuthChange);
     return () => {
       referenceLoadRequestIdRef.current += 1;
+      profileLoadRequestIdRef.current += 1;
       window.removeEventListener("neet2work.auth.changed", handleAuthChange);
     };
-  }, [loadCoverLetterReferences]);
+  }, [loadCoverLetterReferences, loadProfileOptions]);
 
   useEffect(() => {
     if (codexLoginState.status !== "pending" || !codexLoginState.loginId) {
@@ -1289,7 +1328,7 @@ export function AIDraftChatBuilder() {
   }, [newChatConfirmOpen]);
 
   useEffect(() => {
-    if (!composerMenuOpen && !modelMenuOpen && !toneMenuOpen && !downloadMenuOpen) {
+    if (!composerMenuOpen && !modelMenuOpen && !toneMenuOpen && !profileMenuOpen && !downloadMenuOpen) {
       return undefined;
     }
 
@@ -1309,6 +1348,7 @@ export function AIDraftChatBuilder() {
 
       setComposerMenuOpen(false);
       setToneMenuOpen(false);
+      setProfileMenuOpen(false);
       setModelMenuOpen(false);
       setDownloadMenuOpen(false);
     };
@@ -1317,6 +1357,7 @@ export function AIDraftChatBuilder() {
       if (event.key === "Escape") {
         setComposerMenuOpen(false);
         setToneMenuOpen(false);
+        setProfileMenuOpen(false);
         setModelMenuOpen(false);
         setDownloadMenuOpen(false);
       }
@@ -1328,7 +1369,7 @@ export function AIDraftChatBuilder() {
       document.removeEventListener("mousedown", handlePointerDown);
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [composerMenuOpen, modelMenuOpen, toneMenuOpen, downloadMenuOpen]);
+  }, [composerMenuOpen, modelMenuOpen, toneMenuOpen, profileMenuOpen, downloadMenuOpen]);
 
   useEffect(() => {
     const queryJobId = new URLSearchParams(window.location.search).get("jobId")?.trim();
@@ -1408,6 +1449,7 @@ export function AIDraftChatBuilder() {
   const closeComposerMenus = () => {
     setComposerMenuOpen(false);
     setToneMenuOpen(false);
+    setProfileMenuOpen(false);
     setModelMenuOpen(false);
     setDownloadMenuOpen(false);
   };
@@ -1415,6 +1457,7 @@ export function AIDraftChatBuilder() {
   const toggleComposerMenu = () => {
     setModelMenuOpen(false);
     setToneMenuOpen(false);
+    setProfileMenuOpen(false);
     setDownloadMenuOpen(false);
     setComposerMenuOpen((value) => !value);
     playTone(settings.sound, "open");
@@ -1423,14 +1466,27 @@ export function AIDraftChatBuilder() {
   const toggleModelMenu = () => {
     setComposerMenuOpen(false);
     setToneMenuOpen(false);
+    setProfileMenuOpen(false);
     setDownloadMenuOpen(false);
     setModelMenuOpen((value) => !value);
     playTone(settings.sound, "open");
   };
 
   const toggleToneMenu = () => {
+    setProfileMenuOpen(false);
     setDownloadMenuOpen(false);
     setToneMenuOpen((value) => !value);
+    playTone(settings.sound, "open");
+  };
+
+  const toggleProfileMenu = () => {
+    setToneMenuOpen(false);
+    setDownloadMenuOpen(false);
+    const nextOpen = !profileMenuOpen;
+    setProfileMenuOpen(nextOpen);
+    if (nextOpen && profileLoadStatus === "idle") {
+      void loadProfileOptions();
+    }
     playTone(settings.sound, "open");
   };
 
@@ -1517,12 +1573,54 @@ export function AIDraftChatBuilder() {
             jobTitle: selectedReferenceDocument.jobTitle
           }
         : null
-    })
+    }),
+    profileContexts: selectedProfileContexts.length > 0 ? selectedProfileContexts : undefined
   });
 
   const handleToneSelect = (tone: AiSettings["tone"]) => {
     updateSettings("tone", tone);
     closeComposerMenus();
+  };
+
+  const toDraftProfileContext = (profile: ProfileListItem): DraftProfileContext | null => {
+    if (!profile.profileJson) {
+      return null;
+    }
+
+    return {
+      profileId: profile.id,
+      title: profile.title,
+      schemaVersion: profile.schemaVersion,
+      profileJson: profile.profileJson,
+      profileText: profile.profileText || undefined,
+      targetRole: profile.targetRole,
+      targetCompany: profile.targetCompany,
+      desiredRoles: profile.desiredRoles,
+      skills: profile.skills
+    };
+  };
+
+  const handleProfileContextSelect = (profile: ProfileListItem) => {
+    const context = toDraftProfileContext(profile);
+    if (!context) {
+      return;
+    }
+
+    setSelectedProfileContexts((prev) =>
+      prev.some((item) => item.profileId === context.profileId) ? prev : [...prev, context]
+    );
+    resetWorkflow();
+    setDraftState((prev) => (prev === "planning" || prev === "drafting" ? prev : "ready"));
+    closeComposerMenus();
+    setInput((current) => (current.trim() === "/" ? "" : current));
+    window.requestAnimationFrame(syncComposerHeight);
+    playTone(settings.sound, "open");
+  };
+
+  const removeProfileContext = (profileId: string) => {
+    setSelectedProfileContexts((prev) => prev.filter((profile) => profile.profileId !== profileId));
+    resetWorkflow();
+    playTone(settings.sound, "open");
   };
 
   const openFilePicker = () => {
@@ -1915,6 +2013,7 @@ export function AIDraftChatBuilder() {
     setExpandedUserMessageIds(new Set());
     setInput("");
     setAttachedFiles([]);
+    setSelectedProfileContexts([]);
     setSentAttachmentSignature("");
     setDraftState("idle");
     setDownloadMenuOpen(false);
@@ -1933,6 +2032,17 @@ export function AIDraftChatBuilder() {
   };
 
   const handleComposerChange = (value: string) => {
+    if (value === "/") {
+      setInput("");
+      setComposerMenuOpen(true);
+      setToneMenuOpen(false);
+      setProfileMenuOpen(false);
+      setModelMenuOpen(false);
+      setDownloadMenuOpen(false);
+      window.requestAnimationFrame(syncComposerHeight);
+      return;
+    }
+
     setInput(value);
     window.requestAnimationFrame(syncComposerHeight);
   };
@@ -2309,6 +2419,7 @@ export function AIDraftChatBuilder() {
                         onClick={() => {
                           setComposerMenuOpen(false);
                           setToneMenuOpen(false);
+                          setProfileMenuOpen(false);
                           setModelMenuOpen(false);
                           setDownloadMenuOpen((value) => !value);
                           playTone(settings.sound, "open");
@@ -2360,7 +2471,7 @@ export function AIDraftChatBuilder() {
             <footer className="aiDraftComposer">
               <div className="aiDraftComposerDock">
                 <div
-                  className={`aiDraftComposerBar ${attachedFiles.length > 0 ? "withAttachments" : ""}`}
+                  className={`aiDraftComposerBar ${hasComposerContextChips ? "withAttachments" : ""}`}
                   ref={composerBarRef}
                   onClick={handleComposerBarClick}
                 >
@@ -2373,8 +2484,31 @@ export function AIDraftChatBuilder() {
                     onChange={handleFileInputChange}
                   />
 
-                  {attachedFiles.length > 0 && (
+                  {hasComposerContextChips && (
                     <div className="aiDraftAttachedFiles" aria-label="첨부 파일">
+                      {selectedProfileContexts.map((profile) => (
+                        <span
+                          key={profile.profileId}
+                          className="aiDraftAttachedFileChip type-profile"
+                          title={profile.title}
+                        >
+                          <span className="aiDraftAttachedFileIcon profile" aria-hidden="true">
+                            <FileText size={18} />
+                          </span>
+                          <span className="aiDraftAttachedFileChipBody">
+                            <span className="aiDraftAttachedFileName">{profile.title}</span>
+                            <span className="aiDraftAttachedFileType">프로필 근거</span>
+                          </span>
+                          <button
+                            type="button"
+                            className="aiDraftAttachedFileChipRemove"
+                            aria-label={`${profile.title} 제거`}
+                            onClick={() => removeProfileContext(profile.profileId)}
+                          >
+                            <X size={13} strokeWidth={3} />
+                          </button>
+                        </span>
+                      ))}
                       {attachedFiles.map((file) => {
                         const attachmentVisual = getAttachmentVisual(file);
 
@@ -2425,6 +2559,22 @@ export function AIDraftChatBuilder() {
                         <Icon name="attach" />
                         <span>사진 및 파일 추가</span>
                       </button>
+
+                      <div className="aiDraftComposerOptionsMenuBody">
+                        <button
+                          type="button"
+                          className="aiDraftComposerSubmenuTrigger"
+                          aria-label="프로필 추가"
+                          aria-expanded={profileMenuOpen}
+                          aria-haspopup="listbox"
+                          onClick={toggleProfileMenu}
+                        >
+                          <span>프로필 추가</span>
+                          <span className="aiDraftComposerSubmenuChevron" aria-hidden="true">
+                            <Icon name="chevron" />
+                          </span>
+                        </button>
+                      </div>
 
                       <div className="aiDraftComposerMenuDivider" role="separator" />
 
@@ -2477,6 +2627,42 @@ export function AIDraftChatBuilder() {
                               {settings.tone === tone ? <span className="aiDraftComposerToneCheck" aria-hidden="true">✓</span> : null}
                             </button>
                           ))}
+                        </div>
+                      )}
+
+                      {profileMenuOpen && (
+                        <div
+                          className="aiDraftComposerProfileSubmenu aiDraftComposerProfileSubmenuAligned"
+                          role="listbox"
+                          aria-label="프로필 추가"
+                        >
+                          {profileLoadStatus === "loading" || profileLoadStatus === "idle" ? (
+                            <p className="aiDraftComposerMenuNote">프로필을 불러오는 중입니다.</p>
+                          ) : profileLoadStatus === "unavailable" ? (
+                            <p className="aiDraftComposerMenuNote">로그인하면 프로필을 추가할 수 있습니다.</p>
+                          ) : profileOptions.length === 0 ? (
+                            <p className="aiDraftComposerMenuNote">저장된 프로필이 없습니다.</p>
+                          ) : (
+                            profileOptions.map((profile) => {
+                              const selected = selectedProfileContexts.some((item) => item.profileId === profile.id);
+                              const selectable = Boolean(profile.profileJson) && !selected;
+
+                              return (
+                                <button
+                                  key={profile.id}
+                                  type="button"
+                                  className={`aiDraftComposerProfileOption ${selected ? "active" : ""}`}
+                                  role="option"
+                                  aria-selected={selected}
+                                  disabled={!selectable}
+                                  onClick={() => handleProfileContextSelect(profile)}
+                                >
+                                  <span>{profile.title}</span>
+                                  <small>{selected ? "추가됨" : profile.profileJson ? "선택" : "본문 없음"}</small>
+                                </button>
+                              );
+                            })
+                          )}
                         </div>
                       )}
                     </div>

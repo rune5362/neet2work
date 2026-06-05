@@ -65,6 +65,56 @@ const validTarget = {
   blindRecruitment: false
 };
 
+const validProfileContext = {
+  profileId: "candidate-profile-1",
+  title: "백엔드 지원 프로필",
+  schemaVersion: 1,
+  profileText: "Node.js와 PostgreSQL로 REST API 서버를 설계하고 운영했습니다.",
+  targetRole: "백엔드 엔지니어",
+  targetCompany: "Backend Bridge",
+  desiredRoles: ["백엔드 엔지니어"],
+  skills: ["Node.js", "PostgreSQL", "REST API"],
+  profileJson: {
+    basics: {
+      name: "김백엔드",
+      email: "backend@example.com",
+      phone: "010-0000-0000",
+      location: "Seoul",
+      links: {
+        github: "https://github.com/backend"
+      }
+    },
+    desired: {
+      roles: ["백엔드 엔지니어"],
+      industries: ["SaaS"],
+      locations: ["Tokyo"],
+      employmentTypes: ["Full-time"]
+    },
+    summary: {
+      headline: "API 운영 경험",
+      description: "PostgreSQL 기반 REST API 서버를 운영했습니다."
+    },
+    skills: ["Node.js", "PostgreSQL", "REST API"],
+    projects: [
+      {
+        title: "채용 API 개선",
+        role: "백엔드 개발",
+        result: "응답 시간을 단축했습니다.",
+        impact: "운영 안정성을 높였습니다.",
+        achievements: ["장애 대응 절차를 문서화했습니다."]
+      }
+    ],
+    experiences: [],
+    certifications: [],
+    education: [],
+    activities: [],
+    metadata: {
+      lastUpdatedBy: "user",
+      lastAiUpdatedAt: null
+    }
+  }
+};
+
 describe("draft workflow routes", () => {
   afterEach(() => {
     delete process.env.AI_PROVIDER_ORDER;
@@ -120,6 +170,51 @@ describe("draft workflow routes", () => {
         aiSelection: { mode: "auto" },
         target: validTarget,
         experienceInput: {}
+      })
+    });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("POST /plan accepts selected profile contexts as factual evidence", async () => {
+    const response = await request("/api/draft-workflow/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        aiSelection: { mode: "auto" },
+        target: validTarget,
+        experienceInput: {
+          profileContexts: [validProfileContext]
+        }
+      })
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.experienceCards[0].evidenceItems[0].content).toContain("백엔드 지원 프로필");
+    expect(body.data.experienceCards[0].evidenceItems[0].content).toContain("Node.js");
+  });
+
+  it("POST /plan returns 400 for invalid selected profile context shape", async () => {
+    const response = await request("/api/draft-workflow/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        aiSelection: { mode: "auto" },
+        target: validTarget,
+        experienceInput: {
+          profileContexts: [
+            {
+              ...validProfileContext,
+              profileJson: {
+                summary: {
+                  headline: "missing required fields",
+                  description: "invalid"
+                }
+              }
+            }
+          ]
+        }
       })
     });
 

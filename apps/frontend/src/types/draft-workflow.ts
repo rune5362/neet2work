@@ -1,3 +1,5 @@
+import type { CandidateProfileJson } from "./profile";
+
 export type AiProviderId = "codex_bridge" | "gemini" | "local" | "fallback";
 
 export type AiRoutingMode = "auto" | "manual";
@@ -99,6 +101,19 @@ export type DraftExperienceInput = {
   manualExperienceText?: string;
   additionalContext?: string;
   referenceSelfIntroText?: string;
+  profileContexts?: DraftProfileContext[];
+};
+
+export type DraftProfileContext = {
+  profileId: string;
+  title: string;
+  schemaVersion: number;
+  profileJson: CandidateProfileJson;
+  profileText?: string;
+  targetRole?: string | null;
+  targetCompany?: string | null;
+  desiredRoles: string[];
+  skills: string[];
 };
 
 export type MaterialRequirementSource =

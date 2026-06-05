@@ -52,6 +52,71 @@ const savedCoverLetterReference = {
   updatedAt: "2026-06-01T00:00:00.000Z"
 };
 
+const savedCandidateProfileJson = {
+  basics: {
+    name: "김백엔드",
+    email: "backend@example.com",
+    phone: "010-0000-0000",
+    location: "Seoul",
+    links: {
+      github: "https://github.com/backend"
+    }
+  },
+  desired: {
+    roles: ["백엔드 엔지니어"],
+    industries: ["SaaS"],
+    locations: ["Tokyo"],
+    employmentTypes: ["Full-time"]
+  },
+  summary: {
+    headline: "Node.js API 운영 경험",
+    description: "PostgreSQL 기반 REST API 서버를 설계하고 운영했습니다."
+  },
+  skills: ["Node.js", "PostgreSQL", "REST API"],
+  projects: [
+    {
+      title: "채용 API 개선",
+      role: "백엔드 개발",
+      result: "응답 시간을 단축했습니다.",
+      impact: "운영 안정성을 높였습니다.",
+      achievements: ["장애 대응 절차를 문서화했습니다."]
+    }
+  ],
+  experiences: [],
+  certifications: [],
+  education: [],
+  activities: [],
+  metadata: {
+    lastUpdatedBy: "user" as const,
+    lastAiUpdatedAt: null
+  }
+};
+
+const savedCandidateProfile = {
+  id: "candidate-profile-1",
+  candidateKey: "candidate-1",
+  title: "백엔드 지원 프로필",
+  targetRole: "백엔드 엔지니어",
+  targetCompany: "Backend Bridge",
+  targetJobId: "careercross-1591647",
+  name: "김백엔드",
+  email: "backend@example.com",
+  desiredRoles: ["백엔드 엔지니어"],
+  skills: ["Node.js", "PostgreSQL", "REST API"],
+  profileText: "Node.js와 PostgreSQL로 REST API 서버를 설계하고 운영한 프로필 본문입니다.",
+  profileJson: savedCandidateProfileJson,
+  schemaVersion: 1,
+  source: "user",
+  isDefault: true,
+  isArchived: false,
+  createdAt: "2026-06-01T00:00:00.000Z",
+  updatedAt: "2026-06-02T00:00:00.000Z",
+  deletedAt: null,
+  createdBy: "user-1",
+  updatedBy: null,
+  deletedBy: null
+};
+
 const aiMeta = {
   providerId: "fallback" as const,
   modelId: "hardcoded-demo",
@@ -247,6 +312,10 @@ function createDraftWorkflowFetchMock(options?: { planFails?: boolean; draftFail
 
     if (url.includes("/api/documents")) {
       return apiResponse({ data: [savedCoverLetterReference], count: 1 });
+    }
+
+    if (url.includes("/api/profiles")) {
+      return apiResponse({ data: [savedCandidateProfile], count: 1 });
     }
 
     if (url.includes("/api/draft-workflow/providers")) {
@@ -1333,11 +1402,87 @@ describe("AIDraftChatBuilder chat UX", () => {
     const optionsDialog = screen.getByRole("dialog", { name: "작성 옵션" });
     expect(optionsDialog).toHaveClass("aiDraftComposerOptionsMenuCompact");
     expect(screen.getByRole("button", { name: "사진 및 파일 추가" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "프로필 추가" })).toBeInTheDocument();
     expect(screen.queryByText("준비 중")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "문체 설정" })).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "단답 보완 질문" })).toBeInTheDocument();
     expect(optionsDialog.querySelectorAll(".aiDraftComposerMenuDivider").length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByRole("option", { name: "성과 강조형" })).not.toBeInTheDocument();
+  });
+
+  it("adds a selected profile from the plus menu to the plan payload", async () => {
+    setStoredAuthSession();
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+    fireEvent.click(screen.getByRole("button", { name: "작성 옵션" }));
+    fireEvent.click(screen.getByRole("button", { name: "프로필 추가" }));
+
+    const profileOption = await screen.findByRole("option", { name: /백엔드 지원 프로필/ });
+    fireEvent.click(profileOption);
+
+    expect(screen.getByText("프로필 근거")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /문항 분석 시작/i })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /문항 분석 시작/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/draft-workflow/plan"),
+        expect.objectContaining({ method: "POST" })
+      );
+    });
+
+    const profileCall = fetchMock.mock.calls.find(([input]) => String(input).includes("/api/profiles"));
+    expect(profileCall).toBeTruthy();
+    expect((profileCall?.[1]?.headers as Headers).get("Authorization")).toBe("Bearer test-access-token");
+
+    const body = getPlanCallBody(fetchMock);
+    expect(body.experienceInput.profileContexts).toHaveLength(1);
+    expect(body.experienceInput.profileContexts[0].profileId).toBe(savedCandidateProfile.id);
+    expect(body.experienceInput.profileContexts[0].title).toBe(savedCandidateProfile.title);
+    expect(body.experienceInput.profileContexts[0].profileJson).toEqual(savedCandidateProfileJson);
+    expect(body.experienceInput.manualExperienceText ?? "").not.toContain(savedCandidateProfile.profileText);
+  });
+
+  it("opens profile add from slash input and removes the slash after selection", async () => {
+    setStoredAuthSession();
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+    const textarea = screen.getByPlaceholderText("메시지를 입력하세요...");
+    fireEvent.change(textarea, { target: { value: "/" } });
+
+    expect(screen.getByRole("dialog", { name: "작성 옵션" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "프로필 추가" }));
+    fireEvent.click(await screen.findByRole("option", { name: /백엔드 지원 프로필/ }));
+
+    expect(textarea).toHaveValue("");
+    expect(screen.getByText("백엔드 지원 프로필")).toBeInTheDocument();
+  });
+
+  it("excludes removed profile contexts from the plan payload", async () => {
+    setStoredAuthSession();
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+    fireEvent.click(screen.getByRole("button", { name: "작성 옵션" }));
+    fireEvent.click(screen.getByRole("button", { name: "프로필 추가" }));
+    fireEvent.click(await screen.findByRole("option", { name: /백엔드 지원 프로필/ }));
+    fireEvent.click(screen.getByRole("button", { name: "백엔드 지원 프로필 제거" }));
+
+    await submitUserResume();
+    fireEvent.click(screen.getByRole("button", { name: /문항 분석 시작/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/draft-workflow/plan"),
+        expect.objectContaining({ method: "POST" })
+      );
+    });
+
+    const body = getPlanCallBody(fetchMock);
+    expect(body.experienceInput.profileContexts).toBeUndefined();
   });
 
   it("closes composer options when the chat input is clicked", async () => {

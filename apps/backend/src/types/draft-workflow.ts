@@ -1,4 +1,5 @@
 import type { AiExecutionMeta } from "./ai-routing.js";
+import type { CandidateProfileJson } from "./profile.js";
 
 export type DraftWorkflowState =
   | "SESSION_CREATED"
@@ -39,6 +40,19 @@ export type DraftExperienceInput = {
   manualExperienceText?: string;
   additionalContext?: string;
   referenceSelfIntroText?: string;
+  profileContexts?: DraftProfileContext[];
+};
+
+export type DraftProfileContext = {
+  profileId: string;
+  title: string;
+  schemaVersion: number;
+  profileJson: CandidateProfileJson;
+  profileText?: string;
+  targetRole?: string | null;
+  targetCompany?: string | null;
+  desiredRoles: string[];
+  skills: string[];
 };
 
 export type MaterialRequirementSource =

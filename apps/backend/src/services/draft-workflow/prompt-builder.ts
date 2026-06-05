@@ -77,6 +77,8 @@ function operationInstruction(operation: AiWorkflowOperation) {
         "Build materialStore before answerStrategy. All later planning must use materialStore as the single source of truth.",
         "If target.requirementSourceText is present, extract its rules as materialStore.requirements with source=attached_document and priority=critical. These rules outrank job posting text and reference examples.",
         "If no attached-document requirements exist, use experienceInput.referenceSelfIntroText only as style/reference guidance and never as user factual evidence.",
+        "Use experienceInput.profileContexts as user-owned factual evidence for profile, skills, projects, and experiences selected by the user.",
+        "Keep referenceSelfIntroText separate from profileContexts: references guide style only, profileContexts can support factual claims.",
         "Extract only experiences supported by user-provided portfolio/manual/conversation text.",
         "Build a claimLedger. Set allowedInDraft=false for weak, unsupported, private, blind-risk, or demo claims.",
         "Ask adaptive Socratic follow-up questions in answerStrategy.neededQuestions when role/result/context/method/company-fit evidence is missing. Sort questions by priority so the UI can ask one at a time.",
