@@ -431,6 +431,61 @@ describe("AI provider status", () => {
     expect(result.data.ok).toBe(true);
   });
 
+  it("does not pass a misconfigured Codex app-server display model from env as a model override", async () => {
+    mockAiConfig.codexBridge.enabled = true;
+    mockAiConfig.codexBridge.model = "codex-app-server";
+    let child: ReturnType<typeof createCodexAppServerMock>;
+
+    mockSpawn.mockImplementation(() => {
+      child = createCodexAppServerMock((message) => {
+        if (message.method === "initialize") {
+          return { id: message.id, result: { userAgent: "codex-test" } };
+        }
+        if (message.method === "account/read") {
+          return {
+            id: message.id,
+            result: {
+              account: { type: "chatgpt", email: "user@example.com", planType: "pro" },
+              requiresOpenaiAuth: true
+            }
+          };
+        }
+        if (message.method === "thread/start") {
+          return { id: message.id, result: { thread: { id: "thr_env_default_model" } } };
+        }
+        if (message.method === "turn/start") {
+          return [
+            { id: message.id, result: { turn: { id: "turn_env_default_model", status: "inProgress", items: [] } } },
+            {
+              method: "item/completed",
+              params: { item: { type: "agentMessage", id: "msg_env_default_model", text: "{\"ok\":true}" } }
+            },
+            { method: "turn/completed", params: { turn: { id: "turn_env_default_model", status: "completed" } } }
+          ];
+        }
+        return undefined;
+      });
+      return child;
+    });
+
+    const { CodexBridgeProvider } = await import("./codex-bridge.provider.js");
+    const result = await new CodexBridgeProvider().execute<{ ok: boolean }>({
+      operation: "plan",
+      payload: { userText: "env codex provider selection" },
+      timeoutMs: 1_000
+    });
+
+    const threadStartWrite = child!.stdin.write.mock.calls.find(([line]) => String(line).includes('"method":"thread/start"'));
+    const turnStartWrite = child!.stdin.write.mock.calls.find(([line]) => String(line).includes('"method":"turn/start"'));
+    const threadStart = JSON.parse(String(threadStartWrite?.[0] ?? "{}")) as { params?: { model?: string } };
+    const turnStart = JSON.parse(String(turnStartWrite?.[0] ?? "{}")) as { params?: { model?: string } };
+
+    expect(threadStart.params?.model).toBeUndefined();
+    expect(turnStart.params?.model).toBeUndefined();
+    expect(result.modelId).toBe("codex-app-server");
+    expect(result.data.ok).toBe(true);
+  });
+
   it("reports Gemini disabled when enabled but key or model is missing", async () => {
     mockAiConfig.gemini.enabled = true;
     mockAiConfig.gemini.apiKey = "";

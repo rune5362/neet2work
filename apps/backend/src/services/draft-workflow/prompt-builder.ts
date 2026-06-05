@@ -78,6 +78,7 @@ function operationInstruction(operation: AiWorkflowOperation) {
         "If target.requirementSourceText is present, extract its rules as materialStore.requirements with source=attached_document and priority=critical. These rules outrank job posting text and reference examples.",
         "If no attached-document requirements exist, use experienceInput.referenceSelfIntroText only as style/reference guidance and never as user factual evidence.",
         "Extract only experiences supported by user-provided portfolio/manual/conversation text.",
+        "Treat bare GitHub or repository URLs as pointers, not evidence. Do not claim to have inspected repository contents unless README, commit, issue, project, or code text is included in the input; ask follow-up questions for project purpose, user role, implementation, technologies, and results instead.",
         "Build a claimLedger. Set allowedInDraft=false for weak, unsupported, private, blind-risk, or demo claims.",
         "Ask adaptive Socratic follow-up questions in answerStrategy.neededQuestions when role/result/context/method/company-fit evidence is missing. Sort questions by priority so the UI can ask one at a time.",
         "For motivation/aspiration questions, require specific company-fit evidence; ask a follow-up instead of inventing company facts.",

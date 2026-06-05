@@ -8,6 +8,10 @@ import type {
   DraftWorkflowPlanRequest,
   DraftWorkflowReviseRequest
 } from "../types/draft-workflow";
+import type {
+  CareerWorkflowSession,
+  CareerWorkflowSessionRequest
+} from "../types/career-workflow";
 import type { CareerStage, EmploymentTypeCategory, JobPosting } from "../types/job";
 
 export type EmploymentTypeFilterValue = EmploymentTypeCategory | "unspecified";
@@ -199,6 +203,23 @@ export async function getDraftWorkflowProviders(): Promise<AiProviderStatus[]> {
   }
 
   const result = (await response.json()) as ApiItemResponse<AiProviderStatus[]>;
+  return result.data;
+}
+
+export async function createCareerWorkflowSession(
+  payload: CareerWorkflowSessionRequest
+): Promise<CareerWorkflowSession> {
+  const response = await fetch(`${API_BASE_URL}/api/career-workflow/session`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error("커리어 문서 세션 분석에 실패했습니다.");
+  }
+
+  const result = (await response.json()) as ApiItemResponse<CareerWorkflowSession>;
   return result.data;
 }
 

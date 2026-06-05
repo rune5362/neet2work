@@ -15,9 +15,16 @@ function codexModelId() {
   return aiConfig.codexBridge.model || CODEX_APP_SERVER_DEFAULT_MODEL_ID;
 }
 
+function normalizeCodexModelOverride(modelId?: string) {
+  const normalized = modelId?.trim();
+  if (!normalized || normalized === CODEX_APP_SERVER_DEFAULT_MODEL_ID) {
+    return undefined;
+  }
+  return normalized;
+}
+
 function resolveCodexModelOverride(modelId?: string) {
-  const requestedModel = modelId === CODEX_APP_SERVER_DEFAULT_MODEL_ID ? "" : modelId;
-  return requestedModel ?? aiConfig.codexBridge.model;
+  return normalizeCodexModelOverride(modelId) ?? normalizeCodexModelOverride(aiConfig.codexBridge.model);
 }
 
 function accountIsUsable(accountState: Awaited<ReturnType<CodexAppServerClient["readAccount"]>>) {

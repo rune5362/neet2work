@@ -1,6 +1,7 @@
 import { type ChangeEvent, type CSSProperties, type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, FileText, X } from "lucide-react";
 import {
+  createCareerWorkflowSession,
   createDraftWorkflowDraft,
   createDraftWorkflowPlan,
   extractResumeFile,
@@ -37,6 +38,11 @@ import type {
   GapAnswer
 } from "../types/draft-workflow";
 import { fallbackReasonLabel, providerBadgeLabel } from "../types/draft-workflow";
+import type {
+  CareerWorkflowSession,
+  CareerWorkflowSourceInput
+} from "../types/career-workflow";
+import { careerDocumentTypeLabel } from "../types/career-workflow";
 
 type Sender = "ai" | "user";
 type DraftState = "idle" | "ready" | "planning" | "plan_ready" | "drafting" | "complete" | "revising";
@@ -55,6 +61,7 @@ type Message = {
   sender: Sender;
   text: string;
   time: string;
+  attachments?: MessageAttachment[];
 };
 
 function formatAiExecutionLabel(meta: AiExecutionMeta) {
@@ -92,6 +99,7 @@ type DraftDownloadFormat = "txt" | "markdown" | "doc" | "pdf";
 type DraftDownloadOption = {
   format: DraftDownloadFormat;
   label: string;
+  ariaLabel: string;
 };
 
 type ResultInsightSection = {
@@ -104,6 +112,14 @@ type ResultInsightSection = {
 
 type AttachedFileKind = "text" | "binary";
 
+type AttachmentVisualTone = "pdf" | "docx" | "markdown" | "text" | "file";
+
+type AttachmentVisual = {
+  typeLabel: string;
+  tone: AttachmentVisualTone;
+  badge: string | null;
+};
+
 type AttachedFile = {
   id: string;
   name: string;
@@ -111,6 +127,15 @@ type AttachedFile = {
   textContent: string | null;
   readError: boolean;
   loading: boolean;
+};
+
+type MessageAttachment = {
+  id: string;
+  name: string;
+  kind: AttachedFileKind;
+  readError: boolean;
+  typeLabel: string;
+  tone: AttachmentVisualTone;
 };
 
 type AtsMetric = {
@@ -254,10 +279,10 @@ const COMPOSER_INPUT_MAX_HEIGHT = 240;
 const FILE_ACCEPT = ".txt,.md,.pdf,.docx";
 const EMPTY_JOB_POSTING_TEXT = "선택된 공고 없음. 사용자 대화와 첨부 자료를 기준으로 작성합니다.";
 const DRAFT_DOWNLOAD_OPTIONS: DraftDownloadOption[] = [
-  { format: "txt", label: "TXT" },
-  { format: "markdown", label: "MD" },
-  { format: "doc", label: "DOCS" },
-  { format: "pdf", label: "PDF" }
+  { format: "txt", label: "TXT", ariaLabel: "TXT 다운로드" },
+  { format: "markdown", label: "MD", ariaLabel: "Markdown 다운로드" },
+  { format: "doc", label: "DOCS", ariaLabel: "Word 문서 .doc 다운로드" },
+  { format: "pdf", label: "PDF", ariaLabel: "PDF 다운로드" }
 ];
 
 function getProviderModelIdForSelection(provider?: AiProviderStatus) {
@@ -349,7 +374,7 @@ function getAttachmentTypeLabel(file: AttachedFile) {
   return file.kind === "text" ? "TXT" : "FILE";
 }
 
-function getAttachmentVisual(file: AttachedFile) {
+function getAttachmentVisual(file: AttachedFile): AttachmentVisual {
   const typeLabel = getAttachmentTypeLabel(file);
   const normalizedType = typeLabel.toLowerCase();
 
@@ -371,6 +396,52 @@ function getAttachmentVisual(file: AttachedFile) {
     tone: file.kind === "binary" ? "file" : "text",
     badge: typeLabel.slice(0, 1)
   };
+}
+
+function toMessageAttachment(file: AttachedFile): MessageAttachment {
+  const visual = getAttachmentVisual(file);
+  return {
+    id: file.id,
+    name: file.name,
+    kind: file.kind,
+    readError: file.readError,
+    typeLabel: visual.typeLabel,
+    tone: visual.tone
+  };
+}
+
+function getSentAttachmentStatusLabel(attachment: MessageAttachment) {
+  if (attachment.readError) {
+    return "본문 추출 실패";
+  }
+
+  if (attachment.kind === "binary") {
+    return "지원하지 않는 파일";
+  }
+
+  return "문서";
+}
+
+function hasDraftWorkflowIntent(text: string) {
+  return /문항\s*분석|분석\s*(?:해\s*줘|해줘|해\s*주세요|해 주세요|시작)|분석(?:한\s*뒤|한뒤|하고|해서).*(?:초안|작성|자소서)|초안|맞춰서|자소서\s*양식|자기소개서\s*양식|cover\s*letter|draft|analy[sz]e/i.test(
+    text
+  );
+}
+
+function extractGithubUrls(text: string) {
+  return Array.from(new Set(text.match(/https?:\/\/github\.com\/[^\s)]+/gi) ?? []));
+}
+
+function buildGithubEvidenceNote(text: string) {
+  const githubUrls = extractGithubUrls(text);
+  if (githubUrls.length === 0) {
+    return "";
+  }
+
+  return [
+    `제공된 GitHub URL: ${githubUrls.join(", ")}`,
+    "현재 입력에는 GitHub 저장소 본문/README/커밋 내용이 포함되어 있지 않습니다. URL만으로 저장소 내용을 사실로 단정하지 말고, 프로젝트명, 목적, 본인 역할, 구현 내용, 사용 기술, 결과를 보완 질문으로 확인하세요."
+  ].join("\n");
 }
 
 function buildResumeTextParts(messages: Message[], input: string, attachedFiles: AttachedFile[]) {
@@ -698,6 +769,10 @@ function readyTextAttachments(attachedFiles: AttachedFile[]) {
   return attachedFiles.filter((file) => file.kind === "text" && file.textContent && !file.readError && !file.loading);
 }
 
+function sendableAttachments(attachedFiles: AttachedFile[]) {
+  return attachedFiles.filter((file) => !file.loading);
+}
+
 function isRequirementLikeText(text: string) {
   const markers = [
     /작성\s*요령|작성\s*방법|요구\s*사항|유의\s*사항/,
@@ -875,9 +950,11 @@ export function AIDraftChatBuilder() {
   const [draftState, setDraftState] = useState<DraftState>("idle");
   const [workflowPlan, setWorkflowPlan] = useState<DraftWorkflowPlan | null>(null);
   const [workflowDraft, setWorkflowDraft] = useState<DraftWorkflowDraft | null>(null);
+  const [careerSession, setCareerSession] = useState<CareerWorkflowSession | null>(null);
   const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus>("idle");
   const [workflowError, setWorkflowError] = useState<string | null>(null);
   const [gapAnswerDrafts, setGapAnswerDrafts] = useState<Record<string, string>>({});
+  const [confirmedGapQuestionIds, setConfirmedGapQuestionIds] = useState<Set<string>>(() => new Set());
   const [outlineConfirmed, setOutlineConfirmed] = useState(false);
   const [revisionRequest, setRevisionRequest] = useState("");
   const [targetForm, setTargetForm] = useState<DraftTargetForm>({
@@ -908,7 +985,9 @@ export function AIDraftChatBuilder() {
   });
   const [newChatConfirmOpen, setNewChatConfirmOpen] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [submittedFiles, setSubmittedFiles] = useState<AttachedFile[]>([]);
   const [sentAttachmentSignature, setSentAttachmentSignature] = useState("");
+  const [autoStartPlanRequestId, setAutoStartPlanRequestId] = useState(0);
   const [coverLetterReferences, setCoverLetterReferences] = useState<DocumentListItem[]>([]);
   const [selectedReferenceDocumentId, setSelectedReferenceDocumentId] = useState<string | null>(null);
   const [referenceLoadStatus, setReferenceLoadStatus] = useState<ReferenceLoadStatus>("idle");
@@ -949,22 +1028,19 @@ export function AIDraftChatBuilder() {
   }, []);
 
   const selectedJob = selectedApiJob;
+  const sourceFiles = useMemo(() => [...submittedFiles, ...attachedFiles], [submittedFiles, attachedFiles]);
   const resumeText = useMemo(() => {
-    return buildResumeTextParts(messages, input, attachedFiles).join("\n\n");
-  }, [messages, input, attachedFiles]);
+    return buildResumeTextParts(messages, input, sourceFiles).join("\n\n");
+  }, [messages, input, sourceFiles]);
   const canAnalyze = resumeText.trim().length >= 10;
-  const readyAttachments = useMemo(() => readyTextAttachments(attachedFiles), [attachedFiles]);
-  const readyAttachmentNames = useMemo(
-    () => readyAttachments.map((file) => file.name),
-    [readyAttachments]
+  const sendableAttachmentItems = useMemo(() => sendableAttachments(attachedFiles), [attachedFiles]);
+  const sendableAttachmentSignature = useMemo(
+    () => sendableAttachmentItems.map((file) => `${file.id}:${file.readError ? "error" : "ready"}`).join("|"),
+    [sendableAttachmentItems]
   );
-  const readyAttachmentSignature = useMemo(
-    () => readyAttachments.map((file) => file.id).join("|"),
-    [readyAttachments]
-  );
-  const hasUnsentReadyAttachments =
-    readyAttachmentSignature.length > 0 && readyAttachmentSignature !== sentAttachmentSignature;
-  const canSendComposerMessage = input.trim().length > 0 || hasUnsentReadyAttachments;
+  const hasUnsentSendableAttachments =
+    sendableAttachmentSignature.length > 0 && sendableAttachmentSignature !== sentAttachmentSignature;
+  const canSendComposerMessage = input.trim().length > 0 || hasUnsentSendableAttachments;
   const selectedReferenceDocument = useMemo(
     () => coverLetterReferences.find((document) => document.id === selectedReferenceDocumentId) ?? null,
     [coverLetterReferences, selectedReferenceDocumentId]
@@ -1143,8 +1219,8 @@ export function AIDraftChatBuilder() {
     [messages, input]
   );
   const attachmentRequirementText = useMemo(
-    () => buildRequirementSourceText(attachedFiles),
-    [attachedFiles]
+    () => buildRequirementSourceText(sourceFiles),
+    [sourceFiles]
   );
   const requirementInputText = useMemo(
     () => [conversationRequirementText, attachmentRequirementText].filter((text) => text.length > 0).join("\n\n").trim(),
@@ -1180,6 +1256,18 @@ export function AIDraftChatBuilder() {
 
     return [];
   }, [messages, workflowDraft]);
+  const careerSessionSummaryItems = useMemo(() => {
+    if (!careerSession) {
+      return [];
+    }
+
+    return [
+      `문서 유형: ${careerDocumentTypeLabel(careerSession.documentType)}`,
+      `완성도: ${careerSession.completion.progress}%`,
+      `확보 근거: ${careerSession.evidenceVault.length}개`,
+      `부족 슬롯: ${careerSession.completion.missingSlots.slice(0, 3).join(", ") || "없음"}`
+    ];
+  }, [careerSession]);
 
   const refreshProviderStatuses = useCallback(() => {
     return getDraftWorkflowProviders()
@@ -1519,18 +1607,31 @@ export function AIDraftChatBuilder() {
 
   const neededGapQuestions = workflowPlan?.answerStrategy.neededQuestions ?? [];
   const pendingGapQuestions = neededGapQuestions.filter(
-    (question) => !(gapAnswerDrafts[question.questionId] ?? "").trim()
+    (question) => !confirmedGapQuestionIds.has(question.questionId)
   );
   const activeGapQuestion = draftState === "plan_ready" ? pendingGapQuestions[0] : undefined;
-  const answeredGapQuestionCount = neededGapQuestions.length - pendingGapQuestions.length;
+  const activeGapAnswerDraft = activeGapQuestion ? gapAnswerDrafts[activeGapQuestion.questionId] ?? "" : "";
+  const answeredGapQuestionCount = neededGapQuestions.filter((question) =>
+    confirmedGapQuestionIds.has(question.questionId)
+  ).length;
   const canConfirmDraft =
     (draftState === "plan_ready" || draftState === "complete") &&
     pendingGapQuestions.length === 0 &&
+    neededGapQuestions.every((question) => (gapAnswerDrafts[question.questionId] ?? "").trim().length > 0) &&
     inferredQuestionText.trim().length >= 5 &&
     (targetForm.jobPostingText.trim() || (selectedJob ? buildDefaultJobPostingText(selectedJob) : EMPTY_JOB_POSTING_TEXT)).length >= 10;
 
   const updateGapAnswerDraft = (questionId: string, answer: string) => {
     setGapAnswerDrafts((prev) => ({ ...prev, [questionId]: answer }));
+    setConfirmedGapQuestionIds((prev) => {
+      if (!prev.has(questionId)) {
+        return prev;
+      }
+
+      const next = new Set(prev);
+      next.delete(questionId);
+      return next;
+    });
     setOutlineConfirmed(false);
     resetWorkflowPartialAfterGapChange();
   };
@@ -1556,24 +1657,101 @@ export function AIDraftChatBuilder() {
     resetWorkflowPartialAfterGapChange();
   };
 
-  const buildExperienceInput = () => ({
-    portfolioText: buildPortfolioSourceText(attachedFiles),
-    manualExperienceText: messages
+  const confirmGapAnswer = (questionId: string) => {
+    if (!(gapAnswerDrafts[questionId] ?? "").trim()) {
+      return;
+    }
+
+    setConfirmedGapQuestionIds((prev) => {
+      const next = new Set(prev);
+      next.add(questionId);
+      return next;
+    });
+    resetWorkflowPartialAfterGapChange();
+  };
+
+  const buildExperienceInput = () => {
+    const manualExperienceText = messages
       .filter((message) => message.sender === "user")
       .map((message) => message.text)
-      .join("\n\n"),
-    additionalContext: input.trim() || undefined,
-    referenceSelfIntroText: buildSelfIntroReferenceText({
-      userReference: selectedReferenceDocument
-        ? {
-            title: selectedReferenceDocument.title,
-            content: selectedReferenceDocument.content,
-            company: selectedReferenceDocument.company,
-            jobTitle: selectedReferenceDocument.jobTitle
-          }
-        : null
-    })
-  });
+      .join("\n\n");
+
+    return {
+      portfolioText: buildPortfolioSourceText(sourceFiles),
+      manualExperienceText,
+      additionalContext:
+        [input.trim(), buildGithubEvidenceNote(manualExperienceText)]
+        .filter((text) => text.length > 0)
+        .join("\n\n") || undefined,
+      referenceSelfIntroText: buildSelfIntroReferenceText({
+        userReference: selectedReferenceDocument
+          ? {
+              title: selectedReferenceDocument.title,
+              content: selectedReferenceDocument.content,
+              company: selectedReferenceDocument.company,
+              jobTitle: selectedReferenceDocument.jobTitle
+            }
+          : null
+        })
+    };
+  };
+
+  const buildCareerWorkflowSources = (): CareerWorkflowSourceInput[] => {
+    const sources: CareerWorkflowSourceInput[] = [];
+    const userConversationText = messages
+      .filter((message) => message.sender === "user")
+      .map((message) => message.text)
+      .join("\n\n")
+      .trim();
+
+    if (userConversationText) {
+      sources.push({
+        sourceId: "conversation",
+        label: "대화 경험",
+        text: userConversationText
+      });
+    }
+
+    for (const file of readyTextAttachments(sourceFiles)) {
+      sources.push({
+        sourceId: `attachment-${file.id}`,
+        label: file.name,
+        fileName: file.name,
+        text: file.textContent ?? ""
+      });
+    }
+
+    if (requirementInputText) {
+      sources.push({
+        sourceId: "requirements",
+        sourceType: "blank_cover_letter_template",
+        label: "지원 문항/양식",
+        text: requirementInputText
+      });
+    }
+
+    const jobPostingText = selectedJob ? buildDefaultJobPostingText(selectedJob) : targetForm.jobPostingText.trim();
+    if (jobPostingText) {
+      sources.push({
+        sourceId: "job-posting",
+        sourceType: "job_posting",
+        label: "채용공고",
+        text: jobPostingText
+      });
+    }
+
+    const githubUrls = extractGithubUrls(`${userConversationText}\n${input}`).slice(0, 3);
+    for (const [index, url] of githubUrls.entries()) {
+      sources.push({
+        sourceId: `github-${index + 1}`,
+        sourceType: "github_url",
+        label: "GitHub URL",
+        url
+      });
+    }
+
+    return sources.length > 0 ? sources : [{ sourceId: "empty", sourceType: "empty", label: "자료 없음" }];
+  };
 
   const handleToneSelect = (tone: AiSettings["tone"]) => {
     updateSettings("tone", tone);
@@ -1615,7 +1793,7 @@ export function AIDraftChatBuilder() {
     playTone(settings.sound, "open");
 
     const promoteDraftStateIfAnalyzable = (nextFiles: AttachedFile[]) => {
-      const nextResumeText = buildResumeTextParts(messages, input, nextFiles).join("\n\n").trim();
+      const nextResumeText = buildResumeTextParts(messages, input, [...submittedFiles, ...nextFiles]).join("\n\n").trim();
       if (nextResumeText.length >= 10) {
         setDraftState((prev) => (prev === "planning" || prev === "drafting" ? prev : "ready"));
       }
@@ -1673,9 +1851,12 @@ export function AIDraftChatBuilder() {
     workflowRequestIdRef.current += 1;
     setWorkflowPlan(null);
     setWorkflowDraft(null);
+    setCareerSession(null);
     setWorkflowStatus("idle");
     setWorkflowError(null);
+    setAutoStartPlanRequestId(0);
     setGapAnswerDrafts({});
+    setConfirmedGapQuestionIds(new Set());
     setOutlineConfirmed(false);
     setRevisionRequest("");
     setDraftFitProgress(0);
@@ -1736,10 +1917,8 @@ export function AIDraftChatBuilder() {
 
   const handleSend = () => {
     const trimmed = input.trim();
-    const attachmentOnlyText =
-      hasUnsentReadyAttachments ? `첨부 파일: ${readyAttachmentNames.join(", ")}` : "";
-    const userMessageText = trimmed || attachmentOnlyText;
-    if (!userMessageText) return;
+    const attachmentsToSubmit = hasUnsentSendableAttachments ? sendableAttachmentItems : [];
+    if (!trimmed && attachmentsToSubmit.length === 0) return;
 
     clearSendReplyTimeout();
     resetWorkflow();
@@ -1752,15 +1931,32 @@ export function AIDraftChatBuilder() {
         id: crypto.randomUUID(),
         sender: "user",
         time: nowTime(),
-        text: userMessageText,
+        text: trimmed,
+        attachments: attachmentsToSubmit.length > 0 ? attachmentsToSubmit.map(toMessageAttachment) : undefined,
       },
     ];
+    const submittedAttachmentIds = new Set(attachmentsToSubmit.map((file) => file.id));
+    const nextAttachedFiles =
+      attachmentsToSubmit.length > 0
+        ? attachedFiles.filter((file) => !submittedAttachmentIds.has(file.id))
+        : attachedFiles;
+    const nextSourceFiles = [...submittedFiles, ...attachmentsToSubmit, ...nextAttachedFiles];
+    const shouldAutoStartPlan =
+      hasDraftWorkflowIntent(trimmed) &&
+      buildResumeTextParts(nextMessages, "", nextSourceFiles).join("\n\n").trim().length >= 10;
     const detectedConditionText = splitConditionCandidates(
       buildConversationRequirementSourceText(nextMessages)
     ).slice(-3).join(" / ");
     setMessages(nextMessages);
-    if (readyAttachmentSignature) {
-      setSentAttachmentSignature(readyAttachmentSignature);
+    if (attachmentsToSubmit.length > 0) {
+      setSubmittedFiles((prev) => [...prev, ...attachmentsToSubmit]);
+      setAttachedFiles(nextAttachedFiles);
+      setSentAttachmentSignature("");
+    } else if (sendableAttachmentSignature) {
+      setSentAttachmentSignature(sendableAttachmentSignature);
+    }
+    if (shouldAutoStartPlan) {
+      setAutoStartPlanRequestId((value) => value + 1);
     }
     setInput("");
     window.requestAnimationFrame(syncComposerHeight);
@@ -1774,7 +1970,9 @@ export function AIDraftChatBuilder() {
           id: crypto.randomUUID(),
           sender: "ai",
           time: nowTime(),
-          text: buildSendAssistantHint(detectedConditionText),
+          text: shouldAutoStartPlan
+            ? "요청대로 첨부 자료와 대화 내용을 기준으로 문항 분석을 시작합니다."
+            : buildSendAssistantHint(detectedConditionText),
         },
       ]);
       setDraftState("ready");
@@ -1790,17 +1988,39 @@ export function AIDraftChatBuilder() {
     const requestId = workflowRequestIdRef.current;
     setWorkflowPlan(null);
     setWorkflowDraft(null);
+    setCareerSession(null);
     setWorkflowError(null);
     setWorkflowStatus("loading");
     setDraftState("planning");
     setOutlineConfirmed(false);
     setGapAnswerDrafts({});
+    setConfirmedGapQuestionIds(new Set());
     setDraftFitProgress(0);
     draftFitProgressRef.current = 0;
     playTone(settings.sound, "open");
 
     const target = buildDraftTarget();
     const experienceInput = buildExperienceInput();
+    void createCareerWorkflowSession({
+      target: {
+        company: target.company,
+        role: target.role,
+        questionText: target.questionText,
+        jobPostingText: target.jobPostingText,
+        charLimit: target.charLimit
+      },
+      sources: buildCareerWorkflowSources()
+    })
+      .then((session) => {
+        if (requestId === workflowRequestIdRef.current) {
+          setCareerSession(session);
+        }
+      })
+      .catch(() => {
+        if (requestId === workflowRequestIdRef.current) {
+          setCareerSession(null);
+        }
+      });
 
     try {
       const plan = await createDraftWorkflowPlan({
@@ -1827,6 +2047,21 @@ export function AIDraftChatBuilder() {
       playTone(settings.sound, "ready");
     }
   };
+
+  useEffect(() => {
+    if (
+      autoStartPlanRequestId <= 0 ||
+      draftState !== "ready" ||
+      !canAnalyze ||
+      workflowStatus === "loading" ||
+      workflowPlan
+    ) {
+      return;
+    }
+
+    setAutoStartPlanRequestId(0);
+    void handleStartPlan();
+  }, [autoStartPlanRequestId, canAnalyze, draftState, workflowPlan, workflowStatus]);
 
   const handleGenerateDraft = async () => {
     if (!workflowPlan || !canConfirmDraft) {
@@ -1970,6 +2205,7 @@ export function AIDraftChatBuilder() {
     setExpandedUserMessageIds(new Set());
     setInput("");
     setAttachedFiles([]);
+    setSubmittedFiles([]);
     setSentAttachmentSignature("");
     setDraftState("idle");
     setDownloadMenuOpen(false);
@@ -2023,11 +2259,11 @@ export function AIDraftChatBuilder() {
 
       <section className="aiDraftShell" aria-label="AI 자기소개서 채팅 빌더">
         <div className="aiDraftWorkspace">
-          <section className="aiDraftChatPanel" aria-label="AI 자소서 채팅">
+          <section className="aiDraftChatPanel" aria-label="AI 커리어 문서 코치">
             <header className="aiDraftChatHeader">
               <div>
                 <div className="aiDraftTitleRow">
-                  <h1>AI 자소서 채팅</h1>
+                  <h1>AI 커리어 문서 코치</h1>
                   <span>{selectedProviderLabel}</span>
                   <strong className={`aiDraftProviderStatusBadge ${headerAiStatus.status}`}>
                     {headerAiStatus.label}
@@ -2036,7 +2272,7 @@ export function AIDraftChatBuilder() {
                     실제 생성 provider: {actualProviderSummary}
                   </strong>
                 </div>
-                <p>소크라테스처럼 질문하고, 당신의 경험을 구조화합니다.</p>
+                <p>자료를 읽고, 부족한 근거만 질문해서 문서를 채웁니다.</p>
               </div>
 
               <div className="aiDraftHeaderActions">
@@ -2054,8 +2290,11 @@ export function AIDraftChatBuilder() {
               {messages.map((message) => {
                 const expandable = isExpandableUserMessage(message);
                 const expanded = expandedUserMessageIds.has(message.id);
+                const sentAttachments = message.attachments ?? [];
+                const hasSentAttachments = sentAttachments.length > 0;
                 const bubbleClassName = [
                   "aiDraftBubble",
+                  hasSentAttachments ? "withSentAttachments" : "",
                   expandable ? "expandable" : "",
                   expandable && !expanded ? "collapsed" : "",
                   expandable && expanded ? "expanded" : ""
@@ -2070,20 +2309,42 @@ export function AIDraftChatBuilder() {
                     aria-label={message.sender === "ai" ? "AI 답변" : "내 메시지"}
                   >
                     {message.sender === "user" ? (
-                      <div className={bubbleClassName}>
-                        <div className="aiDraftBubbleContent">
-                          <p>{message.text}</p>
-                        </div>
-                        {expandable && (
-                          <button
-                            type="button"
-                            className="aiDraftBubbleMoreButton"
-                            aria-expanded={expanded}
-                            onClick={() => toggleUserMessageExpansion(message.id)}
-                          >
-                            {expanded ? "접기" : "더 보기"}
-                            {expanded ? <ChevronUp size={15} strokeWidth={2.4} /> : <ChevronDown size={15} strokeWidth={2.4} />}
-                          </button>
+                      <div className={`aiDraftUserMessageStack ${hasSentAttachments ? "hasSentAttachments" : ""}`}>
+                        {hasSentAttachments && (
+                          <div className="aiDraftSentAttachments" aria-label="보낸 첨부 파일">
+                            {sentAttachments.map((attachment) => (
+                              <div
+                                className={`aiDraftSentAttachmentCard type-${attachment.tone} ${attachment.readError ? "error" : ""} ${attachment.kind === "binary" ? "binary" : ""}`}
+                                key={attachment.id}
+                              >
+                                <span className={`aiDraftSentAttachmentIcon ${attachment.tone}`} aria-hidden="true">
+                                  <FileText size={18} strokeWidth={2.2} />
+                                </span>
+                                <span className="aiDraftSentAttachmentBody">
+                                  <span className="aiDraftSentAttachmentName">{attachment.name}</span>
+                                  <span className="aiDraftSentAttachmentMeta">{getSentAttachmentStatusLabel(attachment)}</span>
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {message.text && (
+                          <div className={bubbleClassName}>
+                            <div className="aiDraftBubbleContent">
+                              <p>{message.text}</p>
+                            </div>
+                            {expandable && (
+                              <button
+                                type="button"
+                                className="aiDraftBubbleMoreButton"
+                                aria-expanded={expanded}
+                                onClick={() => toggleUserMessageExpansion(message.id)}
+                              >
+                                {expanded ? "접기" : "더 보기"}
+                                {expanded ? <ChevronUp size={15} strokeWidth={2.4} /> : <ChevronDown size={15} strokeWidth={2.4} />}
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     ) : (
@@ -2163,11 +2424,21 @@ export function AIDraftChatBuilder() {
                         )}
                         <textarea
                           className="aiDraftGapTextarea"
-                          value={gapAnswerDrafts[activeGapQuestion.questionId] ?? ""}
+                          value={activeGapAnswerDraft}
                           placeholder="직접 입력"
                           rows={2}
                           onChange={(event) => updateGapAnswerDraft(activeGapQuestion.questionId, event.target.value)}
                         />
+                        <div className="aiDraftGapActions">
+                          <button
+                            type="button"
+                            className="aiDraftGapConfirmButton"
+                            disabled={activeGapAnswerDraft.trim().length === 0}
+                            onClick={() => confirmGapAnswer(activeGapQuestion.questionId)}
+                          >
+                            답변 저장
+                          </button>
+                        </div>
                       </fieldset>
                       {pendingGapQuestions.length > 0 && (
                         <p className="aiDraftInputHint">
@@ -2377,6 +2648,7 @@ export function AIDraftChatBuilder() {
                               type="button"
                               role="menuitem"
                               key={option.format}
+                              aria-label={option.ariaLabel}
                               onClick={() => handleDownloadDraft(option.format)}
                             >
                               <span>{option.label}</span>
@@ -2634,6 +2906,40 @@ export function AIDraftChatBuilder() {
                 <small>현재 활동 중인 취업 준비</small>
                 <strong>{settings.tone}</strong>
               </div>
+            </section>
+
+            <section className="aiDraftInfoCard" aria-label="커리어 문서 코치 상태">
+              <div className="aiDraftCardTitle">
+                <span>문서 코치</span>
+                <small>{careerSession ? careerDocumentTypeLabel(careerSession.documentType) : "MVP 흐름"}</small>
+              </div>
+              {careerSession ? (
+                <>
+                  <ul className="aiDraftSummary">
+                    {careerSessionSummaryItems.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                  {careerSession.nextQuestion && (
+                    <div className="aiDraftQuestionMeta">
+                      <strong>다음 질문</strong>
+                      <p>{careerSession.nextQuestion.question}</p>
+                      <span>{careerSession.nextQuestion.whyAsking}</span>
+                      <em>{careerSession.nextQuestion.targetSection}에 사용</em>
+                    </div>
+                  )}
+                  <p className="aiDraftFootnote">{careerSession.documentTypeReason}</p>
+                </>
+              ) : (
+                <>
+                  <ul className="aiDraftSummary">
+                    <li>자료에서 채울 수 있는 정보 먼저 추출</li>
+                    <li>없는 정보는 질문 1개씩 확인</li>
+                    <li>사용자 근거가 있는 내용만 초안에 사용</li>
+                  </ul>
+                  <p className="aiDraftFootnote">문항 분석을 시작하면 Evidence Vault와 다음 질문이 계산됩니다.</p>
+                </>
+              )}
             </section>
 
             <section className="aiDraftInfoCard">

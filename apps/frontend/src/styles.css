@@ -6013,6 +6013,98 @@ textarea:focus {
   margin-left: auto;
 }
 
+.aiDraftUserMessageStack {
+  display: flex;
+  width: fit-content;
+  max-width: min(86%, 840px);
+  margin-left: auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.aiDraftUserMessageStack .aiDraftBubble {
+  max-width: 100%;
+}
+
+.aiDraftSentAttachments {
+  display: flex;
+  width: min(320px, 100%);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.aiDraftSentAttachmentCard {
+  display: flex;
+  min-width: 0;
+  min-height: 58px;
+  padding: 8px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  background: rgba(3, 7, 18, 0.78);
+  color: #f8fafc;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
+}
+
+.aiDraftSentAttachmentCard.error {
+  border-color: rgba(248, 113, 113, 0.46);
+}
+
+.aiDraftSentAttachmentIcon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  border-radius: 10px;
+  background: #0b74ff;
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.aiDraftSentAttachmentIcon.pdf {
+  background: #1663e8;
+}
+
+.aiDraftSentAttachmentIcon.docx {
+  background: #0b74ff;
+}
+
+.aiDraftSentAttachmentIcon.markdown,
+.aiDraftSentAttachmentIcon.text {
+  background: #2563eb;
+}
+
+.aiDraftSentAttachmentIcon.file {
+  background: #475569;
+}
+
+.aiDraftSentAttachmentBody {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.aiDraftSentAttachmentName {
+  overflow: hidden;
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aiDraftSentAttachmentMeta {
+  color: rgba(226, 232, 240, 0.88);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
 .aiDraftAvatar {
   display: grid;
   place-items: center;
@@ -6094,6 +6186,15 @@ textarea:focus {
   padding: 8px 16px;
   line-height: 1.35;
   box-shadow: 0 10px 24px rgba(0, 102, 255, 0.18);
+}
+
+.aiDraftMessage.user .aiDraftBubble.withSentAttachments {
+  border-color: rgba(196, 88, 139, 0.62);
+  border-radius: 19px;
+  background: #a34073;
+  padding: 10px 16px;
+  line-height: 1.45;
+  box-shadow: 0 14px 26px rgba(73, 20, 49, 0.24);
 }
 
 .aiDraftMessage.user .aiDraftBubble.expandable {
@@ -7740,6 +7841,45 @@ textarea:focus {
   content: "✓";
 }
 
+.aiDraftQuestionMeta {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid rgba(0, 102, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(0, 102, 255, 0.06);
+}
+
+.aiDraftQuestionMeta strong,
+.aiDraftQuestionMeta p,
+.aiDraftQuestionMeta span,
+.aiDraftQuestionMeta em {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.aiDraftQuestionMeta strong {
+  color: #1d4ed8;
+  font-size: 0.76rem;
+}
+
+.aiDraftQuestionMeta p {
+  color: #102033;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.aiDraftQuestionMeta span,
+.aiDraftQuestionMeta em {
+  color: #52657f;
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .aiDraftSummaryButton {
   justify-content: flex-start;
   min-height: 40px;
@@ -7831,6 +7971,41 @@ textarea:focus {
   cursor: not-allowed;
 }
 
+.aiDraftGapActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.aiDraftGapConfirmButton {
+  display: inline-flex;
+  min-height: 34px;
+  padding: 0 13px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(20, 184, 166, 0.5);
+  border-radius: 8px;
+  background: rgba(20, 184, 166, 0.14);
+  color: #5eead4;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.aiDraftGapConfirmButton:hover,
+.aiDraftGapConfirmButton:focus-visible {
+  background: rgba(20, 184, 166, 0.2);
+  color: #ccfbf1;
+}
+
+.aiDraftGapConfirmButton:disabled {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(148, 163, 184, 0.08);
+  color: rgba(203, 213, 225, 0.55);
+  cursor: not-allowed;
+}
+
 .aiDraftRevisePanel {
   display: flex;
   flex-direction: column;
@@ -7855,7 +8030,8 @@ textarea:focus {
   font-weight: 700;
 }
 
-.aiDraftModeBadge.mock {
+.aiDraftModeBadge.mock,
+.aiDraftModeBadge.fallback {
   color: #fde68a;
   border: 1px solid rgba(245, 158, 11, 0.45);
   background: rgba(245, 158, 11, 0.14);
@@ -8257,6 +8433,18 @@ textarea:focus {
     min-width: 0;
     border-radius: 999px;
     padding: 8px 14px;
+  }
+
+  .aiDraftUserMessageStack {
+    max-width: min(92%, 100%);
+  }
+
+  .aiDraftSentAttachments {
+    width: min(300px, 100%);
+  }
+
+  .aiDraftSentAttachmentCard {
+    min-height: 54px;
   }
 
   .aiDraftMessage.user .aiDraftBubble.expandable {

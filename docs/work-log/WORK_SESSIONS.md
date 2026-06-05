@@ -3,12 +3,13 @@
 오늘 작업 상세 기록 원장이다.
 지난 날짜 기록은 `docs/work-log/archive/`에 보관한다.
 
-## 2026-06-04
+## 2026-06-05
 
 ### Figma 작업일지 정리
 
-- 현재 작업트리의 변경분을 기준으로 2026-06-04 Figma Summary를 정리했다.
-- Codex bridge의 `codex-app-server` 표시 모델 처리, AI 자소서 빌더 provider/fallback 표시, 생성 진행 카드 스크롤, 다운로드 메뉴 축약, 관련 테스트 갱신을 요약했다.
-- `docs/work-log/WORK_LOG.md`에는 피그마용 짧은 한국어 bullet만 남기고, 상세 근거는 이 세션 기록에 유지했다.
+- 현재 작업트리 변경분을 기준으로 2026-06-05 Figma Summary를 정리했다.
+- career workflow 세션 API, Evidence Vault, 다음 질문 라우팅, API 계약 문서 추가를 요약했다.
+- AI 커리어 문서 코치 화면의 문서 유형/완성도/부족 슬롯/다음 질문 패널, 첨부 전송 카드, 자동 분석 시작 흐름을 요약했다.
+- GitHub URL을 저장소 내용 근거가 아니라 사용자 확인 필요 자료로 취급하는 프롬프트/서비스 규칙과 관련 테스트 갱신을 반영했다.
 - 검증: `corepack pnpm run worklog:prepare`, `corepack pnpm run worklog:export` 통과.
-- Figma bridge health 200 확인 후 `corepack pnpm run figma:apply-log -- --timeout-ms=60000` 실행, 결과 `Figma WORK_LOG appended`.
+- Figma bridge가 꺼져 있어 `scripts/start-figma-work-log-bridge.ps1`로 로컬 bridge를 시작했고, health 200 확인 후 `corepack pnpm run figma:apply-log -- --timeout-ms=60000` 실행 결과 `Figma WORK_LOG appended`.
