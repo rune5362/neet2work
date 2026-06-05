@@ -1682,12 +1682,15 @@ describe("AIDraftChatBuilder chat UX", () => {
     render(<AIDraftChatBuilder />);
 
     await screen.findByText("실전 백엔드 엔지니어");
+    const textarea = screen.getByPlaceholderText("메시지를 입력하세요...");
     const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click");
     fireEvent.click(screen.getByRole("button", { name: "작성 옵션" }));
     fireEvent.click(screen.getByRole("button", { name: "사진 및 파일 추가" }));
+    window.dispatchEvent(new Event("focus"));
 
     expect(clickSpy).toHaveBeenCalled();
     expect(screen.queryByRole("dialog", { name: "작성 옵션" })).not.toBeInTheDocument();
+    await waitFor(() => expect(textarea).toHaveFocus());
     clickSpy.mockRestore();
   });
 
@@ -1720,10 +1723,12 @@ describe("AIDraftChatBuilder chat UX", () => {
     render(<AIDraftChatBuilder />);
 
     await screen.findByText("실전 백엔드 엔지니어");
+    const textarea = screen.getByPlaceholderText("메시지를 입력하세요...");
     fireEvent.click(screen.getByRole("button", { name: "작성 옵션" }));
     await attachTextFile("resume.md", "마크다운 첨부 본문입니다.");
 
     expect(screen.getByText(/resume\.md/)).toBeInTheDocument();
+    await waitFor(() => expect(textarea).toHaveFocus());
     expect(screen.getByText("MD")).toBeInTheDocument();
     const composerBar = document.querySelector(".aiDraftComposerBar.withAttachments") as HTMLElement;
     const attachmentChip = document.querySelector(".aiDraftAttachedFileChip") as HTMLElement;

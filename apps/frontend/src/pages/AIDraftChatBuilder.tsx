@@ -914,6 +914,7 @@ export function AIDraftChatBuilder() {
   const referenceLoadRequestIdRef = useRef(0);
   const profileLoadRequestIdRef = useRef(0);
   const emptyComposerBackspaceCountRef = useRef(0);
+  const shouldFocusComposerAfterFilePickerRef = useRef(false);
   const sendReplyTimeoutRef = useRef<number | null>(null);
 
   const clearSendReplyTimeout = () => {
@@ -1542,10 +1543,27 @@ export function AIDraftChatBuilder() {
     window.requestAnimationFrame(() => composerInputRef.current?.focus());
   };
 
+  const focusComposerInputAfterFilePicker = () => {
+    shouldFocusComposerAfterFilePickerRef.current = false;
+    focusComposerInputSoon();
+  };
+
   const closeComposerMenusAndFocusInput = () => {
     closeComposerMenus();
     focusComposerInputSoon();
   };
+
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      if (shouldFocusComposerAfterFilePickerRef.current) {
+        shouldFocusComposerAfterFilePickerRef.current = false;
+        window.requestAnimationFrame(() => composerInputRef.current?.focus());
+      }
+    };
+
+    window.addEventListener("focus", handleWindowFocus);
+    return () => window.removeEventListener("focus", handleWindowFocus);
+  }, []);
 
   const getComposerMenuFocusTargets = (menu: HTMLElement) => {
     return Array.from(
@@ -1886,13 +1904,15 @@ export function AIDraftChatBuilder() {
   };
 
   const openFilePicker = () => {
-    fileInputRef.current?.click();
+    shouldFocusComposerAfterFilePickerRef.current = true;
     closeComposerMenus();
+    fileInputRef.current?.click();
   };
 
   const handleFileInputChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = event.target.files;
     if (!selectedFiles?.length) {
+      focusComposerInputAfterFilePicker();
       return;
     }
 
@@ -1924,6 +1944,7 @@ export function AIDraftChatBuilder() {
       ...nextAttachments.map((file) => ({ kind: "attachment" as const, id: file.id }))
     ]);
     event.target.value = "";
+    focusComposerInputAfterFilePicker();
     playTone(settings.sound, "open");
 
     const promoteDraftStateIfAnalyzable = (nextFiles: AttachedFile[]) => {
