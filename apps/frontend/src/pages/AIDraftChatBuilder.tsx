@@ -1,4 +1,4 @@
-import { type ChangeEvent, type CSSProperties, type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, FileText, X } from "lucide-react";
 import {
   createDraftWorkflowDraft,
@@ -901,6 +901,7 @@ export function AIDraftChatBuilder() {
   const [referenceLoadStatus, setReferenceLoadStatus] = useState<ReferenceLoadStatus>("idle");
   const timelineRef = useRef<HTMLDivElement>(null);
   const composerBarRef = useRef<HTMLDivElement>(null);
+  const composerOptionsMenuRef = useRef<HTMLDivElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const draftFitProgressRef = useRef(0);
@@ -1313,6 +1314,42 @@ export function AIDraftChatBuilder() {
   }, [input, syncComposerHeight]);
 
   useEffect(() => {
+    if (!composerMenuOpen) {
+      return undefined;
+    }
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      const menu = composerOptionsMenuRef.current;
+      if (!menu) {
+        return;
+      }
+
+      const activeElement = document.activeElement;
+      if (activeElement instanceof Element && menu.contains(activeElement)) {
+        return;
+      }
+
+      getComposerMenuFocusTargets(menu)[0]?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [composerMenuOpen]);
+
+  useEffect(() => {
+    if (!profileMenuOpen || profileLoadStatus !== "ready") {
+      return undefined;
+    }
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      composerOptionsMenuRef.current
+        ?.querySelector<HTMLButtonElement>("button.aiDraftComposerProfileOption:not(:disabled)")
+        ?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [profileLoadStatus, profileMenuOpen, profileOptions.length]);
+
+  useEffect(() => {
     if (!newChatConfirmOpen) {
       return undefined;
     }
@@ -1452,6 +1489,72 @@ export function AIDraftChatBuilder() {
     setProfileMenuOpen(false);
     setModelMenuOpen(false);
     setDownloadMenuOpen(false);
+  };
+
+  const getComposerMenuFocusTargets = (menu: HTMLElement) => {
+    return Array.from(
+      menu.querySelectorAll<HTMLButtonElement>(
+        "button.aiDraftComposerMenuItem, button.aiDraftComposerSubmenuTrigger, button.aiDraftComposerMenuToggle, button.aiDraftComposerToneOption, button.aiDraftComposerProfileOption"
+      )
+    ).filter((button) => !button.disabled);
+  };
+
+  const focusComposerMenuItem = (menu: HTMLElement, direction: 1 | -1) => {
+    const targets = getComposerMenuFocusTargets(menu);
+    if (targets.length === 0) {
+      return;
+    }
+
+    const activeIndex = targets.findIndex((button) => button === document.activeElement);
+    const nextIndex = activeIndex === -1
+      ? direction === 1 ? 0 : targets.length - 1
+      : (activeIndex + direction + targets.length) % targets.length;
+
+    targets[nextIndex].focus();
+  };
+
+  const handleComposerOptionsKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const menu = composerOptionsMenuRef.current;
+    if (!menu) {
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusComposerMenuItem(menu, 1);
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusComposerMenuItem(menu, -1);
+      return;
+    }
+
+    if (event.key === "Home") {
+      event.preventDefault();
+      getComposerMenuFocusTargets(menu)[0]?.focus();
+      return;
+    }
+
+    if (event.key === "End") {
+      event.preventDefault();
+      const targets = getComposerMenuFocusTargets(menu);
+      targets[targets.length - 1]?.focus();
+      return;
+    }
+
+    if ((event.key === "Enter" || event.key === " ") && event.target instanceof HTMLButtonElement) {
+      event.preventDefault();
+      event.target.click();
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeComposerMenus();
+      composerInputRef.current?.focus();
+    }
   };
 
   const toggleComposerMenu = () => {
@@ -2546,9 +2649,11 @@ export function AIDraftChatBuilder() {
 
                   {composerMenuOpen && (
                     <div
+                      ref={composerOptionsMenuRef}
                       className="aiDraftComposerPopover aiDraftComposerOptionsMenu aiDraftComposerOptionsMenuCompact"
                       role="dialog"
                       aria-label="작성 옵션"
+                      onKeyDown={handleComposerOptionsKeyDown}
                     >
                       <button
                         type="button"

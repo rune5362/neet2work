@@ -1461,6 +1461,31 @@ describe("AIDraftChatBuilder chat UX", () => {
     expect(screen.getByText("백엔드 지원 프로필")).toBeInTheDocument();
   });
 
+  it("supports arrow-key navigation in slash-opened composer options", async () => {
+    setStoredAuthSession();
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+    const textarea = screen.getByPlaceholderText("메시지를 입력하세요...");
+    fireEvent.change(textarea, { target: { value: "/" } });
+
+    const optionsDialog = screen.getByRole("dialog", { name: "작성 옵션" });
+    const attachButton = screen.getByRole("button", { name: "사진 및 파일 추가" });
+    const profileButton = screen.getByRole("button", { name: "프로필 추가" });
+
+    await waitFor(() => expect(attachButton).toHaveFocus());
+
+    fireEvent.keyDown(optionsDialog, { key: "ArrowDown" });
+    expect(profileButton).toHaveFocus();
+
+    fireEvent.keyDown(profileButton, { key: "Enter" });
+    expect(await screen.findByRole("listbox", { name: "프로필 추가" })).toBeInTheDocument();
+
+    await waitFor(() =>
+      expect(screen.getByRole("option", { name: /백엔드 지원 프로필/ })).toHaveFocus()
+    );
+  });
+
   it("excludes removed profile contexts from the plan payload", async () => {
     setStoredAuthSession();
     render(<AIDraftChatBuilder />);
