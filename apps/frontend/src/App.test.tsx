@@ -65,7 +65,11 @@ const profile: ProfileDetail = {
   isDefault: true,
   isArchived: false,
   createdAt: timestamp,
-  updatedAt: timestamp
+  updatedAt: timestamp,
+  deletedAt: null,
+  createdBy: null,
+  updatedBy: null,
+  deletedBy: null
 };
 
 const document: DocumentDetail = {
@@ -86,7 +90,11 @@ const document: DocumentDetail = {
   jobSnapshotJson: null,
   isArchived: false,
   createdAt: timestamp,
-  updatedAt: timestamp
+  updatedAt: timestamp,
+  deletedAt: null,
+  createdBy: null,
+  updatedBy: null,
+  deletedBy: null
 };
 
 const protectedDocument: DocumentDetail = {
