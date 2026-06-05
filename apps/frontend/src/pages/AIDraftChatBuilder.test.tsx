@@ -1515,6 +1515,27 @@ describe("AIDraftChatBuilder chat UX", () => {
     expect(body.experienceInput.profileContexts).toBeUndefined();
   });
 
+  it("keeps the composer input empty and aligned after removing a selected profile", async () => {
+    setStoredAuthSession();
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+    const textarea = screen.getByPlaceholderText("메시지를 입력하세요...");
+    fireEvent.click(screen.getByRole("button", { name: "작성 옵션" }));
+    fireEvent.click(screen.getByRole("button", { name: "프로필 추가" }));
+    fireEvent.click(await screen.findByRole("option", { name: /백엔드 지원 프로필/ }));
+
+    const composerBar = textarea.closest(".aiDraftComposerBar");
+    expect(composerBar).toHaveClass("withAttachments");
+
+    fireEvent.click(screen.getByRole("button", { name: "백엔드 지원 프로필 제거" }));
+
+    await waitFor(() => expect(composerBar).not.toHaveClass("withAttachments"));
+    expect(textarea).toHaveValue("");
+    expect(textarea).not.toHaveTextContent("null");
+    expect(document.body).not.toHaveTextContent(/^null$/);
+  });
+
   it("closes composer options when the chat input is clicked", async () => {
     render(<AIDraftChatBuilder />);
 

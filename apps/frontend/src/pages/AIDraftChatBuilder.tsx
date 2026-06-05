@@ -1790,7 +1790,9 @@ export function AIDraftChatBuilder() {
 
   const removeProfileContext = (profileId: string) => {
     setSelectedProfileContexts((prev) => prev.filter((profile) => profile.profileId !== profileId));
+    setInput((current) => (typeof current === "string" ? current : ""));
     resetWorkflow();
+    window.requestAnimationFrame(syncComposerHeight);
     playTone(settings.sound, "open");
   };
 
