@@ -1341,9 +1341,7 @@ export function AIDraftChatBuilder() {
     }
 
     const animationFrame = window.requestAnimationFrame(() => {
-      composerOptionsMenuRef.current
-        ?.querySelector<HTMLButtonElement>("button.aiDraftComposerProfileOption:not(:disabled)")
-        ?.focus();
+      focusFirstProfileOption();
     });
 
     return () => window.cancelAnimationFrame(animationFrame);
@@ -1491,6 +1489,15 @@ export function AIDraftChatBuilder() {
     setDownloadMenuOpen(false);
   };
 
+  const focusComposerInputSoon = () => {
+    window.requestAnimationFrame(() => composerInputRef.current?.focus());
+  };
+
+  const closeComposerMenusAndFocusInput = () => {
+    closeComposerMenus();
+    focusComposerInputSoon();
+  };
+
   const getComposerMenuFocusTargets = (menu: HTMLElement) => {
     return Array.from(
       menu.querySelectorAll<HTMLButtonElement>(
@@ -1513,10 +1520,66 @@ export function AIDraftChatBuilder() {
     targets[nextIndex].focus();
   };
 
+  const focusComposerMenuTrigger = (label: "프로필 추가" | "문체 설정") => {
+    composerOptionsMenuRef.current
+      ?.querySelector<HTMLButtonElement>(`button.aiDraftComposerSubmenuTrigger[aria-label="${label}"]`)
+      ?.focus();
+  };
+
+  const focusFirstProfileOption = () => {
+    composerOptionsMenuRef.current
+      ?.querySelector<HTMLButtonElement>("button.aiDraftComposerProfileOption:not(:disabled)")
+      ?.focus();
+  };
+
+  const focusFirstToneOption = () => {
+    composerOptionsMenuRef.current
+      ?.querySelector<HTMLButtonElement>("button.aiDraftComposerToneOption:not(:disabled)")
+      ?.focus();
+  };
+
   const handleComposerOptionsKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const menu = composerOptionsMenuRef.current;
     if (!menu) {
       return;
+    }
+
+    if (event.key === "ArrowRight" && event.target instanceof HTMLElement) {
+      if (event.target.closest('button[aria-label="프로필 추가"]')) {
+        event.preventDefault();
+        setToneMenuOpen(false);
+        setProfileMenuOpen(true);
+        if (profileLoadStatus === "idle") {
+          void loadProfileOptions();
+        } else {
+          window.requestAnimationFrame(focusFirstProfileOption);
+        }
+        return;
+      }
+
+      if (event.target.closest('button[aria-label="문체 설정"]')) {
+        event.preventDefault();
+        setProfileMenuOpen(false);
+        setToneMenuOpen(true);
+        window.requestAnimationFrame(focusFirstToneOption);
+        return;
+      }
+    }
+
+    if (event.key === "ArrowLeft" && event.target instanceof HTMLElement) {
+      if (event.target.closest(".aiDraftComposerProfileSubmenu")) {
+        event.preventDefault();
+        setProfileMenuOpen(false);
+        window.requestAnimationFrame(() => focusComposerMenuTrigger("프로필 추가"));
+        return;
+      }
+
+      if (event.target.closest(".aiDraftComposerToneSubmenu")) {
+        event.preventDefault();
+        setToneMenuOpen(false);
+        window.requestAnimationFrame(() => focusComposerMenuTrigger("문체 설정"));
+        return;
+      }
     }
 
     if (event.key === "ArrowDown") {
@@ -1604,7 +1667,7 @@ export function AIDraftChatBuilder() {
         modelId: provider?.models.find((model) => model.recommended)?.modelId ?? provider?.models[0]?.modelId
       });
     }
-    closeComposerMenus();
+    closeComposerMenusAndFocusInput();
     playTone(settings.sound, "open");
   };
 
@@ -1682,7 +1745,12 @@ export function AIDraftChatBuilder() {
 
   const handleToneSelect = (tone: AiSettings["tone"]) => {
     updateSettings("tone", tone);
-    closeComposerMenus();
+    closeComposerMenusAndFocusInput();
+  };
+
+  const handleFollowUpToggle = () => {
+    updateSettings("followUp", !settings.followUp);
+    closeComposerMenusAndFocusInput();
   };
 
   const toDraftProfileContext = (profile: ProfileListItem): DraftProfileContext | null => {
@@ -1714,7 +1782,7 @@ export function AIDraftChatBuilder() {
     );
     resetWorkflow();
     setDraftState((prev) => (prev === "planning" || prev === "drafting" ? prev : "ready"));
-    closeComposerMenus();
+    closeComposerMenusAndFocusInput();
     setInput((current) => (current.trim() === "/" ? "" : current));
     window.requestAnimationFrame(syncComposerHeight);
     playTone(settings.sound, "open");
@@ -2707,7 +2775,7 @@ export function AIDraftChatBuilder() {
                         role="switch"
                         aria-checked={settings.followUp}
                         aria-label="단답 보완 질문"
-                        onClick={() => updateSettings("followUp", !settings.followUp)}
+                        onClick={handleFollowUpToggle}
                       >
                         <span className="aiDraftComposerMenuToggleLabel">단답 보완 질문</span>
                         <span className="aiDraftComposerMenuSwitch" aria-hidden="true" />

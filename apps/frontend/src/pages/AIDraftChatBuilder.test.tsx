@@ -1459,6 +1459,7 @@ describe("AIDraftChatBuilder chat UX", () => {
 
     expect(textarea).toHaveValue("");
     expect(screen.getByText("백엔드 지원 프로필")).toBeInTheDocument();
+    await waitFor(() => expect(textarea).toHaveFocus());
   });
 
   it("supports arrow-key navigation in slash-opened composer options", async () => {
@@ -1478,12 +1479,16 @@ describe("AIDraftChatBuilder chat UX", () => {
     fireEvent.keyDown(optionsDialog, { key: "ArrowDown" });
     expect(profileButton).toHaveFocus();
 
-    fireEvent.keyDown(profileButton, { key: "Enter" });
+    fireEvent.keyDown(profileButton, { key: "ArrowRight" });
     expect(await screen.findByRole("listbox", { name: "프로필 추가" })).toBeInTheDocument();
 
     await waitFor(() =>
       expect(screen.getByRole("option", { name: /백엔드 지원 프로필/ })).toHaveFocus()
     );
+
+    fireEvent.keyDown(screen.getByRole("option", { name: /백엔드 지원 프로필/ }), { key: "ArrowLeft" });
+    await waitFor(() => expect(profileButton).toHaveFocus());
+    expect(screen.queryByRole("listbox", { name: "프로필 추가" })).not.toBeInTheDocument();
   });
 
   it("excludes removed profile contexts from the plan payload", async () => {
@@ -1603,7 +1608,8 @@ describe("AIDraftChatBuilder chat UX", () => {
     expect(followUpToggle).toHaveAttribute("aria-checked", "true");
 
     fireEvent.click(followUpToggle);
-    expect(followUpToggle).toHaveAttribute("aria-checked", "false");
+    expect(screen.queryByRole("dialog", { name: "작성 옵션" })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByPlaceholderText("메시지를 입력하세요...")).toHaveFocus());
   });
 
   it("selects tone from the tone submenu and closes both popups", async () => {
@@ -1618,6 +1624,7 @@ describe("AIDraftChatBuilder chat UX", () => {
     expect(document.querySelector(".aiDraftComposerToneSubmenu")).toBeNull();
     expect(screen.queryByRole("dialog", { name: "작성 옵션" })).not.toBeInTheDocument();
     expect(document.querySelector(".aiDraftSideHeader strong")?.textContent).toBe("성과 강조형");
+    await waitFor(() => expect(screen.getByPlaceholderText("메시지를 입력하세요...")).toHaveFocus());
   });
 
   it("updates the selected provider from the composer provider menu", async () => {
