@@ -28,6 +28,7 @@
 
 - `apps/backend/package.json`의 `dependencies`에 `ssh2`를 추가한다.
 - TypeScript 타입이 필요하면 `devDependencies`에 `@types/ssh2`를 추가한다.
+- 로컬 smoke test 실행을 위해 backend script에 `agy:local:smoke`를 추가한다.
 - SSH smoke test 실행을 위해 backend script에 `agy:ssh:smoke`를 추가한다.
 - 의존성 추가 시 lockfile을 함께 갱신하고, 신규 transitive dependency를 검토한다.
 
@@ -47,6 +48,8 @@
 - `AGY_CLI_MODEL` 또는 요청의 `modelId`를 지원할 경우 allowlist된 값만 허용한다. allowlist가 없으면 model override를 무시하고 기본 모델만 사용한다.
 - `AGY_CLI_MAX_CONCURRENCY`를 추가해 동시에 실행되는 local child process 또는 SSH command 수를 제한한다.
 - `agy_cli`의 용도는 코드 수정/셸 실행 agent가 아니라 자기소개서 첨삭 provider로 고정한다. 이 용도는 API 요청에서 변경할 수 없고, backend prompt builder의 상수 instruction으로 관리한다.
+- 실행 모드는 명확히 분기한다. `AGY_SSH_ENABLED=true`이면 SSH 원격 실행만 사용하고, `false`이면 로컬 실행만 사용한다.
+- 로컬 실행 작업 디렉터리는 `AGY_CLI_WORKDIR`로 선택 설정할 수 있다. 미설정 시 백엔드가 생성한 안전한 임시 디렉터리를 사용하고, 사용자 홈이나 repo 루트 전체를 기본 cwd로 노출하지 않는다.
 
 #### .env.example
 
@@ -64,6 +67,7 @@ AGY_CLI_MAX_OUTPUT_BYTES=1000000
 AGY_CLI_MAX_CONCURRENCY=1
 AGY_CLI_MODEL_ALLOWLIST=
 AGY_CLI_TASK_PROFILE=cover_letter_review
+AGY_CLI_WORKDIR=
 
 AGY_SSH_ENABLED=false
 AGY_SSH_HOST=
@@ -87,6 +91,7 @@ AGY_SSH_EXEC_TIMEOUT_MS=120000
 - `AGY_CLI_MAX_PROMPT_BYTES`: stdin으로 전달할 prompt 최대 크기다. 초과 시 provider 실행을 거부한다.
 - `AGY_CLI_MAX_OUTPUT_BYTES`: stdout/stderr 누적 최대 크기다. 초과 시 provider 실행을 중단한다.
 - `AGY_CLI_MAX_CONCURRENCY`: 동시에 실행할 수 있는 `agy_cli` 작업 수다. 원격/로컬 프로세스 폭증을 막기 위해 기본값 `1`을 권장한다.
+- `AGY_CLI_WORKDIR`: 로컬 `agy.exe` 실행 cwd다. 미설정 시 안전한 임시 디렉터리를 사용한다. 설정하는 경우 절대 경로만 허용하고, 비밀 파일이 있는 디렉터리를 지정하지 않는다.
 - `AGY_SSH_ENABLED`: 원격 SSH 실행을 사용할 때만 `true`로 변경한다. `true`일 때는 host, username, key path, host key 검증 값이 모두 필요하다.
 - `AGY_SSH_HOST`: 원격 서버 주소다. API 요청에서 받지 않고 서버 환경 변수로만 관리한다.
 - `AGY_SSH_PORT`: SSH 포트다. 기본값은 `22`이며 양의 정수만 허용한다.
@@ -99,6 +104,41 @@ AGY_SSH_EXEC_TIMEOUT_MS=120000
 - `AGY_SSH_EXEC_TIMEOUT_MS`: 원격 wrapper 실행 제한 시간이다.
 
 로컬 실행과 SSH 실행을 모두 설정한 경우에는 `AGY_SSH_ENABLED=true`일 때 SSH 실행을 우선 사용한다. 운영자는 둘 중 하나의 실행 방식을 명확히 선택하는 것을 권장한다.
+
+### Local Connection Plan
+
+- 로컬 실행은 `AGY_SSH_ENABLED=false`이고 `AGY_CLI_ENABLED=true`일 때만 활성화한다.
+- `getStatus()`는 아래 순서로 로컬 연결 가능성을 판단한다.
+  1. `AGY_CLI_TASK_PROFILE=cover_letter_review` 검증
+  2. `AGY_CLI_SANDBOX_POLICY=readOnly` 검증
+  3. `AGY_CLI_COMMAND` 또는 공식 설치 후보 경로 확인
+  4. 실행 파일명 allowlist와 절대 경로 검증
+  5. `AGY_CLI_WORKDIR` 검증 또는 안전한 임시 cwd 준비 가능 여부 확인
+  6. 필요 시 `agy --version` 또는 read-only probe를 timeout 안에서 실행
+- `execute()`는 로컬 child process를 만들 때 backend process 환경 변수를 그대로 넘기지 않는다. 필요한 최소 환경 변수만 allowlist로 구성한다.
+- 로컬 child process에는 stdin/stdout/stderr pipe만 연결하고, shell/stdio inherit/interactive prompt는 사용하지 않는다.
+- stdin write 후 반드시 `stdin.end()`를 호출한다.
+- timeout, output limit 초과, JSON schema 실패, child exit code non-zero는 provider 실패로 처리하고 기존 fallback 흐름을 사용한다.
+- timeout 또는 실패 시 child process를 종료한다. Windows에서는 우선 `child.kill()`을 호출하고, 종료되지 않으면 후속 cleanup 절차를 둔다.
+- 로컬 smoke test script `agy:local:smoke`를 추가한다. 이 스크립트는 로컬 실행 파일 탐색, readOnly args, stdin 전달, JSON-only 응답, 민감정보 로그 미노출을 확인한다.
+
+### SSH Remote Connection Plan
+
+- SSH 실행은 `AGY_CLI_ENABLED=true`이고 `AGY_SSH_ENABLED=true`일 때만 활성화한다.
+- SSH 원격 서버에는 사전에 readOnly wrapper를 배치한다. Linux 예시는 `/opt/neet2work/run-agy-readonly`이며, Windows OpenSSH 서버를 쓰는 경우에도 공백 없는 absolute wrapper path를 별도로 배치하고 같은 검증 규칙을 적용한다.
+- wrapper는 외부 argument를 받지 않고 stdin만 읽는다. wrapper 내부에서만 `agy.exe --stdin --sandbox-policy readOnly`와 동등한 명령을 고정 실행한다.
+- `getStatus()`는 아래 순서로 SSH 연결 가능성을 판단한다.
+  1. host, port, username, key path 필수값 검증
+  2. private key 파일 존재 및 읽기 가능 여부 확인
+  3. host fingerprint 또는 known_hosts 설정 존재 확인
+  4. wrapper path absolute path 정규식 검증
+  5. SSH connect timeout 안에서 연결 및 host key 검증
+  6. wrapper read-only probe를 exec timeout 안에서 실행
+- `ssh2` 연결 옵션은 private key 인증만 사용하고 password auth, keyboard-interactive, agent forwarding, X11, PTY를 사용하지 않는다.
+- known_hosts를 사용할 경우 host와 port를 함께 검증한다. fingerprint를 사용할 경우 SHA256 fingerprint가 정확히 일치해야 한다.
+- SSH 연결 실패, host key 불일치, wrapper probe 실패, remote exit code non-zero는 provider offline 또는 provider error로 처리하고 sanitized reason만 남긴다.
+- 원격 stderr/stdout 원문은 API 응답과 일반 로그에 노출하지 않는다. smoke test에서도 host, username, key path, fingerprint 전체값을 출력하지 않는다.
+- SSH smoke test `agy:ssh:smoke`는 wrapper 배치 여부, host key 검증, stdin 전달, JSON-only 응답, readOnly sandbox 적용, 민감정보 로그 미노출을 확인한다.
 
 #### ai-routing.ts 및 draft-workflow schema
 
@@ -141,6 +181,8 @@ AGY_SSH_EXEC_TIMEOUT_MS=120000
 - `execute()`는 draft-workflow prompt를 생성한 뒤 최대 prompt 크기를 검증한다.
 - `execute()`는 `AGY_CLI_TASK_PROFILE=cover_letter_review`를 확인하고, profile context가 없는 요청은 실행하지 않는다.
 - 동시 실행 수가 `AGY_CLI_MAX_CONCURRENCY`를 초과하면 provider를 실행하지 않고 fallback 가능 오류를 반환한다.
+- 실행 모드 선택은 `AGY_SSH_ENABLED` 하나로 결정한다. SSH 모드에서는 로컬 executable fallback을 시도하지 않고, 로컬 모드에서는 SSH 설정을 사용하지 않는다.
+- 로컬 실행 시 cwd는 `AGY_CLI_WORKDIR` 또는 안전한 임시 디렉터리로 고정하고, child process env는 allowlist된 최소값만 전달한다.
 - 로컬 실행은 아래와 같이 고정 args 배열로만 수행한다.
 
 ```ts
@@ -163,10 +205,18 @@ spawn(command, ["--stdin", "--sandbox-policy", "readOnly"], { shell: false })
 
 ### Smoke Test Script
 
+- `apps/backend/src/scripts/agyLocalSmoke.ts`를 추가한다.
 - `apps/backend/src/scripts/agySshSmoke.ts`를 추가한다.
-- SSH 설정이 준비되지 않은 경우 명확한 메시지와 non-zero exit code를 반환한다.
+- 로컬 또는 SSH 설정이 준비되지 않은 경우 명확한 메시지와 non-zero exit code를 반환한다.
 - smoke test는 민감 설정 값을 출력하지 않는다.
-- 성공 조건은 다음과 같다.
+- 로컬 smoke test 성공 조건은 다음과 같다.
+  - 로컬 실행 파일 탐색 및 allowlist 검증 통과
+  - 안전한 cwd 사용
+  - 고정 args와 `shell: false` 사용
+  - prompt가 stdin으로 전달됨
+  - JSON-only 응답 수신
+  - 원문 prompt와 stderr가 로그에 노출되지 않음
+- SSH smoke test 성공 조건은 다음과 같다.
   - SSH host key 검증 통과
   - wrapper command 실행 성공
   - prompt가 stdin으로 전달됨
@@ -177,6 +227,7 @@ spawn(command, ["--stdin", "--sandbox-policy", "readOnly"], { shell: false })
 실행 명령:
 
 ```powershell
+corepack pnpm --filter @neet2work/backend run agy:local:smoke
 corepack pnpm --filter @neet2work/backend run agy:ssh:smoke
 ```
 
@@ -212,6 +263,14 @@ stdout/stderr를 무제한 누적하면 원격 CLI 오작동 또는 악의적 �
 - `AGY_CLI_SANDBOX_POLICY`가 `readOnly`가 아닌 경우 환경과 무관하게 실행이 거부된다.
 - SSH fingerprint가 없거나 불일치하면 연결이 실패한다.
 - 원격 command가 allowlist wrapper가 아니면 실행이 실패한다.
+- `AGY_SSH_ENABLED=true`이면 로컬 executable fallback을 시도하지 않는다.
+- `AGY_SSH_ENABLED=false`이면 SSH 설정이 있어도 로컬 실행만 사용한다.
+- 로컬 실행 파일 경로가 상대 경로이거나 파일명 allowlist에 없으면 provider가 offline으로 보고된다.
+- 로컬 실행 cwd가 상대 경로이거나 접근할 수 없으면 provider가 offline으로 보고된다.
+- 로컬 child process env에 backend 전체 환경 변수가 그대로 전달되지 않는다.
+- SSH private key 파일이 없거나 읽을 수 없으면 provider가 offline으로 보고된다.
+- known_hosts 검증은 host와 port를 함께 확인한다.
+- SSH wrapper probe가 실패하면 provider가 offline으로 보고된다.
 - prompt는 command 또는 args 문자열에 포함되지 않고 stdin으로만 전달된다.
 - `modelId`가 allowlist에 없으면 CLI 실행 인자나 원격 wrapper에 반영되지 않는다.
 - `AGY_CLI_TASK_PROFILE`이 `cover_letter_review`가 아니면 provider가 실행되지 않는다.
@@ -232,9 +291,10 @@ stdout/stderr를 무제한 누적하면 원격 CLI 오작동 또는 악의적 �
 corepack pnpm --filter @neet2work/backend test
 ```
 
-SSH 환경이 실제로 준비된 경우에만 아래 smoke test를 실행한다.
+로컬 `agy.exe` 또는 SSH 환경이 실제로 준비된 경우에만 아래 smoke test를 실행한다.
 
 ```powershell
+corepack pnpm --filter @neet2work/backend run agy:local:smoke
 corepack pnpm --filter @neet2work/backend run agy:ssh:smoke
 ```
 
