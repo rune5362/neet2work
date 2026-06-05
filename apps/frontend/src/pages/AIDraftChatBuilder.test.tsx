@@ -1508,7 +1508,7 @@ describe("AIDraftChatBuilder chat UX", () => {
     expect(screen.queryByRole("listbox", { name: "프로필 추가" })).not.toBeInTheDocument();
   });
 
-  it("selects a focused profile option with Tab", async () => {
+  it("uses Tab as selection for composer menu items", async () => {
     setStoredAuthSession();
     render(<AIDraftChatBuilder />);
 
@@ -1517,7 +1517,8 @@ describe("AIDraftChatBuilder chat UX", () => {
     fireEvent.change(textarea, { target: { value: "/" } });
 
     const profileButton = screen.getByRole("button", { name: "프로필 추가" });
-    fireEvent.keyDown(profileButton, { key: "ArrowRight" });
+    profileButton.focus();
+    fireEvent.keyDown(profileButton, { key: "Tab" });
 
     const profileOption = await screen.findByRole("option", { name: /백엔드 지원 프로필/ });
     await waitFor(() => expect(profileOption).toHaveFocus());
@@ -1528,6 +1529,24 @@ describe("AIDraftChatBuilder chat UX", () => {
     expect(screen.getByText("백엔드 지원 프로필")).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "작성 옵션" })).not.toBeInTheDocument();
     await waitFor(() => expect(textarea).toHaveFocus());
+  });
+
+  it("uses Tab as selection in the tone submenu", async () => {
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+    fireEvent.click(screen.getByRole("button", { name: "작성 옵션" }));
+
+    const toneButton = screen.getByRole("button", { name: "문체 설정" });
+    toneButton.focus();
+    fireEvent.keyDown(toneButton, { key: "Tab" });
+
+    const toneOption = await screen.findByRole("option", { name: "성과 강조형" });
+    toneOption.focus();
+    fireEvent.keyDown(toneOption, { key: "Tab" });
+
+    expect(screen.queryByRole("dialog", { name: "작성 옵션" })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByPlaceholderText("메시지를 입력하세요...")).toHaveFocus());
   });
 
   it("removes the most recently added profile chip after two Backspace presses on an empty input", async () => {
@@ -1558,6 +1577,28 @@ describe("AIDraftChatBuilder chat UX", () => {
 
     await waitFor(() => expect(screen.queryByText("프론트엔드 지원 프로필")).not.toBeInTheDocument());
     expect(screen.getByText("백엔드 지원 프로필")).toBeInTheDocument();
+    expect(textarea).toHaveValue("");
+  });
+
+  it("removes the most recently added attachment chip after two Backspace presses on an empty input", async () => {
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+    const textarea = screen.getByPlaceholderText("메시지를 입력하세요...");
+    await attachTextFile("first-resume.txt", "첫 번째 첨부 파일 본문입니다.");
+    await attachTextFile("second-resume.txt", "두 번째 첨부 파일 본문입니다.");
+
+    expect(screen.getByText(/first-resume\.txt/)).toBeInTheDocument();
+    expect(screen.getByText(/second-resume\.txt/)).toBeInTheDocument();
+
+    textarea.focus();
+    fireEvent.keyDown(textarea, { key: "Backspace" });
+    expect(screen.getByText(/second-resume\.txt/)).toBeInTheDocument();
+
+    fireEvent.keyDown(textarea, { key: "Backspace" });
+
+    await waitFor(() => expect(screen.queryByText(/second-resume\.txt/)).not.toBeInTheDocument());
+    expect(screen.getByText(/first-resume\.txt/)).toBeInTheDocument();
     expect(textarea).toHaveValue("");
   });
 
@@ -1646,7 +1687,33 @@ describe("AIDraftChatBuilder chat UX", () => {
     fireEvent.click(screen.getByRole("button", { name: "사진 및 파일 추가" }));
 
     expect(clickSpy).toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: "작성 옵션" })).not.toBeInTheDocument();
     clickSpy.mockRestore();
+  });
+
+  it("keeps profile and attachment chips in one insertion order", async () => {
+    setStoredAuthSession();
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+    const textarea = screen.getByPlaceholderText("메시지를 입력하세요...");
+    await attachTextFile("resume.md", "마크다운 첨부 본문입니다.");
+    fireEvent.click(screen.getByRole("button", { name: "작성 옵션" }));
+    fireEvent.click(screen.getByRole("button", { name: "프로필 추가" }));
+    fireEvent.click(await screen.findByRole("option", { name: /백엔드 지원 프로필/ }));
+
+    const chipNames = Array.from(document.querySelectorAll(".aiDraftAttachedFileName")).map((node) =>
+      node.textContent?.trim()
+    );
+    expect(chipNames).toEqual(["resume.md", "백엔드 지원 프로필"]);
+
+    fireEvent.keyDown(textarea, { key: "Backspace" });
+    expect(screen.getByText("백엔드 지원 프로필")).toBeInTheDocument();
+
+    fireEvent.keyDown(textarea, { key: "Backspace" });
+
+    await waitFor(() => expect(screen.queryByText("백엔드 지원 프로필")).not.toBeInTheDocument());
+    expect(screen.getByText(/resume\.md/)).toBeInTheDocument();
   });
 
   it("shows attached text files as chips above the composer bar", async () => {

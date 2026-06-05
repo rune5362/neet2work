@@ -106,6 +106,10 @@ type AttachedFile = {
   loading: boolean;
 };
 
+type ComposerContextChipOrderItem =
+  | { kind: "profile"; id: string }
+  | { kind: "attachment"; id: string };
+
 type AtsMetric = {
   label: string;
   value: number;
@@ -895,6 +899,7 @@ export function AIDraftChatBuilder() {
   const [sentAttachmentSignature, setSentAttachmentSignature] = useState("");
   const [profileOptions, setProfileOptions] = useState<ProfileListItem[]>([]);
   const [selectedProfileContexts, setSelectedProfileContexts] = useState<DraftProfileContext[]>([]);
+  const [composerContextChipOrder, setComposerContextChipOrder] = useState<ComposerContextChipOrderItem[]>([]);
   const [profileLoadStatus, setProfileLoadStatus] = useState<ProfileLoadStatus>("idle");
   const [coverLetterReferences, setCoverLetterReferences] = useState<DocumentListItem[]>([]);
   const [selectedReferenceDocumentId, setSelectedReferenceDocumentId] = useState<string | null>(null);
@@ -953,7 +958,50 @@ export function AIDraftChatBuilder() {
   );
   const hasUnsentReadyAttachments =
     readyAttachmentSignature.length > 0 && readyAttachmentSignature !== sentAttachmentSignature;
-  const hasComposerContextChips = attachedFiles.length > 0 || selectedProfileContexts.length > 0;
+  const orderedComposerContextChips = useMemo(() => {
+    const profilesById = new Map(selectedProfileContexts.map((profile) => [profile.profileId, profile]));
+    const attachmentsById = new Map(attachedFiles.map((file) => [file.id, file]));
+    const renderedKeys = new Set<string>();
+    const chips: Array<
+      | { kind: "profile"; key: string; profile: DraftProfileContext }
+      | { kind: "attachment"; key: string; file: AttachedFile }
+    > = [];
+
+    composerContextChipOrder.forEach((item) => {
+      const key = `${item.kind}:${item.id}`;
+      if (item.kind === "profile") {
+        const profile = profilesById.get(item.id);
+        if (profile) {
+          renderedKeys.add(key);
+          chips.push({ kind: "profile", key, profile });
+        }
+        return;
+      }
+
+      const file = attachmentsById.get(item.id);
+      if (file) {
+        renderedKeys.add(key);
+        chips.push({ kind: "attachment", key, file });
+      }
+    });
+
+    selectedProfileContexts.forEach((profile) => {
+      const key = `profile:${profile.profileId}`;
+      if (!renderedKeys.has(key)) {
+        chips.push({ kind: "profile", key, profile });
+      }
+    });
+
+    attachedFiles.forEach((file) => {
+      const key = `attachment:${file.id}`;
+      if (!renderedKeys.has(key)) {
+        chips.push({ kind: "attachment", key, file });
+      }
+    });
+
+    return chips;
+  }, [attachedFiles, composerContextChipOrder, selectedProfileContexts]);
+  const hasComposerContextChips = orderedComposerContextChips.length > 0;
   const canSendComposerMessage = input.trim().length > 0 || hasUnsentReadyAttachments;
   const selectedReferenceDocument = useMemo(
     () => coverLetterReferences.find((document) => document.id === selectedReferenceDocumentId) ?? null,
@@ -1608,17 +1656,9 @@ export function AIDraftChatBuilder() {
       return;
     }
 
-    if ((event.key === "Enter" || event.key === " ") && event.target instanceof HTMLButtonElement) {
-      event.preventDefault();
-      event.target.click();
-      return;
-    }
-
     if (
-      event.key === "Tab" &&
-      !event.shiftKey &&
-      event.target instanceof HTMLButtonElement &&
-      event.target.closest(".aiDraftComposerProfileSubmenu")
+      (event.key === "Enter" || event.key === " " || (event.key === "Tab" && !event.shiftKey)) &&
+      event.target instanceof HTMLButtonElement
     ) {
       event.preventDefault();
       event.target.click();
@@ -1792,6 +1832,11 @@ export function AIDraftChatBuilder() {
     setSelectedProfileContexts((prev) =>
       prev.some((item) => item.profileId === context.profileId) ? prev : [...prev, context]
     );
+    setComposerContextChipOrder((prev) =>
+      prev.some((item) => item.kind === "profile" && item.id === context.profileId)
+        ? prev
+        : [...prev, { kind: "profile", id: context.profileId }]
+    );
     resetWorkflow();
     setDraftState((prev) => (prev === "planning" || prev === "drafting" ? prev : "ready"));
     closeComposerMenusAndFocusInput();
@@ -1802,6 +1847,9 @@ export function AIDraftChatBuilder() {
 
   const removeProfileContext = (profileId: string) => {
     setSelectedProfileContexts((prev) => prev.filter((profile) => profile.profileId !== profileId));
+    setComposerContextChipOrder((prev) =>
+      prev.filter((item) => !(item.kind === "profile" && item.id === profileId))
+    );
     setInput((current) => (typeof current === "string" ? current : ""));
     emptyComposerBackspaceCountRef.current = 0;
     resetWorkflow();
@@ -1809,8 +1857,27 @@ export function AIDraftChatBuilder() {
     playTone(settings.sound, "open");
   };
 
-  const removeLastProfileContextFromComposer = () => {
-    setSelectedProfileContexts((prev) => prev.slice(0, -1));
+  const removeLastComposerContextChip = () => {
+    const lastChip = orderedComposerContextChips[orderedComposerContextChips.length - 1];
+    if (!lastChip) {
+      return;
+    }
+
+    if (lastChip.kind === "attachment") {
+      setAttachedFiles((prev) => prev.filter((file) => file.id !== lastChip.file.id));
+      setComposerContextChipOrder((prev) =>
+        prev.filter((item) => !(item.kind === "attachment" && item.id === lastChip.file.id))
+      );
+      setSentAttachmentSignature("");
+    } else {
+      setSelectedProfileContexts((prev) =>
+        prev.filter((profile) => profile.profileId !== lastChip.profile.profileId)
+      );
+      setComposerContextChipOrder((prev) =>
+        prev.filter((item) => !(item.kind === "profile" && item.id === lastChip.profile.profileId))
+      );
+    }
+
     setInput((current) => (typeof current === "string" ? current : ""));
     emptyComposerBackspaceCountRef.current = 0;
     resetWorkflow();
@@ -1820,6 +1887,7 @@ export function AIDraftChatBuilder() {
 
   const openFilePicker = () => {
     fileInputRef.current?.click();
+    closeComposerMenus();
   };
 
   const handleFileInputChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -1829,6 +1897,7 @@ export function AIDraftChatBuilder() {
     }
 
     resetWorkflow();
+    emptyComposerBackspaceCountRef.current = 0;
     setSentAttachmentSignature("");
     setDraftState((prev) => (prev === "planning" || prev === "drafting" ? prev : "idle"));
 
@@ -1838,17 +1907,22 @@ export function AIDraftChatBuilder() {
         file,
         canExtractText,
         attachment: {
-        id: crypto.randomUUID(),
-        name: file.name,
-        kind: (canExtractText ? "text" : "binary") as AttachedFileKind,
-        textContent: null,
-        readError: false,
-        loading: canExtractText,
+          id: crypto.randomUUID(),
+          name: file.name,
+          kind: (canExtractText ? "text" : "binary") as AttachedFileKind,
+          textContent: null,
+          readError: false,
+          loading: canExtractText,
         },
       };
     });
 
-    setAttachedFiles((prev) => [...prev, ...fileEntries.map((entry) => entry.attachment)]);
+    const nextAttachments = fileEntries.map((entry) => entry.attachment);
+    setAttachedFiles((prev) => [...prev, ...nextAttachments]);
+    setComposerContextChipOrder((prev) => [
+      ...prev,
+      ...nextAttachments.map((file) => ({ kind: "attachment" as const, id: file.id }))
+    ]);
     event.target.value = "";
     playTone(settings.sound, "open");
 
@@ -1902,8 +1976,14 @@ export function AIDraftChatBuilder() {
 
   const removeAttachedFile = (fileId: string) => {
     setAttachedFiles((prev) => prev.filter((file) => file.id !== fileId));
+    setComposerContextChipOrder((prev) =>
+      prev.filter((item) => !(item.kind === "attachment" && item.id === fileId))
+    );
+    setInput((current) => (typeof current === "string" ? current : ""));
+    emptyComposerBackspaceCountRef.current = 0;
     setSentAttachmentSignature("");
     resetWorkflow();
+    window.requestAnimationFrame(syncComposerHeight);
     playTone(settings.sound, "open");
   };
 
@@ -2209,6 +2289,7 @@ export function AIDraftChatBuilder() {
     setInput("");
     setAttachedFiles([]);
     setSelectedProfileContexts([]);
+    setComposerContextChipOrder([]);
     setSentAttachmentSignature("");
     setDraftState("idle");
     setDownloadMenuOpen(false);
@@ -2257,7 +2338,7 @@ export function AIDraftChatBuilder() {
       return;
     }
 
-    if (input.length > 0 || selectedProfileContexts.length === 0) {
+    if (input.length > 0 || !hasComposerContextChips) {
       emptyComposerBackspaceCountRef.current = 0;
       return;
     }
@@ -2266,7 +2347,7 @@ export function AIDraftChatBuilder() {
     emptyComposerBackspaceCountRef.current += 1;
 
     if (emptyComposerBackspaceCountRef.current >= 2) {
-      removeLastProfileContextFromComposer();
+      removeLastComposerContextChip();
     }
   };
 
@@ -2709,36 +2790,42 @@ export function AIDraftChatBuilder() {
 
                   {hasComposerContextChips && (
                     <div className="aiDraftAttachedFiles" aria-label="첨부 파일">
-                      {selectedProfileContexts.map((profile) => (
-                        <span
-                          key={profile.profileId}
-                          className="aiDraftAttachedFileChip type-profile"
-                          title={profile.title}
-                        >
-                          <span className="aiDraftAttachedFileIcon profile" aria-hidden="true">
-                            <FileText size={18} />
-                          </span>
-                          <span className="aiDraftAttachedFileChipBody">
-                            <span className="aiDraftAttachedFileName">{profile.title}</span>
-                            <span className="aiDraftAttachedFileType">프로필 근거</span>
-                          </span>
-                          <button
-                            type="button"
-                            className="aiDraftAttachedFileChipRemove"
-                            aria-label={`${profile.title} 제거`}
-                            onClick={() => removeProfileContext(profile.profileId)}
+                      {orderedComposerContextChips.map((chip) => {
+                        if (chip.kind === "profile") {
+                          const { profile } = chip;
+
+                        return (
+                          <span
+                            key={chip.key}
+                            className="aiDraftAttachedFileChip type-profile"
+                            title={profile.title}
                           >
-                            <X size={13} strokeWidth={3} />
-                          </button>
-                        </span>
-                      ))}
-                      {attachedFiles.map((file) => {
+                            <span className="aiDraftAttachedFileIcon profile" aria-hidden="true">
+                              <FileText size={18} />
+                            </span>
+                            <span className="aiDraftAttachedFileChipBody">
+                              <span className="aiDraftAttachedFileName">{profile.title}</span>
+                              <span className="aiDraftAttachedFileType">프로필 근거</span>
+                            </span>
+                            <button
+                              type="button"
+                              className="aiDraftAttachedFileChipRemove"
+                              aria-label={`${profile.title} 제거`}
+                              onClick={() => removeProfileContext(profile.profileId)}
+                            >
+                              <X size={13} strokeWidth={3} />
+                            </button>
+                          </span>
+                        );
+                        }
+
+                        const { file } = chip;
                         const attachmentVisual = getAttachmentVisual(file);
 
                         return (
                           <span
                             className={`aiDraftAttachedFileChip type-${attachmentVisual.tone} ${file.readError ? "error" : ""} ${file.kind === "binary" ? "binary" : ""} ${file.loading ? "loading" : ""}`}
-                            key={file.id}
+                            key={chip.key}
                           >
                             <span className={`aiDraftAttachedFileIcon ${attachmentVisual.tone}`} aria-hidden="true">
                               <FileText size={18} strokeWidth={2.2} />
