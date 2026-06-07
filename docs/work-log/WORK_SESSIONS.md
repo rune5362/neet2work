@@ -229,3 +229,9 @@
 - Scope: Gemma 4 모델 호출 실패를 수정하기 위해 모델 목록과 payload 변형을 실 API로 확인한 뒤, Gemma 모델은 `v1` endpoint를 쓰고 5xx transient error는 같은 모델에서 1회 재시도하도록 provider를 수정했다.
 - Gemini: API 모델 목록에서 `gemma-4-31b-it`, `gemma-4-26b-a4b-it`, `gemini-2.5-flash`가 모두 `generateContent`를 지원함을 확인했다. 수정 후 `안녕` 1회 호출은 세 모델 모두 200으로 성공했다.
 - Verification: backend Vitest 30 files / 242 tests, backend lint, backend build, `git diff --check`를 통과했다. build/test의 sandbox 제한은 승인 경로로 재실행했다.
+
+### 02:11 GitHub Actions secret 미설정 실패 처리
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: `sub-main` push 후 `Deploy to Oracle VM` GitHub Actions run이 실패하는 원인을 확인하고 workflow를 수정했다.
+- CI: run `27099218739`의 실패 지점은 `Validate secrets` 단계였고, `ORACLE_HOST`, `ORACLE_USER`, `ORACLE_SSH_PRIVATE_KEY`가 GitHub Secrets에 비어 있어 exit 1이 발생했다. VM pull-based deploy를 병행 중이므로 GitHub deploy secrets가 없을 때는 실패 대신 notice를 남기고 deploy steps를 skip하도록 `.github/workflows/deploy-oracle.yml`을 변경했다.
+- Verification: GitHub run/job/log 확인, workflow diff review, `git diff --check`를 통과했다.

@@ -19,17 +19,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate secrets
+      - name: Check deploy secrets
+        id: deploy-secrets
         env:
           ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
           ORACLE_USER: ${{ secrets.ORACLE_USER }}
           ORACLE_SSH_PRIVATE_KEY: ${{ secrets.ORACLE_SSH_PRIVATE_KEY }}
         run: |
-          test -n "$ORACLE_HOST"
-          test -n "$ORACLE_USER"
-          test -n "$ORACLE_SSH_PRIVATE_KEY"
+          if [[ -n "$ORACLE_HOST" && -n "$ORACLE_USER" && -n "$ORACLE_SSH_PRIVATE_KEY" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Oracle deploy secrets are not configured. Skipping GitHub Actions deploy; VM pull-based deploy can still deploy sub-main."
+          fi
 
       - name: Prepare SSH key
+        if: steps.deploy-secrets.outputs.available == 'true'
         env:
           ORACLE_SSH_PRIVATE_KEY: ${{ secrets.ORACLE_SSH_PRIVATE_KEY }}
         run: |
@@ -38,12 +43,14 @@ jobs:
           chmod 600 ~/.ssh/oracle_deploy_key
 
       - name: Trust Oracle host
+        if: steps.deploy-secrets.outputs.available == 'true'
         env:
           ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
         run: |
           ssh-keyscan -H "$ORACLE_HOST" >> ~/.ssh/known_hosts
 
       - name: Package source
+        if: steps.deploy-secrets.outputs.available == 'true'
         run: |
           tar \
             --exclude='.git' \
@@ -54,6 +61,7 @@ jobs:
             -czf /tmp/neet2work-${{ github.sha }}.tar.gz .
 
       - name: Deploy
+        if: steps.deploy-secrets.outputs.available == 'true'
         env:
           ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
           ORACLE_USER: ${{ secrets.ORACLE_USER }}
