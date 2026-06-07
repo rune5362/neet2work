@@ -89,15 +89,9 @@ export class AgyCliProvider implements AiProvider {
         return this.status(false, false, "invalid_command", modelId);
       }
 
-      const loginProbe = await this.runLocalProcess(command, ["models"], {
-        timeoutMs: STATUS_PROBE_TIMEOUT_MS,
-        workdir,
-        maxOutputBytes: 64_000
-      });
-      if (loginProbe.exitCode !== 0) {
-        throw new Error(loginProbe.stderr || "agy models failed");
-      }
-
+      // loginProbe(agy models)를 호출하면 agy CLI가 Antigravity UI와 연동하며
+      // 불필요한 대화 세션(Conversation)을 중복 스폰하는 부작용이 발생합니다.
+      // 따라서 버전 검사 성공만으로 상태를 판정하고 실제 로그인 검증 및 에러 처리는 execute() 실행 시점에 위임합니다.
       return {
         providerId: this.id,
         label: this.label,
@@ -295,7 +289,8 @@ export class AgyCliProvider implements AiProvider {
         cwd: options.workdir,
         env: this.buildChildEnv(),
         shell: false,
-        stdio: ["ignore", "pipe", "pipe"]
+        stdio: ["ignore", "pipe", "pipe"],
+        windowsHide: true
       });
 
       const finish = (callback: () => void) => {

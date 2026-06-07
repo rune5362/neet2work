@@ -167,11 +167,10 @@ describe("AgyCliProvider", () => {
     expect(mockSpawn).not.toHaveBeenCalled();
   });
 
-  it("runs version and models probes for local status", async () => {
+  it("runs version probe for local status", async () => {
     mockAiConfig.agyCli.enabled = true;
     mockSpawn.mockImplementation((_command: string, args: string[]) => {
       if (args[0] === "--version") return createChild("1.0.5\n");
-      if (args[0] === "models") return createChild("model-a\n");
       return createChild("", "unexpected", 1);
     });
 
@@ -179,16 +178,10 @@ describe("AgyCliProvider", () => {
     const status = await new AgyCliProvider().getStatus();
 
     expect(status).toMatchObject({ configured: true, online: true });
-    expect(mockSpawn).toHaveBeenNthCalledWith(
-      1,
+    expect(mockSpawn).toHaveBeenCalledTimes(1);
+    expect(mockSpawn).toHaveBeenCalledWith(
       "C:\\tools\\agy.exe",
       ["--version"],
-      expect.objectContaining({ shell: false, stdio: ["ignore", "pipe", "pipe"] })
-    );
-    expect(mockSpawn).toHaveBeenNthCalledWith(
-      2,
-      "C:\\tools\\agy.exe",
-      ["models"],
       expect.objectContaining({ shell: false, stdio: ["ignore", "pipe", "pipe"] })
     );
   });
@@ -299,8 +292,7 @@ describe("AgyCliProvider", () => {
   it("classifies local app data permission failures as unwritable status", async () => {
     mockAiConfig.agyCli.enabled = true;
     mockSpawn.mockImplementation((_command: string, args: string[]) => {
-      if (args[0] === "--version") return createChild("1.0.5\n");
-      if (args[0] === "models") return createChild("", "EACCES: permission denied", 1);
+      if (args[0] === "--version") return createChild("", "EACCES: permission denied", 1);
       return createChild("", "unexpected", 1);
     });
 
