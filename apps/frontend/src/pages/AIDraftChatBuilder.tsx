@@ -1,6 +1,19 @@
-import { type ChangeEvent, type CSSProperties, type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  type ClipboardEvent as ReactClipboardEvent,
+  type CSSProperties,
+  type DragEvent as ReactDragEvent,
+  type MouseEvent as ReactMouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
 import { ChevronDown, ChevronUp, FileText, X } from "lucide-react";
 import {
+  answerCareerDocumentWorkflowQuestion,
+  createCareerDocumentWorkflowSession,
   createCareerWorkflowSession,
   createDraftWorkflowDraft,
   createDraftWorkflowPlan,
@@ -9,7 +22,7 @@ import {
   getDraftWorkflowProviders,
   getJobById,
   reviseDraftWorkflowDraft,
-  startCodexBridgeLogin
+  startCodexBridgeLogin,
 } from "../api/client";
 import { getDocuments as getSavedDocuments } from "../api/documentClient";
 import arrowUpIcon from "../assets/icons/ai-draft-arrow-up.svg";
@@ -33,6 +46,7 @@ import type {
   AiProviderId,
   AiProviderStatus,
   AiSelection,
+  CodexBridgeLoginStatus,
   DraftWorkflowDraft,
   DraftWorkflowPlan,
   GapAnswer
@@ -43,12 +57,14 @@ import type {
   CareerWorkflowSourceInput
 } from "../types/career-workflow";
 import { careerDocumentTypeLabel } from "../types/career-workflow";
+import type { CareerDocumentWorkflowSession } from "../types/career-document-workflow";
+import { careerDocumentClassificationLabel } from "../types/career-document-workflow";
 
 type Sender = "ai" | "user";
 type DraftState = "idle" | "ready" | "planning" | "plan_ready" | "drafting" | "complete" | "revising";
 type WorkflowStatus = "idle" | "loading" | "complete" | "error";
-type CodexLoginUiStatus = "idle" | "starting" | "pending" | "succeeded" | "failed";
 type ReferenceLoadStatus = "idle" | "loading" | "ready" | "unavailable";
+type CodexLoginUiStatus = "idle" | "starting" | "pending" | "succeeded" | "failed";
 
 type DraftTargetForm = {
   questionText: string;
@@ -95,6 +111,14 @@ type AiSettings = {
 
 type TextFormat = "TXT" | "Markdown";
 type DraftDownloadFormat = "txt" | "markdown" | "doc" | "pdf";
+type SelfIntroFormatId = "role_competency" | "motivation" | "growth" | "collaboration";
+
+type SelfIntroFormatOption = {
+  id: SelfIntroFormatId;
+  label: string;
+  questionText: string;
+  charLimit: number;
+};
 
 type DraftDownloadOption = {
   format: DraftDownloadFormat;
@@ -271,9 +295,6 @@ const draftProgressSteps = [
   },
 ];
 
-const draftText =
-  "저는 대학 시절 교내 앱 개발 공모전에서 팀 리더로 참여하여 프로젝트를 성공적으로 이끈 경험이 있습니다. 초기에는 역할 분담과 일정 관리가 체계적이지 않아 진행 방향이 불명확해지는 문제가 있었습니다.\n\n이에 전체 일정을 재정리하고 매일 15분 스탠드업 미팅을 도입해 진행 상황을 공유하며 소통을 강화했습니다. 또한 사용자 인터뷰를 직접 수행해 핵심 니즈를 도출하고, MVP 기능을 우선순위에 따라 재구성했습니다.\n\n그 결과 최종 발표에서 최우수상을 수상했으며, 실제 사용자 200명 이상이 앱을 사용했습니다.";
-
 const COMPOSER_INPUT_MIN_HEIGHT = 22;
 const COMPOSER_INPUT_MAX_HEIGHT = 240;
 const FILE_ACCEPT = ".txt,.md,.pdf,.docx";
@@ -311,9 +332,36 @@ function buildGapAnswersFromDrafts(
     .filter((item) => item.answer.length > 0);
 }
 
-const DEFAULT_QUESTION_TEXT =
-  "지원 직무에서 가장 중요한 역량을 발휘했던 경험을 구체적으로 작성해 주세요.";
-const AI_PROVIDER_AUTO_LABEL = "AI 자동선택";
+const SELF_INTRO_FORMAT_OPTIONS: SelfIntroFormatOption[] = [
+  {
+    id: "role_competency",
+    label: "직무역량",
+    questionText: "지원 직무와 관련된 프로젝트 경험을 구체적으로 작성해 주세요.",
+    charLimit: 800
+  },
+  {
+    id: "motivation",
+    label: "지원동기",
+    questionText: "지원 동기와 입사 후 기여 계획을 작성해 주세요.",
+    charLimit: 700
+  },
+  {
+    id: "growth",
+    label: "성장과정",
+    questionText: "성장 과정에서 직무 역량으로 이어진 경험을 작성해 주세요.",
+    charLimit: 700
+  },
+  {
+    id: "collaboration",
+    label: "협업/문제해결",
+    questionText: "협업 또는 문제 해결 경험을 상황, 역할, 행동, 결과 중심으로 작성해 주세요.",
+    charLimit: 800
+  }
+];
+const DEFAULT_SELF_INTRO_FORMAT = SELF_INTRO_FORMAT_OPTIONS[0];
+const DEFAULT_QUESTION_TEXT = DEFAULT_SELF_INTRO_FORMAT.questionText;
+const DEFAULT_AI_PROVIDER_ID: AiProviderId = "codex_bridge";
+const DEFAULT_AI_SELECTION: AiSelection = { mode: "manual", providerId: DEFAULT_AI_PROVIDER_ID };
 const AI_TONE_OPTIONS: AiSettings["tone"][] = ["담백한 실무형", "성과 강조형", "성장 서사형"];
 const CONDITION_PATTERNS = [
   /(\d{2,4})\s*(자|글자|byte|바이트)/i,
@@ -332,6 +380,34 @@ function isTextAttachment(file: File) {
 function isDocumentFileName(name: string) {
   const lowerName = name.toLowerCase();
   return lowerName.endsWith(".pdf") || lowerName.endsWith(".docx");
+}
+
+function getFilesFromTransfer(transfer?: DataTransfer | null) {
+  if (!transfer) {
+    return [];
+  }
+
+  const directFiles = Array.from(transfer.files ?? []);
+  if (directFiles.length > 0) {
+    return directFiles;
+  }
+
+  return Array.from(transfer.items ?? [])
+    .filter((item) => item.kind === "file")
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => Boolean(file));
+}
+
+function transferHasFiles(transfer?: DataTransfer | null) {
+  if (!transfer) {
+    return false;
+  }
+
+  return (
+    Array.from(transfer.types ?? []).includes("Files") ||
+    (transfer.files?.length ?? 0) > 0 ||
+    Array.from(transfer.items ?? []).some((item) => item.kind === "file")
+  );
 }
 
 async function fileToBase64(file: File) {
@@ -951,6 +1027,7 @@ export function AIDraftChatBuilder() {
   const [workflowPlan, setWorkflowPlan] = useState<DraftWorkflowPlan | null>(null);
   const [workflowDraft, setWorkflowDraft] = useState<DraftWorkflowDraft | null>(null);
   const [careerSession, setCareerSession] = useState<CareerWorkflowSession | null>(null);
+  const [documentSession, setDocumentSession] = useState<CareerDocumentWorkflowSession | null>(null);
   const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus>("idle");
   const [workflowError, setWorkflowError] = useState<string | null>(null);
   const [gapAnswerDrafts, setGapAnswerDrafts] = useState<Record<string, string>>({});
@@ -959,16 +1036,18 @@ export function AIDraftChatBuilder() {
   const [revisionRequest, setRevisionRequest] = useState("");
   const [targetForm, setTargetForm] = useState<DraftTargetForm>({
     questionText: DEFAULT_QUESTION_TEXT,
-    charLimit: 800,
+    charLimit: DEFAULT_SELF_INTRO_FORMAT.charLimit,
     jobPostingText: ""
   });
+  const [selectedSelfIntroFormatId, setSelectedSelfIntroFormatId] =
+    useState<SelfIntroFormatId>(DEFAULT_SELF_INTRO_FORMAT.id);
   const [providerStatuses, setProviderStatuses] = useState<AiProviderStatus[]>([]);
+  const [aiSelection, setAiSelection] = useState<AiSelection>(() => ({ ...DEFAULT_AI_SELECTION }));
   const [codexLoginState, setCodexLoginState] = useState<{
     status: CodexLoginUiStatus;
     loginId: string | null;
     message: string | null;
   }>({ status: "idle", loginId: null, message: null });
-  const [aiSelection, setAiSelection] = useState<AiSelection>({ mode: "auto" });
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [toneMenuOpen, setToneMenuOpen] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
@@ -987,7 +1066,9 @@ export function AIDraftChatBuilder() {
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [submittedFiles, setSubmittedFiles] = useState<AttachedFile[]>([]);
   const [sentAttachmentSignature, setSentAttachmentSignature] = useState("");
+  const [composerFileDragActive, setComposerFileDragActive] = useState(false);
   const [autoStartPlanRequestId, setAutoStartPlanRequestId] = useState(0);
+  const [autoStartDocumentRequestId, setAutoStartDocumentRequestId] = useState(0);
   const [coverLetterReferences, setCoverLetterReferences] = useState<DocumentListItem[]>([]);
   const [selectedReferenceDocumentId, setSelectedReferenceDocumentId] = useState<string | null>(null);
   const [referenceLoadStatus, setReferenceLoadStatus] = useState<ReferenceLoadStatus>("idle");
@@ -1000,6 +1081,7 @@ export function AIDraftChatBuilder() {
   const workflowRequestIdRef = useRef(0);
   const referenceLoadRequestIdRef = useRef(0);
   const sendReplyTimeoutRef = useRef<number | null>(null);
+  const composerFileDragDepthRef = useRef(0);
 
   const clearSendReplyTimeout = () => {
     if (sendReplyTimeoutRef.current !== null) {
@@ -1028,6 +1110,8 @@ export function AIDraftChatBuilder() {
   }, []);
 
   const selectedJob = selectedApiJob;
+  const selectedSelfIntroFormat =
+    SELF_INTRO_FORMAT_OPTIONS.find((option) => option.id === selectedSelfIntroFormatId) ?? DEFAULT_SELF_INTRO_FORMAT;
   const sourceFiles = useMemo(() => [...submittedFiles, ...attachedFiles], [submittedFiles, attachedFiles]);
   const resumeText = useMemo(() => {
     return buildResumeTextParts(messages, input, sourceFiles).join("\n\n");
@@ -1137,30 +1221,38 @@ export function AIDraftChatBuilder() {
     workflowPlan?.fitAssessments[0]?.fitScore ??
     inputAtsResult?.score ??
     0;
-  const resultBody = workflowDraft?.draftText ?? draftText;
   const completedProgressStepCount = draftProgressSteps.filter((step) => draftFitProgress >= Math.min(step.threshold, draftFitTargetScore)).length;
   const isDraftProgressActive = draftState === "planning" || draftState === "drafting" || draftState === "revising";
   const activeProgressStepIndex = isDraftProgressActive
     ? Math.min(completedProgressStepCount, draftProgressSteps.length - 1)
     : -1;
-  const withSpaces = workflowDraft?.charCount.withSpaces ?? resultBody.length;
-  const withoutSpaces = workflowDraft?.charCount.withoutSpaces ?? resultBody.replace(/\s/g, "").length;
-  const selectedProviderLabel =
-    aiSelection.mode === "auto"
-      ? AI_PROVIDER_AUTO_LABEL
-      : providerBadgeLabel(aiSelection.providerId ?? "fallback");
+  const selectedProviderLabel = providerBadgeLabel(aiSelection.providerId ?? DEFAULT_AI_PROVIDER_ID);
   const activeAiMeta = workflowDraft?.aiMeta ?? workflowPlan?.aiMeta;
   const realAiProviderOnline = providerStatuses.some(
     (provider) => provider.providerId !== "fallback" && provider.online && !provider.quotaExceeded
   );
   const actualProviderSummary = activeAiMeta
     ? formatAiExecutionLabel(activeAiMeta)
-    : "문항 분석 시작 후 결정됨";
+    : "분석 전";
   const headerAiStatus = providerStatuses.length === 0
     ? { label: "확인 중", status: "checking" }
     : realAiProviderOnline
       ? { label: "연결됨", status: "online" }
       : { label: "연결 안됨", status: "offline" };
+  const draftedDocumentDrafts = documentSession?.drafts.filter((draft) => draft.status === "drafted" && draft.draftText) ?? [];
+  const documentDraftText = draftedDocumentDrafts
+    .map((draft, index) => `문항 ${index + 1}. ${draft.questionText}\n\n${draft.draftText ?? ""}`)
+    .join("\n\n");
+  const activeDocumentQuestion = documentSession?.interview.questions[0];
+  const documentDraftCharCount = documentDraftText
+    ? {
+        withSpaces: documentDraftText.length,
+        withoutSpaces: documentDraftText.replace(/\s/g, "").length
+      }
+    : null;
+  const resultBody = documentDraftText || workflowDraft?.draftText || "";
+  const withSpaces = workflowDraft?.charCount.withSpaces ?? documentDraftCharCount?.withSpaces ?? resultBody.length;
+  const withoutSpaces = workflowDraft?.charCount.withoutSpaces ?? documentDraftCharCount?.withoutSpaces ?? resultBody.replace(/\s/g, "").length;
   const displayDraft =
     textFormat === "Markdown"
       ? buildMarkdownDraft(resultBody)
@@ -1268,6 +1360,19 @@ export function AIDraftChatBuilder() {
       `부족 슬롯: ${careerSession.completion.missingSlots.slice(0, 3).join(", ") || "없음"}`
     ];
   }, [careerSession]);
+  const documentSessionSummaryItems = useMemo(() => {
+    if (!documentSession) {
+      return [];
+    }
+
+    return [
+      `첨부 분석: ${documentSession.documentAnalyses.length}개`,
+      `GitHub 분석: ${documentSession.githubAnalyses.filter((analysis) => analysis.status === "fetched").length}/${documentSession.githubAnalyses.length}개`,
+      `포트폴리오 분석: ${documentSession.portfolioAnalyses.filter((analysis) => analysis.status === "fetched").length}/${documentSession.portfolioAnalyses.length}개`,
+      `사용 가능 근거: ${documentSession.evidenceVault.filter((item) => item.allowedInDraft).length}개`,
+      `남은 질문: ${documentSession.interview.questions.length}개`
+    ];
+  }, [documentSession]);
 
   const refreshProviderStatuses = useCallback(() => {
     return getDraftWorkflowProviders()
@@ -1308,6 +1413,56 @@ export function AIDraftChatBuilder() {
     void refreshProviderStatuses();
   }, [refreshProviderStatuses]);
 
+  const applyCodexLoginStatus = useCallback(
+    (status: CodexBridgeLoginStatus) => {
+      if (status.status === "succeeded") {
+        setCodexLoginState({
+          status: "succeeded",
+          loginId: status.loginId,
+          message: "Codex 연결 완료"
+        });
+        void refreshProviderStatuses();
+        return;
+      }
+
+      if (status.status === "failed" || status.status === "expired") {
+        setCodexLoginState({
+          status: "failed",
+          loginId: status.loginId,
+          message: status.error ?? "Codex 연결에 실패했습니다."
+        });
+        return;
+      }
+
+      setCodexLoginState({
+        status: "pending",
+        loginId: status.loginId,
+        message: "브라우저에서 Codex 로그인을 완료해 주세요."
+      });
+    },
+    [refreshProviderStatuses]
+  );
+
+  useEffect(() => {
+    if (codexLoginState.status !== "pending" || !codexLoginState.loginId) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      getCodexBridgeLoginStatus(codexLoginState.loginId as string)
+        .then(applyCodexLoginStatus)
+        .catch(() => {
+          setCodexLoginState({
+            status: "failed",
+            loginId: codexLoginState.loginId,
+            message: "Codex 연결 상태를 확인하지 못했습니다."
+          });
+        });
+    }, 2500);
+
+    return () => window.clearInterval(intervalId);
+  }, [applyCodexLoginStatus, codexLoginState.loginId, codexLoginState.status]);
+
   useEffect(() => {
     void loadCoverLetterReferences();
 
@@ -1321,56 +1476,6 @@ export function AIDraftChatBuilder() {
       window.removeEventListener("neet2work.auth.changed", handleAuthChange);
     };
   }, [loadCoverLetterReferences]);
-
-  useEffect(() => {
-    if (codexLoginState.status !== "pending" || !codexLoginState.loginId) {
-      return undefined;
-    }
-
-    let cancelled = false;
-    const intervalId = window.setInterval(() => {
-      void getCodexBridgeLoginStatus(codexLoginState.loginId ?? "")
-        .then((status) => {
-          if (cancelled || status.status === "pending") {
-            return;
-          }
-
-          window.clearInterval(intervalId);
-          if (status.status === "succeeded") {
-            setCodexLoginState({
-              status: "succeeded",
-              loginId: status.loginId,
-              message: "Codex 연결 완료"
-            });
-            void refreshProviderStatuses();
-            return;
-          }
-
-          setCodexLoginState({
-            status: "failed",
-            loginId: status.loginId,
-            message: status.error ?? "Codex 연결에 실패했습니다."
-          });
-        })
-        .catch(() => {
-          if (cancelled) {
-            return;
-          }
-
-          window.clearInterval(intervalId);
-          setCodexLoginState({
-            status: "failed",
-            loginId: codexLoginState.loginId,
-            message: "Codex 연결 상태를 확인하지 못했습니다."
-          });
-        });
-    }, 1_500);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [codexLoginState.loginId, codexLoginState.status, refreshProviderStatuses]);
 
   useEffect(() => {
     const timeline = timelineRef.current;
@@ -1432,7 +1537,7 @@ export function AIDraftChatBuilder() {
   }, [newChatConfirmOpen]);
 
   useEffect(() => {
-    if (!composerMenuOpen && !modelMenuOpen && !toneMenuOpen && !downloadMenuOpen) {
+    if (!composerMenuOpen && !toneMenuOpen && !modelMenuOpen && !downloadMenuOpen) {
       return undefined;
     }
 
@@ -1444,7 +1549,8 @@ export function AIDraftChatBuilder() {
       const target = event.target;
       if (
         target.closest(
-          ".aiDraftComposerPopover, .aiDraftComposerToneSubmenu, .aiDraftComposerPlusButton, .aiDraftComposerModelButton, .aiDraftDownloadMenu, .aiDraftDownloadButton"
+          ".aiDraftComposerPopover, .aiDraftComposerToneSubmenu, .aiDraftComposerPlusButton, .aiDraftDownloadMenu, .aiDraftDownloadButton"
+            + ", .aiDraftComposerModelMenu, .aiDraftComposerModelButton"
         )
       ) {
         return;
@@ -1471,7 +1577,7 @@ export function AIDraftChatBuilder() {
       document.removeEventListener("mousedown", handlePointerDown);
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [composerMenuOpen, modelMenuOpen, toneMenuOpen, downloadMenuOpen]);
+  }, [composerMenuOpen, toneMenuOpen, modelMenuOpen, downloadMenuOpen]);
 
   useEffect(() => {
     const queryJobId = new URLSearchParams(window.location.search).get("jobId")?.trim();
@@ -1556,39 +1662,25 @@ export function AIDraftChatBuilder() {
   };
 
   const toggleComposerMenu = () => {
-    setModelMenuOpen(false);
     setToneMenuOpen(false);
+    setModelMenuOpen(false);
     setDownloadMenuOpen(false);
     setComposerMenuOpen((value) => !value);
     playTone(settings.sound, "open");
   };
 
-  const toggleModelMenu = () => {
-    setComposerMenuOpen(false);
-    setToneMenuOpen(false);
-    setDownloadMenuOpen(false);
-    setModelMenuOpen((value) => !value);
-    playTone(settings.sound, "open");
-  };
-
   const toggleToneMenu = () => {
+    setModelMenuOpen(false);
     setDownloadMenuOpen(false);
     setToneMenuOpen((value) => !value);
     playTone(settings.sound, "open");
   };
 
-  const handleProviderSelect = (providerId?: AiProviderId) => {
-    if (!providerId) {
-      setAiSelection({ mode: "auto" });
-    } else {
-      const provider = providerStatuses.find((item) => item.providerId === providerId);
-      setAiSelection({
-        mode: "manual",
-        providerId,
-        modelId: getProviderModelIdForSelection(provider)
-      });
-    }
-    closeComposerMenus();
+  const toggleModelMenu = () => {
+    setToneMenuOpen(false);
+    setComposerMenuOpen(false);
+    setDownloadMenuOpen(false);
+    setModelMenuOpen((value) => !value);
     playTone(settings.sound, "open");
   };
 
@@ -1753,6 +1845,35 @@ export function AIDraftChatBuilder() {
     return sources.length > 0 ? sources : [{ sourceId: "empty", sourceType: "empty", label: "자료 없음" }];
   };
 
+  const buildDocumentWorkflowRequest = () => {
+    const userConversationText = messages
+      .filter((message) => message.sender === "user")
+      .map((message) => message.text)
+      .join("\n\n")
+      .trim();
+    const messageText = [userConversationText, input.trim()].filter((text) => text.length > 0).join("\n\n");
+    const jobPostingText = targetForm.jobPostingText.trim() || (selectedJob ? buildDefaultJobPostingText(selectedJob) : "");
+
+    return {
+      message: messageText || resumeText,
+      attachments: readyTextAttachments(sourceFiles).map((file) => ({
+        sourceId: `attachment-${file.id}`,
+        fileName: file.name,
+        text: file.textContent ?? ""
+      })),
+      target: {
+        company: selectedJob?.company,
+        role: selectedJob?.title ?? undefined,
+        jobPostingText: jobPostingText || undefined,
+        writingStyle: settings.tone,
+        formatLabel: selectedSelfIntroFormat.label,
+        questionText: inferredQuestionText.trim() || selectedSelfIntroFormat.questionText,
+        charLimit: inferredCharLimit,
+        charCountRule: "with_spaces" as const
+      }
+    };
+  };
+
   const handleToneSelect = (tone: AiSettings["tone"]) => {
     updateSettings("tone", tone);
     closeComposerMenus();
@@ -1762,34 +1883,33 @@ export function AIDraftChatBuilder() {
     fileInputRef.current?.click();
   };
 
-  const handleFileInputChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = event.target.files;
-    if (!selectedFiles?.length) {
+  const attachFiles = async (files: File[]) => {
+    if (files.length === 0) {
       return;
     }
 
     resetWorkflow();
+    closeComposerMenus();
     setSentAttachmentSignature("");
     setDraftState((prev) => (prev === "planning" || prev === "drafting" ? prev : "idle"));
 
-    const fileEntries = Array.from(selectedFiles).map((file) => {
+    const fileEntries = files.map((file) => {
       const canExtractText = isTextAttachment(file) || isDocumentFileName(file.name);
       return {
         file,
         canExtractText,
         attachment: {
-        id: crypto.randomUUID(),
-        name: file.name,
-        kind: (canExtractText ? "text" : "binary") as AttachedFileKind,
-        textContent: null,
-        readError: false,
-        loading: canExtractText,
+          id: crypto.randomUUID(),
+          name: file.name,
+          kind: (canExtractText ? "text" : "binary") as AttachedFileKind,
+          textContent: null,
+          readError: false,
+          loading: canExtractText,
         },
       };
     });
 
     setAttachedFiles((prev) => [...prev, ...fileEntries.map((entry) => entry.attachment)]);
-    event.target.value = "";
     playTone(settings.sound, "open");
 
     const promoteDraftStateIfAnalyzable = (nextFiles: AttachedFile[]) => {
@@ -1840,6 +1960,70 @@ export function AIDraftChatBuilder() {
     );
   };
 
+  const handleFileInputChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    await attachFiles(selectedFiles);
+  };
+
+  const handleComposerDragEnter = (event: ReactDragEvent<HTMLDivElement>) => {
+    if (!transferHasFiles(event.dataTransfer)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    composerFileDragDepthRef.current += 1;
+    setComposerFileDragActive(true);
+  };
+
+  const handleComposerDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
+    if (!transferHasFiles(event.dataTransfer)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "copy";
+    setComposerFileDragActive(true);
+  };
+
+  const handleComposerDragLeave = (event: ReactDragEvent<HTMLDivElement>) => {
+    if (!transferHasFiles(event.dataTransfer)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    composerFileDragDepthRef.current = Math.max(0, composerFileDragDepthRef.current - 1);
+    if (composerFileDragDepthRef.current === 0) {
+      setComposerFileDragActive(false);
+    }
+  };
+
+  const handleComposerDrop = (event: ReactDragEvent<HTMLDivElement>) => {
+    const droppedFiles = getFilesFromTransfer(event.dataTransfer);
+    if (droppedFiles.length === 0) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    composerFileDragDepthRef.current = 0;
+    setComposerFileDragActive(false);
+    void attachFiles(droppedFiles);
+  };
+
+  const handleComposerPaste = (event: ReactClipboardEvent<HTMLDivElement>) => {
+    const pastedFiles = getFilesFromTransfer(event.clipboardData);
+    if (pastedFiles.length === 0) {
+      return;
+    }
+
+    event.preventDefault();
+    void attachFiles(pastedFiles);
+  };
+
   const removeAttachedFile = (fileId: string) => {
     setAttachedFiles((prev) => prev.filter((file) => file.id !== fileId));
     setSentAttachmentSignature("");
@@ -1852,9 +2036,11 @@ export function AIDraftChatBuilder() {
     setWorkflowPlan(null);
     setWorkflowDraft(null);
     setCareerSession(null);
+    setDocumentSession(null);
     setWorkflowStatus("idle");
     setWorkflowError(null);
     setAutoStartPlanRequestId(0);
+    setAutoStartDocumentRequestId(0);
     setGapAnswerDrafts({});
     setConfirmedGapQuestionIds(new Set());
     setOutlineConfirmed(false);
@@ -1869,11 +2055,16 @@ export function AIDraftChatBuilder() {
     playTone(settings.sound, "open");
   };
 
-  const syncTargetFormForJob = (job: Job) => {
-    setTargetForm((prev) => ({
-      ...prev,
-      jobPostingText: buildDefaultJobPostingText(job)
-    }));
+  const handleProviderSelect = (providerId: AiProviderId) => {
+    const provider = providerStatuses.find((item) => item.providerId === providerId);
+    setAiSelection({
+      mode: "manual",
+      providerId,
+      modelId: getProviderModelIdForSelection(provider)
+    });
+
+    setModelMenuOpen(false);
+    playTone(settings.sound, "open");
   };
 
   const handleCodexLoginStart = async () => {
@@ -1881,26 +2072,11 @@ export function AIDraftChatBuilder() {
 
     try {
       const loginStatus = await startCodexBridgeLogin();
-      if (loginStatus.status === "succeeded") {
-        setCodexLoginState({
-          status: "succeeded",
-          loginId: loginStatus.loginId,
-          message: "Codex 연결 완료"
-        });
-        void refreshProviderStatuses();
-        return;
-      }
-
-      const authUrl = loginStatus.login?.authUrl ?? loginStatus.login?.verificationUrl;
-      if (authUrl) {
+      applyCodexLoginStatus(loginStatus);
+      const authUrl = loginStatus.login?.authUrl;
+      if (loginStatus.status === "pending" && authUrl) {
         window.open(authUrl, "_blank", "noopener,noreferrer");
       }
-
-      setCodexLoginState({
-        status: "pending",
-        loginId: loginStatus.loginId,
-        message: authUrl ? "브라우저에서 Codex 로그인을 완료해 주세요." : "Codex 로그인 완료를 기다리는 중"
-      });
     } catch {
       setCodexLoginState({
         status: "failed",
@@ -1910,9 +2086,62 @@ export function AIDraftChatBuilder() {
     }
   };
 
+  const handleSelfIntroFormatSelect = (format: SelfIntroFormatOption) => {
+    setSelectedSelfIntroFormatId(format.id);
+    setTargetForm((prev) => ({
+      ...prev,
+      questionText: format.questionText,
+      charLimit: format.charLimit
+    }));
+    resetWorkflow();
+    playTone(settings.sound, "open");
+  };
+
+  const syncTargetFormForJob = (job: Job) => {
+    setTargetForm((prev) => ({
+      ...prev,
+      jobPostingText: buildDefaultJobPostingText(job)
+    }));
+  };
+
   const buildSendAssistantHint = (detectedConditionText: string) => {
     const conditionHint = detectedConditionText.length > 0 ? "입력한 작성 조건을 반영해 둘게요. " : "";
-    return `${conditionHint}현재는 안내형 응답 모드입니다. 실제 초안 생성은 "문항 분석 시작"에서 진행됩니다.`;
+    return `${conditionHint}자료를 받았어. 초안 작성이 필요하면 문항과 근거를 기준으로 바로 분석할게.`;
+  };
+
+  const answerDocumentQuestionFromChat = async (questionId: string, answer: string) => {
+    if (!documentSession) {
+      return null;
+    }
+
+    const requestId = workflowRequestIdRef.current;
+    setWorkflowStatus("loading");
+    setWorkflowError(null);
+
+    try {
+      const session = await answerCareerDocumentWorkflowQuestion({
+        session: documentSession,
+        questionId,
+        answer
+      });
+      if (requestId !== workflowRequestIdRef.current) {
+        return null;
+      }
+
+      setDocumentSession(session);
+      setWorkflowStatus("complete");
+      setDraftState(session.state === "DRAFT_READY" ? "complete" : "plan_ready");
+      playTone(settings.sound, "success");
+      return session;
+    } catch {
+      if (requestId !== workflowRequestIdRef.current) {
+        return null;
+      }
+      setWorkflowStatus("error");
+      setWorkflowError("답변 저장에 실패했습니다. 다시 시도해 주세요.");
+      playTone(settings.sound, "ready");
+      return null;
+    }
   };
 
   const handleSend = () => {
@@ -1921,6 +2150,53 @@ export function AIDraftChatBuilder() {
     if (!trimmed && attachmentsToSubmit.length === 0) return;
 
     clearSendReplyTimeout();
+    if (activeDocumentQuestion && trimmed && workflowStatus !== "loading") {
+      playTone(settings.sound, "send");
+      const userMessage: Message = {
+        id: crypto.randomUUID(),
+        sender: "user",
+        time: nowTime(),
+        text: trimmed,
+        attachments: attachmentsToSubmit.length > 0 ? attachmentsToSubmit.map(toMessageAttachment) : undefined,
+      };
+      const submittedAttachmentIds = new Set(attachmentsToSubmit.map((file) => file.id));
+      const nextAttachedFiles =
+        attachmentsToSubmit.length > 0
+          ? attachedFiles.filter((file) => !submittedAttachmentIds.has(file.id))
+          : attachedFiles;
+
+      setMessages((prev) => [...prev, userMessage]);
+      if (attachmentsToSubmit.length > 0) {
+        setSubmittedFiles((prev) => [...prev, ...attachmentsToSubmit]);
+        setAttachedFiles(nextAttachedFiles);
+        setSentAttachmentSignature("");
+      } else if (sendableAttachmentSignature) {
+        setSentAttachmentSignature(sendableAttachmentSignature);
+      }
+      setInput("");
+      window.requestAnimationFrame(syncComposerHeight);
+
+      void answerDocumentQuestionFromChat(activeDocumentQuestion.questionId, trimmed).then((session) => {
+        if (!session) {
+          return;
+        }
+
+        const nextQuestion = session.interview.questions[0];
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            sender: "ai",
+            time: nowTime(),
+            text: nextQuestion
+              ? `답변을 반영했어. 다음으로 확인할게: ${nextQuestion.question}`
+              : "답변을 반영해서 초안을 준비했어.",
+          },
+        ]);
+      });
+      return;
+    }
+
     resetWorkflow();
     setDraftState("idle");
 
@@ -1941,7 +2217,7 @@ export function AIDraftChatBuilder() {
         ? attachedFiles.filter((file) => !submittedAttachmentIds.has(file.id))
         : attachedFiles;
     const nextSourceFiles = [...submittedFiles, ...attachmentsToSubmit, ...nextAttachedFiles];
-    const shouldAutoStartPlan =
+    const shouldAutoStartDocumentWorkflow =
       hasDraftWorkflowIntent(trimmed) &&
       buildResumeTextParts(nextMessages, "", nextSourceFiles).join("\n\n").trim().length >= 10;
     const detectedConditionText = splitConditionCandidates(
@@ -1955,8 +2231,8 @@ export function AIDraftChatBuilder() {
     } else if (sendableAttachmentSignature) {
       setSentAttachmentSignature(sendableAttachmentSignature);
     }
-    if (shouldAutoStartPlan) {
-      setAutoStartPlanRequestId((value) => value + 1);
+    if (shouldAutoStartDocumentWorkflow) {
+      setAutoStartDocumentRequestId((value) => value + 1);
     }
     setInput("");
     window.requestAnimationFrame(syncComposerHeight);
@@ -1970,8 +2246,8 @@ export function AIDraftChatBuilder() {
           id: crypto.randomUUID(),
           sender: "ai",
           time: nowTime(),
-          text: shouldAutoStartPlan
-            ? "요청대로 첨부 자료와 대화 내용을 기준으로 문항 분석을 시작합니다."
+          text: shouldAutoStartDocumentWorkflow
+            ? "첨부 자료와 요청 내용을 읽고 근거 분석을 시작할게."
             : buildSendAssistantHint(detectedConditionText),
         },
       ]);
@@ -2048,6 +2324,48 @@ export function AIDraftChatBuilder() {
     }
   };
 
+  const handleStartDocumentSession = async () => {
+    if (!canAnalyze || draftState === "planning" || draftState === "drafting") {
+      return;
+    }
+
+    const requestId = workflowRequestIdRef.current;
+    setWorkflowPlan(null);
+    setWorkflowDraft(null);
+    setCareerSession(null);
+    setDocumentSession(null);
+    setWorkflowError(null);
+    setWorkflowStatus("loading");
+    setDraftState("planning");
+    setOutlineConfirmed(false);
+    setGapAnswerDrafts({});
+    setConfirmedGapQuestionIds(new Set());
+    setDraftFitProgress(0);
+    draftFitProgressRef.current = 0;
+    playTone(settings.sound, "open");
+
+    try {
+      const session = await createCareerDocumentWorkflowSession(buildDocumentWorkflowRequest());
+      if (requestId !== workflowRequestIdRef.current) {
+        return;
+      }
+
+      setDocumentSession(session);
+      setWorkflowStatus("complete");
+      setDraftState(session.state === "DRAFT_READY" ? "complete" : "plan_ready");
+      playTone(settings.sound, "success");
+    } catch {
+      if (requestId !== workflowRequestIdRef.current) {
+        return;
+      }
+      setDocumentSession(null);
+      setWorkflowStatus("error");
+      setWorkflowError("자료 분석 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      setDraftState("ready");
+      playTone(settings.sound, "ready");
+    }
+  };
+
   useEffect(() => {
     if (
       autoStartPlanRequestId <= 0 ||
@@ -2062,6 +2380,21 @@ export function AIDraftChatBuilder() {
     setAutoStartPlanRequestId(0);
     void handleStartPlan();
   }, [autoStartPlanRequestId, canAnalyze, draftState, workflowPlan, workflowStatus]);
+
+  useEffect(() => {
+    if (
+      autoStartDocumentRequestId <= 0 ||
+      draftState !== "ready" ||
+      !canAnalyze ||
+      workflowStatus === "loading" ||
+      documentSession
+    ) {
+      return;
+    }
+
+    setAutoStartDocumentRequestId(0);
+    void handleStartDocumentSession();
+  }, [autoStartDocumentRequestId, canAnalyze, documentSession, draftState, workflowStatus]);
 
   const handleGenerateDraft = async () => {
     if (!workflowPlan || !canConfirmDraft) {
@@ -2207,11 +2540,14 @@ export function AIDraftChatBuilder() {
     setAttachedFiles([]);
     setSubmittedFiles([]);
     setSentAttachmentSignature("");
+    setAiSelection({ ...DEFAULT_AI_SELECTION });
+    setModelMenuOpen(false);
     setDraftState("idle");
     setDownloadMenuOpen(false);
+    setSelectedSelfIntroFormatId(DEFAULT_SELF_INTRO_FORMAT.id);
     setTargetForm({
       questionText: DEFAULT_QUESTION_TEXT,
-      charLimit: 800,
+      charLimit: DEFAULT_SELF_INTRO_FORMAT.charLimit,
       jobPostingText: selectedApiJob ? buildDefaultJobPostingText(selectedApiJob) : ""
     });
     resetWorkflow();
@@ -2357,7 +2693,7 @@ export function AIDraftChatBuilder() {
                 );
               })}
 
-              {(draftState === "ready" || draftState === "complete") && !workflowPlan && (
+              {(draftState === "ready" || draftState === "complete") && !workflowPlan && !documentSession && (
                 <div className="aiDraftReadyRow">
                   <span>대화 완료</span>
                   <button type="button" onClick={handleStartPlan} disabled={!canAnalyze}>
@@ -2367,12 +2703,137 @@ export function AIDraftChatBuilder() {
                 </div>
               )}
 
-              {!canAnalyze && (draftState === "ready" || draftState === "complete") && !workflowPlan && (
+              {!canAnalyze && (draftState === "ready" || draftState === "complete") && !workflowPlan && !documentSession && (
                 <p className="aiDraftInputHint">자기소개 내용을 10자 이상 입력해야 분석할 수 있습니다.</p>
               )}
 
               {workflowStatus === "error" && workflowError && (
                 <p className="aiDraftErrorNote" role="alert">{workflowError}</p>
+              )}
+
+              {documentSession && (
+                <section className="aiDraftResultCard aiDraftDocumentSession" aria-label="문서 작성 세션">
+                  <div className="aiDraftResultHeader">
+                    <div>
+                      <h2>자료 기반 문서 작성 세션</h2>
+                      <span>{documentSession.state === "DRAFT_READY" ? "초안 준비 완료" : "보완 질문 필요"}</span>
+                    </div>
+                  </div>
+
+                  <ol className="aiDraftWorkflowStages" aria-label="문서 작성 단계">
+                    {documentSession.stages.map((stage) => (
+                      <li className={stage.status} key={stage.id}>
+                        <span>{stage.label}</span>
+                        <em>{stage.status === "complete" ? "완료" : stage.status === "active" ? "진행 중" : stage.status === "blocked" ? "대기" : "예정"}</em>
+                      </li>
+                    ))}
+                  </ol>
+
+                  {documentSession.documentAnalyses.length > 0 && (
+                    <div className="aiDraftDocumentGrid" aria-label="첨부 문서 분석">
+                      {documentSession.documentAnalyses.map((analysis) => (
+                        <div className="aiDraftDocumentMiniCard" key={analysis.sourceId}>
+                          <strong>{analysis.fileName}</strong>
+                          <span>{careerDocumentClassificationLabel(analysis.classification)}</span>
+                          <p>{analysis.summary}</p>
+                          {analysis.template?.questions.length ? (
+                            <ul>
+                              {analysis.template.questions.slice(0, 3).map((question) => (
+                                <li key={question.questionId}>
+                                  {question.text}
+                                  {question.charLimit ? ` · ${question.charLimit}자` : ""}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {documentSession.githubAnalyses.length > 0 && (
+                    <div className="aiDraftEvidencePanel" aria-label="GitHub 분석">
+                      <strong>GitHub 분석</strong>
+                      <ul>
+                        {documentSession.githubAnalyses.map((analysis) => (
+                          <li key={analysis.sourceId}>
+                            {analysis.status === "fetched"
+                              ? `${analysis.owner}${analysis.repo ? `/${analysis.repo}` : ""} · 근거 ${analysis.facts.length}개`
+                              : analysis.fallbackMessage}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {documentSession.portfolioAnalyses.length > 0 && (
+                    <div className="aiDraftEvidencePanel" aria-label="포트폴리오 분석">
+                      <strong>포트폴리오 분석</strong>
+                      <ul>
+                        {documentSession.portfolioAnalyses.map((analysis) => (
+                          <li key={analysis.sourceId}>
+                            {analysis.status === "fetched"
+                              ? `${analysis.title ?? analysis.url} · 기술 ${analysis.detectedSkills.length}개`
+                              : analysis.fallbackMessage}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="aiDraftEvidencePanel" aria-label="Evidence Vault">
+                    <strong>Evidence Vault</strong>
+                    <ul>
+                      {documentSession.evidenceVault.slice(0, 6).map((item) => (
+                        <li key={item.evidenceId}>
+                          {item.fact}
+                          <span>
+                            {item.confidence} · {item.allowedInDraft ? "초안 사용 가능" : "확인 필요"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {activeDocumentQuestion && (
+                    <div className="aiDraftGapPanel" aria-label="부족 정보 질문">
+                      <div className="aiDraftGapFieldset" key={activeDocumentQuestion.questionId}>
+                        <strong>{activeDocumentQuestion.question}</strong>
+                        <p className="aiDraftInputHint">{activeDocumentQuestion.whyAsking}</p>
+                      </div>
+                      <p className="aiDraftInputHint">
+                        보완 질문 {documentSession.interview.answers.length + 1}/
+                        {documentSession.interview.answers.length + documentSession.interview.questions.length}
+                      </p>
+                    </div>
+                  )}
+
+                  {documentSession.drafts.length > 0 && (
+                    <div className="aiDraftQuestionDrafts" aria-label="문항별 초안">
+                      {documentSession.drafts.map((draft, index) => (
+                        <article className={draft.status} key={draft.questionId}>
+                          <div>
+                            <strong>문항 {index + 1}</strong>
+                            <span>{draft.charLimit ? `${draft.charLimit}자 제한` : "글자수 제한 없음"}</span>
+                          </div>
+                          <p>{draft.questionText}</p>
+                          {draft.status === "drafted" && draft.draftText ? (
+                            <blockquote>{draft.draftText}</blockquote>
+                          ) : (
+                            <ul>
+                              {draft.missingEvidence.map((item) => (
+                                <li key={item}>{item}</li>
+                              ))}
+                            </ul>
+                          )}
+                          {draft.risks.length > 0 && (
+                            <small>{draft.risks.join(" ")}</small>
+                          )}
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
               )}
 
               {workflowPlan && (draftState === "plan_ready" || draftState === "drafting" || draftState === "complete") && (
@@ -2632,7 +3093,6 @@ export function AIDraftChatBuilder() {
                         onClick={() => {
                           setComposerMenuOpen(false);
                           setToneMenuOpen(false);
-                          setModelMenuOpen(false);
                           setDownloadMenuOpen((value) => !value);
                           playTone(settings.sound, "open");
                         }}
@@ -2683,9 +3143,14 @@ export function AIDraftChatBuilder() {
             <footer className="aiDraftComposer">
               <div className="aiDraftComposerDock">
                 <div
-                  className={`aiDraftComposerBar ${attachedFiles.length > 0 ? "withAttachments" : ""}`}
+                  className={`aiDraftComposerBar ${attachedFiles.length > 0 ? "withAttachments" : ""} ${composerFileDragActive ? "isDraggingFile" : ""}`}
                   ref={composerBarRef}
                   onClick={handleComposerBarClick}
+                  onDragEnter={handleComposerDragEnter}
+                  onDragOver={handleComposerDragOver}
+                  onDragLeave={handleComposerDragLeave}
+                  onDrop={handleComposerDrop}
+                  onPaste={handleComposerPaste}
                 >
                   <input
                     ref={fileInputRef}
@@ -2811,15 +3276,6 @@ export function AIDraftChatBuilder() {
                       role="menu"
                       aria-label="AI provider 선택"
                     >
-                      <button
-                        type="button"
-                        className={`aiDraftComposerMenuItem ${aiSelection.mode === "auto" ? "active" : ""}`}
-                        role="menuitemradio"
-                        aria-checked={aiSelection.mode === "auto"}
-                        onClick={() => handleProviderSelect()}
-                      >
-                        <span>{AI_PROVIDER_AUTO_LABEL}</span>
-                      </button>
                       {providerStatuses.map((provider) => (
                         <button
                           key={provider.providerId}
@@ -2852,6 +3308,20 @@ export function AIDraftChatBuilder() {
                     <Icon name="plus" />
                   </button>
 
+                  <button
+                    type="button"
+                    className="aiDraftComposerModelButton"
+                    aria-label={`AI provider 선택, 현재 ${selectedProviderLabel}`}
+                    aria-expanded={modelMenuOpen}
+                    aria-haspopup="menu"
+                    title={`AI provider: ${selectedProviderLabel}`}
+                    data-tooltip={`AI provider: ${selectedProviderLabel}`}
+                    onClick={toggleModelMenu}
+                  >
+                    <span>{selectedProviderLabel}</span>
+                    <Icon name="chevron" />
+                  </button>
+
                   <textarea
                     ref={composerInputRef}
                     value={input}
@@ -2865,19 +3335,6 @@ export function AIDraftChatBuilder() {
                     placeholder="메시지를 입력하세요..."
                     rows={1}
                   />
-
-                  <button
-                    type="button"
-                    className="aiDraftComposerModelButton"
-                    aria-label={`AI provider 선택, 현재 ${selectedProviderLabel}`}
-                    aria-expanded={modelMenuOpen}
-                    aria-haspopup="menu"
-                    title={`AI provider: ${selectedProviderLabel}`}
-                    onClick={toggleModelMenu}
-                  >
-                    <span>{selectedProviderLabel}</span>
-                    <Icon name="chevron" />
-                  </button>
 
                   <button
                     type="button"
@@ -2911,9 +3368,36 @@ export function AIDraftChatBuilder() {
             <section className="aiDraftInfoCard" aria-label="커리어 문서 코치 상태">
               <div className="aiDraftCardTitle">
                 <span>문서 코치</span>
-                <small>{careerSession ? careerDocumentTypeLabel(careerSession.documentType) : "MVP 흐름"}</small>
+                <small>
+                  {documentSession
+                    ? documentSession.state === "DRAFT_READY"
+                      ? "초안 준비"
+                      : "질문 진행"
+                    : careerSession
+                      ? careerDocumentTypeLabel(careerSession.documentType)
+                      : "대기 중"}
+                </small>
               </div>
-              {careerSession ? (
+              {documentSession ? (
+                <>
+                  <ul className="aiDraftSummary">
+                    {documentSessionSummaryItems.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                  {documentSession.interview.questions[0] && (
+                    <div className="aiDraftQuestionMeta">
+                      <strong>다음 질문</strong>
+                      <p>{documentSession.interview.questions[0].question}</p>
+                      <span>{documentSession.interview.questions[0].whyAsking}</span>
+                      <em>채팅 답변 대기</em>
+                    </div>
+                  )}
+                  {documentSession.risks.length > 0 && (
+                    <p className="aiDraftFootnote">{documentSession.risks[0]}</p>
+                  )}
+                </>
+              ) : careerSession ? (
                 <>
                   <ul className="aiDraftSummary">
                     {careerSessionSummaryItems.map((item) => (
@@ -2942,6 +3426,47 @@ export function AIDraftChatBuilder() {
               )}
             </section>
 
+            {providerStatuses.length > 0 && (
+              <section className="aiDraftInfoCard" aria-label="AI Provider 상태">
+                <div className="aiDraftCardTitle">
+                  <span>AI Provider 상태</span>
+                </div>
+                <div className="aiDraftProviderList">
+                  {providerStatuses.map((provider) => {
+                    const canStartCodexLogin =
+                      provider.providerId === "codex_bridge" &&
+                      provider.configured &&
+                      !provider.online &&
+                      provider.reason === "codex_not_logged_in";
+                    const isCodexLoginBusy =
+                      codexLoginState.status === "starting" || codexLoginState.status === "pending";
+
+                    return (
+                      <div className="aiDraftProviderRow" key={provider.providerId}>
+                        <span className={provider.online && !provider.quotaExceeded ? "matched" : ""}>
+                          {providerBadgeLabel(provider.providerId)} ·{" "}
+                          {provider.quotaExceeded ? "할당량 초과" : provider.online ? "온라인" : "오프라인"}
+                        </span>
+                        {canStartCodexLogin && (
+                          <button
+                            type="button"
+                            className="aiDraftProviderConnectButton"
+                            onClick={() => void handleCodexLoginStart()}
+                            disabled={isCodexLoginBusy}
+                          >
+                            {isCodexLoginBusy ? "연결 중" : "Codex 연결"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {codexLoginState.message && (
+                  <p className="aiDraftFootnote">{codexLoginState.message}</p>
+                )}
+              </section>
+            )}
+
             <section className="aiDraftInfoCard">
               <div className="aiDraftCardTitle">
                 <span>{selectedJob ? "선택된 공고" : "선택된 공고 없음"}</span>
@@ -2968,6 +3493,30 @@ export function AIDraftChatBuilder() {
               ) : (
                 <p className="aiDraftEmptyNote">채용공고에서 공고를 선택하면 여기에 표시됩니다.</p>
               )}
+            </section>
+
+            <section className="aiDraftInfoCard" aria-label="자소서 형식">
+              <div className="aiDraftCardTitle">
+                <span>자소서 형식</span>
+                <small>{selectedSelfIntroFormat.label}</small>
+              </div>
+              <div className="aiDraftFormatChoiceGrid" role="listbox" aria-label="자소서 형식 선택">
+                {SELF_INTRO_FORMAT_OPTIONS.map((format) => (
+                  <button
+                    type="button"
+                    key={format.id}
+                    className={selectedSelfIntroFormatId === format.id ? "active" : ""}
+                    role="option"
+                    aria-selected={selectedSelfIntroFormatId === format.id}
+                    onClick={() => handleSelfIntroFormatSelect(format)}
+                  >
+                    {format.label}
+                  </button>
+                ))}
+              </div>
+              <p className="aiDraftFootnote">
+                {inferredQuestionText} · {inferredCharLimit}자
+              </p>
             </section>
 
             <section className="aiDraftInfoCard" aria-label="자소서 레퍼런스">
@@ -3110,45 +3659,6 @@ export function AIDraftChatBuilder() {
                   )}
                 </section>
               </>
-            )}
-
-            {providerStatuses.length > 0 && (
-              <section className="aiDraftInfoCard">
-                <div className="aiDraftCardTitle">
-                  <span>AI Provider 상태</span>
-                </div>
-                <div className="aiDraftProviderList">
-                  {providerStatuses.map((provider) => {
-                    const canStartCodexLogin =
-                      provider.providerId === "codex_bridge" &&
-                      provider.configured &&
-                      !provider.online &&
-                      provider.reason === "codex_not_logged_in";
-                    const isCodexLoginBusy =
-                      codexLoginState.status === "starting" || codexLoginState.status === "pending";
-
-                    return (
-                      <div className="aiDraftProviderRow" key={provider.providerId}>
-                        <span className={provider.online && !provider.quotaExceeded ? "matched" : ""}>
-                          {providerBadgeLabel(provider.providerId)} ·{" "}
-                          {provider.quotaExceeded ? "할당량 초과" : provider.online ? "온라인" : "오프라인"}
-                        </span>
-                        {canStartCodexLogin && (
-                          <button
-                            type="button"
-                            className="aiDraftProviderConnectButton"
-                            onClick={handleCodexLoginStart}
-                            disabled={isCodexLoginBusy}
-                          >
-                            {isCodexLoginBusy ? "연결 중" : "Codex 연결"}
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                {codexLoginState.message && <p className="aiDraftFootnote">{codexLoginState.message}</p>}
-              </section>
             )}
 
             <section className="aiDraftInfoCard">

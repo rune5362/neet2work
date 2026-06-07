@@ -147,6 +147,52 @@ describe("career workflow routes", () => {
     expect(body.data.session.completion.progress).toBeGreaterThan(sessionBody.data.completion.progress);
   });
 
+  it("POST /document-session returns document analyses, evidence vault, interview, and draft envelopes", async () => {
+    const response = await request("/api/career-workflow/document-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "백엔드 개발자 직무로 첨부 양식에 맞춰 초안 작성해줘.",
+        target: {
+          role: "백엔드 개발자"
+        },
+        attachments: [
+          {
+            fileName: "cover-letter-template.txt",
+            text: "문항: 지원 직무와 관련된 프로젝트 경험을 작성해 주세요. 700자 이내.\n작성 규칙: 근거 없는 수치는 쓰지 마세요."
+          }
+        ]
+      })
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.stages.map((stage: { label: string }) => stage.label)).toEqual([
+      "자료 수집",
+      "근거 분석",
+      "부족 정보 질문",
+      "문항별 초안"
+    ]);
+    expect(body.data.documentAnalyses[0]).toMatchObject({
+      classification: "self_intro_template"
+    });
+    expect(body.data.evidenceVault[0]).toEqual(
+      expect.objectContaining({
+        sourceId: expect.any(String),
+        sourceType: expect.any(String),
+        fact: expect.any(String),
+        confidence: expect.any(String),
+        allowedInDraft: expect.any(Boolean),
+        privacyRisk: expect.any(String),
+        needsUserConfirmation: expect.any(Boolean)
+      })
+    );
+    expect(body.data.interview.questions.length).toBeGreaterThan(0);
+    expect(body.data.drafts[0]).toMatchObject({
+      status: "needs_more_evidence"
+    });
+  });
+
   it("POST /session returns 400 for invalid source URL", async () => {
     const response = await request("/api/career-workflow/session", {
       method: "POST",

@@ -7036,6 +7036,16 @@ textarea:focus {
     0 10px 28px rgba(0, 0, 0, 0.18);
 }
 
+.aiDraftComposerBar.isDraggingFile {
+  border-color: rgba(59, 130, 246, 0.88);
+  background:
+    linear-gradient(rgba(37, 99, 235, 0.16), rgba(37, 99, 235, 0.16)),
+    rgba(15, 23, 42, 0.96);
+  box-shadow:
+    inset 0 0 0 1px rgba(147, 197, 253, 0.34),
+    0 12px 34px rgba(37, 99, 235, 0.24);
+}
+
 .aiDraftComposerBar.withAttachments {
   grid-template-rows: auto minmax(24px, auto) 34px;
   row-gap: 7px;
@@ -7714,6 +7724,30 @@ textarea:focus {
   cursor: wait;
 }
 
+.aiDraftFormatChoiceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.aiDraftFormatChoiceGrid button {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid #cfd9e7;
+  border-radius: 7px;
+  color: #5f7088;
+  background: #f8fafc;
+  font-size: 0.8rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.aiDraftFormatChoiceGrid button.active {
+  color: #0d5fd7;
+  border-color: rgba(0, 102, 255, 0.38);
+  background: rgba(0, 102, 255, 0.1);
+}
+
 .aiDraftFootnote {
   margin: 14px 0 0;
   color: #8190a8;
@@ -7942,11 +7976,18 @@ textarea:focus {
   border-radius: 12px;
 }
 
-.aiDraftGapFieldset legend {
+.aiDraftGapFieldset legend,
+.aiDraftGapFieldset > strong {
   padding: 0 6px;
   font-size: 0.84rem;
   font-weight: 700;
   color: #e2e8f0;
+}
+
+.aiDraftGapFieldset > strong {
+  display: block;
+  margin: 0 0 8px;
+  padding: 0;
 }
 
 .aiDraftGapChoices {
@@ -8004,6 +8045,167 @@ textarea:focus {
   background: rgba(148, 163, 184, 0.08);
   color: rgba(203, 213, 225, 0.55);
   cursor: not-allowed;
+}
+
+.aiDraftWorkflowStages {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 14px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.aiDraftWorkflowStages li {
+  display: grid;
+  gap: 4px;
+  min-height: 58px;
+  padding: 10px;
+  border: 1px solid rgba(226, 232, 240, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.aiDraftWorkflowStages li.complete {
+  border-color: rgba(20, 184, 166, 0.34);
+  background: rgba(20, 184, 166, 0.1);
+}
+
+.aiDraftWorkflowStages li.active {
+  border-color: rgba(96, 165, 250, 0.42);
+  background: rgba(0, 102, 255, 0.12);
+}
+
+.aiDraftWorkflowStages li.blocked {
+  border-color: rgba(245, 158, 11, 0.38);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.aiDraftWorkflowStages span,
+.aiDraftWorkflowStages em {
+  overflow-wrap: anywhere;
+  font-style: normal;
+}
+
+.aiDraftWorkflowStages span {
+  color: #f8fafc;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.aiDraftWorkflowStages em {
+  color: #9fb0c8;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.aiDraftDocumentGrid,
+.aiDraftQuestionDrafts {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.aiDraftDocumentMiniCard,
+.aiDraftEvidencePanel,
+.aiDraftQuestionDrafts article {
+  padding: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.aiDraftDocumentMiniCard {
+  display: grid;
+  gap: 6px;
+}
+
+.aiDraftDocumentMiniCard strong,
+.aiDraftEvidencePanel strong,
+.aiDraftQuestionDrafts strong {
+  color: #f8fafc;
+  font-size: 0.86rem;
+}
+
+.aiDraftDocumentMiniCard span,
+.aiDraftQuestionDrafts article > div span {
+  color: #93c5fd;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.aiDraftDocumentMiniCard p,
+.aiDraftQuestionDrafts p,
+.aiDraftQuestionDrafts small {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.aiDraftDocumentMiniCard ul,
+.aiDraftEvidencePanel ul,
+.aiDraftQuestionDrafts ul {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding-left: 16px;
+  color: #b8c5d8;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.aiDraftEvidencePanel {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.aiDraftEvidencePanel li {
+  overflow-wrap: anywhere;
+}
+
+.aiDraftEvidencePanel li span {
+  display: block;
+  margin-top: 2px;
+  color: #7dd3fc;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.aiDraftQuestionDrafts article {
+  display: grid;
+  gap: 8px;
+}
+
+.aiDraftQuestionDrafts article.drafted {
+  border-color: rgba(20, 184, 166, 0.28);
+}
+
+.aiDraftQuestionDrafts article.needs_more_evidence {
+  border-color: rgba(245, 158, 11, 0.34);
+}
+
+.aiDraftQuestionDrafts article > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.aiDraftQuestionDrafts blockquote {
+  margin: 0;
+  padding: 12px;
+  border-left: 3px solid #60a5fa;
+  border-radius: 0 8px 8px 0;
+  background: rgba(15, 23, 42, 0.45);
+  color: #f8fafc;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .aiDraftRevisePanel {

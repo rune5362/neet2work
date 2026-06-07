@@ -12,6 +12,11 @@ import type {
   CareerWorkflowSession,
   CareerWorkflowSessionRequest
 } from "../types/career-workflow";
+import type {
+  CareerDocumentWorkflowAnswerRequest,
+  CareerDocumentWorkflowSession,
+  CareerDocumentWorkflowSessionRequest
+} from "../types/career-document-workflow";
 import type { CareerStage, EmploymentTypeCategory, JobPosting } from "../types/job";
 
 export type EmploymentTypeFilterValue = EmploymentTypeCategory | "unspecified";
@@ -220,6 +225,40 @@ export async function createCareerWorkflowSession(
   }
 
   const result = (await response.json()) as ApiItemResponse<CareerWorkflowSession>;
+  return result.data;
+}
+
+export async function createCareerDocumentWorkflowSession(
+  payload: CareerDocumentWorkflowSessionRequest
+): Promise<CareerDocumentWorkflowSession> {
+  const response = await fetch(`${API_BASE_URL}/api/career-workflow/document-session`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error("커리어 문서 작성 세션 생성에 실패했습니다.");
+  }
+
+  const result = (await response.json()) as ApiItemResponse<CareerDocumentWorkflowSession>;
+  return result.data;
+}
+
+export async function answerCareerDocumentWorkflowQuestion(
+  payload: CareerDocumentWorkflowAnswerRequest
+): Promise<CareerDocumentWorkflowSession> {
+  const response = await fetch(`${API_BASE_URL}/api/career-workflow/document-session/answer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error("보완 답변 저장에 실패했습니다.");
+  }
+
+  const result = (await response.json()) as ApiItemResponse<CareerDocumentWorkflowSession>;
   return result.data;
 }
 
