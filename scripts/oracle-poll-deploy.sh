@@ -25,8 +25,8 @@ mkdir -p "$DEPLOY_ROOT"
   fi
 
   cd "$REPO_DIR"
-  git fetch origin "$BRANCH"
-  remote_sha="$(git rev-parse "origin/$BRANCH")"
+  git fetch origin "$BRANCH:refs/remotes/origin/$BRANCH"
+  remote_sha="$(git rev-parse "refs/remotes/origin/$BRANCH")"
   deployed_sha="$(cat "$STATE_FILE" 2>/dev/null || true)"
 
   if [[ "$remote_sha" == "$deployed_sha" ]]; then
