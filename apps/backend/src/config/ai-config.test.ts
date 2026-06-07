@@ -68,6 +68,20 @@ describe("aiConfig agy_cli contract", () => {
     expect(aiConfig.agyCli.configErrorReason).toBe("invalid_task_profile");
   });
 
+  it("rejects relative commands, unapproved command names, and relative workdirs", async () => {
+    await expect(loadAiConfigWithEnv({ AGY_CLI_COMMAND: "agy.exe" })).resolves.toMatchObject({
+      aiConfig: { agyCli: { configErrorReason: "invalid_command" } }
+    });
+
+    await expect(loadAiConfigWithEnv({ AGY_CLI_COMMAND: "C:\\tools\\notepad.exe" })).resolves.toMatchObject({
+      aiConfig: { agyCli: { configErrorReason: "invalid_command" } }
+    });
+
+    await expect(loadAiConfigWithEnv({ AGY_CLI_WORKDIR: "relative\\workdir" })).resolves.toMatchObject({
+      aiConfig: { agyCli: { configErrorReason: "invalid_command" } }
+    });
+  });
+
   it("parses model allowlist and positive numeric limits", async () => {
     const { aiConfig } = await loadAiConfigWithEnv({
       AGY_CLI_TIMEOUT_MS: "90000",

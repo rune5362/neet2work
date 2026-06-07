@@ -33,7 +33,20 @@ const mockAiConfig = vi.hoisted(() => ({
 }));
 
 const mockSpawn = vi.hoisted(() => vi.fn());
+const mockExistsSync = vi.hoisted(() => vi.fn(() => true));
 const mockRunRemoteWrapperWithStdin = vi.hoisted(() => vi.fn());
+const MockAgySshExecutionError = vi.hoisted(() =>
+  class AgySshExecutionError extends Error {
+    readonly code: "offline" | "timeout";
+    readonly reason: string;
+
+    constructor(reason: string) {
+      super(reason);
+      this.code = reason.endsWith("timeout") ? "timeout" : "offline";
+      this.reason = reason;
+    }
+  }
+);
 
 vi.mock("node:child_process", () => ({
   spawn: mockSpawn
@@ -43,7 +56,7 @@ vi.mock("node:fs", async () => {
   const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
   return {
     ...actual,
-    existsSync: vi.fn(() => true),
+    existsSync: mockExistsSync,
     mkdtempSync: vi.fn(() => "C:\\tmp\\neet2work-agy-test")
   };
 });
@@ -53,16 +66,7 @@ vi.mock("../../config/ai-config.js", () => ({
 }));
 
 vi.mock("./ssh-helper.js", () => ({
-  AgySshExecutionError: class AgySshExecutionError extends Error {
-    readonly code: "offline" | "timeout";
-    readonly reason: string;
-
-    constructor(reason: string) {
-      super(reason);
-      this.code = reason.endsWith("timeout") ? "timeout" : "offline";
-      this.reason = reason;
-    }
-  },
+  AgySshExecutionError: MockAgySshExecutionError,
   runRemoteWrapperWithStdin: mockRunRemoteWrapperWithStdin
 }));
 
@@ -101,6 +105,18 @@ function createChild(stdoutText: string, stderrText = "", exitCode = 0) {
   return child;
 }
 
+function createHangingChild() {
+  const child = new EventEmitter() as EventEmitter & {
+    stdout: PassThrough;
+    stderr: PassThrough;
+    kill: ReturnType<typeof vi.fn>;
+  };
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.kill = vi.fn();
+  return child;
+}
+
 const validPayload = {
   target: {
     company: "Backend Bridge",
@@ -128,6 +144,8 @@ describe("AgyCliProvider", () => {
   beforeEach(() => {
     resetConfig();
     mockSpawn.mockReset();
+    mockExistsSync.mockReset();
+    mockExistsSync.mockReturnValue(true);
     mockRunRemoteWrapperWithStdin.mockReset();
     vi.unstubAllEnvs();
     vi.stubEnv("SECRET_TOKEN", "do-not-pass");
@@ -203,8 +221,93 @@ describe("AgyCliProvider", () => {
     );
     const [, args, options] = mockSpawn.mock.calls.at(-1)!;
     expect(String(args[args.indexOf("--print") + 1])).toContain("AGY_CLI_FIXED_ROLE");
+    expect(args).not.toContain("not-allowed-model");
+    expect(String(args[args.indexOf("--print") + 1])).not.toContain("not-allowed-model");
     expect(options.env.SECRET_TOKEN).toBeUndefined();
     expect(options.env.PATH).toBe("C:\\Windows\\System32");
+  });
+
+  it("reports config errors in status and execute without spawning", async () => {
+    mockAiConfig.agyCli.enabled = true;
+    mockAiConfig.agyCli.configErrorReason = "sandbox_required";
+
+    const { AgyCliProvider } = await import("./agy-cli.provider.js");
+    const provider = new AgyCliProvider();
+    const status = await provider.getStatus();
+
+    expect(status).toMatchObject({
+      configured: false,
+      online: false,
+      reason: "sandbox_required"
+    });
+    await expect(
+      provider.execute({
+        operation: "plan",
+        payload: validPayload,
+        timeoutMs: 10_000
+      })
+    ).rejects.toMatchObject({ code: "offline", message: "sandbox_required" });
+    expect(mockSpawn).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsafe local command and workdir resolution before execution", async () => {
+    mockAiConfig.agyCli.enabled = true;
+    mockAiConfig.agyCli.command = "agy.exe";
+
+    const { AgyCliProvider } = await import("./agy-cli.provider.js");
+    const provider = new AgyCliProvider();
+
+    await expect(
+      provider.execute({
+        operation: "plan",
+        payload: validPayload,
+        timeoutMs: 10_000
+      })
+    ).rejects.toMatchObject({ code: "offline", message: "missing_command" });
+    expect(mockSpawn).not.toHaveBeenCalled();
+
+    mockAiConfig.agyCli.command = "C:\\tools\\agy.exe";
+    mockAiConfig.agyCli.workdir = "relative\\workdir";
+    await expect(
+      provider.execute({
+        operation: "plan",
+        payload: validPayload,
+        timeoutMs: 10_000
+      })
+    ).rejects.toMatchObject({ code: "offline", message: "invalid_command" });
+  });
+
+  it("cleans up a timed-out local status probe and reports offline", async () => {
+    vi.useFakeTimers();
+    try {
+      mockAiConfig.agyCli.enabled = true;
+      const child = createHangingChild();
+      mockSpawn.mockReturnValue(child);
+
+      const { AgyCliProvider } = await import("./agy-cli.provider.js");
+      const statusPromise = new AgyCliProvider().getStatus();
+      await vi.advanceTimersByTimeAsync(5_000);
+      const status = await statusPromise;
+
+      expect(status).toMatchObject({ configured: true, online: false, reason: "agy_probe_timeout" });
+      expect(child.kill).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("classifies local app data permission failures as unwritable status", async () => {
+    mockAiConfig.agyCli.enabled = true;
+    mockSpawn.mockImplementation((_command: string, args: string[]) => {
+      if (args[0] === "--version") return createChild("1.0.5\n");
+      if (args[0] === "models") return createChild("", "EACCES: permission denied", 1);
+      return createChild("", "unexpected", 1);
+    });
+
+    const { AgyCliProvider } = await import("./agy-cli.provider.js");
+    const status = await new AgyCliProvider().getStatus();
+
+    expect(status).toMatchObject({ configured: true, online: false, reason: "agy_app_data_unwritable" });
   });
 
   it("does not execute without profileContexts", async () => {
@@ -253,6 +356,7 @@ describe("AgyCliProvider", () => {
     const result = await new AgyCliProvider().execute<{ state: string }>({
       operation: "plan",
       payload: validPayload,
+      modelId: "not-allowed-model",
       timeoutMs: 180_000
     });
 
@@ -267,6 +371,7 @@ describe("AgyCliProvider", () => {
       expect.stringContaining("AGY_CLI_FIXED_ROLE"),
       90_000
     );
+    expect(JSON.stringify(mockRunRemoteWrapperWithStdin.mock.calls[0])).not.toContain("not-allowed-model");
   });
 
   it("reports SSH wrapper probe status without using local command fallback", async () => {
@@ -288,5 +393,54 @@ describe("AgyCliProvider", () => {
     expect(status).toMatchObject({ configured: true, online: true });
     expect(mockSpawn).not.toHaveBeenCalled();
     expect(mockRunRemoteWrapperWithStdin).toHaveBeenCalled();
+  });
+
+  it("does not fall back to local command when SSH mode is enabled but incomplete", async () => {
+    mockAiConfig.agyCli.enabled = true;
+    mockAiConfig.agyCli.command = "C:\\tools\\agy.exe";
+    mockAiConfig.agyCli.ssh.enabled = true;
+    mockAiConfig.agyCli.configErrorReason = "ssh_missing_config";
+
+    const { AgyCliProvider } = await import("./agy-cli.provider.js");
+    const provider = new AgyCliProvider();
+    const status = await provider.getStatus();
+
+    expect(status).toMatchObject({ configured: false, online: false, reason: "ssh_missing_config" });
+    await expect(
+      provider.execute({
+        operation: "plan",
+        payload: validPayload,
+        timeoutMs: 10_000
+      })
+    ).rejects.toMatchObject({ code: "offline", message: "ssh_missing_config" });
+    expect(mockSpawn).not.toHaveBeenCalled();
+    expect(mockRunRemoteWrapperWithStdin).not.toHaveBeenCalled();
+  });
+
+  it("surfaces SSH fingerprint and wrapper timeout reasons in status", async () => {
+    mockAiConfig.agyCli.enabled = true;
+    mockAiConfig.agyCli.ssh.enabled = true;
+    mockAiConfig.agyCli.ssh.host = "ssh.example.internal";
+    mockAiConfig.agyCli.ssh.username = "agyuser";
+    mockAiConfig.agyCli.ssh.keyPath = "C:\\keys\\agy";
+    mockAiConfig.agyCli.ssh.hostFingerprint = "SHA256:test";
+    mockRunRemoteWrapperWithStdin.mockRejectedValueOnce(new MockAgySshExecutionError("ssh_host_key_mismatch"));
+
+    const { AgyCliProvider } = await import("./agy-cli.provider.js");
+    const provider = new AgyCliProvider();
+
+    await expect(provider.getStatus()).resolves.toMatchObject({
+      configured: true,
+      online: false,
+      reason: "ssh_host_key_mismatch"
+    });
+
+    mockRunRemoteWrapperWithStdin.mockRejectedValueOnce(new MockAgySshExecutionError("ssh_wrapper_timeout"));
+    await expect(provider.getStatus()).resolves.toMatchObject({
+      configured: true,
+      online: false,
+      reason: "ssh_wrapper_timeout"
+    });
+    expect(mockSpawn).not.toHaveBeenCalled();
   });
 });

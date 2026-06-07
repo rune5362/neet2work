@@ -94,29 +94,29 @@
 
 ## Phase 7. Tests
 
-- [ ] backend status test에 `agy_cli` disabled 기본 상태를 추가한다.
-- [ ] `AGY_CLI_SANDBOX_ENABLED`가 `true`가 아니면 실행 거부되는 테스트를 추가한다.
-- [ ] 로컬 command 상대 경로, 파일명 allowlist 실패, cwd 실패 케이스를 테스트한다.
-- [ ] `getStatus()`가 구성 오류에서 `configured=false`, `online=false`, sanitized reason을 반환하는 테스트를 추가한다.
-- [ ] `execute()`가 구성 오류에서 `ProviderExecutionError("offline", reason)`를 던지는 테스트를 추가한다.
-- [ ] 로그인 probe timeout 시 child process cleanup과 offline 분류를 테스트한다.
-- [ ] app data/config/log 디렉터리 쓰기 권한 실패 시 offline 분류를 테스트한다.
-- [ ] `AGY_SSH_ENABLED=true`이면 로컬 fallback을 시도하지 않는 테스트를 추가한다.
-- [ ] `AGY_SSH_ENABLED=true`이고 SSH 필수값이 빠졌지만 로컬 command가 있는 경우에도 로컬 fallback을 시도하지 않는 테스트를 추가한다.
-- [ ] SSH fingerprint/known_hosts 실패, key path 실패, wrapper path 실패, wrapper timeout 테스트를 추가한다.
-- [ ] modelId allowlist 실패 시 CLI args 또는 wrapper에 반영되지 않는 테스트를 추가한다.
-- [ ] profileContexts 없는 요청은 `agy_cli`에서만 실행되지 않는 테스트를 추가한다.
-- [ ] `agy_cli` 출력에 `aiMeta`/`mode`가 없고 `DraftWorkflowService`가 기존처럼 주입하는 테스트를 추가한다.
-- [ ] strict JSON-only parser가 JSON 외 텍스트를 invalid output으로 처리하는 테스트를 추가한다.
-- [ ] 기존 `extractJsonObject()`를 사용하는 Codex/Gemini/Local provider 테스트가 깨지지 않는지 확인한다.
-- [ ] frontend `AiProviderId`, `providerBadgeLabel()`, provider 선택 UI 테스트를 추가한다.
-- [ ] `corepack pnpm --filter @neet2work/backend test`를 실행한다.
-- [ ] `corepack pnpm --filter @neet2work/frontend test`를 실행한다.
+- [x] backend status test에 `agy_cli` disabled 기본 상태를 추가한다.
+- [x] `AGY_CLI_SANDBOX_ENABLED`가 `true`가 아니면 실행 거부되는 테스트를 추가한다.
+- [x] 로컬 command 상대 경로, 파일명 allowlist 실패, cwd 실패 케이스를 테스트한다.
+- [x] `getStatus()`가 구성 오류에서 `configured=false`, `online=false`, sanitized reason을 반환하는 테스트를 추가한다.
+- [x] `execute()`가 구성 오류에서 `ProviderExecutionError("offline", reason)`를 던지는 테스트를 추가한다.
+- [x] 로그인 probe timeout 시 child process cleanup과 offline 분류를 테스트한다.
+- [x] app data/config/log 디렉터리 쓰기 권한 실패 시 offline 분류를 테스트한다.
+- [x] `AGY_SSH_ENABLED=true`이면 로컬 fallback을 시도하지 않는 테스트를 추가한다.
+- [x] `AGY_SSH_ENABLED=true`이고 SSH 필수값이 빠졌지만 로컬 command가 있는 경우에도 로컬 fallback을 시도하지 않는 테스트를 추가한다.
+- [x] SSH fingerprint/known_hosts 실패, key path 실패, wrapper path 실패, wrapper timeout 테스트를 추가한다.
+- [x] modelId allowlist 실패 시 CLI args 또는 wrapper에 반영되지 않는 테스트를 추가한다.
+- [x] profileContexts 없는 요청은 `agy_cli`에서만 실행되지 않는 테스트를 추가한다.
+- [x] `agy_cli` 출력에 `aiMeta`/`mode`가 없고 `DraftWorkflowService`가 기존처럼 주입하는 테스트를 추가한다.
+- [x] strict JSON-only parser가 JSON 외 텍스트를 invalid output으로 처리하는 테스트를 추가한다.
+- [x] 기존 `extractJsonObject()`를 사용하는 Codex/Gemini/Local provider 테스트가 깨지지 않는지 확인한다.
+- [x] frontend `AiProviderId`, `providerBadgeLabel()`, provider 선택 UI 테스트를 추가한다.
+- [x] `corepack pnpm --filter @neet2work/backend test`를 실행한다. (`corepack`/`pnpm` PATH 부재로 backend Vitest 직접 실행 대체)
+- [x] `corepack pnpm --filter @neet2work/frontend test`를 실행한다. (`corepack`/`pnpm` PATH 부재로 frontend Vitest 직접 실행 대체)
 
 ## Phase 8. Manual Setup Checklist
 
 - [ ] 로컬 실행 계정에서 `agy.exe`를 미리 실행하고 로그인 절차를 완료한다.
-- [ ] 로컬 실행 계정이 `agy.exe` app data/config/log 디렉터리에 필요한 읽기/쓰기 권한을 갖는지 확인한다. 현재 확인된 Windows 예시는 `C:\Users\pc07-00\.gemini\antigravity-cli` 및 `C:\Users\pc07-00\.gemini\config`다.
+- [ ] 로컬 실행 계정이 `agy.exe` app data/config/log 디렉터리에 필요한 읽기/쓰기 권한을 갖는지 확인한다. 현재 확인된 Windows 예시는 `%LOCALAPPDATA%\agy\bin\agy.exe` 다.
 - [ ] 실제 `.env`에 `AGY_CLI_COMMAND`를 수동 설정한다.
 - [ ] SSH 실행 시 원격 `AGY_SSH_USERNAME` 계정으로 로그인해 해당 계정에서 `agy.exe` 로그인 절차를 완료한다.
 - [ ] SSH 실행 시 원격 계정의 `agy.exe` app data/config/log 디렉터리 쓰기 권한을 확인한다. 원격 OS별 실제 경로는 `agy.exe` 실행 계정에서 확인한다.

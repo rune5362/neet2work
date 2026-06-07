@@ -233,6 +233,44 @@ describe("draftWorkflowService", () => {
     expect(plan.aiMeta.fallbackReason).toBe("invalid_output");
   });
 
+  it("injects mode and aiMeta for agy_cli output that omits backend metadata", async () => {
+    const fallbackPlan = await draftWorkflowService.createPlan({
+      aiSelection: { mode: "auto" },
+      target: sampleTarget,
+      experienceInput: sampleExperience
+    });
+    const { mode: _mode, aiMeta: _aiMeta, ...agyData } = fallbackPlan;
+
+    const service = new DraftWorkflowService({
+      listProviderStatuses: async () => [],
+      execute: async () => ({
+        data: agyData,
+        aiMeta: {
+          providerId: "agy_cli",
+          modelId: "agy-cli",
+          routingMode: "manual",
+          usedFallback: false
+        }
+      })
+    } as unknown as AiRouter);
+
+    const plan = await service.createPlan({
+      aiSelection: { mode: "manual", providerId: "agy_cli" },
+      target: sampleTarget,
+      experienceInput: sampleExperience
+    });
+
+    expect(plan.mode).toBe("ai");
+    expect(plan.aiMeta).toMatchObject({
+      providerId: "agy_cli",
+      modelId: "agy-cli",
+      routingMode: "manual",
+      usedFallback: false
+    });
+    expect((agyData as { mode?: unknown; aiMeta?: unknown }).mode).toBeUndefined();
+    expect((agyData as { mode?: unknown; aiMeta?: unknown }).aiMeta).toBeUndefined();
+  });
+
   it("reviseDraft rejects revisions containing disallowed claims with 422", async () => {
     const plan = await draftWorkflowService.createPlan({
       aiSelection: { mode: "auto" },
