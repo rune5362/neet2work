@@ -1,0 +1,24 @@
+FROM node:24.14.0-alpine AS builder
+
+WORKDIR /app
+
+RUN corepack enable pnpm
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/frontend/package.json apps/frontend/package.json
+COPY apps/backend/package.json apps/backend/package.json
+RUN pnpm install --frozen-lockfile
+
+COPY . .
+
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
+RUN pnpm --filter @neet2work/frontend build
+
+FROM nginx:1.27-alpine
+
+COPY apps/frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/apps/frontend/dist /usr/share/nginx/html
+
+EXPOSE 80

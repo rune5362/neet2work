@@ -208,4 +208,8 @@ describe("assertDraftRespectsClaimLedger", () => {
   it("throws when draft text contains unsafe export characters", () => {
     expect(() => assertDraftTextIsExportSafe("정상 문장\u00A0깨진 공백")).toThrow(/안전하지 않은 문자/);
   });
+
+  it("throws when draft text is empty", () => {
+    expect(() => assertDraftTextIsExportSafe("   \n\t")).toThrow(/초안 본문/);
+  });
 });

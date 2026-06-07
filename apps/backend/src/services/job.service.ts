@@ -1217,6 +1217,10 @@ function buildFallbackFacets(jobs: JobPosting[]): JobFacets {
 }
 
 function isDatabaseUnavailableError(error: unknown): boolean {
+  if (isMissingDatabaseCertificateError(error)) {
+    return true;
+  }
+
   const code = readErrorString(error, "code");
   const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
   const cause = readErrorString(error, "cause")?.toLowerCase() ?? "";
@@ -1239,6 +1243,21 @@ function isDatabaseUnavailableError(error: unknown): boolean {
     "tls",
     "ssl"
   ].some((pattern) => combined.includes(pattern));
+}
+
+function isMissingDatabaseCertificateError(error: unknown): boolean {
+  const code = readErrorString(error, "code")?.toLowerCase() ?? "";
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  const cause = readErrorString(error, "cause")?.toLowerCase() ?? "";
+  const combined = `${code} ${message} ${cause}`;
+
+  return (
+    (combined.includes("enoent") || combined.includes("no such file or directory")) &&
+    (combined.includes(".crt") ||
+      combined.includes(".pem") ||
+      combined.includes("cert") ||
+      combined.includes("ssl"))
+  );
 }
 
 function readErrorString(error: unknown, key: string): string | undefined {

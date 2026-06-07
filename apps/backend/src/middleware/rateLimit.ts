@@ -1,9 +1,10 @@
-import type { RequestHandler } from "express";
+import type { Request, RequestHandler, Response } from "express";
 
 type RateLimitOptions = {
   windowMs: number;
   maxRequests: number;
   keyPrefix?: string;
+  keyGenerator?: (req: Request, res: Response) => string;
 };
 
 type RateLimitBucket = {
@@ -16,7 +17,7 @@ export function createRateLimit(options: RateLimitOptions): RequestHandler {
 
   return (req, res, next) => {
     const now = Date.now();
-    const key = `${options.keyPrefix ?? "rate"}:${req.ip ?? "unknown"}:${req.path}`;
+    const key = options.keyGenerator?.(req, res) ?? `${options.keyPrefix ?? "rate"}:${req.ip ?? "unknown"}:${req.path}`;
     const current = buckets.get(key);
 
     if (!current || current.resetAt <= now) {

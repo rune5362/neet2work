@@ -41,7 +41,7 @@ export type AiExecutionMeta = {
   fallbackReason?: FallbackReason;
 };
 
-export type AiWorkflowOperation = "plan" | "draft" | "revise";
+export type AiWorkflowOperation = "analyze" | "plan" | "draft" | "revise";
 
 export type AiProviderExecuteInput<TPayload> = {
   operation: AiWorkflowOperation;

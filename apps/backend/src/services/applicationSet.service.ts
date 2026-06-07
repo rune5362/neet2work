@@ -228,22 +228,18 @@ export async function getApplicationSets(candidateKey: string, options: { includ
   const includeArchived = options.includeArchived ?? false;
 
   if (prisma) {
-    try {
-      const sets = await prisma.applicationSet.findMany({
-        where: {
-          candidateKey,
-          ...(includeArchived ? {} : { isArchived: false })
-        },
-        include: includeApplicationSetRelations(),
-        orderBy: {
-          updatedAt: "desc"
-        }
-      });
+    const sets = await prisma.applicationSet.findMany({
+      where: {
+        candidateKey,
+        ...(includeArchived ? {} : { isArchived: false })
+      },
+      include: includeApplicationSetRelations(),
+      orderBy: {
+        updatedAt: "desc"
+      }
+    });
 
-      return sets.map(toApplicationSetItem);
-    } catch {
-      // Keep local demo mode usable without a migrated database.
-    }
+    return sets.map(toApplicationSetItem);
   }
 
   const store = await getApplicationSetMemoryStore();
@@ -256,35 +252,29 @@ export async function createApplicationSet(input: CreateApplicationSetInput) {
   const prisma = getPrismaClient();
 
   if (prisma) {
-    try {
-      const set = await prisma.$transaction(async (tx) => {
-        const profileId = await validateProfile(tx, input.candidateKey, input.profileId);
-        const resumeDocumentId = await validateDocument(tx, input.candidateKey, input.resumeDocumentId, "resume");
-        const coverLetterDocumentId = await validateDocument(
-          tx,
-          input.candidateKey,
-          input.coverLetterDocumentId,
-          "cover_letter"
-        );
+    const set = await prisma.$transaction(async (tx) => {
+      const profileId = await validateProfile(tx, input.candidateKey, input.profileId);
+      const resumeDocumentId = await validateDocument(tx, input.candidateKey, input.resumeDocumentId, "resume");
+      const coverLetterDocumentId = await validateDocument(
+        tx,
+        input.candidateKey,
+        input.coverLetterDocumentId,
+        "cover_letter"
+      );
 
-        return tx.applicationSet.create({
-          data: {
-            candidateKey: input.candidateKey,
-            title: input.title,
-            profileId,
-            resumeDocumentId,
-            coverLetterDocumentId
-          },
-          include: includeApplicationSetRelations()
-        });
+      return tx.applicationSet.create({
+        data: {
+          candidateKey: input.candidateKey,
+          title: input.title,
+          profileId,
+          resumeDocumentId,
+          coverLetterDocumentId
+        },
+        include: includeApplicationSetRelations()
       });
+    });
 
-      return toApplicationSetItem(set);
-    } catch (error) {
-      if (error instanceof HttpError) {
-        throw error;
-      }
-    }
+    return toApplicationSetItem(set);
   }
 
   const timestamp = nowIso();
@@ -322,13 +312,7 @@ export async function getApplicationSet(candidateKey: string, setId: string) {
   const prisma = getPrismaClient();
 
   if (prisma) {
-    try {
-      return toApplicationSetItem(await findOwnedApplicationSet(prisma, candidateKey, setId));
-    } catch (error) {
-      if (error instanceof HttpError) {
-        throw error;
-      }
-    }
+    return toApplicationSetItem(await findOwnedApplicationSet(prisma, candidateKey, setId));
   }
 
   return findMemoryApplicationSet(candidateKey, setId);
@@ -338,41 +322,35 @@ export async function updateApplicationSet(setId: string, input: UpdateApplicati
   const prisma = getPrismaClient();
 
   if (prisma) {
-    try {
-      const set = await prisma.$transaction(async (tx) => {
-        await findOwnedApplicationSet(tx, input.candidateKey, setId);
-        const profileId =
-          input.profileId === undefined ? undefined : await validateProfile(tx, input.candidateKey, input.profileId);
-        const resumeDocumentId =
-          input.resumeDocumentId === undefined
-            ? undefined
-            : await validateDocument(tx, input.candidateKey, input.resumeDocumentId, "resume");
-        const coverLetterDocumentId =
-          input.coverLetterDocumentId === undefined
-            ? undefined
-            : await validateDocument(tx, input.candidateKey, input.coverLetterDocumentId, "cover_letter");
+    const set = await prisma.$transaction(async (tx) => {
+      await findOwnedApplicationSet(tx, input.candidateKey, setId);
+      const profileId =
+        input.profileId === undefined ? undefined : await validateProfile(tx, input.candidateKey, input.profileId);
+      const resumeDocumentId =
+        input.resumeDocumentId === undefined
+          ? undefined
+          : await validateDocument(tx, input.candidateKey, input.resumeDocumentId, "resume");
+      const coverLetterDocumentId =
+        input.coverLetterDocumentId === undefined
+          ? undefined
+          : await validateDocument(tx, input.candidateKey, input.coverLetterDocumentId, "cover_letter");
 
-        return tx.applicationSet.update({
-          where: {
-            id: setId
-          },
-          data: {
-            ...(input.title === undefined ? {} : { title: input.title }),
-            ...(profileId === undefined ? {} : { profileId }),
-            ...(resumeDocumentId === undefined ? {} : { resumeDocumentId }),
-            ...(coverLetterDocumentId === undefined ? {} : { coverLetterDocumentId }),
-            ...(input.isArchived === undefined ? {} : { isArchived: input.isArchived })
-          },
-          include: includeApplicationSetRelations()
-        });
+      return tx.applicationSet.update({
+        where: {
+          id: setId
+        },
+        data: {
+          ...(input.title === undefined ? {} : { title: input.title }),
+          ...(profileId === undefined ? {} : { profileId }),
+          ...(resumeDocumentId === undefined ? {} : { resumeDocumentId }),
+          ...(coverLetterDocumentId === undefined ? {} : { coverLetterDocumentId }),
+          ...(input.isArchived === undefined ? {} : { isArchived: input.isArchived })
+        },
+        include: includeApplicationSetRelations()
       });
+    });
 
-      return toApplicationSetItem(set);
-    } catch (error) {
-      if (error instanceof HttpError) {
-        throw error;
-      }
-    }
+    return toApplicationSetItem(set);
   }
 
   const set = await findMemoryApplicationSet(input.candidateKey, setId);

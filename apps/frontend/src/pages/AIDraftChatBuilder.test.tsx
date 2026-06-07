@@ -652,7 +652,9 @@ function errorResponse() {
 
 function setStoredAuthSession() {
   localStorage.setItem("neet2work.auth.accessToken", "test-access-token");
-  localStorage.setItem("neet2work.auth.expiresAt", String(Date.now() + 60_000));
+  localStorage.setItem("neet2work.auth.refreshToken", "test-refresh-token");
+  localStorage.setItem("neet2work.auth.expiresAt", String(Date.now() + 10 * 60_000));
+  localStorage.setItem("neet2work.auth.refreshExpiresAt", String(Date.now() + 60 * 60_000));
 }
 
 afterEach(() => {
@@ -828,6 +830,7 @@ describe("AIDraftChatBuilder job context", () => {
     fetchMock = createDraftWorkflowFetchMock();
 
     vi.stubGlobal("fetch", fetchMock);
+    setStoredAuthSession();
   });
 
   afterEach(() => {
@@ -1138,6 +1141,7 @@ describe("AIDraftChatBuilder draft workflow flow", () => {
     fetchMock = createDraftWorkflowFetchMock();
 
     vi.stubGlobal("fetch", fetchMock);
+    setStoredAuthSession();
   });
 
   afterEach(() => {
@@ -1697,6 +1701,7 @@ describe("AIDraftChatBuilder chat UX", () => {
     fetchMock = createDraftWorkflowFetchMock();
 
     vi.stubGlobal("fetch", fetchMock);
+    setStoredAuthSession();
   });
 
   afterEach(() => {
@@ -1803,7 +1808,8 @@ describe("AIDraftChatBuilder chat UX", () => {
 
     expect(screen.queryByText(USER_RESUME)).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByText(/Neet2Work AI 스크래치입니다/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("AI 답변")).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText("메시지를 입력하세요...")).toBeInTheDocument();
   });
 
   it("does not render the header AI settings button", async () => {
@@ -2452,10 +2458,7 @@ describe("AIDraftChatBuilder chat UX", () => {
 
     await screen.findByText("실전 백엔드 엔지니어");
 
-    const aiMessage = screen.getByLabelText("AI 답변");
-    expect(aiMessage.querySelector(".aiDraftAssistantResponse")).toBeInTheDocument();
-    expect(aiMessage.querySelector(".aiDraftBubble")).toBeNull();
-    expect(aiMessage.querySelector(".aiDraftAvatar")).toBeNull();
+    expect(screen.queryByLabelText("AI 답변")).not.toBeInTheDocument();
 
     await submitUserResume();
     const userMessage = document.querySelector(".aiDraftMessage.user") as HTMLElement;
@@ -2495,6 +2498,7 @@ describe("AIDraftChatBuilder plan test plan coverage", () => {
     window.history.pushState({}, "", "/ai-analysis?jobId=careercross-1591647");
     fetchMock = createDraftWorkflowFetchMock();
     vi.stubGlobal("fetch", fetchMock);
+    setStoredAuthSession();
   });
 
   afterEach(() => {

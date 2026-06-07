@@ -52,7 +52,7 @@ export class GapInterviewService {
     const answeredIds = new Set((input.answers ?? []).map((answer) => answer.questionId));
     const filledSlots = new Set(
       input.evidenceVault
-        .filter((item) => item.allowedInDraft)
+        .filter((item) => item.allowedInDraft && !item.needsUserConfirmation)
         .flatMap((item) => item.targetSlots)
     );
 

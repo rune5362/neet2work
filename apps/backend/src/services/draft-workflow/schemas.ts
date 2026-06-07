@@ -275,7 +275,7 @@ export const draftWorkflowDraftSchema = z.object({
   mode: z.enum(["ai", "fallback"]),
   state: draftWorkflowStateSchema,
   aiMeta: aiExecutionMetaSchema,
-  draftText: z.string(),
+  draftText: z.string().min(1),
   charCount: z.object({
     withSpaces: z.number(),
     withoutSpaces: z.number(),

@@ -454,37 +454,33 @@ export async function getDocuments(
   const prisma = getPrismaClient();
 
   if (prisma) {
-    try {
-      const documents = await prisma.applicationDocument.findMany({
-        where: {
-          candidateKey,
-          deletedAt: null,
-          ...(filters.includeArchived ? {} : { isArchived: false }),
-          ...(filters.documentType ? { documentType: filters.documentType } : {})
-        },
-        orderBy: {
-          updatedAt: "desc"
-        }
-      });
-      const profileTitleMap = await buildProfileTitleMap(
-        prisma,
-        documents.map((document) => document.profileId).filter((id): id is string => Boolean(id))
-      );
-      const jobMap = await buildJobMap(
-        prisma,
-        documents.map((document) => document.jobId).filter((id): id is string => Boolean(id))
-      );
+    const documents = await prisma.applicationDocument.findMany({
+      where: {
+        candidateKey,
+        deletedAt: null,
+        ...(filters.includeArchived ? {} : { isArchived: false }),
+        ...(filters.documentType ? { documentType: filters.documentType } : {})
+      },
+      orderBy: {
+        updatedAt: "desc"
+      }
+    });
+    const profileTitleMap = await buildProfileTitleMap(
+      prisma,
+      documents.map((document) => document.profileId).filter((id): id is string => Boolean(id))
+    );
+    const jobMap = await buildJobMap(
+      prisma,
+      documents.map((document) => document.jobId).filter((id): id is string => Boolean(id))
+    );
 
-      return documents.map((document) =>
-        toDocumentListItem(
-          document,
-          document.profileId ? profileTitleMap.get(document.profileId) ?? null : null,
-          document.jobId ? jobMap.get(document.jobId) ?? null : null
-        )
-      );
-    } catch {
-      // Keep the mock-first demo path alive when the local DB is missing or unmigrated.
-    }
+    return documents.map((document) =>
+      toDocumentListItem(
+        document,
+        document.profileId ? profileTitleMap.get(document.profileId) ?? null : null,
+        document.jobId ? jobMap.get(document.jobId) ?? null : null
+      )
+    );
   }
 
   return getMemoryDocuments(candidateKey, filters);
@@ -497,64 +493,50 @@ export async function createDocument(input: CreateDocumentInput) {
     return createMemoryDocument(input);
   }
 
-  try {
-    const document = await prisma.$transaction(async (tx) => {
-      const profileSnapshot = await findOwnedProfileSnapshot(tx, input.candidateKey, input.profileId);
-      const jobSnapshot = await findJobSnapshot(tx, input.jobId);
-      const createdDocument = await tx.applicationDocument.create({
-        data: {
-          candidateKey: input.candidateKey,
-          title: input.title,
-          documentType: input.documentType,
-          profileId: profileSnapshot.profileId,
-          jobId: jobSnapshot?.id ?? null,
-          content: input.content,
-          contentJson: input.contentJson === undefined ? undefined : (input.contentJson as Prisma.InputJsonValue),
-          source: ApplicationDocumentSource.user,
-          profileSnapshotText: profileSnapshot.profileSnapshotText,
-          profileSnapshotJson:
-            profileSnapshot.profileSnapshotJson === null
-              ? undefined
-              : (profileSnapshot.profileSnapshotJson as Prisma.InputJsonValue),
-          jobSnapshotJson: jobSnapshot === null ? undefined : (jobSnapshot as Prisma.InputJsonValue),
-          createdBy: input.actorUserId ?? null
-        }
-      });
-      return createdDocument;
+  const document = await prisma.$transaction(async (tx) => {
+    const profileSnapshot = await findOwnedProfileSnapshot(tx, input.candidateKey, input.profileId);
+    const jobSnapshot = await findJobSnapshot(tx, input.jobId);
+    const createdDocument = await tx.applicationDocument.create({
+      data: {
+        candidateKey: input.candidateKey,
+        title: input.title,
+        documentType: input.documentType,
+        profileId: profileSnapshot.profileId,
+        jobId: jobSnapshot?.id ?? null,
+        content: input.content,
+        contentJson: input.contentJson === undefined ? undefined : (input.contentJson as Prisma.InputJsonValue),
+        source: ApplicationDocumentSource.user,
+        profileSnapshotText: profileSnapshot.profileSnapshotText,
+        profileSnapshotJson:
+          profileSnapshot.profileSnapshotJson === null
+            ? undefined
+            : (profileSnapshot.profileSnapshotJson as Prisma.InputJsonValue),
+        jobSnapshotJson: jobSnapshot === null ? undefined : (jobSnapshot as Prisma.InputJsonValue),
+        createdBy: input.actorUserId ?? null
+      }
     });
+    return createdDocument;
+  });
 
-    return getDocument(input.candidateKey, document.id);
-  } catch (error) {
-    if (error instanceof HttpError) {
-      throw error;
-    }
-  }
-
-  return createMemoryDocument(input);
+  return getDocument(input.candidateKey, document.id);
 }
 
 export async function getDocument(candidateKey: string, documentId: string): Promise<DocumentDetail> {
   const prisma = getPrismaClient();
 
   if (prisma) {
-    try {
-      const document = await findOwnedDocument(prisma, candidateKey, documentId);
-      const profileTitleMap = await buildProfileTitleMap(
-        prisma,
-        document.profileId ? [document.profileId] : []
-      );
-      const jobMap = await buildJobMap(prisma, document.jobId ? [document.jobId] : []);
+    const document = await findOwnedDocument(prisma, candidateKey, documentId);
+    const profileTitleMap = await buildProfileTitleMap(
+      prisma,
+      document.profileId ? [document.profileId] : []
+    );
+    const jobMap = await buildJobMap(prisma, document.jobId ? [document.jobId] : []);
 
-      return toDocumentListItem(
-        document,
-        document.profileId ? profileTitleMap.get(document.profileId) ?? null : null,
-        document.jobId ? jobMap.get(document.jobId) ?? null : null
-      );
-    } catch (error) {
-      if (error instanceof HttpError) {
-        throw error;
-      }
-    }
+    return toDocumentListItem(
+      document,
+      document.profileId ? profileTitleMap.get(document.profileId) ?? null : null,
+      document.jobId ? jobMap.get(document.jobId) ?? null : null
+    );
   }
 
   return getMemoryDocument(candidateKey, documentId);
@@ -567,53 +549,45 @@ export async function updateDocumentMeta(documentId: string, input: UpdateDocume
     return updateMemoryDocumentMeta(documentId, input);
   }
 
-  try {
-    const document = await prisma.$transaction(async (tx) => {
-      await findOwnedDocument(tx, input.candidateKey, documentId);
-      const profileSnapshot =
-        input.profileId === undefined
-          ? undefined
-          : await findOwnedProfileSnapshot(tx, input.candidateKey, input.profileId);
-      const jobSnapshot = input.jobId === undefined ? undefined : await findJobSnapshot(tx, input.jobId);
+  const document = await prisma.$transaction(async (tx) => {
+    await findOwnedDocument(tx, input.candidateKey, documentId);
+    const profileSnapshot =
+      input.profileId === undefined
+        ? undefined
+        : await findOwnedProfileSnapshot(tx, input.candidateKey, input.profileId);
+    const jobSnapshot = input.jobId === undefined ? undefined : await findJobSnapshot(tx, input.jobId);
 
-      return tx.applicationDocument.update({
-        where: {
-          id: documentId
-        },
-        data: {
-          ...(input.title === undefined ? {} : { title: input.title }),
-          ...(profileSnapshot === undefined
-            ? {}
-            : {
-                profileId: profileSnapshot.profileId,
-                profileSnapshotText: profileSnapshot.profileSnapshotText,
-                profileSnapshotJson:
-                  profileSnapshot.profileSnapshotJson === null
-                    ? undefined
-                    : (profileSnapshot.profileSnapshotJson as Prisma.InputJsonValue)
-              }),
-          ...(input.jobId === undefined ? {} : { jobId: jobSnapshot?.id ?? null }),
-          ...(input.jobId === undefined
-            ? {}
-            : {
-                jobSnapshotJson: jobSnapshot === null ? undefined : (jobSnapshot as Prisma.InputJsonValue)
-              }),
-          ...(input.content === undefined ? {} : { content: input.content }),
-          ...(input.contentJson === undefined ? {} : { contentJson: input.contentJson as Prisma.InputJsonValue }),
-          ...(input.isArchived === undefined ? {} : { isArchived: input.isArchived }),
-          updatedBy: input.actorUserId ?? null
-        }
-      });
+    return tx.applicationDocument.update({
+      where: {
+        id: documentId
+      },
+      data: {
+        ...(input.title === undefined ? {} : { title: input.title }),
+        ...(profileSnapshot === undefined
+          ? {}
+          : {
+              profileId: profileSnapshot.profileId,
+              profileSnapshotText: profileSnapshot.profileSnapshotText,
+              profileSnapshotJson:
+                profileSnapshot.profileSnapshotJson === null
+                  ? undefined
+                  : (profileSnapshot.profileSnapshotJson as Prisma.InputJsonValue)
+            }),
+        ...(input.jobId === undefined ? {} : { jobId: jobSnapshot?.id ?? null }),
+        ...(input.jobId === undefined
+          ? {}
+          : {
+              jobSnapshotJson: jobSnapshot === null ? undefined : (jobSnapshot as Prisma.InputJsonValue)
+            }),
+        ...(input.content === undefined ? {} : { content: input.content }),
+        ...(input.contentJson === undefined ? {} : { contentJson: input.contentJson as Prisma.InputJsonValue }),
+        ...(input.isArchived === undefined ? {} : { isArchived: input.isArchived }),
+        updatedBy: input.actorUserId ?? null
+      }
     });
+  });
 
-    return getDocument(input.candidateKey, document.id);
-  } catch (error) {
-    if (error instanceof HttpError) {
-      throw error;
-    }
-  }
-
-  return updateMemoryDocumentMeta(documentId, input);
+  return getDocument(input.candidateKey, document.id);
 }
 
 export async function copyDocument(documentId: string, input: CopyDocumentInput) {
@@ -623,42 +597,34 @@ export async function copyDocument(documentId: string, input: CopyDocumentInput)
     return copyMemoryDocument(documentId, input);
   }
 
-  try {
-    const copiedDocument = await prisma.$transaction(async (tx) => {
-      const sourceDocument = await findOwnedDocument(tx, input.candidateKey, documentId);
+  const copiedDocument = await prisma.$transaction(async (tx) => {
+    const sourceDocument = await findOwnedDocument(tx, input.candidateKey, documentId);
 
-      return tx.applicationDocument.create({
-        data: {
-          candidateKey: sourceDocument.candidateKey,
-          title: buildCopyTitle(sourceDocument.title),
-          documentType: sourceDocument.documentType,
-          profileId: sourceDocument.profileId,
-          jobId: sourceDocument.jobId,
-          content: sourceDocument.content,
-          contentJson:
-            sourceDocument.contentJson === null ? undefined : (sourceDocument.contentJson as Prisma.InputJsonValue),
-          source: sourceDocument.source,
-          profileSnapshotText: sourceDocument.profileSnapshotText,
-          profileSnapshotJson:
-            sourceDocument.profileSnapshotJson === null
-              ? undefined
-              : (sourceDocument.profileSnapshotJson as Prisma.InputJsonValue),
-          jobSnapshotJson:
-            sourceDocument.jobSnapshotJson === null ? undefined : (sourceDocument.jobSnapshotJson as Prisma.InputJsonValue),
-          isArchived: false,
-          createdBy: input.actorUserId ?? null
-        }
-      });
+    return tx.applicationDocument.create({
+      data: {
+        candidateKey: sourceDocument.candidateKey,
+        title: buildCopyTitle(sourceDocument.title),
+        documentType: sourceDocument.documentType,
+        profileId: sourceDocument.profileId,
+        jobId: sourceDocument.jobId,
+        content: sourceDocument.content,
+        contentJson:
+          sourceDocument.contentJson === null ? undefined : (sourceDocument.contentJson as Prisma.InputJsonValue),
+        source: sourceDocument.source,
+        profileSnapshotText: sourceDocument.profileSnapshotText,
+        profileSnapshotJson:
+          sourceDocument.profileSnapshotJson === null
+            ? undefined
+            : (sourceDocument.profileSnapshotJson as Prisma.InputJsonValue),
+        jobSnapshotJson:
+          sourceDocument.jobSnapshotJson === null ? undefined : (sourceDocument.jobSnapshotJson as Prisma.InputJsonValue),
+        isArchived: false,
+        createdBy: input.actorUserId ?? null
+      }
     });
+  });
 
-    return getDocument(input.candidateKey, copiedDocument.id);
-  } catch (error) {
-    if (error instanceof HttpError) {
-      throw error;
-    }
-  }
-
-  return copyMemoryDocument(documentId, input);
+  return getDocument(input.candidateKey, copiedDocument.id);
 }
 
 export async function protectDocument(candidateKey: string, documentId: string, actorUserId?: string | null) {
@@ -678,33 +644,25 @@ export async function deleteDocument(candidateKey: string, documentId: string, a
     return deleteMemoryDocument(candidateKey, documentId, actorUserId);
   }
 
-  try {
-    const deletedDocument = await prisma.$transaction(async (tx) => {
-      const document = await findOwnedDocument(tx, candidateKey, documentId);
+  const deletedDocument = await prisma.$transaction(async (tx) => {
+    const document = await findOwnedDocument(tx, candidateKey, documentId);
 
-      if (document.isArchived) {
-        throw new HttpError(400, "보호 중인 문서는 삭제할 수 없습니다.");
+    if (document.isArchived) {
+      throw new HttpError(400, "보호 중인 문서는 삭제할 수 없습니다.");
+    }
+
+    const softDeletedDocument = await tx.applicationDocument.update({
+      where: {
+        id: documentId
+      },
+      data: {
+        deletedAt: new Date(),
+        deletedBy: actorUserId ?? null
       }
-
-      const softDeletedDocument = await tx.applicationDocument.update({
-        where: {
-          id: documentId
-        },
-        data: {
-          deletedAt: new Date(),
-          deletedBy: actorUserId ?? null
-        }
-      });
-
-      return softDeletedDocument;
     });
 
-    return toDocumentListItem(deletedDocument);
-  } catch (error) {
-    if (error instanceof HttpError) {
-      throw error;
-    }
-  }
+    return softDeletedDocument;
+  });
 
-  return deleteMemoryDocument(candidateKey, documentId, actorUserId);
+  return toDocumentListItem(deletedDocument);
 }

@@ -96,3 +96,90 @@
 - Scope: `origin/daegyune/page/home` 병합 중 발생한 AI 설정, AI 분석 채팅 빌더, 채팅 빌더 테스트 충돌을 해결했다.
 - Merge: `ai-config.ts`는 test 환경 dotenv skip과 Codex Bridge env 선로드를 함께 유지했다. `AIDraftChatBuilder`는 채팅형 문서 작성/파일 뷰어/수동 provider 선택 흐름과 저장 프로필 context chip 흐름을 병합했고, 테스트 mock은 `extractFails`와 `/api/profiles` 응답을 모두 지원하도록 정리했다.
 - Verification: Prisma Client 재생성 후 frontend/backend TypeScript compile, frontend `AIDraftChatBuilder.test.tsx` 84건, backend `draft-workflow.route.test.ts`/`prompt-builder.test.ts`/`profile-document.integration.test.ts` 14건, conflict marker scan, `git diff --check`를 통과했다.
+
+### 17:54 프로젝트 전체 리뷰 패치
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: 전체 코드리뷰에서 확인한 AI 실행 API 보호, 확인 필요 evidence 사용, DB fallback, refresh token rotation, 운영 JWT/proxy 환경 리스크를 패치했다.
+- Backend/API: AI 분석/문서 추출/career workflow/draft workflow 실행 라우트에 인증과 user/IP 기반 rate limit을 붙였고, DB 연결이 있을 때 Prisma 오류를 메모리 fallback으로 숨기지 않게 정리했다. refresh token 재사용 race는 조건부 `updateMany`로 차단하고, production JWT secret placeholder/짧은 값 검증과 AI rate limit/TRUST_PROXY env 계약을 추가했다.
+- AI Evidence: GitHub README/metadata와 포트폴리오 제목/기술스택처럼 확인된 사실은 초안 근거로 쓰되, 본인 기여나 요약처럼 확인이 필요한 근거는 사용자 답변 전까지 draft payload와 filled slot에서 제외하도록 바꿨다.
+- Frontend: AI 분석 페이지의 보호된 API 호출에 현재 access token을 전달하도록 연결했다.
+- Verification: `corepack pnpm run lint`, `corepack pnpm run test` 232 backend + 105 frontend tests, `corepack pnpm run build`, `git diff --check`를 통과했다. test/build는 sandbox `spawn EPERM` 때문에 승인 후 재실행했다.
+
+### 18:16 Codex Bridge draft fallback 원인 수정
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: `start-codex-bridge` 이후 provider 상태는 online인데 초안 생성이 fallback/실패로 떨어지는 현상을 재검토했다.
+- Root Cause: Codex app-server 계정 smoke와 짧은 turn smoke는 성공했고, `DraftWorkflowService.createPlan`도 `codex_bridge` + `usedFallback=false`로 성공했다. 실제 draft 단계에서 Codex가 만든 본문은 정상인데 `charCount` 메타데이터가 본문 길이와 달라 backend evidence lock 검증에서 422로 막혔다.
+- Backend: AI provider가 반환한 `draftText`를 기준으로 `charCount.withSpaces`, `withoutSpaces`, `limit`을 backend에서 재계산한 뒤 evidence lock 검증을 수행하도록 변경했다. AI가 산술 메타데이터를 틀려도 본문/근거가 유효하면 Codex 결과를 유지한다.
+- Verification: 실제 Codex Bridge plan+draft smoke에서 `planAiMeta.usedFallback=false`, `draftAiMeta.usedFallback=false`를 확인했다. `corepack pnpm run lint`, backend focused `draft-workflow.service.test.ts` 10건, 전체 `corepack pnpm run test` 338건, `corepack pnpm run build`를 통과했다.
+
+### 18:36 Jobs 페이지 DB 인증서 경로 복구
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: `start-codex-bridge` 실행 후 `Jobs` 페이지가 fallback처럼 보인다는 보고를 `Jobs` 기준으로 재추적했다.
+- Root Cause: `/api/jobs`가 AI provider와 무관하게 500을 반환했고, `/health`에서 DB SSL 인증서가 이전 워크트리의 `C:\lsh\...prod-ca-2021.crt` 절대경로를 가리켜 `database: unavailable` 상태였다.
+- Backend: `resolveDatabaseUrl`이 죽은 `sslrootcert` 절대경로를 현재 백엔드 `certs` 폴더의 같은 인증서 파일로 보정하게 했다. DB SSL 인증서 누락은 공고 조회에서 DB unavailable fallback으로 분류해 500으로 화면을 깨지 않도록 했다.
+- Verification: backend test 235건, `corepack pnpm run lint`, backend build, `git diff --check`를 통과했다. 로컬 `/health`는 `database: connected`, `/api/jobs?page=1&limit=9`는 실제 `daijob` 공고 200 응답, in-app Browser `/jobs`는 총 104개 공고와 `daijob` 출처를 표시하고 fallback/error 안내가 없음을 확인했다.
+
+### 19:00 전체 기능 점검 및 DB 마이그레이션 적용
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: 전체 페이지와 주요 상호작용을 리뷰/테스트/실사용 검증하고, 이미 확인된 auth DB migration 누락을 포함해 기능 오류를 복구했다.
+- DB: `prisma migrate deploy`로 미적용 13개 migration을 연결된 Supabase PostgreSQL에 적용했다. `create_users`, `create_audit_logs`, `create_refresh_tokens`가 포함되어 회원가입/로그인/refresh token 저장 흐름이 정상화됐다. 최종 `migrate status`는 up to date다.
+- Backend/API: 회원가입, 로그인, 보안 요약, 프로필 수정, refresh, logout을 실제 API로 확인했다. 프로필/문서 생성, 복사, 보호/복구, 문서세트 생성/수정/조회/보관도 실제 API smoke로 통과했다.
+- Frontend/UI: in-app Browser에서 홈, Jobs, AI 분석, Auth, Signup, Login, Documents, ProfileNew/Detail, DocumentNew/Detail, DocumentSetDetail, Notifications, MyAccount를 로드하고 주요 상호작용을 확인했다. Jobs 검색/상세 drawer/AI 분석 이동, UI 회원가입/로그인, 프로필 생성, 자기소개서 생성, 문서세트 상세, AI 분석 질문 답변 흐름을 실사용했다.
+- Fix: AI 초안 생성이 완료로 표시되면서 본문이 0자인 오류를 발견했다. `draftWorkflowDraftSchema`와 evidence lock 검증에서 빈 초안 본문을 invalid output으로 막고, non-fallback AI가 빈/invalid 초안을 반환하면 안전한 fallback draft로 대체하도록 `DraftWorkflowService`를 수정했다. 회귀 테스트를 추가했다.
+- Verification: `corepack pnpm run lint`, `corepack pnpm run test` 342건, `corepack pnpm run build`, `git diff --check`, `/health`, `/api/draft-workflow/providers`, in-app Browser console error 없음 확인을 통과했다. 테스트/빌드는 sandbox spawn 제약 때문에 승인 후 실행했다.
+
+### 20:37 완전검증 2차 스윕
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: "완전검증" 목표로 기존 자동 검증에 더해 현재 로컬 서버/DB/API/UI/반응형/Codex Bridge 상태를 다시 확인했다.
+- Baseline: 프론트 `http://localhost:5173`, 백엔드 `http://localhost:3000` 기준으로 `/health`가 `database: connected`를 반환했고, `/api/jobs?page=1&limit=3`은 실제 `daijob` 데이터를 반환했다. `prisma migrate status`는 연결된 Supabase PostgreSQL에서 up to date였다.
+- Automated checks: `corepack pnpm run check`로 lint, frontend 105 tests, backend 237 tests, frontend/backend build를 통과했다. sandbox `spawn EPERM` 때문에 승인 후 재실행했다.
+- API smoke: 공개 API와 보호 라우트 anonymous 차단을 확인했다. 승인 후 임시 테스트 계정 `codex-e2e-1780832146876@example.com`으로 auth signup/login/security/profile patch/logout, profile/document/document-set create/list/detail/update/copy/archive/delete, resume extract, analyze, career document session/answer, draft workflow plan/draft/revise를 실제 API로 검증했고 30/30 통과했다.
+- Browser/UI: in-app Browser에서 홈, Jobs, AI 분석, Auth, Signup, Login, Documents, ProfileNew, DocumentNew, Notifications, MyAccount를 로드해 빈 화면/콘솔 에러가 없음을 확인했다. Jobs 검색 쿼리, 직무 필터, 상세 필터, 지역 팝오버, 상세 drawer, AI 분석 job context를 확인했고, Documents 문서 상세/프로필 상세, MyAccount 수정 UI도 열림을 확인했다.
+- Responsive: 모바일 390x844와 데스크톱 1366x768에서 홈, Jobs, AI 분석, Documents, MyAccount가 가로 overflow 없이 렌더링되고 console error가 없음을 확인했다.
+- Codex Bridge: sandbox에서는 `codex:bridge:smoke`가 `spawn EPERM`으로 실패했지만 승인 경로에서는 `ok: true`, app-server `stdio`, ChatGPT Pro 계정으로 확인됐다. `/api/draft-workflow/providers`와 UI는 `Codex · 온라인`, Fallback 온라인으로 표시했다. 실제 Codex provider plan/draft 생성 호출은 외부 AI 사용량 가능성 때문에 추가 명시 승인 없이는 실행하지 않았다.
+- Verification: `git diff --check`를 통과했다. 브라우저 텍스트 입력 자동화는 Browser 가상 클립보드 미설치로 제한되어, 검색 입력 자체는 URL 쿼리 검증으로 대체했다.
+
+### 21:26 AI 연결 상태 하드코딩 제거 검증
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: 사용자가 승인한 실제 Codex provider 호출로 AI가 연결되어 있는데도 규칙/하드코딩 응답이 노출되는 지점을 재검증하고 제거했다.
+- Backend/API: `/api/analyze`를 mock 분석에서 AI router `analyze` 작업으로 연결하고, 문서 세션 보완 질문도 real provider가 online일 때 `plan` 결과로 생성하도록 바꿨다. AI 질문 생성 payload에서 기존 규칙 질문 문장을 제거해 Codex가 고정 문구를 반복하지 않게 했다. fallback provider는 real provider 실패/invalid/output unavailable일 때만 쓰는 안전망으로 남겼고 `aiMeta.usedFallback`에 노출한다.
+- Frontend: AI 분석 초기 정적 응답과 `/ai-analysis/details` 구형 페이지를 제거하고, 채팅으로 보낸 사용자 입력을 분석 payload에 안정적으로 포함하도록 `submittedUserText`를 추가했다. GitHub URL parser는 복구하되, "URL만으로 저장소를 단정할 수 없다"는 고정 안내 노트는 제거했다.
+- Verification: 실제 `/api/draft-workflow/providers`에서 `codex_bridge online/configured=true`를 확인했다. 실제 Codex 호출로 `/api/analyze`는 `mode=ai`, `providerId=codex_bridge`, `usedFallback=false`; `/api/career-workflow/document-session`은 `providerId=codex_bridge`, `usedFallback=false`와 새 맥락 질문을 반환했다. `corepack pnpm --filter @neet2work/frontend test` 105건, backend tests 239건, `corepack pnpm run lint`, `corepack pnpm run build`, in-app Browser `/ai-analysis`와 `/ai-analysis/details` 리다이렉트 검증을 통과했다.
+
+### 22:47 Oracle VM GitHub Actions 자동 배포 구성
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: GitHub에 반영된 코드가 Oracle VM으로 자동 배포되도록 운영용 Docker/Compose와 GitHub Actions workflow를 추가했다.
+- Deploy: 개발용 Dockerfile/compose는 유지하고, frontend nginx 정적 서빙 + backend production build + local PostgreSQL volume 구조의 `docker-compose.oracle.yml`을 별도로 추가했다. GitHub Actions는 private repo에서도 서버 GitHub 권한 없이 동작하도록 checkout 결과를 tar archive로 Oracle VM에 전송하고 `/opt/neet2work/current` release symlink를 갱신한다.
+- Runtime: nginx가 `/api/*`와 `/health`를 backend 컨테이너로 proxy하므로 외부에는 port 80만 노출하는 구성을 기본값으로 잡았다. 서버 env 예시는 `deploy/oracle/env.production.example`에 비밀값 없이 추가했다.
+- Verification: `git diff --check`, frontend production build, backend production build를 통과했다. `bash -n`은 Windows WSL 접근 제한으로 실행되지 않았다. Oracle VM에 Docker/env/GitHub Secrets를 쓰는 단계는 HTTPS 비활성 direct-IP 운영 노출 및 외부 secret 등록이 포함되어 추가 명시 승인이 필요해 대기 상태다.
+
+### 23:24 Oracle VM 실배포 및 인증 검증
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: 사용자 승인 후 Oracle VM에 Docker/Compose를 설치하고, Supabase PostgreSQL을 운영 DB로 쓰는 production env를 구성해 현재 작업 트리를 수동 1차 배포했다.
+- Deploy: `docker-compose.oracle.yml`을 외부 DB 연결 방식으로 수정하고 local Postgres 컨테이너 의존성을 제거했다. backend Docker build에서 Prisma generate가 build-time `DATABASE_URL`을 요구하는 문제는 dummy build URL로 해결했고, runtime은 `.env.production`의 Supabase DB URL을 사용한다. `scripts/deploy-oracle.sh`는 compose project name을 `neet2work`로 고정하고 health retry를 추가했다.
+- Auto deploy: GitHub Secrets 자동 등록 도구가 없어, 공개 repo를 활용한 VM pull-based 자동 배포 timer를 설치했다. `/opt/neet2work/oracle-poll-deploy.sh`와 `neet2work-deploy.timer`가 `main` SHA를 주기적으로 확인한다. 현재 GitHub `main`에는 배포 파일이 아직 없어 첫 실행은 skip 상태였고, 이 변경사항이 main에 올라가면 다음 polling에서 배포된다.
+- Verification: `http://129.146.96.211/`가 200으로 응답하고 `/health`는 `database: connected`를 반환했다. Supabase 플러그인은 재인증 필요 상태라 직접 SQL 도구는 막혔지만, 배포된 backend가 Supabase pooler에 연결되어 `prisma migrate deploy`에서 pending migration 없음이 확인됐다. 실제 API로 회원가입/로그인/protected security endpoint를 통과했고, 컨테이너 내부 Prisma 조회로 `codex-prod-e2e-1780841733@example.com` 사용자가 `ACTIVE` 상태로 DB에 존재함을 확인했다. `git diff --check`를 통과했다.
+
+### 23:34 배포 사이트 최종 검증 및 Supabase 플러그인 점검
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: Supabase 플러그인 연결 후 운영 DB, Oracle VM 배포본, UI 실사용, 코드 검사를 다시 확인하고 최종 리뷰 이슈를 정리했다.
+- Supabase: 플러그인으로 `neet2work` 프로젝트가 `ACTIVE_HEALTHY`임을 확인했고, Prisma migration 18개 적용 상태와 최신 적용 시각을 조회했다. 배포 API/UI에서 만든 테스트 회원 계정 2개가 운영 DB에 `ACTIVE` 상태로 존재함을 확인했다.
+- Deploy/UI: `http://129.146.96.211/health`는 `database: connected`를 반환했고, `/api/jobs?page=1&limit=3`은 실제 `daijob` 공고를 반환했다. Playwright로 배포 사이트의 홈, 채용공고, AI 분석, 로그인, 회원가입, 문서 페이지를 열고 콘솔/페이지 오류가 없음을 확인했으며, UI 회원가입 후 로그인 이동까지 통과했다.
+- Server: Oracle VM의 `neet2work-deploy.timer`가 active이고, backend/frontend compose 컨테이너가 실행 중임을 확인했다. 현재 GitHub `main`에 배포 파일이 아직 없어 polling deploy는 skip하지만, 변경사항이 main에 반영되면 다음 polling에서 배포되는 구조다.
+- Review: Supabase advisor가 `users`, `refresh_tokens`, `audit_logs`, `application_documents`, `candidate_profiles`, `application_sets`의 RLS disabled critical 이슈를 보고했다. Supabase 안내상 자동 remediation SQL은 적용하지 않고, 정책 설계 후 별도 migration으로 처리할 항목으로 남겼다. 배포본 AI provider는 Codex/Gemini/local 비활성, fallback online 상태라 실 AI 운영은 별도 provider 설정이 필요하다.
+- Verification: `corepack pnpm run lint`, `corepack pnpm run test` 344건, `corepack pnpm run build`, `git diff --check`를 통과했다. Playwright Chromium 실행은 Windows sandbox `spawn EPERM` 때문에 승인 후 재실행했다.
+
+### 00:07 DuckDNS HTTPS 운영 연결
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: 무료 DuckDNS 도메인으로 Oracle VM 배포본에 HTTPS를 붙이고 외부 접속을 검증했다.
+- DNS/Network: Chrome에서 `neet2work.duckdns.org`를 생성하고 IP를 `129.146.96.211`로 설정했다. Oracle Cloud `Default Security List for jeju-vcn`에 TCP `443` ingress rule을 추가했고, VM host firewall에도 TCP `80`/`443`을 허용했다.
+- Server: Caddy를 설치해 `neet2work.duckdns.org` 요청을 `127.0.0.1:8080` frontend 컨테이너로 reverse proxy하도록 구성했다. Docker Compose는 frontend 외부 포트를 `127.0.0.1:8080`으로 제한하고, backend HTTPS guard가 Caddy/nginx forwarded proto를 인식하도록 배포 설정을 정리했다.
+- Docs: `docs/deploy/ORACLE.md`에 DuckDNS/Caddy/HTTPS 구조와 필요한 80/443 인바운드 조건을 반영했다.
+- Verification: 외부에서 `https://neet2work.duckdns.org/health`가 200과 `database: connected`를 반환했고, 홈과 jobs API도 200으로 응답했다. HTTPS 경유 임시 계정 회원가입 201, 로그인 200을 확인했으며 Chrome에서 HTTPS 홈 화면이 정상 렌더링되는 것을 확인했다. `git diff --check`를 통과했다.
+
+### 00:29 Supabase 보안 advisor 정리 및 커밋 준비
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: 남은 Supabase RLS/security advisor 항목을 migration으로 정리하고, 전체 변경사항 커밋/푸시 전 검증을 수행했다.
+- DB/Supabase: `users`, `audit_logs`, `refresh_tokens`, `application_documents`, `candidate_profiles`, `application_sets`에 RLS를 활성화하고 anon/authenticated 권한을 회수했으며, 명시적인 `No direct Data API access` deny policy를 추가했다. 기존 RLS-only 테이블인 `_prisma_migrations`, `job_postings`, `resume_analyses`에도 동일한 deny policy를 추가했다. `pg_trgm` extension은 public schema에서 `extensions` schema로 이동했다.
+- Verification: Prisma `db:deploy`로 migration 3개를 운영 Supabase DB에 적용했고 `db:status`는 up to date를 반환했다. Supabase security advisor는 `lints: []`로 확인됐다. `corepack pnpm run lint`, `corepack pnpm run test` 344건, `corepack pnpm run build`, `git diff --check`를 통과했다. test/build는 Windows sandbox `spawn EPERM` 때문에 승인 경로로 재실행했다.
+- AI: 배포 서버 env에는 Gemini key 항목이 있으나 provider status는 아직 disabled다. 운영 Gemini 활성화는 유료 API 호출 가능성과 backend 재시작이 포함되어 사용자 명시 승인을 기다리는 상태다.

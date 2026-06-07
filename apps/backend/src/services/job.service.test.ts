@@ -467,6 +467,29 @@ describe("getJobsPage", () => {
     );
   });
 
+  it("falls back to sample jobs when the configured database SSL certificate is missing", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const missingCertError = Object.assign(
+      new Error("ENOENT: no such file or directory, open 'C:\\old\\certs\\prod-ca-2021.crt'"),
+      { code: "ENOENT" }
+    );
+    const count = vi.fn().mockRejectedValue(missingCertError);
+    getPrismaClientMock.mockReturnValue({
+      jobPosting: { count }
+    } as unknown as ReturnType<typeof getPrismaClient>);
+
+    await expect(getJobsPage({ page: 1, limit: 9 })).resolves.toEqual(
+      expect.objectContaining({
+        data: expect.arrayContaining([expect.objectContaining({ source: "sample" })])
+      })
+    );
+    expect(String(warnSpy.mock.calls[0]?.[0] ?? "")).toContain(
+      "getJobsPage database unavailable"
+    );
+
+    warnSpy.mockRestore();
+  });
+
   it("treats unspecified employment as a first-class server-side filter", async () => {
     mockPaginatedJobPostingQuery([
       {

@@ -1,9 +1,6 @@
 import { lazy, Suspense, type ReactNode } from "react";
 
 const Home = lazy(() => import("./pages/Home").then((module) => ({ default: module.Home })));
-const AIAnalysisDetails = lazy(() =>
-  import("./pages/AIAnalysisDetails").then((module) => ({ default: module.AIAnalysisDetails }))
-);
 const AIDraftChatBuilder = lazy(() =>
   import("./pages/AIDraftChatBuilder").then((module) => ({ default: module.AIDraftChatBuilder }))
 );
@@ -66,11 +63,7 @@ export default function App() {
   }
 
   if (pathname === "/ai-analysis/details") {
-    return (
-      <DeferredPage>
-        <AIAnalysisDetails />
-      </DeferredPage>
-    );
+    return <Redirect to="/ai-analysis" />;
   }
 
   if (pathname === "/ai-analysis") {

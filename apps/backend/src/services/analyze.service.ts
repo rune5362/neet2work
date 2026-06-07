@@ -1,45 +1,107 @@
+import { z } from "zod";
 import type { AnalysisResult } from "../types/analysis.js";
+import type { AiExecutionMeta, AiSelection, FallbackReason } from "../types/ai-routing.js";
+import { defaultAiRouter, type AiRouter } from "./ai/ai-router.js";
+import { buildFallbackAnalysis, type AnalyzeFallbackInput } from "./analysis-fallback.js";
+import { getJobById } from "./job.service.js";
 
 type AnalyzeInput = {
   resumeText: string;
   jobId: string;
+  aiSelection?: AiSelection;
 };
 
-export async function analyzeResume(input: AnalyzeInput): Promise<AnalysisResult> {
-  return mockAnalyze(input);
+const analysisPayloadSchema = z.object({
+  matchScore: z.number().min(0).max(100),
+  strengths: z.array(z.string()),
+  weaknesses: z.array(z.string()),
+  missingKeywords: z.array(z.string()),
+  rewriteGuides: z.array(z.string()),
+  suggestedSentences: z.array(z.string())
+});
+
+export async function analyzeResume(
+  input: AnalyzeInput,
+  router: AiRouter = defaultAiRouter
+): Promise<AnalysisResult> {
+  const payload = await buildAnalyzePayload(input);
+  const aiSelection = input.aiSelection ?? { mode: "auto" as const };
+
+  try {
+    const result = await router.execute<unknown>({
+      operation: "analyze",
+      payload,
+      aiSelection
+    });
+    const parsed = analysisPayloadSchema.safeParse(result.data);
+
+    if (!parsed.success) {
+      return executeAnalyzeFallback(router, payload, aiSelection, "invalid_output");
+    }
+
+    return {
+      ...parsed.data,
+      jobId: input.jobId,
+      mode: result.aiMeta.usedFallback ? "mock" : "ai",
+      aiMeta: result.aiMeta
+    };
+  } catch {
+    return executeAnalyzeFallback(router, payload, aiSelection, "provider_error");
+  }
 }
 
-function mockAnalyze(input: AnalyzeInput, mode: "mock" | "ai" = "mock"): AnalysisResult {
-  const normalizedResume = input.resumeText.toLowerCase();
-  const hasReact = normalizedResume.includes("react");
-  const hasTypeScript =
-    normalizedResume.includes("typescript") || normalizedResume.includes("type script");
-  const hasApi = normalizedResume.includes("api") || normalizedResume.includes("연동");
-
-  const score = 55 + Number(hasReact) * 18 + Number(hasTypeScript) * 17 + Number(hasApi) * 10;
+async function buildAnalyzePayload(input: AnalyzeInput): Promise<AnalyzeFallbackInput> {
+  const job = await getJobById(input.jobId).catch(() => undefined);
 
   return {
+    resumeText: input.resumeText,
     jobId: input.jobId,
-    matchScore: Math.min(score, 95),
-    strengths: [
-      hasReact
-        ? "React 경험이 채용공고의 핵심 기술과 잘 맞습니다."
-        : "기본적인 웹 개발 경험을 직무 역량으로 연결할 수 있습니다.",
-      hasApi
-        ? "API 연동 경험을 통해 백엔드와 협업 가능한 역량을 보여줄 수 있습니다."
-        : "프로젝트 흐름을 사용자 문제 해결 관점으로 설명할 여지가 있습니다."
-    ],
-    weaknesses: hasTypeScript ? [] : ["TypeScript 경험이 부족하게 보일 수 있습니다."],
-    missingKeywords: hasTypeScript ? [] : ["TypeScript", "API 연동", "상태 관리"],
-    rewriteGuides: [
-      "프로젝트 경험을 문제 상황, 해결 방법, 결과 중심으로 작성하세요.",
-      "채용공고의 기술 키워드를 자기소개서에 자연스럽게 반영하세요.",
-      "수치화 가능한 성과가 있다면 함께 작성하세요."
-    ],
-    suggestedSentences: [
-      "React 기반 프로젝트에서 사용자 입력 데이터를 API와 연동하여 분석 결과를 시각화한 경험이 있습니다.",
-      "문제 해결 과정에서 기능 구현뿐 아니라 예외 상황과 사용자 경험을 함께 고려했습니다."
-    ],
-    mode
+    job: job
+      ? {
+          title: job.title,
+          company: job.company,
+          description: job.description,
+          skills: job.skills
+        }
+      : null
+  };
+}
+
+async function executeAnalyzeFallback(
+  router: AiRouter,
+  payload: AnalyzeFallbackInput,
+  aiSelection: AiSelection,
+  fallbackReason: FallbackReason
+): Promise<AnalysisResult> {
+  try {
+    const fallback = await router.executeFallback<AnalysisResult>({
+      operation: "analyze",
+      payload,
+      routingMode: aiSelection.mode,
+      fallbackReason
+    });
+    const parsed = analysisPayloadSchema.parse(fallback.data);
+
+    return {
+      ...parsed,
+      jobId: payload.jobId,
+      mode: "mock",
+      aiMeta: fallback.aiMeta
+    };
+  } catch {
+    return {
+      ...buildFallbackAnalysis(payload),
+      aiMeta: buildLocalFallbackMeta(aiSelection, fallbackReason)
+    };
+  }
+}
+
+function buildLocalFallbackMeta(aiSelection: AiSelection, fallbackReason: FallbackReason): AiExecutionMeta {
+  return {
+    providerId: "fallback",
+    modelId: "rule-analyze",
+    routingMode: aiSelection.mode,
+    usedFallback: true,
+    fallbackReason
   };
 }

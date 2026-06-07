@@ -1,9 +1,11 @@
-import type { DraftWorkflowDraft, DraftWorkflowPlan } from "../../types/draft-workflow.js";
 import type { AiExecutionMeta, AiSelection, AiWorkflowOperation } from "../../types/ai-routing.js";
 import type { AiRouter } from "../ai/ai-router.js";
 import { defaultAiRouter } from "../ai/ai-router.js";
 import type {
+  DraftTarget,
+  DraftWorkflowDraft,
   DraftWorkflowDraftRequest,
+  DraftWorkflowPlan,
   DraftWorkflowPlanRequest,
   DraftWorkflowReviseRequest
 } from "../../types/draft-workflow.js";
@@ -81,10 +83,15 @@ export class DraftWorkflowService {
       aiSelection: request.aiSelection,
       schema: draftWorkflowDraftSchema
     });
+    const normalized = normalizeDraftCharCount(parsed, request.target);
 
-    assertDraftIsEvidenceLocked(request.plan, request.target, parsed);
-
-    return parsed;
+    return this.validateDraftOrFallback({
+      operation: "draft",
+      payload,
+      parsed: normalized,
+      target: request.target,
+      plan: request.plan
+    });
   }
 
   async reviseDraft(request: DraftWorkflowReviseRequest) {
@@ -101,10 +108,15 @@ export class DraftWorkflowService {
       aiSelection: request.aiSelection,
       schema: draftWorkflowDraftSchema
     });
+    const normalized = normalizeDraftCharCount(parsed, request.target);
 
-    assertDraftIsEvidenceLocked(request.plan, request.target, parsed);
-
-    return parsed;
+    return this.validateDraftOrFallback({
+      operation: "revise",
+      payload,
+      parsed: normalized,
+      target: request.target,
+      plan: request.plan
+    });
   }
 
   private async executeAndParse<T>(input: {
@@ -136,6 +148,45 @@ export class DraftWorkflowService {
       return parseWorkflowResult(input.schema, fallback);
     }
   }
+
+  private async validateDraftOrFallback(input: {
+    operation: "draft" | "revise";
+    payload: unknown;
+    parsed: DraftWorkflowDraft;
+    target: DraftTarget;
+    plan: DraftWorkflowPlan;
+  }) {
+    try {
+      assertDraftIsEvidenceLocked(input.plan, input.target, input.parsed);
+      return input.parsed;
+    } catch (error) {
+      if (input.parsed.aiMeta.usedFallback) {
+        throw error;
+      }
+
+      const fallback = await this.router.executeFallback<DraftWorkflowDraft>({
+        operation: input.operation,
+        payload: input.payload,
+        routingMode: input.parsed.aiMeta.routingMode,
+        fallbackReason: "invalid_output"
+      });
+      const parsedFallback = parseWorkflowResult(draftWorkflowDraftSchema, fallback);
+      const normalizedFallback = normalizeDraftCharCount(parsedFallback, input.target);
+      assertDraftIsEvidenceLocked(input.plan, input.target, normalizedFallback);
+      return normalizedFallback;
+    }
+  }
+}
+
+function normalizeDraftCharCount(draft: DraftWorkflowDraft, target: DraftTarget): DraftWorkflowDraft {
+  return {
+    ...draft,
+    charCount: {
+      withSpaces: draft.draftText.length,
+      withoutSpaces: draft.draftText.replace(/\s/g, "").length,
+      limit: target.charLimit ?? draft.charCount.limit
+    }
+  };
 }
 
 export const draftWorkflowService = new DraftWorkflowService();

@@ -1,5 +1,14 @@
 import type { AiWorkflowOperation } from "../../types/ai-routing.js";
 
+const ANALYSIS_SCHEMA = `{
+  "matchScore": 0,
+  "strengths": ["string"],
+  "weaknesses": ["string"],
+  "missingKeywords": ["string"],
+  "rewriteGuides": ["string"],
+  "suggestedSentences": ["string"]
+}`;
+
 const PLAN_SCHEMA = `{
   "state": "OUTLINE_READY | GAP_INTERVIEWING | INSUFFICIENT_EVIDENCE | COMPLIANCE_FLAGGED",
   "questionRubric": {
@@ -71,6 +80,19 @@ const STYLE_POLISH_RULES = [
 
 function operationInstruction(operation: AiWorkflowOperation) {
   switch (operation) {
+    case "analyze":
+      return [
+        "Analyze the resumeText against the selected job posting.",
+        "Use job.title, job.company, job.description, and job.skills as the target evidence when present.",
+        "Do not invent missing experience, metrics, school, age, awards, company facts, or personal identity details.",
+        "The matchScore must reflect evidence in resumeText, not a generic optimism score.",
+        "strengths must cite concrete resume evidence and connect it to job requirements.",
+        "weaknesses and missingKeywords must focus on missing or weakly evidenced job requirements.",
+        "rewriteGuides must be actionable instructions for improving the resume or self-introduction.",
+        "suggestedSentences must be Korean sentences the user can adapt, but they must not add facts not present in resumeText.",
+        "Return JSON matching this schema:",
+        ANALYSIS_SCHEMA
+      ].join("\n");
     case "plan":
       return [
         "Analyze the target question and user experience input.",
@@ -123,13 +145,25 @@ function operationInstruction(operation: AiWorkflowOperation) {
 }
 
 export function buildDraftWorkflowPrompt(operation: AiWorkflowOperation, payload: unknown) {
+  const commonRules =
+    operation === "analyze"
+      ? [
+          "You are Neet2Work's evidence-locked Korean resume and self-introduction analysis engine.",
+          "Output valid JSON only. Do not wrap it in markdown. Do not include commentary outside JSON.",
+          "The backend will inject aiMeta and mode; do not include aiMeta or mode.",
+          "All score fields must be integers from 0 to 100."
+        ]
+      : [
+          "You are Neet2Work's evidence-locked Korean self-introduction drafting engine.",
+          "Output valid JSON only. Do not wrap it in markdown. Do not include commentary outside JSON.",
+          "The backend will inject aiMeta and mode; do not include aiMeta or mode.",
+          "All score fields must be integers from 0 to 100.",
+          "Every evidenceMap claimId must reference an allowed claim from the plan or generated claimLedger.",
+          "If evidence is insufficient, ask concise Socratic follow-up questions instead of fabricating."
+        ];
+
   return [
-    "You are Neet2Work's evidence-locked Korean self-introduction drafting engine.",
-    "Output valid JSON only. Do not wrap it in markdown. Do not include commentary outside JSON.",
-    "The backend will inject aiMeta and mode; do not include aiMeta or mode.",
-    "All score fields must be integers from 0 to 100.",
-    "Every evidenceMap claimId must reference an allowed claim from the plan or generated claimLedger.",
-    "If evidence is insufficient, ask concise Socratic follow-up questions instead of fabricating.",
+    ...commonRules,
     operationInstruction(operation),
     "Input JSON:",
     JSON.stringify({ operation, payload }, null, 2)

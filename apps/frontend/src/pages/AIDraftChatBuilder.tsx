@@ -25,6 +25,7 @@ import {
   reviseDraftWorkflowDraft,
   startCodexBridgeLogin,
 } from "../api/client";
+import { getRequiredAccessToken } from "../api/authSession";
 import { getDocuments as getSavedDocuments } from "../api/documentClient";
 import { getProfiles } from "../api/profileClient";
 import arrowUpIcon from "../assets/icons/ai-draft-arrow-up.svg";
@@ -276,14 +277,7 @@ function toSelectedJob(job: JobPosting): Job {
   };
 }
 
-const initialMessages: Message[] = [
-  {
-    id: "m1",
-    sender: "ai",
-    time: "10:21",
-    text: "안녕하세요. 저는 Neet2Work AI 스크래치입니다.\n\n지원하시는 직무에서 가장 중요한 역량을 발휘했던 경험을 구체적으로 들려주세요. 상황, 역할, 행동, 결과를 중심으로 자세히 설명해주시면 더 깊이 있는 질문으로 핵심을 함께 정리해드릴게요.",
-  },
-];
+const initialMessages: Message[] = [];
 
 const draftProgressSteps = [
   {
@@ -331,6 +325,23 @@ function getProviderModelIdForSelection(provider?: AiProviderStatus) {
 
 function buildDefaultJobPostingText(job: Job) {
   return [job.title, job.skills.join(", "), job.description].filter((part) => part.trim().length > 0).join("\n");
+}
+
+function extractGithubUrls(text: string) {
+  const matches = text.match(/https?:\/\/github\.com\/[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)?/gi) ?? [];
+  return Array.from(
+    new Set(
+      matches
+        .map((url) => url.replace(/\.git$/i, ""))
+        .filter((url) => {
+          try {
+            return new URL(url).hostname.toLowerCase() === "github.com";
+          } catch {
+            return false;
+          }
+        })
+    )
+  );
 }
 
 function buildGapAnswersFromDrafts(
@@ -603,22 +614,6 @@ function hasDraftWorkflowIntent(text: string) {
   return /문항\s*분석|분석\s*(?:해\s*줘|해줘|해\s*주세요|해 주세요|시작)|분석(?:한\s*뒤|한뒤|하고|해서).*(?:초안|작성|자소서)|초안|맞춰서|자소서\s*양식|자기소개서\s*양식|cover\s*letter|draft|analy[sz]e/i.test(
     text
   );
-}
-
-function extractGithubUrls(text: string) {
-  return Array.from(new Set(text.match(/https?:\/\/github\.com\/[^\s)]+/gi) ?? []));
-}
-
-function buildGithubEvidenceNote(text: string) {
-  const githubUrls = extractGithubUrls(text);
-  if (githubUrls.length === 0) {
-    return "";
-  }
-
-  return [
-    `제공된 GitHub URL: ${githubUrls.join(", ")}`,
-    "현재 입력에는 GitHub 저장소 본문/README/커밋 내용이 포함되어 있지 않습니다. URL만으로 저장소 내용을 사실로 단정하지 말고, 프로젝트명, 목적, 본인 역할, 구현 내용, 사용 기술, 결과를 보완 질문으로 확인하세요."
-  ].join("\n");
 }
 
 function buildResumeTextParts(messages: Message[], input: string, attachedFiles: AttachedFile[]) {
@@ -1121,6 +1116,7 @@ function playTone(enabled: boolean, type: "send" | "ready" | "open" | "success")
 
 export function AIDraftChatBuilder() {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [submittedUserText, setSubmittedUserText] = useState("");
   const [expandedUserMessageIds, setExpandedUserMessageIds] = useState<Set<string>>(new Set());
   const [input, setInput] = useState("");
   const [selectedApiJob, setSelectedApiJob] = useState<Job | null>(null);
@@ -1255,9 +1251,25 @@ export function AIDraftChatBuilder() {
     SELF_INTRO_FORMAT_OPTIONS.find((option) => option.id === selectedSelfIntroFormatId) ?? DEFAULT_SELF_INTRO_FORMAT;
   const sourceFiles = useMemo(() => [...submittedFiles, ...attachedFiles], [submittedFiles, attachedFiles]);
   const resumeText = useMemo(() => {
-    return buildResumeTextParts(messages, input, sourceFiles).join("\n\n");
-  }, [messages, input, sourceFiles]);
-  const canAnalyze = resumeText.trim().length >= 10 || selectedProfileContexts.length > 0;
+    const messageText = buildResumeTextParts(messages, input, sourceFiles).join("\n\n");
+    return [submittedUserText, messageText]
+      .filter((text, index, texts) => text.trim().length > 0 && texts.indexOf(text) === index)
+      .join("\n\n");
+  }, [messages, input, sourceFiles, submittedUserText]);
+  const hasAnalyzableUserMessage = messages.some(
+    (message) => message.sender === "user" && message.text.trim().length >= 10
+  );
+  const canAnalyze =
+    resumeText.trim().length >= 10 ||
+    submittedUserText.trim().length >= 10 ||
+    hasAnalyzableUserMessage ||
+    selectedProfileContexts.length > 0;
+  const hasAnalysisInput =
+    resumeText.trim().length > 0 ||
+    submittedUserText.trim().length > 0 ||
+    sourceFiles.some((file) => (file.textContent ?? "").trim().length > 0) ||
+    selectedProfileContexts.length > 0;
+  const startAnalysisDisabled = hasAnalysisInput && !canAnalyze;
   const sendableAttachmentItems = useMemo(() => sendableAttachments(attachedFiles), [attachedFiles]);
   const sendableAttachmentSignature = useMemo(
     () => sendableAttachmentItems.map((file) => `${file.id}:${file.readError ? "error" : "ready"}`).join("|"),
@@ -1693,7 +1705,8 @@ export function AIDraftChatBuilder() {
     }
 
     const intervalId = window.setInterval(() => {
-      getCodexBridgeLoginStatus(codexLoginState.loginId as string)
+      getRequiredAccessToken()
+        .then((accessToken) => getCodexBridgeLoginStatus(codexLoginState.loginId as string, accessToken))
         .then(applyCodexLoginStatus)
         .catch(() => {
           setCodexLoginState({
@@ -2212,16 +2225,19 @@ export function AIDraftChatBuilder() {
   };
 
   const buildExperienceInput = () => {
-    const manualExperienceText = messages
+    const messageExperienceText = messages
       .filter((message) => message.sender === "user")
       .map((message) => message.text)
+      .join("\n\n");
+    const manualExperienceText = [submittedUserText, messageExperienceText]
+      .filter((text, index, texts) => text.trim().length > 0 && texts.indexOf(text) === index)
       .join("\n\n");
 
     return {
       portfolioText: buildPortfolioSourceText(sourceFiles),
       manualExperienceText,
       additionalContext:
-        [input.trim(), buildGithubEvidenceNote(manualExperienceText)]
+        [input.trim()]
         .filter((text) => text.length > 0)
         .join("\n\n") || undefined,
       referenceSelfIntroText: buildSelfIntroReferenceText({
@@ -2240,9 +2256,13 @@ export function AIDraftChatBuilder() {
 
   const buildCareerWorkflowSources = (): CareerWorkflowSourceInput[] => {
     const sources: CareerWorkflowSourceInput[] = [];
-    const userConversationText = messages
+    const messageConversationText = messages
       .filter((message) => message.sender === "user")
       .map((message) => message.text)
+      .join("\n\n")
+      .trim();
+    const userConversationText = [submittedUserText, messageConversationText]
+      .filter((text, index, texts) => text.trim().length > 0 && texts.indexOf(text) === index)
       .join("\n\n")
       .trim();
 
@@ -2489,11 +2509,14 @@ export function AIDraftChatBuilder() {
         try {
           const extracted = isTextAttachment(file)
             ? { text: await file.text(), previewHtml: undefined }
-            : await extractResumeFile({
-                fileName: file.name,
-                mimeType: file.type,
-                contentBase64: await fileToBase64(file)
-              });
+            : await extractResumeFile(
+                {
+                  fileName: file.name,
+                  mimeType: file.type,
+                  contentBase64: await fileToBase64(file)
+                },
+                await getRequiredAccessToken()
+              );
           const textContent = extracted.text;
           setAttachedFiles((prev) => {
             const next = prev.map((item) =>
@@ -2644,7 +2667,7 @@ export function AIDraftChatBuilder() {
     setCodexLoginState({ status: "starting", loginId: null, message: "Codex 연결 시작 중" });
 
     try {
-      const loginStatus = await startCodexBridgeLogin();
+      const loginStatus = await startCodexBridgeLogin(await getRequiredAccessToken());
       applyCodexLoginStatus(loginStatus);
       const authUrl = loginStatus.login?.authUrl;
       if (loginStatus.status === "pending" && authUrl) {
@@ -2692,12 +2715,15 @@ export function AIDraftChatBuilder() {
     setWorkflowError(null);
 
     try {
-      const session = await answerCareerDocumentWorkflowQuestion({
-        session: documentSession,
-        questionId,
-        answer,
-        aiSelection
-      });
+      const session = await answerCareerDocumentWorkflowQuestion(
+        {
+          session: documentSession,
+          questionId,
+          answer,
+          aiSelection
+        },
+        await getRequiredAccessToken()
+      );
       if (requestId !== workflowRequestIdRef.current) {
         return null;
       }
@@ -2740,6 +2766,7 @@ export function AIDraftChatBuilder() {
           : attachedFiles;
 
       setMessages((prev) => [...prev, userMessage]);
+      setSubmittedUserText((prev) => [prev, trimmed].filter((text) => text.trim().length > 0).join("\n\n"));
       if (attachmentsToSubmit.length > 0) {
         setSubmittedFiles((prev) => [...prev, ...attachmentsToSubmit]);
         setAttachedFiles(nextAttachedFiles);
@@ -2798,6 +2825,7 @@ export function AIDraftChatBuilder() {
       buildConversationRequirementSourceText(nextMessages)
     ).slice(-3).join(" / ");
     setMessages(nextMessages);
+    setSubmittedUserText((prev) => [prev, trimmed].filter((text) => text.trim().length > 0).join("\n\n"));
     if (attachmentsToSubmit.length > 0) {
       setSubmittedFiles((prev) => [...prev, ...attachmentsToSubmit]);
       setAttachedFiles(nextAttachedFiles);
@@ -2831,7 +2859,7 @@ export function AIDraftChatBuilder() {
   };
 
   const handleStartPlan = async () => {
-    if (!canAnalyze || draftState === "planning" || draftState === "drafting") {
+    if (startAnalysisDisabled || draftState === "planning" || draftState === "drafting") {
       return;
     }
 
@@ -2851,33 +2879,42 @@ export function AIDraftChatBuilder() {
 
     const target = buildDraftTarget();
     const experienceInput = buildExperienceInput();
-    void createCareerWorkflowSession({
-      target: {
-        company: target.company,
-        role: target.role,
-        questionText: target.questionText,
-        jobPostingText: target.jobPostingText,
-        charLimit: target.charLimit
-      },
-      sources: buildCareerWorkflowSources()
-    })
-      .then((session) => {
-        if (requestId === workflowRequestIdRef.current) {
-          setCareerSession(session);
-        }
-      })
-      .catch(() => {
-        if (requestId === workflowRequestIdRef.current) {
-          setCareerSession(null);
-        }
-      });
 
     try {
-      const plan = await createDraftWorkflowPlan({
-        aiSelection,
-        target,
-        experienceInput
-      });
+      const accessToken = await getRequiredAccessToken();
+      const workflowSources = buildCareerWorkflowSources();
+      void createCareerWorkflowSession(
+        {
+          target: {
+            company: target.company,
+            role: target.role,
+            questionText: target.questionText,
+            jobPostingText: target.jobPostingText,
+            charLimit: target.charLimit
+          },
+          sources: workflowSources
+        },
+        accessToken
+      )
+        .then((session) => {
+          if (requestId === workflowRequestIdRef.current) {
+            setCareerSession(session);
+          }
+        })
+        .catch(() => {
+          if (requestId === workflowRequestIdRef.current) {
+            setCareerSession(null);
+          }
+        });
+
+      const plan = await createDraftWorkflowPlan(
+        {
+          aiSelection,
+          target,
+          experienceInput
+        },
+        accessToken
+      );
       if (requestId !== workflowRequestIdRef.current) {
         return;
       }
@@ -2899,7 +2936,7 @@ export function AIDraftChatBuilder() {
   };
 
   const handleStartDocumentSession = async () => {
-    if (!canAnalyze || draftState === "planning" || draftState === "drafting") {
+    if (startAnalysisDisabled || draftState === "planning" || draftState === "drafting") {
       return;
     }
 
@@ -2919,7 +2956,10 @@ export function AIDraftChatBuilder() {
     playTone(settings.sound, "open");
 
     try {
-      const session = await createCareerDocumentWorkflowSession(buildDocumentWorkflowRequest());
+      const session = await createCareerDocumentWorkflowSession(
+        buildDocumentWorkflowRequest(),
+        await getRequiredAccessToken()
+      );
       if (requestId !== workflowRequestIdRef.current) {
         return;
       }
@@ -2944,7 +2984,7 @@ export function AIDraftChatBuilder() {
     if (
       autoStartPlanRequestId <= 0 ||
       draftState !== "ready" ||
-      !canAnalyze ||
+      startAnalysisDisabled ||
       workflowStatus === "loading" ||
       workflowPlan
     ) {
@@ -2953,13 +2993,13 @@ export function AIDraftChatBuilder() {
 
     setAutoStartPlanRequestId(0);
     void handleStartPlan();
-  }, [autoStartPlanRequestId, canAnalyze, draftState, workflowPlan, workflowStatus]);
+  }, [autoStartPlanRequestId, draftState, startAnalysisDisabled, workflowPlan, workflowStatus]);
 
   useEffect(() => {
     if (
       autoStartDocumentRequestId <= 0 ||
       draftState !== "ready" ||
-      !canAnalyze ||
+      startAnalysisDisabled ||
       workflowStatus === "loading" ||
       documentSession
     ) {
@@ -2968,7 +3008,7 @@ export function AIDraftChatBuilder() {
 
     setAutoStartDocumentRequestId(0);
     void handleStartDocumentSession();
-  }, [autoStartDocumentRequestId, canAnalyze, documentSession, draftState, workflowStatus]);
+  }, [autoStartDocumentRequestId, documentSession, draftState, startAnalysisDisabled, workflowStatus]);
 
   const handleGenerateDraft = async () => {
     if (!workflowPlan || !canConfirmDraft) {
@@ -2990,14 +3030,17 @@ export function AIDraftChatBuilder() {
     playTone(settings.sound, "open");
 
     try {
-      const draft = await createDraftWorkflowDraft({
-        aiSelection,
-        target,
-        experienceInput,
-        plan: workflowPlan,
-        gapAnswers: nextGapAnswers,
-        confirmedOutline: workflowPlan.outline
-      });
+      const draft = await createDraftWorkflowDraft(
+        {
+          aiSelection,
+          target,
+          experienceInput,
+          plan: workflowPlan,
+          gapAnswers: nextGapAnswers,
+          confirmedOutline: workflowPlan.outline
+        },
+        await getRequiredAccessToken()
+      );
       if (requestId !== workflowRequestIdRef.current) {
         return;
       }
@@ -3031,13 +3074,16 @@ export function AIDraftChatBuilder() {
     playTone(settings.sound, "open");
 
     try {
-      const revised = await reviseDraftWorkflowDraft({
-        aiSelection,
-        target,
-        plan: workflowPlan,
-        draft: workflowDraft,
-        revisionRequest: revisionRequest.trim()
-      });
+      const revised = await reviseDraftWorkflowDraft(
+        {
+          aiSelection,
+          target,
+          plan: workflowPlan,
+          draft: workflowDraft,
+          revisionRequest: revisionRequest.trim()
+        },
+        await getRequiredAccessToken()
+      );
       if (requestId !== workflowRequestIdRef.current) {
         return;
       }
@@ -3109,7 +3155,8 @@ export function AIDraftChatBuilder() {
   const handleNewChat = () => {
     clearSendReplyTimeout();
     revokeAttachmentPreviewUrls([...attachedFiles, ...submittedFiles]);
-    setMessages([initialMessages[0]]);
+    setMessages(initialMessages);
+    setSubmittedUserText("");
     setExpandedUserMessageIds(new Set());
     setInput("");
     setAttachedFiles([]);
@@ -3312,14 +3359,14 @@ export function AIDraftChatBuilder() {
               {(draftState === "ready" || draftState === "complete") && !workflowPlan && !documentSession && (
                 <div className="aiDraftReadyRow">
                   <span>대화 완료</span>
-                  <button type="button" onClick={handleStartPlan} disabled={!canAnalyze}>
+                  <button type="button" onClick={handleStartPlan} disabled={startAnalysisDisabled}>
                     <Icon name="spark" />
                     문항 분석 시작
                   </button>
                 </div>
               )}
 
-              {!canAnalyze && (draftState === "ready" || draftState === "complete") && !workflowPlan && !documentSession && (
+              {startAnalysisDisabled && (draftState === "ready" || draftState === "complete") && !workflowPlan && !documentSession && (
                 <p className="aiDraftInputHint">자기소개 내용을 10자 이상 입력해야 분석할 수 있습니다.</p>
               )}
 

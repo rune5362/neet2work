@@ -14,7 +14,7 @@ export class DraftGenerationService {
     target: CareerDocumentWorkflowTarget;
   }): CareerDocumentDraft[] {
     const questions = collectTemplateQuestions(input.documentAnalyses, input.target);
-    const allowedEvidence = input.evidenceVault.filter((item) => item.allowedInDraft);
+    const allowedEvidence = input.evidenceVault.filter((item) => item.allowedInDraft && !item.needsUserConfirmation);
     const filledSlots = new Set(allowedEvidence.flatMap((item) => item.targetSlots));
     const hasExistingSelfIntro = input.documentAnalyses.some(
       (analysis) => analysis.classification === "existing_self_intro"

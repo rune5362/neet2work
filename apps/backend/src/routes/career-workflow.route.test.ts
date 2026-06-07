@@ -1,8 +1,10 @@
 import type { AddressInfo } from "node:net";
 import express from "express";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 import { careerWorkflowRouter } from "./career-workflow.route.js";
+import { issueAccessToken } from "../services/token.service.js";
+import { HttpError } from "../utils/http-error.js";
 
 function createCareerWorkflowTestApp() {
   const app = express();
@@ -23,19 +25,50 @@ function createCareerWorkflowTestApp() {
         return;
       }
 
+      if (err instanceof HttpError) {
+        res.status(err.statusCode).json({ message: err.message });
+        return;
+      }
+
       res.status(500).json({ message: "서버 오류가 발생했습니다." });
     }
   );
   return app;
 }
 
-async function request(path: string, init?: RequestInit): Promise<Response> {
+function authHeaders() {
+  const { accessToken } = issueAccessToken({
+    sub: "route-test-user",
+    email: "route-test@example.com",
+    status: "ACTIVE"
+  });
+  return `Bearer ${accessToken}`;
+}
+
+function withAuth(init?: RequestInit) {
+  const headers = new Headers(init?.headers);
+  if (!headers.has("Authorization")) {
+    headers.set("Authorization", authHeaders());
+  }
+
+  return {
+    ...init,
+    headers
+  };
+}
+
+async function request(
+  path: string,
+  init?: RequestInit,
+  options: { auth?: boolean } = {}
+): Promise<Response> {
   const app = createCareerWorkflowTestApp();
   const server = app.listen(0);
+  const requestInit = options.auth === false ? init : withAuth(init);
 
   try {
     const address = server.address() as AddressInfo;
-    return await fetch(`http://127.0.0.1:${address.port}${path}`, init);
+    return await fetch(`http://127.0.0.1:${address.port}${path}`, requestInit);
   } finally {
     await new Promise<void>((resolve, reject) => {
       server.close((error) => {
@@ -50,6 +83,35 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
 }
 
 describe("career workflow routes", () => {
+  beforeEach(() => {
+    process.env.AI_RATE_LIMIT_MAX_REQUESTS = "1000";
+    process.env.JWT_SECRET = "route-test-secret-that-is-long-enough";
+  });
+
+  afterEach(() => {
+    delete process.env.AI_RATE_LIMIT_MAX_REQUESTS;
+    delete process.env.JWT_SECRET;
+  });
+
+  it("requires authentication for workflow execution", async () => {
+    const response = await request("/api/career-workflow/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sources: [
+          {
+            sourceType: "experience_text",
+            text: "프로젝트에서 Node.js API를 구현했습니다."
+          }
+        ]
+      })
+    }, { auth: false });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body.message).toBe("인증이 필요합니다.");
+  });
+
   it("POST /session routes blank templates into specified cover-letter workflow", async () => {
     const response = await request("/api/career-workflow/session", {
       method: "POST",

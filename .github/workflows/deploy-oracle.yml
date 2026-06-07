@@ -1,0 +1,105 @@
+name: Deploy to Oracle VM
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: oracle-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate secrets
+        env:
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_USER: ${{ secrets.ORACLE_USER }}
+          ORACLE_SSH_PRIVATE_KEY: ${{ secrets.ORACLE_SSH_PRIVATE_KEY }}
+        run: |
+          test -n "$ORACLE_HOST"
+          test -n "$ORACLE_USER"
+          test -n "$ORACLE_SSH_PRIVATE_KEY"
+
+      - name: Prepare SSH key
+        env:
+          ORACLE_SSH_PRIVATE_KEY: ${{ secrets.ORACLE_SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$ORACLE_SSH_PRIVATE_KEY" > ~/.ssh/oracle_deploy_key
+          chmod 600 ~/.ssh/oracle_deploy_key
+
+      - name: Trust Oracle host
+        env:
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+        run: |
+          ssh-keyscan -H "$ORACLE_HOST" >> ~/.ssh/known_hosts
+
+      - name: Package source
+        run: |
+          tar \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='apps/**/dist' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            -czf /tmp/neet2work-${{ github.sha }}.tar.gz .
+
+      - name: Deploy
+        env:
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_USER: ${{ secrets.ORACLE_USER }}
+          ORACLE_DEPLOY_PATH: ${{ secrets.ORACLE_DEPLOY_PATH }}
+          SHA: ${{ github.sha }}
+        run: |
+          DEPLOY_PATH="${ORACLE_DEPLOY_PATH:-/opt/neet2work}"
+          ARCHIVE="/tmp/neet2work-$SHA.tar.gz"
+
+          scp -i ~/.ssh/oracle_deploy_key "$ARCHIVE" "$ORACLE_USER@$ORACLE_HOST:/tmp/neet2work-$SHA.tar.gz"
+
+          ssh -i ~/.ssh/oracle_deploy_key "$ORACLE_USER@$ORACLE_HOST" \
+            "DEPLOY_PATH='$DEPLOY_PATH' SHA='$SHA' bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          if ! command -v git >/dev/null 2>&1 \
+            || ! command -v curl >/dev/null 2>&1 \
+            || ! command -v docker >/dev/null 2>&1 \
+            || ! docker compose version >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y git ca-certificates curl docker.io docker-compose-v2
+          fi
+
+          sudo mkdir -p "$DEPLOY_PATH"
+          sudo chown "$USER:$USER" "$DEPLOY_PATH"
+
+          RELEASE_DIR="$DEPLOY_PATH/releases/$SHA"
+          rm -rf "$RELEASE_DIR"
+          mkdir -p "$RELEASE_DIR"
+          tar -xzf "/tmp/neet2work-$SHA.tar.gz" -C "$RELEASE_DIR"
+          rm -f "/tmp/neet2work-$SHA.tar.gz"
+
+          if [[ -f "$DEPLOY_PATH/.env.production" ]]; then
+            cp "$DEPLOY_PATH/.env.production" "$RELEASE_DIR/.env.production"
+          elif [[ -f "$DEPLOY_PATH/current/.env.production" ]]; then
+            cp "$DEPLOY_PATH/current/.env.production" "$RELEASE_DIR/.env.production"
+          fi
+
+          if [[ ! -f "$RELEASE_DIR/.env.production" ]]; then
+            echo "Missing $DEPLOY_PATH/.env.production" >&2
+            echo "Create it from deploy/oracle/env.production.example before deploying." >&2
+            exit 1
+          fi
+
+          ln -sfn "$RELEASE_DIR" "$DEPLOY_PATH/current"
+          cd "$DEPLOY_PATH/current"
+
+          bash scripts/deploy-oracle.sh
+          REMOTE

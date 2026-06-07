@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getPrismaClient } from "./database/prisma.js";
 import { checkPostgresConnection } from "./storage/postgres.js";
 import { createApp, logServerError } from "./server.js";
+import { issueAccessToken } from "./services/token.service.js";
 
 vi.mock("./database/prisma.js", () => ({
   getPrismaClient: vi.fn()
@@ -79,18 +80,38 @@ async function request(
   }
 }
 
+function authHeader() {
+  const { accessToken } = issueAccessToken({
+    sub: "server-test-user",
+    email: "server-test@example.com",
+    status: "ACTIVE"
+  });
+  return `Bearer ${accessToken}`;
+}
+
+function jsonAuthHeaders() {
+  return {
+    Authorization: authHeader(),
+    "Content-Type": "application/json"
+  };
+}
+
 describe("server HTTP contract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     checkPostgresConnectionMock.mockResolvedValue("connected");
     getPrismaClientMock.mockReturnValue(null);
     process.env.AI_API_KEY = "present-but-not-wired";
+    process.env.AI_RATE_LIMIT_MAX_REQUESTS = "1000";
+    process.env.JWT_SECRET = "server-test-secret-that-is-long-enough";
     process.env.R2_ACCESS_KEY_ID = "present-but-not-wired";
   });
 
   afterEach(() => {
     delete process.env.AI_API_KEY;
+    delete process.env.AI_RATE_LIMIT_MAX_REQUESTS;
     delete process.env.ALLOW_LOCALHOST_ORIGINS;
+    delete process.env.JWT_SECRET;
     delete process.env.NODE_ENV;
     delete process.env.R2_ACCESS_KEY_ID;
   });
@@ -172,9 +193,7 @@ describe("server HTTP contract", () => {
   it("keeps the analyze route envelope stable", async () => {
     const response = await request(createApp(), "/api/analyze", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({
         jobId: "job-001",
         resumeText: "React와 TypeScript로 API 연동 화면을 만들었습니다."
@@ -189,15 +208,33 @@ describe("server HTTP contract", () => {
     });
   });
 
+  it("requires authentication for AI execution routes", async () => {
+    const response = await request(createApp(), "/api/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        jobId: "job-001",
+        resumeText: "React와 TypeScript로 API 연동 화면을 만들었습니다."
+      })
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({
+      message: "인증이 필요합니다.",
+      fallback: true
+    });
+  });
+
   it("returns 400 for unsupported image resume extract requests", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     try {
       const response = await request(createApp(), "/api/resume/extract", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: jsonAuthHeaders(),
         body: JSON.stringify({
           fileName: "resume.png",
           mimeType: "image/png",
@@ -217,9 +254,7 @@ describe("server HTTP contract", () => {
   it("keeps the resume extract route envelope stable for txt files", async () => {
     const response = await request(createApp(), "/api/resume/extract", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({
         fileName: "resume.txt",
         mimeType: "text/plain",

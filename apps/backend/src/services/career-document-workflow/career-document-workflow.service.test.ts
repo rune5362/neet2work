@@ -108,6 +108,77 @@ function createCodexDraftRouter(draftText: string) {
   };
 }
 
+function createCodexQuestionRouter(questionText: string) {
+  const aiMeta: AiExecutionMeta = {
+    providerId: "codex_bridge",
+    modelId: "codex-test-model",
+    routingMode: "manual",
+    usedFallback: false
+  };
+  const execute = vi.fn(async () => ({
+    data: {
+      mode: "ai" as const,
+      state: "GAP_INTERVIEWING" as const,
+      aiMeta,
+      questionRubric: {
+        intent: "지원 직무 프로젝트 경험을 검증하기 위한 부족 정보 확인",
+        requiredEvidence: ["project_name"],
+        mustAvoid: ["근거 없는 성과 단정"],
+        blindRules: []
+      },
+      experienceCards: [],
+      fitAssessments: [],
+      answerStrategy: {
+        mainClaim: "프로젝트 이름과 목적을 먼저 확인해야 합니다.",
+        narrativePattern: "STAR" as const,
+        primaryExperienceId: "gap-question-evidence",
+        questionBudget: 700,
+        neededQuestions: [
+          {
+            questionId: "project-name-check",
+            slot: "project_name",
+            priority: 1,
+            question: questionText
+          }
+        ]
+      },
+      materialStore: {
+        requirements: [],
+        referenceRules: [],
+        profile: {
+          coreStrengths: [],
+          tone: "",
+          privateConstraints: []
+        },
+        experiences: [],
+        sectionPlan: [],
+        outputRules: testDocumentFormatting
+      },
+      outline: []
+    },
+    modelId: "codex-test-model",
+    latencyMs: 1
+  }));
+  const provider: AiProvider = {
+    id: "codex_bridge",
+    label: "Codex Test",
+    getStatus: async () => ({
+      providerId: "codex_bridge",
+      label: "Codex Test",
+      online: true,
+      configured: true,
+      quotaExceeded: false,
+      models: [{ modelId: "codex-test-model", label: "Codex Test", online: true, quotaExceeded: false }]
+    }),
+    execute
+  };
+
+  return {
+    router: new AiRouter([provider, new HardcodedFallbackProvider()]),
+    execute
+  };
+}
+
 describe("career document workflow service", () => {
   it("extracts template requirements and uses fetched GitHub facts instead of the bare URL", async () => {
     const fetchMock = vi.fn((url: string) => {
@@ -292,6 +363,11 @@ describe("career document workflow service", () => {
         })
       ])
     );
+    expect(session.drafts[0]).toMatchObject({
+      status: "needs_more_evidence",
+      usedEvidenceFacts: []
+    });
+    expect(session.interview.questions.length).toBeGreaterThan(0);
   });
 
   it("strips Korean suffix words from GitHub profile URLs and deep-reads recent repositories", async () => {
@@ -846,7 +922,7 @@ describe("career document workflow service", () => {
           sourceType: "portfolio_page",
           fact: expect.stringContaining("포트폴리오 기술스택"),
           allowedInDraft: true,
-          needsUserConfirmation: true
+          needsUserConfirmation: false
         })
       ])
     );
@@ -1001,6 +1077,42 @@ describe("career document workflow service", () => {
       usedFallback: false
     });
     expect(session.drafts[0].draftText).toBe(aiDraftText);
+  });
+
+  it("uses AI-generated gap questions when the selected provider can plan the session", async () => {
+    const aiQuestion = "이 프로젝트의 이름, 목적, 그리고 지원 직무와 가장 직접 연결되는 기능을 한 번에 설명해 줄 수 있나요?";
+    const { router, execute } = createCodexQuestionRouter(aiQuestion);
+    const service = createService(vi.fn(), router);
+    const aiSelection: AiSelection = { mode: "manual", providerId: "codex_bridge" };
+
+    const session = await service.createSession({
+      message: "첨부한 양식에 맞춰 자소서를 작성해줘.",
+      target: {
+        role: "백엔드 개발자",
+        questionText: "지원 직무와 관련된 프로젝트 경험을 작성해 주세요."
+      },
+      attachments: [
+        {
+          fileName: "template.txt",
+          text: "문항: 지원 직무와 관련된 프로젝트 경험을 구체적으로 작성해 주세요. 700자 이내."
+        }
+      ],
+      aiSelection
+    });
+
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({ operation: "plan" }));
+    expect(session.aiMeta).toMatchObject({
+      providerId: "codex_bridge",
+      modelId: "codex-test-model",
+      usedFallback: false
+    });
+    expect(session.interview.questions[0]).toMatchObject({
+      questionId: "ai-project-name-check",
+      slot: "project_name",
+      question: aiQuestion,
+      whyAsking: expect.stringContaining("AI가")
+    });
+    expect(session.interview.questions[0].question).not.toContain("근거가 아직 부족");
   });
 });
 

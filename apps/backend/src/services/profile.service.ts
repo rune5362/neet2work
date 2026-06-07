@@ -316,20 +316,16 @@ export async function getProfiles(candidateKey: string, options: { includeArchiv
   const includeArchived = options.includeArchived ?? false;
 
   if (prisma) {
-    try {
-      const profiles = await prisma.candidateProfile.findMany({
-        where: {
-          candidateKey,
-          deletedAt: null,
-          ...(includeArchived ? {} : { isArchived: false })
-        },
-        orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }]
-      });
+    const profiles = await prisma.candidateProfile.findMany({
+      where: {
+        candidateKey,
+        deletedAt: null,
+        ...(includeArchived ? {} : { isArchived: false })
+      },
+      orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }]
+    });
 
-      return profiles.map(toProfileListItem);
-    } catch {
-      // Keep the mock-first demo path alive when the local DB is missing or unmigrated.
-    }
+    return profiles.map(toProfileListItem);
   }
 
   return getMemoryProfiles(candidateKey, includeArchived);
@@ -344,57 +340,43 @@ export async function createProfile(input: CreateProfileInput) {
     return createMemoryProfile(input);
   }
 
-  try {
-    const profile = await prisma.$transaction(async (tx) => {
-      if (input.isDefault) {
-        await tx.candidateProfile.updateMany({
-          where: {
-            candidateKey: input.candidateKey,
-            isDefault: true,
-            deletedAt: null
-          },
-          data: {
-            isDefault: false
-          }
-        });
-      }
-
-      return tx.candidateProfile.create({
-        data: {
+  const profile = await prisma.$transaction(async (tx) => {
+    if (input.isDefault) {
+      await tx.candidateProfile.updateMany({
+        where: {
           candidateKey: input.candidateKey,
-          ...profileMeta,
-          profileText,
-          profileJson: input.profileJson as Prisma.InputJsonValue,
-          schemaVersion: 1,
-          source: "user",
-          isDefault: input.isDefault ?? false,
-          createdBy: input.actorUserId ?? null
+          isDefault: true,
+          deletedAt: null
+        },
+        data: {
+          isDefault: false
         }
       });
-    });
-
-    return getProfile(input.candidateKey, profile.id);
-  } catch (error) {
-    if (error instanceof HttpError) {
-      throw error;
     }
-  }
 
-  return createMemoryProfile(input);
+    return tx.candidateProfile.create({
+      data: {
+        candidateKey: input.candidateKey,
+        ...profileMeta,
+        profileText,
+        profileJson: input.profileJson as Prisma.InputJsonValue,
+        schemaVersion: 1,
+        source: "user",
+        isDefault: input.isDefault ?? false,
+        createdBy: input.actorUserId ?? null
+      }
+    });
+  });
+
+  return getProfile(input.candidateKey, profile.id);
 }
 
 export async function getProfile(candidateKey: string, profileId: string): Promise<ProfileDetail> {
   const prisma = getPrismaClient();
 
   if (prisma) {
-    try {
-      const profile = await findOwnedProfile(prisma, candidateKey, profileId);
-      return toProfileListItem(profile);
-    } catch (error) {
-      if (error instanceof HttpError) {
-        throw error;
-      }
-    }
+    const profile = await findOwnedProfile(prisma, candidateKey, profileId);
+    return toProfileListItem(profile);
   }
 
   return getMemoryProfile(candidateKey, profileId);
@@ -407,61 +389,53 @@ export async function updateProfileMeta(profileId: string, input: UpdateProfileM
     return updateMemoryProfileMeta(profileId, input);
   }
 
-  try {
-    const profile = await prisma.$transaction(async (tx) => {
-      await findOwnedProfile(tx, input.candidateKey, profileId);
-      const profileJsonUpdate =
-        input.profileJson === undefined
-          ? {}
-          : {
-              ...buildSummaryUpdate(input.profileJson),
-              profileText: buildProfileText(input.profileJson),
-              profileJson: input.profileJson as Prisma.InputJsonValue,
-              schemaVersion: 1,
-              source: "user"
-            };
+  const profile = await prisma.$transaction(async (tx) => {
+    await findOwnedProfile(tx, input.candidateKey, profileId);
+    const profileJsonUpdate =
+      input.profileJson === undefined
+        ? {}
+        : {
+            ...buildSummaryUpdate(input.profileJson),
+            profileText: buildProfileText(input.profileJson),
+            profileJson: input.profileJson as Prisma.InputJsonValue,
+            schemaVersion: 1,
+            source: "user"
+          };
 
-      if (input.isDefault) {
-        await tx.candidateProfile.updateMany({
-          where: {
-            candidateKey: input.candidateKey,
-            isDefault: true,
-            deletedAt: null,
-            id: {
-              not: profileId
-            }
-          },
-          data: {
-            isDefault: false
-          }
-        });
-      }
-
-      return tx.candidateProfile.update({
+    if (input.isDefault) {
+      await tx.candidateProfile.updateMany({
         where: {
-          id: profileId
+          candidateKey: input.candidateKey,
+          isDefault: true,
+          deletedAt: null,
+          id: {
+            not: profileId
+          }
         },
         data: {
-          ...(input.title === undefined ? {} : { title: input.title }),
-          ...(input.targetRole === undefined ? {} : { targetRole: input.targetRole }),
-          ...(input.targetCompany === undefined ? {} : { targetCompany: input.targetCompany }),
-          ...(input.targetJobId === undefined ? {} : { targetJobId: input.targetJobId }),
-          ...profileJsonUpdate,
-          ...(input.isDefault === undefined ? {} : { isDefault: input.isDefault }),
-          ...(input.isArchived === undefined ? {} : { isArchived: input.isArchived }),
-          updatedBy: input.actorUserId ?? null
+          isDefault: false
         }
       });
-    });
-
-    return getProfile(input.candidateKey, profile.id);
-  } catch (error) {
-    if (error instanceof HttpError) {
-      throw error;
     }
-  }
 
-  return updateMemoryProfileMeta(profileId, input);
+    return tx.candidateProfile.update({
+      where: {
+        id: profileId
+      },
+      data: {
+        ...(input.title === undefined ? {} : { title: input.title }),
+        ...(input.targetRole === undefined ? {} : { targetRole: input.targetRole }),
+        ...(input.targetCompany === undefined ? {} : { targetCompany: input.targetCompany }),
+        ...(input.targetJobId === undefined ? {} : { targetJobId: input.targetJobId }),
+        ...profileJsonUpdate,
+        ...(input.isDefault === undefined ? {} : { isDefault: input.isDefault }),
+        ...(input.isArchived === undefined ? {} : { isArchived: input.isArchived }),
+        updatedBy: input.actorUserId ?? null
+      }
+    });
+  });
+
+  return getProfile(input.candidateKey, profile.id);
 }
 
 export async function copyProfile(profileId: string, input: CopyProfileInput) {
@@ -471,41 +445,33 @@ export async function copyProfile(profileId: string, input: CopyProfileInput) {
     return copyMemoryProfile(profileId, input);
   }
 
-  try {
-    const copiedProfile = await prisma.$transaction(async (tx) => {
-      const sourceProfile = await findOwnedProfile(tx, input.candidateKey, profileId);
+  const copiedProfile = await prisma.$transaction(async (tx) => {
+    const sourceProfile = await findOwnedProfile(tx, input.candidateKey, profileId);
 
-      return tx.candidateProfile.create({
-        data: {
-          candidateKey: sourceProfile.candidateKey,
-          title: buildCopyTitle(sourceProfile.title),
-          targetRole: sourceProfile.targetRole,
-          targetCompany: sourceProfile.targetCompany,
-          targetJobId: sourceProfile.targetJobId,
-          name: sourceProfile.name,
-          email: sourceProfile.email,
-          desiredRoles: sourceProfile.desiredRoles,
-          skills: sourceProfile.skills,
-          profileText: sourceProfile.profileText,
-          profileJson:
-            sourceProfile.profileJson === null ? Prisma.JsonNull : (sourceProfile.profileJson as Prisma.InputJsonValue),
-          schemaVersion: sourceProfile.schemaVersion,
-          source: sourceProfile.source,
-          isDefault: false,
-          isArchived: false,
-          createdBy: input.actorUserId ?? null
-        }
-      });
+    return tx.candidateProfile.create({
+      data: {
+        candidateKey: sourceProfile.candidateKey,
+        title: buildCopyTitle(sourceProfile.title),
+        targetRole: sourceProfile.targetRole,
+        targetCompany: sourceProfile.targetCompany,
+        targetJobId: sourceProfile.targetJobId,
+        name: sourceProfile.name,
+        email: sourceProfile.email,
+        desiredRoles: sourceProfile.desiredRoles,
+        skills: sourceProfile.skills,
+        profileText: sourceProfile.profileText,
+        profileJson:
+          sourceProfile.profileJson === null ? Prisma.JsonNull : (sourceProfile.profileJson as Prisma.InputJsonValue),
+        schemaVersion: sourceProfile.schemaVersion,
+        source: sourceProfile.source,
+        isDefault: false,
+        isArchived: false,
+        createdBy: input.actorUserId ?? null
+      }
     });
+  });
 
-    return getProfile(input.candidateKey, copiedProfile.id);
-  } catch (error) {
-    if (error instanceof HttpError) {
-      throw error;
-    }
-  }
-
-  return copyMemoryProfile(profileId, input);
+  return getProfile(input.candidateKey, copiedProfile.id);
 }
 
 export async function protectProfile(candidateKey: string, profileId: string, actorUserId?: string | null) {
@@ -526,34 +492,26 @@ export async function deleteProfile(candidateKey: string, profileId: string, act
     return deleteMemoryProfile(candidateKey, profileId, actorUserId);
   }
 
-  try {
-    const deletedProfile = await prisma.$transaction(async (tx) => {
-      const profile = await findOwnedProfile(tx, candidateKey, profileId);
+  const deletedProfile = await prisma.$transaction(async (tx) => {
+    const profile = await findOwnedProfile(tx, candidateKey, profileId);
 
-      if (profile.isArchived) {
-        throw new HttpError(400, "보호 중인 프로필은 삭제할 수 없습니다.");
+    if (profile.isArchived) {
+      throw new HttpError(400, "보호 중인 프로필은 삭제할 수 없습니다.");
+    }
+
+    const softDeletedProfile = await tx.candidateProfile.update({
+      where: {
+        id: profileId
+      },
+      data: {
+        deletedAt: new Date(),
+        deletedBy: actorUserId ?? null,
+        isDefault: false
       }
-
-      const softDeletedProfile = await tx.candidateProfile.update({
-        where: {
-          id: profileId
-        },
-        data: {
-          deletedAt: new Date(),
-          deletedBy: actorUserId ?? null,
-          isDefault: false
-        }
-      });
-
-      return softDeletedProfile;
     });
 
-    return toProfileListItem(deletedProfile);
-  } catch (error) {
-    if (error instanceof HttpError) {
-      throw error;
-    }
-  }
+    return softDeletedProfile;
+  });
 
-  return deleteMemoryProfile(candidateKey, profileId, actorUserId);
+  return toProfileListItem(deletedProfile);
 }

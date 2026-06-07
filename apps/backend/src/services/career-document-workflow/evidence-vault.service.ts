@@ -69,7 +69,7 @@ export class EvidenceVaultService {
             fact: fact.fact,
             confidence: "medium",
             allowedInDraft: true,
-            needsUserConfirmation: fact.sourceType !== "github_readme",
+            needsUserConfirmation: githubFactNeedsUserConfirmation(fact.sourceType),
             target: input.target
           })
         );
@@ -86,7 +86,7 @@ export class EvidenceVaultService {
             fact: fact.fact,
             confidence: "medium",
             allowedInDraft: true,
-            needsUserConfirmation: true,
+            needsUserConfirmation: portfolioFactNeedsUserConfirmation(fact.fact),
             target: input.target
           })
         );
@@ -218,6 +218,14 @@ function normalizeUserMessageFact(message: string) {
 function summarizeFact(prefix: string, text: string) {
   const summary = text.replace(/\s+/g, " ").trim().slice(0, 500);
   return `${prefix}: ${summary}`;
+}
+
+function githubFactNeedsUserConfirmation(sourceType: CareerEvidenceSourceType) {
+  return sourceType === "github_profile";
+}
+
+function portfolioFactNeedsUserConfirmation(fact: string) {
+  return !/^포트폴리오 (?:제목|기술스택):/.test(fact);
 }
 
 function createEvidence(input: {
