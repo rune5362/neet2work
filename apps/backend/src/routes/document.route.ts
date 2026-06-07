@@ -1,14 +1,15 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
-  archiveDocument,
   copyDocument,
   createDocument,
+  deleteDocument,
   getDocument,
   getDocuments,
+  protectDocument,
   updateDocumentMeta
 } from "../services/document.service.js";
-import { getAuthenticatedCandidateKey } from "../utils/auth-session.js";
+import { getAuthenticatedCandidateKey, getAuthenticatedUserId } from "../utils/auth-session.js";
 
 export const documentRouter = Router();
 
@@ -23,6 +24,7 @@ const documentListFilterSchema = documentListQuerySchema.extend({
 });
 
 const copyDocumentSchema = z.object({});
+const deleteDocumentSchema = z.object({});
 
 const createDocumentSchema = z.object({
   title: z.string().trim().min(1),
@@ -30,9 +32,7 @@ const createDocumentSchema = z.object({
   profileId: optionalTextSchema,
   jobId: optionalTextSchema,
   content: z.string().min(1),
-  contentJson: z.unknown().nullable().optional(),
-  versionTitle: optionalTextSchema,
-  memo: optionalTextSchema
+  contentJson: z.unknown().nullable().optional()
 });
 
 const updateDocumentMetaSchema = z.object({
@@ -46,12 +46,6 @@ const updateDocumentMetaSchema = z.object({
 
 function parseIncludeArchived(value: string | undefined) {
   return value === "true";
-}
-
-function sendDeprecatedVersionResponse(_req: unknown, res: { status: (code: number) => { json: (body: unknown) => void } }) {
-  res.status(410).json({
-    message: "문서 버전 API는 더 이상 사용하지 않습니다. 문서 복사 API를 사용해 주세요."
-  });
 }
 
 documentRouter.get("/", async (req, res, next) => {
@@ -75,10 +69,12 @@ documentRouter.get("/", async (req, res, next) => {
 documentRouter.post("/", async (req, res, next) => {
   try {
     const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
     const body = createDocumentSchema.parse(req.body);
     const document = await createDocument({
       ...body,
-      candidateKey
+      candidateKey,
+      actorUserId
     });
 
     res.status(201).json({
@@ -89,18 +85,29 @@ documentRouter.post("/", async (req, res, next) => {
   }
 });
 
-documentRouter.all("/:documentId/versions", sendDeprecatedVersionResponse);
-documentRouter.all("/:documentId/versions/:versionId", sendDeprecatedVersionResponse);
-documentRouter.all("/:documentId/versions/:versionId/apply", sendDeprecatedVersionResponse);
-documentRouter.all("/:documentId/versions/:versionId/restore", sendDeprecatedVersionResponse);
-
 documentRouter.post("/:documentId/copy", async (req, res, next) => {
   try {
     const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
     copyDocumentSchema.parse(req.body);
-    const document = await copyDocument(req.params.documentId, { candidateKey });
+    const document = await copyDocument(req.params.documentId, { candidateKey, actorUserId });
 
     res.status(201).json({
+      data: document
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+documentRouter.post("/:documentId/delete", async (req, res, next) => {
+  try {
+    const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
+    deleteDocumentSchema.parse(req.body);
+    const document = await deleteDocument(candidateKey, req.params.documentId, actorUserId);
+
+    res.json({
       data: document
     });
   } catch (error) {
@@ -124,10 +131,12 @@ documentRouter.get("/:documentId", async (req, res, next) => {
 documentRouter.patch("/:documentId", async (req, res, next) => {
   try {
     const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
     const body = updateDocumentMetaSchema.parse(req.body);
     const document = await updateDocumentMeta(req.params.documentId, {
       ...body,
-      candidateKey
+      candidateKey,
+      actorUserId
     });
 
     res.json({
@@ -141,7 +150,8 @@ documentRouter.patch("/:documentId", async (req, res, next) => {
 documentRouter.delete("/:documentId", async (req, res, next) => {
   try {
     const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
-    const document = await archiveDocument(candidateKey, req.params.documentId);
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
+    const document = await protectDocument(candidateKey, req.params.documentId, actorUserId);
 
     res.json({
       data: document

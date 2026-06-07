@@ -135,3 +135,7 @@ export async function archiveDocumentSet(setId: string): Promise<ApplicationSetI
   const result = (await response.json()) as ApiItemResponse<ApplicationSetItem>;
   return result.data;
 }
+
+export async function restoreDocumentSet(setId: string): Promise<ApplicationSetItem> {
+  return updateDocumentSet(setId, { isArchived: false });
+}

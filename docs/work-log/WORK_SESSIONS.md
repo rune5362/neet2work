@@ -90,3 +90,9 @@
 - Backend/API: `/api/career-workflow/document-session`과 `/answer` 요청에 `aiSelection`을 받도록 스키마/타입을 확장하고, 보완 질문이 모두 끝난 뒤 `CareerDocumentWorkflowService`가 선택된 AI provider로 `draft` 작업을 호출해 문서 기반 초안을 대체 생성하도록 연결했다. provider 실패, fallback, invalid output은 규칙 기반 초안으로 대체하되 `aiMeta`와 risk에 남긴다.
 - Frontend: 문서 세션 생성/답변 payload에 현재 선택 provider를 포함하고, 문서 기반 완성본 결과 카드에도 실제 provider/fallback 배지를 표시하도록 연결했다.
 - Verification: frontend/backend TypeScript compile, backend `career-document-workflow.service.test.ts` + route test 20건, frontend `AIDraftChatBuilder.test.tsx` 74건, in-app Browser `/ai-analysis` 새로고침 후 기본 Codex provider/console error 없음 확인, `git diff --check`를 통과했다.
+
+### 16:54 AI 분석과 daegyune/page/home 병합 충돌 해결
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: `origin/daegyune/page/home` 병합 중 발생한 AI 설정, AI 분석 채팅 빌더, 채팅 빌더 테스트 충돌을 해결했다.
+- Merge: `ai-config.ts`는 test 환경 dotenv skip과 Codex Bridge env 선로드를 함께 유지했다. `AIDraftChatBuilder`는 채팅형 문서 작성/파일 뷰어/수동 provider 선택 흐름과 저장 프로필 context chip 흐름을 병합했고, 테스트 mock은 `extractFails`와 `/api/profiles` 응답을 모두 지원하도록 정리했다.
+- Verification: Prisma Client 재생성 후 frontend/backend TypeScript compile, frontend `AIDraftChatBuilder.test.tsx` 84건, backend `draft-workflow.route.test.ts`/`prompt-builder.test.ts`/`profile-document.integration.test.ts` 14건, conflict marker scan, `git diff --check`를 통과했다.

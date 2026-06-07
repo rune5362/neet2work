@@ -172,17 +172,6 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
                       <>
                         <a
                           className={isDocumentsSection ? "active" : ""}
-                          href="/documents?type=profile"
-                          role="menuitem"
-                          onClick={() => setIsNavMenuOpen(false)}
-                        >
-                          <svg aria-hidden="true" height="20" viewBox="0 -960 960 960" width="20">
-                            <path d="M480-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z" />
-                          </svg>
-                          지원 프로필
-                        </a>
-                        <a
-                          className={isDocumentsSection ? "active" : ""}
                           href="/documents"
                           role="menuitem"
                           onClick={() => setIsNavMenuOpen(false)}
@@ -190,7 +179,7 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
                           <svg aria-hidden="true" height="20" viewBox="0 -960 960 960" width="20">
                             <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h240l80 80h240q33 0 56.5 23.5T840-680v480q0 33-23.5 56.5T760-120H200Zm0-80h560v-480H487l-80-80H200v560Zm0 0v-560 560Z" />
                           </svg>
-                          보관함
+                          문서함
                         </a>
                         <a
                           className={isMyAccountSection ? "active" : ""}
@@ -322,19 +311,11 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
                 <div className="homeAccountDropdown" role="menu">
                   <a
                     className={isDocumentsSection ? "active" : ""}
-                    href="/documents?type=profile"
-                    role="menuitem"
-                    onClick={() => setIsAccountMenuOpen(false)}
-                  >
-                    지원 프로필
-                  </a>
-                  <a
-                    className={isDocumentsSection ? "active" : ""}
                     href="/documents"
                     role="menuitem"
                     onClick={() => setIsAccountMenuOpen(false)}
                   >
-                    보관함
+                    문서함
                   </a>
                   <a
                     className={isMyAccountSection ? "active" : ""}

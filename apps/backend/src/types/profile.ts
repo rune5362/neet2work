@@ -69,6 +69,10 @@ export type ProfileListItem = {
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
+  deletedAt: string | null;
+  createdBy: string | null;
+  updatedBy: string | null;
+  deletedBy: string | null;
 };
 
 export type ProfileDetail = ProfileListItem;
@@ -81,8 +85,7 @@ export type CreateProfileInput = {
   targetJobId?: string | null;
   isDefault?: boolean;
   profileJson: CandidateProfileJson;
-  versionTitle?: string | null;
-  memo?: string | null;
+  actorUserId?: string | null;
 };
 
 export type UpdateProfileMetaInput = {
@@ -94,8 +97,10 @@ export type UpdateProfileMetaInput = {
   profileJson?: CandidateProfileJson;
   isDefault?: boolean;
   isArchived?: boolean;
+  actorUserId?: string | null;
 };
 
 export type CopyProfileInput = {
   candidateKey: string;
+  actorUserId?: string | null;
 };

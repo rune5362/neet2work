@@ -14,11 +14,16 @@ model ApplicationDocument {
   isArchived                     Boolean                   @default(false) @map("is_archived")
   createdAt                      DateTime                  @default(now()) @map("created_at")
   updatedAt                      DateTime                  @updatedAt @map("updated_at")
+  deletedAt                      DateTime?                 @map("deleted_at")
+  createdBy                      String?                   @map("created_by")
+  updatedBy                      String?                   @map("updated_by")
+  deletedBy                      String?                   @map("deleted_by")
   resumeApplicationSets          ApplicationSet[]          @relation("ApplicationSetResumeDocument")
   coverLetterApplicationSets ApplicationSet[] @relation("ApplicationSetCoverLetterDocument")
 
   @@index([candidateKey])
   @@index([profileId])
   @@index([jobId])
+  @@index([deletedAt])
   @@map("application_documents")
 }

@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   color: #171717;
   background: #ffffff;
   font-family:
@@ -2406,6 +2406,31 @@ textarea:focus {
   padding: 0 24px;
 }
 
+.documentsHeaderActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.documentsHeaderActions .documentsSecondaryButton {
+  border: 1px solid var(--home-hairline);
+  background: white;
+  color: var(--home-primary);
+}
+
+.documentsHeaderActions .documentsDangerButton {
+  border: 1px solid rgba(190, 18, 60, 0.22);
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.documentsHeaderActions button:disabled,
+.documentsEmptyActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .documentsToolbar {
   display: flex;
   flex-wrap: wrap;
@@ -2437,6 +2462,58 @@ textarea:focus {
   color: var(--home-body-muted);
   font-size: 0.86rem;
   font-weight: 800;
+}
+
+.documentsControls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 220px) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 20px;
+}
+
+.documentsControls label {
+  display: grid;
+  gap: 8px;
+  color: var(--home-secondary);
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.documentsControls input,
+.documentsControls select {
+  min-height: 42px;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: white;
+  color: var(--home-ink);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.documentsControls input:focus,
+.documentsControls select:focus {
+  outline: 3px solid rgba(0, 102, 255, 0.18);
+  border-color: var(--home-primary-container);
+}
+
+.documentsProtectionToggle {
+  min-height: 42px;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  align-self: end;
+  border: 1px solid var(--home-hairline);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: white;
+}
+
+.documentsProtectionToggle input {
+  min-height: auto;
+  width: auto;
+  padding: 0;
 }
 
 .documentsNotice,
@@ -2487,12 +2564,31 @@ textarea:focus {
   margin: 0;
 }
 
+.documentsEmptyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.documentsEmptyActions button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 16px;
+  background: var(--home-primary-container);
+  color: var(--home-on-primary-container);
+  cursor: pointer;
+  font-weight: 900;
+}
+
 .documentsList {
   display: grid;
   gap: 14px;
 }
 
 .documentsCard {
+  position: relative;
   display: grid;
   grid-template-columns: 112px minmax(0, 1fr) minmax(200px, 260px);
   gap: 24px;
@@ -2509,10 +2605,37 @@ textarea:focus {
   min-height: 44px;
   place-items: center;
   border-radius: 8px;
-  background: var(--home-surface-low);
-  color: var(--home-primary);
-  font-size: 0.78rem;
+  font-size: 0.9rem;
   font-weight: 900;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* 기본 프로필 - Royal Lavender (보라) */
+.documentsCardType.default-profile {
+  background: hsl(255, 75%, 96%);
+  color: hsl(255, 65%, 45%);
+  border: 1px solid hsl(255, 70%, 90%);
+}
+
+/* 프로필 - Sky Breeze (하늘) */
+.documentsCardType.profile {
+  background: hsl(205, 85%, 96%);
+  color: hsl(205, 80%, 40%);
+  border: 1px solid hsl(205, 80%, 90%);
+}
+
+/* 이력서 - Emerald Forest (민트/Teal) */
+.documentsCardType.resume {
+  background: hsl(165, 60%, 95%);
+  color: hsl(165, 75%, 32%);
+  border: 1px solid hsl(165, 65%, 88%);
+}
+
+/* 자기소개서 - Coral Sunset (살구/로즈) */
+.documentsCardType.cover-letter {
+  background: hsl(15, 85%, 96%);
+  color: hsl(15, 80%, 45%);
+  border: 1px solid hsl(15, 85%, 91%);
 }
 
 .documentsCardBody {
@@ -2655,10 +2778,102 @@ textarea:focus {
   color: var(--home-primary);
 }
 
-.documentsCardMeta .documentsDangerButton {
+.documentsCardMeta .documentsDangerButton,
+.profileFormActions .documentsDangerButton {
   border: 1px solid rgba(190, 18, 60, 0.22);
   background: #fff1f2;
   color: #be123c;
+}
+
+.documentsCardMeta .documentsProtectionAction {
+  border: 1px solid var(--home-hairline);
+  background: white;
+  color: var(--home-primary);
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.documentsCardMeta .documentsProtectionAction.protected {
+  border-color: rgba(190, 18, 60, 0.28);
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.documentsCardMeta .documentsProtectionAction.protected:hover,
+.documentsCardMeta .documentsProtectionAction.protected:focus-visible {
+  border-color: rgba(0, 102, 255, 0.28);
+  background: var(--home-surface-low);
+  color: var(--home-primary);
+}
+
+.documentsProtectionHover {
+  display: none;
+}
+
+.documentsProtectionAction.protected:hover .documentsProtectionDefault,
+.documentsProtectionAction.protected:focus-visible .documentsProtectionDefault {
+  display: none;
+}
+
+.documentsProtectionAction.protected:hover .documentsProtectionHover,
+.documentsProtectionAction.protected:focus-visible .documentsProtectionHover {
+  display: inline;
+}
+
+.documentsDeleteConfirmOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(4px);
+}
+
+.documentsDeleteConfirmDialog {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 380px);
+  border: 1px solid rgba(190, 18, 60, 0.24);
+  border-radius: 10px;
+  padding: 18px;
+  background: white;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
+  text-align: left;
+}
+
+.documentsDeleteConfirmDialog h3 {
+  margin: 0;
+  color: var(--home-ink);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.documentsDeleteConfirmDialog p {
+  margin: 0;
+  color: var(--home-body-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.documentsDeleteConfirmDialog strong {
+  color: var(--home-ink);
+}
+
+.documentsDeleteConfirmActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.documentsDeleteConfirmActions button {
+  min-height: 38px;
+  border-radius: 8px;
+  padding: 0 14px;
+  cursor: pointer;
+  font-weight: 900;
 }
 
 .documentsAnalysisPending {
@@ -2692,10 +2907,16 @@ textarea:focus {
   border-radius: 8px;
   padding: 0 16px;
   background: white;
-  color: var(--home-body-muted);
-  cursor: not-allowed;
+  color: var(--home-primary);
+  cursor: pointer;
   font-weight: 900;
   white-space: nowrap;
+}
+
+.documentsAnalysisPending button:disabled {
+  color: var(--home-body-muted);
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .profileForm {
@@ -4240,6 +4461,23 @@ textarea:focus {
   }
 
   .documentsHeader button {
+    width: 100%;
+  }
+
+  .documentsHeaderActions,
+  .documentsControls,
+  .documentsEmptyActions {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .documentsHeaderActions,
+  .documentsEmptyActions {
+    flex-direction: column;
+  }
+
+  .documentsHeaderActions button,
+  .documentsEmptyActions button {
     width: 100%;
   }
 
@@ -6903,6 +7141,10 @@ textarea:focus {
   border-color: rgba(148, 163, 184, 0.24);
 }
 
+.aiDraftAttachedFileChip.type-profile {
+  border-color: rgba(34, 197, 94, 0.32);
+}
+
 .aiDraftAttachedFileChip.error {
   border-color: rgba(248, 113, 113, 0.35);
   color: #fecaca;
@@ -6947,6 +7189,11 @@ textarea:focus {
 .aiDraftAttachedFileIcon.file {
   background: linear-gradient(135deg, #71717a, #3f3f46);
   box-shadow: 0 5px 12px rgba(82, 82, 91, 0.26);
+}
+
+.aiDraftAttachedFileIcon.profile {
+  background: linear-gradient(135deg, #16a34a, #166534);
+  box-shadow: 0 5px 12px rgba(22, 163, 74, 0.24);
 }
 
 .aiDraftAttachedFileIcon svg {
@@ -7329,6 +7576,85 @@ textarea:focus {
   top: auto;
   bottom: 0;
   left: calc(100% + 6px);
+}
+
+.aiDraftComposerProfileSubmenu {
+  position: absolute;
+  z-index: 25;
+  width: 220px;
+  min-width: 190px;
+  max-width: 260px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid rgba(226, 232, 240, 0.14);
+  border-radius: 12px;
+  background: rgba(17, 27, 52, 0.98);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
+}
+
+.aiDraftComposerProfileSubmenuAligned {
+  top: auto;
+  bottom: 0;
+  left: calc(100% + 6px);
+}
+
+.aiDraftComposerProfileOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.aiDraftComposerProfileOption span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aiDraftComposerProfileOption small {
+  flex: 0 0 auto;
+  color: #94a3b8;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.aiDraftComposerProfileOption:hover,
+.aiDraftComposerProfileOption:focus-visible,
+.aiDraftComposerProfileOption.active {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+}
+
+.aiDraftComposerProfileOption.active {
+  background: rgba(34, 197, 94, 0.16);
+}
+
+.aiDraftComposerProfileOption:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.aiDraftComposerMenuNote {
+  margin: 0;
+  padding: 8px;
+  color: #cbd5e1;
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .aiDraftComposerToneOption {
@@ -9026,5 +9352,48 @@ textarea:focus {
 
   .aiDraftProgressStep:not(:last-child)::after {
     display: none;
+  }
+}
+
+/* Documents Toast Notification */
+.documentsToast {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 12px;
+  padding: 14px 24px;
+  background: #0a1128;
+  color: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 800;
+  box-shadow: 0 12px 32px rgba(10, 17, 40, 0.22);
+  animation: toastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.documentsToastIcon {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #10b981;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }

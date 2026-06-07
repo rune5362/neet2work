@@ -40,4 +40,23 @@ describe("buildDraftWorkflowPrompt", () => {
     expect(prompt).toContain("sentence openings");
     expect(prompt).toContain("verb patterns");
   });
+
+  it("marks selected profile contexts as factual evidence in plan prompts", () => {
+    const prompt = buildDraftWorkflowPrompt("plan", {
+      target: { questionText: "직무 역량을 작성하세요." },
+      experienceInput: {
+        profileContexts: [
+          {
+            profileId: "candidate-profile-1",
+            title: "백엔드 지원 프로필",
+            profileJson: { skills: ["Node.js"] }
+          }
+        ]
+      }
+    });
+
+    expect(prompt).toContain("profileContexts");
+    expect(prompt).toContain("user-owned factual evidence");
+    expect(prompt).toContain("백엔드 지원 프로필");
+  });
 });

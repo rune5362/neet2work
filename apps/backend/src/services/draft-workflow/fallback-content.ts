@@ -34,8 +34,66 @@ export function extractExperienceText(input: {
   portfolioText?: string;
   manualExperienceText?: string;
   additionalContext?: string;
+  profileContexts?: Array<{
+    title: string;
+    profileText?: string;
+    targetRole?: string | null;
+    targetCompany?: string | null;
+    desiredRoles: string[];
+    skills: string[];
+    profileJson: {
+      summary?: {
+        headline?: string;
+        description?: string;
+      };
+      skills?: string[];
+      projects?: Array<{
+        name?: string;
+        title?: string;
+        role?: string;
+        result?: string;
+        impact?: string;
+        achievements?: string[];
+      }>;
+    };
+  }>;
 }) {
-  return [input.portfolioText, input.manualExperienceText, input.additionalContext]
+  const profileText = (input.profileContexts ?? [])
+    .map((profile) => {
+      const summary = [
+        profile.profileJson.summary?.headline,
+        profile.profileJson.summary?.description
+      ].filter(Boolean).join(" ");
+      const projects = (profile.profileJson.projects ?? [])
+        .map((project) =>
+          [
+            project.title ?? project.name,
+            project.role,
+            project.result,
+            project.impact,
+            ...(project.achievements ?? [])
+          ].filter(Boolean).join(" / ")
+        )
+        .filter(Boolean)
+        .join("\n");
+
+      return [
+        `[선택 프로필] ${profile.title}`,
+        profile.targetRole ? `목표 직무: ${profile.targetRole}` : "",
+        profile.targetCompany ? `목표 회사: ${profile.targetCompany}` : "",
+        profile.desiredRoles.length ? `희망 직무: ${profile.desiredRoles.join(", ")}` : "",
+        profile.skills.length || profile.profileJson.skills?.length
+          ? `스킬: ${[...profile.skills, ...(profile.profileJson.skills ?? [])].join(", ")}`
+          : "",
+        summary,
+        projects,
+        profile.profileText
+      ].map((part) => part?.trim() ?? "").filter(Boolean).join("\n");
+    })
+    .filter(Boolean)
+    .join("\n\n");
+
+  return [input.portfolioText, input.manualExperienceText, input.additionalContext, profileText]
     .map((part) => part?.trim() ?? "")
     .filter(Boolean)
     .join("\n\n");

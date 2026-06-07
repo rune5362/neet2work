@@ -1,13 +1,17 @@
+import dotenv from "dotenv";
 import { existsSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import dotenv from "dotenv";
 import type { AiProviderId, AiRoutingMode } from "../types/ai-routing.js";
 
 const configDir = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(configDir, "../../../..", ".env") });
-dotenv.config({ path: path.resolve(configDir, "../..", ".env"), override: true });
+const rootEnvPath = path.resolve(configDir, "../../../..", ".env");
+const backendEnvPath = path.resolve(configDir, "../..", ".env");
+
+if (process.env.NODE_ENV !== "test") {
+  dotenv.config({ path: rootEnvPath });
+  dotenv.config({ path: backendEnvPath, override: true });
+}
 
 function parseProviderOrder(raw: string | undefined): AiProviderId[] {
   const allowed: AiProviderId[] = ["codex_bridge", "gemini", "local", "fallback"];
@@ -35,12 +39,12 @@ function resolveCodexBridgeCommand() {
   }
 
   if (process.platform === "win32" && process.env.LOCALAPPDATA) {
-    const baseDir = join(process.env.LOCALAPPDATA, "OpenAI", "Codex", "bin");
+    const baseDir = path.join(process.env.LOCALAPPDATA, "OpenAI", "Codex", "bin");
 
     try {
       const candidates = readdirSync(baseDir, { withFileTypes: true })
         .filter((entry) => entry.isDirectory())
-        .map((entry) => join(baseDir, entry.name, "codex.exe"))
+        .map((entry) => path.join(baseDir, entry.name, "codex.exe"))
         .filter((candidate) => existsSync(candidate))
         .map((candidate) => ({ path: candidate, mtimeMs: statSync(candidate).mtimeMs }))
         .sort((left, right) => right.mtimeMs - left.mtimeMs);
@@ -58,7 +62,7 @@ function resolveCodexBridgeCommand() {
 
 function defaultUserCodexHome() {
   const home = process.env.USERPROFILE || process.env.HOME;
-  return home ? join(home, ".codex") : "";
+  return home ? path.join(home, ".codex") : "";
 }
 
 function resolveCodexBridgeHome() {

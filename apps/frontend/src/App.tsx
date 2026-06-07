@@ -15,9 +15,6 @@ const DocumentNew = lazy(() => import("./pages/DocumentNew").then((module) => ({
 const DocumentSetDetail = lazy(() =>
   import("./pages/DocumentSetDetail").then((module) => ({ default: module.DocumentSetDetail }))
 );
-const DocumentVersions = lazy(() =>
-  import("./pages/DocumentVersions").then((module) => ({ default: module.DocumentVersions }))
-);
 const Documents = lazy(() => import("./pages/Documents").then((module) => ({ default: module.Documents })));
 const Jobs = lazy(() => import("./pages/Jobs").then((module) => ({ default: module.Jobs })));
 const Login = lazy(() => import("./pages/Login").then((module) => ({ default: module.Login })));
@@ -29,9 +26,6 @@ const ProfileDetail = lazy(() =>
   import("./pages/ProfileDetail").then((module) => ({ default: module.ProfileDetail }))
 );
 const ProfileNew = lazy(() => import("./pages/ProfileNew").then((module) => ({ default: module.ProfileNew })));
-const ProfileVersions = lazy(() =>
-  import("./pages/ProfileVersions").then((module) => ({ default: module.ProfileVersions }))
-);
 const SignUp = lazy(() => import("./pages/SignUp").then((module) => ({ default: module.SignUp })));
 
 function DeferredPage({ children }: { children: ReactNode }) {
@@ -115,14 +109,6 @@ export default function App() {
     return <Redirect to="/documents/profiles/new" />;
   }
 
-  if (segments[0] === "profiles" && segments[1] && segments[2] === "versions" && segments.length === 3) {
-    return (
-      <DeferredPage>
-        <ProfileVersions />
-      </DeferredPage>
-    );
-  }
-
   if (segments[0] === "profiles" && segments[1] && segments.length === 2) {
     return <Redirect to={`/documents/profiles/${segments[1]}`} />;
   }
@@ -147,14 +133,6 @@ export default function App() {
     return (
       <DeferredPage>
         <DocumentSetDetail />
-      </DeferredPage>
-    );
-  }
-
-  if (segments[0] === "documents" && segments[1] && segments[2] === "versions" && segments.length === 3) {
-    return (
-      <DeferredPage>
-        <DocumentVersions />
       </DeferredPage>
     );
   }

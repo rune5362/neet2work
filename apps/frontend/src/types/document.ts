@@ -20,6 +20,10 @@ export type DocumentListItem = {
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
+  deletedAt: string | null;
+  createdBy: string | null;
+  updatedBy: string | null;
+  deletedBy: string | null;
 };
 
 export type DocumentDetail = DocumentListItem;
@@ -31,8 +35,6 @@ export type CreateDocumentPayload = {
   jobId?: string | null;
   content: string;
   contentJson?: unknown | null;
-  versionTitle?: string | null;
-  memo?: string | null;
 };
 
 export type UpdateDocumentMetaPayload = {

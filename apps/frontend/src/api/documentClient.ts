@@ -127,19 +127,26 @@ export async function updateDocumentMeta(
   return result.data;
 }
 
-export async function archiveDocument(documentId: string): Promise<DocumentDetail> {
+export async function protectDocument(documentId: string): Promise<DocumentDetail> {
   const query = buildQuery({});
   const response = await authorizedFetch(`/api/documents/${documentId}?${query}`, {
     method: "DELETE"
   });
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response, "문서 보관에 실패했습니다."));
+    throw new Error(await readErrorMessage(response, "문서 보호에 실패했습니다."));
   }
 
   const result = (await response.json()) as ApiItemResponse<DocumentDetail>;
   return result.data;
 }
+
+export async function unprotectDocument(documentId: string): Promise<DocumentDetail> {
+  return updateDocumentMeta(documentId, { isArchived: false });
+}
+
+export const archiveDocument = protectDocument;
+export const restoreDocument = unprotectDocument;
 
 export async function copyDocument(documentId: string): Promise<DocumentDetail> {
   const result = await sendJson<ApiItemResponse<DocumentDetail>>(
@@ -147,6 +154,17 @@ export async function copyDocument(documentId: string): Promise<DocumentDetail> 
     "POST",
     {},
     "문서 복사에 실패했습니다."
+  );
+
+  return result.data;
+}
+
+export async function deleteDocument(documentId: string): Promise<DocumentDetail> {
+  const result = await sendJson<ApiItemResponse<DocumentDetail>>(
+    `/api/documents/${documentId}/delete`,
+    "POST",
+    {},
+    "문서 삭제에 실패했습니다."
   );
 
   return result.data;

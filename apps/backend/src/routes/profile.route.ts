@@ -1,14 +1,15 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
-  archiveProfile,
   copyProfile,
   createProfile,
+  deleteProfile,
   getProfile,
   getProfiles,
+  protectProfile,
   updateProfileMeta
 } from "../services/profile.service.js";
-import { getAuthenticatedCandidateKey } from "../utils/auth-session.js";
+import { getAuthenticatedCandidateKey, getAuthenticatedUserId } from "../utils/auth-session.js";
 
 export const profileRouter = Router();
 
@@ -63,6 +64,7 @@ const profileListQuerySchema = z.object({
 });
 
 const copyProfileSchema = z.object({});
+const deleteProfileSchema = z.object({});
 
 const createProfileSchema = z.object({
   title: z.string().trim().min(1),
@@ -70,9 +72,7 @@ const createProfileSchema = z.object({
   targetCompany: optionalTextSchema,
   targetJobId: optionalTextSchema,
   isDefault: z.boolean().optional(),
-  profileJson: profileJsonSchema,
-  versionTitle: optionalTextSchema,
-  memo: optionalTextSchema
+  profileJson: profileJsonSchema
 });
 
 const updateProfileMetaSchema = z.object({
@@ -87,12 +87,6 @@ const updateProfileMetaSchema = z.object({
 
 function parseIncludeArchived(value: string | undefined) {
   return value === "true";
-}
-
-function sendDeprecatedVersionResponse(_req: unknown, res: { status: (code: number) => { json: (body: unknown) => void } }) {
-  res.status(410).json({
-    message: "프로필 버전 API는 더 이상 사용하지 않습니다. 프로필 복사 API를 사용해 주세요."
-  });
 }
 
 profileRouter.get("/", async (req, res, next) => {
@@ -115,10 +109,12 @@ profileRouter.get("/", async (req, res, next) => {
 profileRouter.post("/", async (req, res, next) => {
   try {
     const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
     const body = createProfileSchema.parse(req.body);
     const profile = await createProfile({
       ...body,
-      candidateKey
+      candidateKey,
+      actorUserId
     });
 
     res.status(201).json({
@@ -129,18 +125,29 @@ profileRouter.post("/", async (req, res, next) => {
   }
 });
 
-profileRouter.all("/:profileId/versions", sendDeprecatedVersionResponse);
-profileRouter.all("/:profileId/versions/:versionId", sendDeprecatedVersionResponse);
-profileRouter.all("/:profileId/versions/:versionId/apply", sendDeprecatedVersionResponse);
-profileRouter.all("/:profileId/versions/:versionId/restore", sendDeprecatedVersionResponse);
-
 profileRouter.post("/:profileId/copy", async (req, res, next) => {
   try {
     const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
     copyProfileSchema.parse(req.body);
-    const profile = await copyProfile(req.params.profileId, { candidateKey });
+    const profile = await copyProfile(req.params.profileId, { candidateKey, actorUserId });
 
     res.status(201).json({
+      data: profile
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+profileRouter.post("/:profileId/delete", async (req, res, next) => {
+  try {
+    const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
+    deleteProfileSchema.parse(req.body);
+    const profile = await deleteProfile(candidateKey, req.params.profileId, actorUserId);
+
+    res.json({
       data: profile
     });
   } catch (error) {
@@ -164,10 +171,12 @@ profileRouter.get("/:profileId", async (req, res, next) => {
 profileRouter.patch("/:profileId", async (req, res, next) => {
   try {
     const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
     const body = updateProfileMetaSchema.parse(req.body);
     const profile = await updateProfileMeta(req.params.profileId, {
       ...body,
-      candidateKey
+      candidateKey,
+      actorUserId
     });
 
     res.json({
@@ -181,7 +190,8 @@ profileRouter.patch("/:profileId", async (req, res, next) => {
 profileRouter.delete("/:profileId", async (req, res, next) => {
   try {
     const candidateKey = getAuthenticatedCandidateKey(req.get("authorization"));
-    const profile = await archiveProfile(candidateKey, req.params.profileId);
+    const actorUserId = getAuthenticatedUserId(req.get("authorization"));
+    const profile = await protectProfile(candidateKey, req.params.profileId, actorUserId);
 
     res.json({
       data: profile

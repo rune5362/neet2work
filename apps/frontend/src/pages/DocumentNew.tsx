@@ -9,7 +9,8 @@ import type { JobPosting } from "../types/job";
 import type { ProfileListItem } from "../types/profile";
 
 function getInitialDocumentType(): ApplicationDocumentType {
-  const value = new URLSearchParams(window.location.search).get("documentType");
+  const searchParams = new URLSearchParams(window.location.search);
+  const value = searchParams.get("documentType") ?? searchParams.get("type");
   return value === "cover_letter" ? "cover_letter" : "resume";
 }
 
@@ -116,7 +117,7 @@ export function DocumentNew() {
           <span>새 문서</span>
           <div>
             <h1>새 문서 만들기</h1>
-            <p>지원 프로필과 채용공고를 선택하고 직접 작성한 본문을 첫 버전으로 저장합니다.</p>
+            <p>지원 프로필과 채용공고를 선택하고 직접 작성한 본문을 저장합니다.</p>
           </div>
         </header>
 

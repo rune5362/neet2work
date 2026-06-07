@@ -88,6 +88,8 @@ For existing tables, newly added actor and soft delete columns stay nullable to 
 Soft delete applies to user-owned or user-visible domain data. Current scope:
 
 - `job_postings`
+- `candidate_profiles`
+- `application_documents`
 - `resume_analyses`
 - `users`
 
@@ -103,6 +105,10 @@ Soft delete rules:
 - Deleted emails are not reusable while `users.email` remains globally unique.
 - Account recovery is allowed by clearing `deleted_at`/`deleted_by` and restoring a non-deleted status through an explicit recovery flow.
 - Personal data masking for deleted users is deferred until the withdrawal flow is implemented.
+
+For document workspace data, `is_archived` is not deletion. It is a user-facing
+protection flag used to prevent accidental deletion. Deletion lifecycle is tracked
+only through `deleted_at` and `deleted_by`.
 
 ## Audit Logs
 
