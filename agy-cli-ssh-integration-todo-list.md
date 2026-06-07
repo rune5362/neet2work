@@ -4,14 +4,14 @@
 
 ## Phase 1. Frontend Provider 노출
 
-- [ ] Phase 1은 backend 실제 연동 전 단계이므로 mock/provider status fixture 기반으로 `agy_cli` 표시와 선택을 먼저 확인한다.
-- [ ] `apps/frontend/src/types/draft-workflow.ts`의 `AiProviderId`에 `"agy_cli"`를 추가한다.
-- [ ] `providerBadgeLabel()`에 `"agy_cli"` 분기를 추가하고 라벨은 `"Agy CLI"`로 고정한다.
-- [ ] `AIDraftChatBuilder`의 provider 목록/선택 UI가 backend에서 내려온 `agy_cli` status를 기존 provider와 동일하게 표시하는지 확인한다.
-- [ ] frontend provider mock/test data에 `agy_cli` provider status를 추가한다.
-- [ ] `apps/frontend/src/pages/AIDraftChatBuilder.test.tsx`에 `agy_cli`가 provider 메뉴에 표시되는 테스트를 추가한다.
-- [ ] 같은 테스트 파일에 `agy_cli`를 manual provider로 선택했을 때 request body의 `aiSelection.providerId`가 `"agy_cli"`가 되는 케이스를 추가한다.
-- [ ] `corepack pnpm --filter @neet2work/frontend test`로 frontend 타입/렌더링 회귀를 확인한다.
+- [x] Phase 1은 backend 실제 연동 전 단계이므로 mock/provider status fixture 기반으로 `agy_cli` 표시와 선택을 먼저 확인한다.
+- [x] `apps/frontend/src/types/draft-workflow.ts`의 `AiProviderId`에 `"agy_cli"`를 추가한다.
+- [x] `providerBadgeLabel()`에 `"agy_cli"` 분기를 추가하고 라벨은 `"Agy CLI"`로 고정한다.
+- [x] `AIDraftChatBuilder`의 provider 목록/선택 UI가 backend에서 내려온 `agy_cli` status를 기존 provider와 동일하게 표시하는지 확인한다.
+- [x] frontend provider mock/test data에 `agy_cli` provider status를 추가한다.
+- [x] `apps/frontend/src/pages/AIDraftChatBuilder.test.tsx`에 `agy_cli`가 provider 메뉴에 표시되는 테스트를 추가한다.
+- [x] 같은 테스트 파일에 `agy_cli`를 manual provider로 선택했을 때 request body의 `aiSelection.providerId`가 `"agy_cli"`가 되는 케이스를 추가한다.
+- [x] `corepack pnpm --filter @neet2work/frontend test`로 frontend 타입/렌더링 회귀를 확인한다.
 
 ## Phase 2. Backend Provider Contract 반영
 

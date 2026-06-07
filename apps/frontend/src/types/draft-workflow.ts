@@ -1,6 +1,6 @@
 import type { CandidateProfileJson } from "./profile";
 
-export type AiProviderId = "codex_bridge" | "gemini" | "local" | "fallback";
+export type AiProviderId = "codex_bridge" | "gemini" | "local" | "agy_cli" | "fallback";
 
 export type AiRoutingMode = "auto" | "manual";
 
@@ -329,6 +329,8 @@ export function providerBadgeLabel(providerId: AiProviderId) {
       return "Gemini";
     case "local":
       return "Local";
+    case "agy_cli":
+      return "Agy CLI";
     case "fallback":
       return "Fallback";
   }

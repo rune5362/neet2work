@@ -309,6 +309,14 @@ const providerStatuses = [
     models: []
   },
   {
+    providerId: "agy_cli",
+    label: "Agy CLI",
+    online: false,
+    configured: false,
+    quotaExceeded: false,
+    models: []
+  },
+  {
     providerId: "fallback",
     label: "Fallback Demo",
     online: true,
@@ -1951,6 +1959,7 @@ describe("AIDraftChatBuilder plan test plan coverage", () => {
     expect(await screen.findByText(/Codex · 오프라인/)).toBeInTheDocument();
     expect(screen.getByText(/Gemini · 오프라인/)).toBeInTheDocument();
     expect(screen.getByText(/Local · 오프라인/)).toBeInTheDocument();
+    expect(screen.getByText(/Agy CLI · 오프라인/)).toBeInTheDocument();
     expect(screen.getByText(/Fallback · 온라인/)).toBeInTheDocument();
   });
 
@@ -2074,6 +2083,39 @@ describe("AIDraftChatBuilder plan test plan coverage", () => {
     const body = getPlanCallBody(fetchMock);
     expect(body.aiSelection.mode).toBe("manual");
     expect(body.aiSelection.providerId).toBe("gemini");
+  });
+
+  it("shows Agy CLI in the provider menu", async () => {
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+
+    fireEvent.click(screen.getByRole("button", { name: /AI provider 선택, 현재 AI 자동선택/i }));
+
+    expect(screen.getByRole("menuitemradio", { name: /Agy CLI · 오프라인/i })).toBeInTheDocument();
+  });
+
+  it("sends agy_cli as the manual provider when Agy CLI is selected", async () => {
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+    await submitUserResume();
+
+    fireEvent.click(screen.getByRole("button", { name: /AI provider 선택, 현재 AI 자동선택/i }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Agy CLI · 오프라인/i }));
+
+    fireEvent.click(screen.getByRole("button", { name: /문항 분석 시작/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/draft-workflow/plan"),
+        expect.objectContaining({ method: "POST" })
+      );
+    });
+
+    const body = getPlanCallBody(fetchMock);
+    expect(body.aiSelection.mode).toBe("manual");
+    expect(body.aiSelection.providerId).toBe("agy_cli");
   });
 
   it("shows fallback badge with quota exceeded reason", async () => {
