@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+const optionalStringResultSchema = z.preprocess((value) => (value === null ? undefined : value), z.string().optional());
+const optionalNumberResultSchema = z.preprocess((value) => (value === null ? undefined : value), z.number().optional());
+
 export const aiSelectionSchema = z.object({
   mode: z.enum(["auto", "manual"]),
   providerId: z.enum(["codex_bridge", "gemini", "local", "agy_cli", "fallback"]).optional(),
@@ -156,15 +159,15 @@ export const experienceCardSchema = z.object({
   experienceId: z.string(),
   source: z.enum(["portfolio", "manual", "conversation", "fallback"]),
   title: z.string(),
-  period: z.string().optional(),
-  context: z.string().optional(),
-  role: z.string().optional(),
-  problem: z.string().optional(),
+  period: optionalStringResultSchema,
+  context: optionalStringResultSchema,
+  role: optionalStringResultSchema,
+  problem: optionalStringResultSchema,
   actions: z.array(
     z.object({
       action: z.string(),
-      method: z.string().optional(),
-      rationale: z.string().optional()
+      method: optionalStringResultSchema,
+      rationale: optionalStringResultSchema
     })
   ),
   tools: z.array(z.string()),
@@ -266,7 +269,7 @@ export const draftWorkflowPlanSchema = z.object({
       paragraphId: z.string(),
       purpose: z.string(),
       plannedClaims: z.array(z.string()),
-      targetChars: z.number().optional()
+      targetChars: optionalNumberResultSchema
     })
   )
 });
@@ -279,7 +282,7 @@ export const draftWorkflowDraftSchema = z.object({
   charCount: z.object({
     withSpaces: z.number(),
     withoutSpaces: z.number(),
-    limit: z.number().optional()
+    limit: optionalNumberResultSchema
   }),
   evidenceMap: z.array(
     z.object({
@@ -305,7 +308,7 @@ export const draftWorkflowDraftSchema = z.object({
         type: z.string(),
         severity: z.enum(["low", "medium", "high"]),
         message: z.string(),
-        suggestedQuestion: z.string().optional()
+        suggestedQuestion: optionalStringResultSchema
       })
     ),
     likelyInterviewQuestions: z.array(z.string()),
