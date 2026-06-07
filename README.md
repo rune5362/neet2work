@@ -304,6 +304,7 @@ CODEX_BRIDGE_REASONING_EFFORT=
 
 GEMINI_ENABLED=false
 GEMINI_API_KEY=
+GEMINI_MODELS=gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash
 GEMINI_MODEL=
 
 LOCAL_AI_ENABLED=false
@@ -347,6 +348,50 @@ corepack pnpm run codex:bridge:smoke -- --start-login --wait-login
 ```
 
 Windows에서 Codex Bridge를 켠 상태로 개발 서버를 바로 실행하려면 프로젝트 루트의 `start-codex-bridge.cmd`를 사용할 수 있습니다.
+
+### Codex Bridge LAN 시연
+
+포트폴리오 시연처럼 서버 배포 없이 같은 네트워크의 다른 PC에서 접속하려면 작업 PC에서 Codex에 로그인한 뒤 LAN 데모 스크립트를 실행합니다.
+
+```bash
+start-codex-bridge-lan.cmd
+```
+
+IP 자동 감지가 맞지 않으면 작업 PC의 IPv4를 직접 넘깁니다.
+
+```bash
+start-codex-bridge-lan.cmd 192.168.0.54
+```
+
+시연 PC에서는 스크립트가 출력한 `http://작업PC_IP:5173` 주소로 접속합니다. 접속이 막히면 작업 PC의 Windows 방화벽에서 TCP `5173`과 `3000` 인바운드를 허용합니다.
+
+### Oracle 사이트 + 작업 PC Codex 시연
+
+오라클에 배포된 `https://neet2work.duckdns.org` 화면은 그대로 쓰고, `/api` 요청만 작업 PC의 Codex Bridge backend로 보내려면 작업 PC에서 다음 명령을 실행합니다.
+
+```bash
+start-oracle-codex-demo-bridge.cmd
+```
+
+이 스크립트는 backend 실행, SSH reverse tunnel 연결, 오라클 Caddy 시연 모드 전환을 순서대로 처리합니다. 창을 닫거나 `Ctrl+C`로 종료하면 Caddy를 원래 모드로 되돌리고 backend/tunnel도 정리합니다.
+
+시연 PC에서는 기존 운영 주소로 접속합니다.
+
+```text
+https://neet2work.duckdns.org
+```
+
+강제 종료나 네트워크 끊김으로 자동 원복이 안 된 경우에만 수동으로 원복합니다.
+
+```bash
+oracle-caddy-demo-mode.cmd -Action disable
+```
+
+상태 확인:
+
+```bash
+oracle-caddy-demo-mode.cmd -Action status
+```
 
 ## 실행 방법
 

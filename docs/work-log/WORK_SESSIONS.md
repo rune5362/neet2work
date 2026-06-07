@@ -197,3 +197,35 @@
 - Gemini: `/opt/neet2work/.env.production`과 repo runtime env에 `GEMINI_ENABLED=true`, `GEMINI_MODEL=gemini-2.5-flash`를 반영하고 backend 컨테이너를 재시작했다. 다만 `GEMINI_API_KEY` 줄은 존재하지만 값이 비어 있어 배포 providers API는 `missing_key_or_model` 상태다. 키 값은 출력하지 않고 줄 길이/존재 여부만 확인했다.
 - Codex Bridge: 운영 host와 backend 컨테이너 모두 `codex` 명령을 찾지 못했고, backend env는 `CODEX_BRIDGE_ENABLED=false` 상태다. 현재 배포에서 Codex를 쓰려면 서버 또는 backend image에 Codex CLI를 설치하고, `/app/.codex` 같은 persistent `CODEX_HOME`에서 backend-side 로그인 후 bridge smoke check를 통과해야 한다.
 - Verification: `https://neet2work.duckdns.org/api/draft-workflow/providers`가 200으로 응답했으며 현재 상태는 `codex_bridge disabled`, `gemini missing_key_or_model`, `fallback online`으로 확인됐다. 로컬 `.env`도 Gemini key 줄은 있으나 값은 비어 있음을 존재 여부만 확인했다.
+
+### 01:18 Codex Bridge LAN 시연 스크립트 추가
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: 서버 배포 없이 학원 작업 PC를 Codex Bridge AI 서버처럼 켜고, 같은 네트워크의 시연 PC가 접속하는 포트폴리오 시연 경로를 추가했다.
+- Scripts: `start-codex-bridge-lan.cmd`와 `scripts/start-codex-bridge-lan.ps1`을 추가해 작업 PC IPv4 자동 감지 또는 수동 IP 입력을 지원하고, `CODEX_BRIDGE_ENABLED`, `CODEX_BRIDGE_HOME`, `VITE_API_BASE_URL`, `CLIENT_URL`, localhost origin 허용값을 한 번에 설정하도록 했다.
+- Docs: `README.md`에 LAN 시연 실행법과 Windows 방화벽 TCP `5173`/`3000` 확인 항목을 추가했다.
+- Verification: 자동 IP 감지 dry-run, 수동 IP batch wrapper dry-run, `git diff --check`를 통과했다. 실제 dev server 실행은 사용자의 작업 PC 네트워크에서 수행해야 하므로 이번 턴에서는 켜지 않았다.
+
+### 01:47 Oracle 사이트 Codex 시연 터널 및 Gemini 모델 롤오버
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: 오라클 배포 사이트는 그대로 쓰고 `/api`만 작업 PC Codex backend로 우회하는 시연 경로와 Gemini 다중 모델 fallback을 구현했다.
+- Scripts: `oracle-caddy-demo-mode.cmd`, `scripts/oracle-caddy-demo-mode.ps1`, `start-oracle-codex-demo-bridge.cmd`, `scripts/start-oracle-codex-demo-bridge.ps1`을 추가했다. Caddy 시연 모드는 `/api/*`와 `/health`를 Oracle localhost `3900` reverse tunnel로 보내고, 나머지는 기존 frontend `8080`으로 보낸다. 작업 PC 스크립트는 Codex Bridge backend를 켜고 `127.0.0.1:3900 -> 작업PC:3000` SSH reverse tunnel을 유지한다.
+- Gemini: `GEMINI_MODELS`를 추가해 `gemma-4-31b-it`, `gemma-4-26b-a4b-it`, `gemini-2.5-flash` 같은 우선순위 모델 목록을 지원한다. 모델별 429/quota, provider error, timeout, invalid JSON이 나면 같은 Gemini provider 안에서 다음 모델을 시도하고, `GEMINI_MODEL`은 기존 호환용 fallback으로 유지했다.
+- Verification: PowerShell script parse, 작업 PC bridge dry-run, Oracle Caddy status read-only check를 통과했다. 현재 Caddy는 `demo_mode=disabled`, frontend 200, tunnel port 3900 미연결 상태를 확인했다. Backend targeted `ai-providers.status.test.ts` 16건, backend lint, backend build, `git diff --check`를 통과했다. sandbox `spawn EPERM`/Prisma 네트워크 차단은 승인 경로로 재실행했다.
+
+### 01:56 Oracle Codex 시연 원클릭화
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: 시연 절차가 복잡해지지 않도록 `start-oracle-codex-demo-bridge.cmd` 하나로 backend 실행, SSH reverse tunnel 대기, Oracle Caddy 시연 모드 전환, 종료 시 Caddy 원복과 job 정리를 모두 처리하도록 변경했다.
+- Docs: README와 Oracle 배포 문서를 원클릭 실행 기준으로 정리하고, 강제 종료 등 자동 원복 실패시에만 `oracle-caddy-demo-mode.cmd -Action disable`을 수동 실행하도록 안내했다.
+- Verification: updated bridge script parse, dry-run, `git diff --check`를 통과했다.
+
+### 02:01 Gemini/Gemma 키 및 모델 호출 검증
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: 로컬 `.env`에 Gemini API key 값이 들어온 것을 존재 여부만 확인하고, 요청대로 `안녕` 프롬프트를 각 모델에 1회씩 호출했다.
+- Gemini: `gemma-4-31b-it`와 `gemma-4-26b-a4b-it`는 Google API가 `500 Internal error encountered`를 반환했고, `gemini-2.5-flash`는 200과 `안녕!` 응답을 반환했다. 키 값은 출력하지 않았다.
+- Verification: bridge script dry-run, `git diff --check`, backend Vitest 30 files / 241 tests 통과를 확인했다. Vitest는 sandbox `spawn EPERM` 때문에 승인 경로로 재실행했다.
+
+### 02:07 Gemma 4 호출 안정화
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: Gemma 4 모델 호출 실패를 수정하기 위해 모델 목록과 payload 변형을 실 API로 확인한 뒤, Gemma 모델은 `v1` endpoint를 쓰고 5xx transient error는 같은 모델에서 1회 재시도하도록 provider를 수정했다.
+- Gemini: API 모델 목록에서 `gemma-4-31b-it`, `gemma-4-26b-a4b-it`, `gemini-2.5-flash`가 모두 `generateContent`를 지원함을 확인했다. 수정 후 `안녕` 1회 호출은 세 모델 모두 200으로 성공했다.
+- Verification: backend Vitest 30 files / 242 tests, backend lint, backend build, `git diff --check`를 통과했다. build/test의 sandbox 제한은 승인 경로로 재실행했다.

@@ -49,6 +49,39 @@ Oracle Cloud security rules and the VM host firewall must allow inbound TCP
 `80` and `443`. Caddy terminates HTTPS, renews certificates automatically, and
 reverse proxies traffic to the frontend container on `127.0.0.1:8080`.
 
+## Temporary Codex Demo Mode
+
+For portfolio demos, the public Oracle site can keep serving the production
+frontend while `/api/*` and `/health` are temporarily proxied through an SSH
+reverse tunnel to a work PC running the backend with Codex Bridge enabled.
+
+Start the work PC backend, SSH reverse tunnel, and Caddy demo mode:
+
+```powershell
+.\start-oracle-codex-demo-bridge.cmd
+```
+
+The script waits until the tunnel is reachable from Oracle, switches Caddy into
+demo mode, and restores the normal Caddyfile when the script exits.
+
+During the demo, users still open:
+
+```txt
+https://neet2work.duckdns.org
+```
+
+Restore the normal Oracle backend after the demo:
+
+```powershell
+.\oracle-caddy-demo-mode.cmd -Action disable
+```
+
+Check the current Caddy mode and tunnel health:
+
+```powershell
+.\oracle-caddy-demo-mode.cmd -Action status
+```
+
 ## Manual Deploy
 
 ```bash

@@ -17,6 +17,7 @@ const mockAiConfig = vi.hoisted(() => ({
     enabled: false,
     apiKey: "",
     model: "",
+    models: [] as string[],
     timeoutMs: 120_000
   },
   localAi: {
@@ -39,7 +40,7 @@ vi.mock("../../config/ai-config.js", () => ({
   isGeminiConfigured: () =>
     mockAiConfig.gemini.enabled &&
     Boolean(mockAiConfig.gemini.apiKey) &&
-    Boolean(mockAiConfig.gemini.model),
+    mockAiConfig.gemini.models.length > 0,
   isLocalAiConfigured: () =>
     mockAiConfig.localAi.enabled && Boolean(mockAiConfig.localAi.baseUrl),
   isCodexBridgeConfigured: () => mockAiConfig.codexBridge.enabled
@@ -53,6 +54,7 @@ function resetConfig() {
   mockAiConfig.gemini.enabled = false;
   mockAiConfig.gemini.apiKey = "";
   mockAiConfig.gemini.model = "";
+  mockAiConfig.gemini.models = [];
   mockAiConfig.localAi.enabled = false;
   mockAiConfig.localAi.baseUrl = "http://localhost:11434";
 }
@@ -490,6 +492,7 @@ describe("AI provider status", () => {
     mockAiConfig.gemini.enabled = true;
     mockAiConfig.gemini.apiKey = "";
     mockAiConfig.gemini.model = "";
+    mockAiConfig.gemini.models = [];
 
     const { GeminiProvider } = await import("./gemini.provider.js");
     const status = await new GeminiProvider().getStatus();
@@ -503,6 +506,7 @@ describe("AI provider status", () => {
     mockAiConfig.gemini.enabled = true;
     mockAiConfig.gemini.apiKey = "test-key";
     mockAiConfig.gemini.model = "gemini-test";
+    mockAiConfig.gemini.models = ["gemini-test"];
 
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       status: 429,
@@ -521,6 +525,7 @@ describe("AI provider status", () => {
     mockAiConfig.gemini.enabled = true;
     mockAiConfig.gemini.apiKey = "test-key";
     mockAiConfig.gemini.model = "gemini-test";
+    mockAiConfig.gemini.models = ["gemini-test"];
 
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       status: 500,
@@ -534,6 +539,103 @@ describe("AI provider status", () => {
     expect(status.quotaExceeded).toBe(false);
     expect(status.online).toBe(false);
     expect(status.models[0]?.online).toBe(false);
+  });
+
+  it("reports all configured Gemini models in priority order", async () => {
+    mockAiConfig.gemini.enabled = true;
+    mockAiConfig.gemini.apiKey = "test-key";
+    mockAiConfig.gemini.model = "gemma-4-31b-it";
+    mockAiConfig.gemini.models = ["gemma-4-31b-it", "gemma-4-26b-a4b-it", "gemini-2.5-flash"];
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      status: 200,
+      ok: true
+    } as Response);
+
+    const { GeminiProvider } = await import("./gemini.provider.js");
+    const status = await new GeminiProvider().getStatus();
+
+    expect(status.online).toBe(true);
+    expect(status.models.map((model) => model.modelId)).toEqual([
+      "gemma-4-31b-it",
+      "gemma-4-26b-a4b-it",
+      "gemini-2.5-flash"
+    ]);
+    expect(status.models[0]?.recommended).toBe(true);
+    expect(status.models[1]?.recommended).toBe(false);
+  });
+
+  it("falls through Gemini models when the first model is quota exhausted", async () => {
+    mockAiConfig.gemini.enabled = true;
+    mockAiConfig.gemini.apiKey = "test-key";
+    mockAiConfig.gemini.model = "gemma-4-31b-it";
+    mockAiConfig.gemini.models = ["gemma-4-31b-it", "gemma-4-26b-a4b-it", "gemini-2.5-flash"];
+
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        status: 429,
+        ok: false
+      } as Response)
+      .mockResolvedValueOnce({
+        status: 200,
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: "{\"ok\":true}" }] } }]
+        })
+      } as Response);
+
+    const { GeminiProvider } = await import("./gemini.provider.js");
+    const result = await new GeminiProvider().execute<{ ok: boolean }>({
+      operation: "plan",
+      payload: { userText: "Gemini model rollover" },
+      timeoutMs: 1_000
+    });
+
+    expect(result.modelId).toBe("gemma-4-26b-a4b-it");
+    expect(result.data.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("gemma-4-31b-it");
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/v1/models/");
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain("gemma-4-26b-a4b-it");
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain("/v1/models/");
+
+    const firstBody = JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body));
+    expect(firstBody.generationConfig.responseMimeType).toBeUndefined();
+  });
+
+  it("retries transient Gemini HTTP errors before moving to the next model", async () => {
+    mockAiConfig.gemini.enabled = true;
+    mockAiConfig.gemini.apiKey = "test-key";
+    mockAiConfig.gemini.model = "gemma-4-31b-it";
+    mockAiConfig.gemini.models = ["gemma-4-31b-it", "gemini-2.5-flash"];
+
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        status: 500,
+        ok: false
+      } as Response)
+      .mockResolvedValueOnce({
+        status: 200,
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: "{\"ok\":true}" }] } }]
+        })
+      } as Response);
+
+    const { GeminiProvider } = await import("./gemini.provider.js");
+    const result = await new GeminiProvider().execute<{ ok: boolean }>({
+      operation: "plan",
+      payload: { userText: "Gemini transient retry" },
+      timeoutMs: 1_000
+    });
+
+    expect(result.modelId).toBe("gemma-4-31b-it");
+    expect(result.data.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("gemma-4-31b-it");
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain("gemma-4-31b-it");
   });
 
   it("reports Local AI offline when ping fails", async () => {

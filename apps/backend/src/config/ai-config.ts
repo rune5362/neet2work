@@ -27,6 +27,13 @@ function parseProviderOrder(raw: string | undefined): AiProviderId[] {
   return parsed.length > 0 ? parsed : allowed;
 }
 
+function parseModelList(raw: string | undefined): string[] {
+  return (raw ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function resolveCodexBridgeCommand() {
   const explicit = process.env.CODEX_BRIDGE_COMMAND?.trim();
   if (explicit) {
@@ -92,12 +99,19 @@ export const aiConfig = {
     reasoningEffort: process.env.CODEX_BRIDGE_REASONING_EFFORT ?? ""
   },
 
-  gemini: {
-    enabled: process.env.GEMINI_ENABLED === "true",
-    apiKey: process.env.GEMINI_API_KEY ?? "",
-    model: process.env.GEMINI_MODEL ?? "",
-    timeoutMs: Number(process.env.GEMINI_TIMEOUT_MS) || 120_000
-  },
+  gemini: (() => {
+    const modelsFromList = parseModelList(process.env.GEMINI_MODELS);
+    const legacyModel = process.env.GEMINI_MODEL?.trim() ?? "";
+    const models = modelsFromList.length > 0 ? modelsFromList : legacyModel ? [legacyModel] : [];
+
+    return {
+      enabled: process.env.GEMINI_ENABLED === "true",
+      apiKey: process.env.GEMINI_API_KEY ?? "",
+      model: models[0] ?? "",
+      models,
+      timeoutMs: Number(process.env.GEMINI_TIMEOUT_MS) || 120_000
+    };
+  })(),
 
   localAi: {
     enabled: process.env.LOCAL_AI_ENABLED === "true",
@@ -109,7 +123,7 @@ export const aiConfig = {
 };
 
 export function isGeminiConfigured() {
-  return aiConfig.gemini.enabled && Boolean(aiConfig.gemini.apiKey) && Boolean(aiConfig.gemini.model);
+  return aiConfig.gemini.enabled && Boolean(aiConfig.gemini.apiKey) && aiConfig.gemini.models.length > 0;
 }
 
 export function isLocalAiConfigured() {
