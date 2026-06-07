@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import logoUrl from "../assets/logo/neet2work_logo_lockup_reference_curve 1.png";
 import { clearLoginSession, getStoredAuthUser, getStoredRefreshToken } from "../api/authSession";
 import { logout, type AuthUser } from "../api/client";
-import { UNREAD_NOTIFICATIONS } from "../data/notifications";
 
 type HomeTopNavProps = {
   active?: "home" | "jobs" | "analysis" | "community" | "account" | "notifications";
@@ -15,19 +14,16 @@ function isPathInSection(currentPath: string, sectionPath: string) {
 export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => getStoredAuthUser());
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
-  const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
   const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
   const [profileImageFailed, setProfileImageFailed] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
-  const notificationMenuRef = useRef<HTMLDivElement | null>(null);
   const displayName = authUser?.nickname || authUser?.name || authUser?.email;
   const shouldShowProfileImage = Boolean(authUser?.profileImageUrl && !profileImageFailed);
   const currentPath = typeof window === "undefined" ? "" : window.location.pathname;
   const isDocumentsSection = isPathInSection(currentPath, "/documents");
   const isMyAccountSection = isPathInSection(currentPath, "/myaccount");
   const isAccountSection = isMyAccountSection || isDocumentsSection;
-  const isNotificationSection = currentPath === "/notifications";
-  const effectiveActive = isAccountSection ? "account" : isNotificationSection ? "notifications" : active;
+  const effectiveActive = isAccountSection ? "account" : active;
 
   useEffect(() => {
     const syncStoredAuthUser = () => {
@@ -45,7 +41,7 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
   }, []);
 
   useEffect(() => {
-    if (!isAccountMenuOpen && !isNotificationMenuOpen) {
+    if (!isAccountMenuOpen) {
       return;
     }
 
@@ -55,18 +51,12 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
         return;
       }
 
-      if (target instanceof Node && notificationMenuRef.current?.contains(target)) {
-        return;
-      }
-
       setIsAccountMenuOpen(false);
-      setIsNotificationMenuOpen(false);
     };
 
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsAccountMenuOpen(false);
-        setIsNotificationMenuOpen(false);
       }
     };
 
@@ -77,7 +67,7 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
       document.removeEventListener("pointerdown", closeOnOutsidePointerDown);
       document.removeEventListener("keydown", closeOnEscape);
     };
-  }, [isAccountMenuOpen, isNotificationMenuOpen]);
+  }, [isAccountMenuOpen]);
 
   const handleLogout = async () => {
     const refreshToken = getStoredRefreshToken();
@@ -157,6 +147,7 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
                     AI 분석
                   </a>
                   <div className="homeNavDropdownMobileOnly" role="none">
+                    {/* Notifications are unfinished, so keep the menu entry hidden until the feature is ready.
                     <a
                       className={effectiveActive === "notifications" ? "active" : ""}
                       href="/notifications"
@@ -168,6 +159,7 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
                       </svg>
                       알림
                     </a>
+                    */}
                     {authUser ? (
                       <>
                         <a
@@ -232,6 +224,7 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
           </div>
         </div>
         <div className="homeNavActions">
+          {/* Notifications are unfinished, so keep the desktop button/dropdown hidden until the feature is ready.
           <div className="homeNotificationMenu" ref={notificationMenuRef}>
             <button
               className={`homeIconButton${effectiveActive === "notifications" ? " active" : ""}`}
@@ -279,10 +272,11 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
                   onClick={() => setIsNotificationMenuOpen(false)}
                 >
                   알림 전체보기
-                </a>
-              </div>
-            )}
+              </a>
+            </div>
+          )}
           </div>
+          */}
           {authUser ? (
             <div className="homeAccountMenu" ref={accountMenuRef}>
               <button
@@ -292,7 +286,6 @@ export function HomeTopNav({ active = "home" }: HomeTopNavProps) {
                 aria-haspopup="menu"
                 onClick={() => {
                   setIsAccountMenuOpen((current) => !current);
-                  setIsNotificationMenuOpen(false);
                 }}
               >
                 {shouldShowProfileImage ? (
