@@ -34,6 +34,7 @@ const mockAiConfig = vi.hoisted(() => ({
 
 const mockSpawn = vi.hoisted(() => vi.fn());
 const mockExistsSync = vi.hoisted(() => vi.fn(() => true));
+const mockMkdirSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockStatSync = vi.hoisted(() => vi.fn(() => ({ mtimeMs: Date.now() })));
 const mockRunRemoteWrapperWithStdin = vi.hoisted(() => vi.fn());
@@ -59,9 +60,9 @@ vi.mock("node:fs", async () => {
   return {
     ...actual,
     existsSync: mockExistsSync,
+    mkdirSync: mockMkdirSync,
     readFileSync: mockReadFileSync,
-    statSync: mockStatSync,
-    mkdtempSync: vi.fn(() => "C:\\tmp\\neet2work-agy-test")
+    statSync: mockStatSync
   };
 });
 
@@ -150,6 +151,7 @@ describe("AgyCliProvider", () => {
     mockSpawn.mockReset();
     mockExistsSync.mockReset();
     mockExistsSync.mockReturnValue(true);
+    mockMkdirSync.mockReset();
     mockReadFileSync.mockReset();
     mockReadFileSync.mockImplementation(() => {
       throw new Error("unexpected read");
@@ -178,23 +180,15 @@ describe("AgyCliProvider", () => {
     expect(mockSpawn).not.toHaveBeenCalled();
   });
 
-  it("runs version probe for local status", async () => {
+  it("reports local status without spawning agy", async () => {
     mockAiConfig.agyCli.enabled = true;
-    mockSpawn.mockImplementation((_command: string, args: string[]) => {
-      if (args[0] === "--version") return createChild("1.0.5\n");
-      return createChild("", "unexpected", 1);
-    });
+    mockSpawn.mockImplementation(() => createChild("", "status must not spawn", 1));
 
     const { AgyCliProvider } = await import("./agy-cli.provider.js");
     const status = await new AgyCliProvider().getStatus();
 
     expect(status).toMatchObject({ configured: true, online: true });
-    expect(mockSpawn).toHaveBeenCalledTimes(1);
-    expect(mockSpawn).toHaveBeenCalledWith(
-      "C:\\tools\\agy.exe",
-      ["--version"],
-      expect.objectContaining({ shell: false, stdio: ["ignore", "pipe", "pipe"] })
-    );
+    expect(mockSpawn).not.toHaveBeenCalled();
   });
 
   it("executes with fixed sandbox args, strict JSON parsing, and allowlisted env only", async () => {
@@ -229,6 +223,34 @@ describe("AgyCliProvider", () => {
     expect(String(args[args.indexOf("--print") + 1])).not.toContain("not-allowed-model");
     expect(options.env.SECRET_TOKEN).toBeUndefined();
     expect(options.env.PATH).toBe("C:\\Windows\\System32");
+  });
+
+  it("uses a stable default workdir when AGY_CLI_WORKDIR is empty", async () => {
+    mockAiConfig.agyCli.enabled = true;
+    mockAiConfig.agyCli.workdir = "";
+    mockSpawn.mockImplementation((_command: string, args: string[]) => {
+      if (args.includes("--print")) return createChild("{\"state\":\"OUTLINE_READY\"}");
+      return createChild("", "unexpected", 1);
+    });
+
+    const { AgyCliProvider } = await import("./agy-cli.provider.js");
+    await new AgyCliProvider().execute<{ state: string }>({
+      operation: "plan",
+      payload: validPayload,
+      timeoutMs: 10_000
+    });
+
+    expect(mockMkdirSync).toHaveBeenCalledWith(
+      expect.stringMatching(/neet2work-agy-workdir$/),
+      { recursive: true }
+    );
+    expect(mockSpawn).toHaveBeenCalledWith(
+      "C:\\tools\\agy.exe",
+      expect.any(Array),
+      expect.objectContaining({
+        cwd: expect.stringMatching(/neet2work-agy-workdir$/)
+      })
+    );
   });
 
   it("reports config errors in status and execute without spawning", async () => {
@@ -281,7 +303,7 @@ describe("AgyCliProvider", () => {
     ).rejects.toMatchObject({ code: "offline", message: "invalid_command" });
   });
 
-  it("cleans up a timed-out local status probe and reports offline", async () => {
+  it("cleans up a timed-out local execution", async () => {
     vi.useFakeTimers();
     try {
       mockAiConfig.agyCli.enabled = true;
@@ -289,28 +311,29 @@ describe("AgyCliProvider", () => {
       mockSpawn.mockReturnValue(child);
 
       const { AgyCliProvider } = await import("./agy-cli.provider.js");
-      const statusPromise = new AgyCliProvider().getStatus();
+      const executePromise = new AgyCliProvider().execute({
+        operation: "plan",
+        payload: validPayload,
+        timeoutMs: 5_000
+      }).catch((error) => error);
       await vi.advanceTimersByTimeAsync(5_000);
-      const status = await statusPromise;
 
-      expect(status).toMatchObject({ configured: true, online: false, reason: "agy_probe_timeout" });
+      await expect(executePromise).resolves.toMatchObject({ code: "timeout", message: "agy cli timeout" });
       expect(child.kill).toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("classifies local app data permission failures as unwritable status", async () => {
+  it("does not probe local app data permissions during status", async () => {
     mockAiConfig.agyCli.enabled = true;
-    mockSpawn.mockImplementation((_command: string, args: string[]) => {
-      if (args[0] === "--version") return createChild("", "EACCES: permission denied", 1);
-      return createChild("", "unexpected", 1);
-    });
+    mockSpawn.mockImplementation(() => createChild("", "EACCES: permission denied", 1));
 
     const { AgyCliProvider } = await import("./agy-cli.provider.js");
     const status = await new AgyCliProvider().getStatus();
 
-    expect(status).toMatchObject({ configured: true, online: false, reason: "agy_app_data_unwritable" });
+    expect(status).toMatchObject({ configured: true, online: true });
+    expect(mockSpawn).not.toHaveBeenCalled();
   });
 
   it("does not execute without profileContexts", async () => {
@@ -407,25 +430,21 @@ describe("AgyCliProvider", () => {
     expect(JSON.stringify(mockRunRemoteWrapperWithStdin.mock.calls[0])).not.toContain("not-allowed-model");
   });
 
-  it("reports SSH wrapper probe status without using local command fallback", async () => {
+  it("reports SSH configured status without using local command fallback or wrapper probe", async () => {
     mockAiConfig.agyCli.enabled = true;
     mockAiConfig.agyCli.ssh.enabled = true;
     mockAiConfig.agyCli.ssh.host = "ssh.example.internal";
     mockAiConfig.agyCli.ssh.username = "agyuser";
     mockAiConfig.agyCli.ssh.keyPath = "C:\\keys\\agy";
     mockAiConfig.agyCli.ssh.hostFingerprint = "SHA256:test";
-    mockRunRemoteWrapperWithStdin.mockResolvedValue({
-      stdout: "{\"ok\":true}",
-      stderr: "",
-      exitCode: 0
-    });
+    mockRunRemoteWrapperWithStdin.mockRejectedValue(new MockAgySshExecutionError("ssh_wrapper_timeout"));
 
     const { AgyCliProvider } = await import("./agy-cli.provider.js");
     const status = await new AgyCliProvider().getStatus();
 
     expect(status).toMatchObject({ configured: true, online: true });
     expect(mockSpawn).not.toHaveBeenCalled();
-    expect(mockRunRemoteWrapperWithStdin).toHaveBeenCalled();
+    expect(mockRunRemoteWrapperWithStdin).not.toHaveBeenCalled();
   });
 
   it("does not fall back to local command when SSH mode is enabled but incomplete", async () => {
@@ -450,29 +469,26 @@ describe("AgyCliProvider", () => {
     expect(mockRunRemoteWrapperWithStdin).not.toHaveBeenCalled();
   });
 
-  it("surfaces SSH fingerprint and wrapper timeout reasons in status", async () => {
+  it("surfaces SSH wrapper errors during execution", async () => {
     mockAiConfig.agyCli.enabled = true;
     mockAiConfig.agyCli.ssh.enabled = true;
     mockAiConfig.agyCli.ssh.host = "ssh.example.internal";
     mockAiConfig.agyCli.ssh.username = "agyuser";
     mockAiConfig.agyCli.ssh.keyPath = "C:\\keys\\agy";
     mockAiConfig.agyCli.ssh.hostFingerprint = "SHA256:test";
-    mockRunRemoteWrapperWithStdin.mockRejectedValueOnce(new MockAgySshExecutionError("ssh_host_key_mismatch"));
+    mockRunRemoteWrapperWithStdin.mockRejectedValue(new MockAgySshExecutionError("ssh_host_key_mismatch"));
 
     const { AgyCliProvider } = await import("./agy-cli.provider.js");
     const provider = new AgyCliProvider();
 
-    await expect(provider.getStatus()).resolves.toMatchObject({
-      configured: true,
-      online: false,
+    await expect(
+      provider.execute({
+        operation: "plan",
+        payload: validPayload,
+        timeoutMs: 10_000
+      })
+    ).rejects.toMatchObject({
       reason: "ssh_host_key_mismatch"
-    });
-
-    mockRunRemoteWrapperWithStdin.mockRejectedValueOnce(new MockAgySshExecutionError("ssh_wrapper_timeout"));
-    await expect(provider.getStatus()).resolves.toMatchObject({
-      configured: true,
-      online: false,
-      reason: "ssh_wrapper_timeout"
     });
     expect(mockSpawn).not.toHaveBeenCalled();
   });

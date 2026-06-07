@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { aiConfig } from "../../config/ai-config.js";
@@ -12,7 +12,7 @@ import type {
 } from "../../types/ai-routing.js";
 import { buildAgyCliDraftWorkflowPrompt } from "../draft-workflow/prompt-builder.js";
 import { parseStrictJsonObject, ProviderExecutionError } from "./provider-utils.js";
-import { AgySshExecutionError, runRemoteWrapperWithStdin } from "./ssh-helper.js";
+import { runRemoteWrapperWithStdin } from "./ssh-helper.js";
 
 type ProcessResult = {
   stdout: string;
@@ -22,7 +22,7 @@ type ProcessResult = {
 
 const AGY_COMMAND_NAMES = new Set(["agy.exe", "agy", "Antigravity.exe", "Antigravity"]);
 const DEFAULT_MODEL_ID = "agy-cli";
-const STATUS_PROBE_TIMEOUT_MS = 5_000;
+const DEFAULT_WORKDIR_NAME = "neet2work-agy-workdir";
 
 export class AgyCliProvider implements AiProvider {
   private static activeExecutions = 0;
@@ -43,29 +43,7 @@ export class AgyCliProvider implements AiProvider {
     }
 
     if (aiConfig.agyCli.ssh.enabled) {
-      const startedAt = Date.now();
-      try {
-        const result = await runRemoteWrapperWithStdin(
-          this.sshConfig(),
-          "Return exactly this JSON object and nothing else: {\"ok\":true}",
-          Math.min(STATUS_PROBE_TIMEOUT_MS, aiConfig.agyCli.ssh.execTimeoutMs)
-        );
-        if (result.exitCode !== 0) {
-          return this.status(true, false, "agy_not_logged_in", modelId);
-        }
-        parseStrictJsonObject(result.stdout);
-        return {
-          providerId: this.id,
-          label: this.label,
-          online: true,
-          configured: true,
-          quotaExceeded: false,
-          latencyMs: Date.now() - startedAt,
-          models: [{ modelId, label: modelId, online: true, quotaExceeded: false, recommended: true }]
-        };
-      } catch (error) {
-        return this.status(true, false, this.classifySshError(error), modelId);
-      }
+      return this.onlineStatus(modelId);
     }
 
     const command = this.resolveCommand();
@@ -73,39 +51,15 @@ export class AgyCliProvider implements AiProvider {
       return this.status(false, false, "missing_command", modelId);
     }
 
-    const workdir = this.resolveWorkdir();
-    if (!workdir) {
+    if (!this.hasValidConfiguredWorkdir()) {
       return this.status(false, false, "invalid_command", modelId);
     }
 
-    const startedAt = Date.now();
-    try {
-      const versionProbe = await this.runLocalProcess(command, ["--version"], {
-        timeoutMs: STATUS_PROBE_TIMEOUT_MS,
-        workdir,
-        maxOutputBytes: 16_384
-      });
-      if (versionProbe.exitCode !== 0) {
-        const reason = this.classifyProcessMessage(versionProbe.stderr);
-        return this.status(true, false, reason ?? "invalid_command", modelId);
-      }
-
-      // loginProbe(agy models)를 호출하면 agy CLI가 Antigravity UI와 연동하며
-      // 불필요한 대화 세션(Conversation)을 중복 스폰하는 부작용이 발생합니다.
-      // 따라서 버전 검사 성공만으로 상태를 판정하고 실제 로그인 검증 및 에러 처리는 execute() 실행 시점에 위임합니다.
-      return {
-        providerId: this.id,
-        label: this.label,
-        online: true,
-        configured: true,
-        quotaExceeded: false,
-        latencyMs: Date.now() - startedAt,
-        models: [{ modelId, label: modelId, online: true, quotaExceeded: false, recommended: true }]
-      };
-    } catch (error) {
-      const reason = this.classifyProcessError(error);
-      return this.status(true, false, reason, modelId);
-    }
+    // Provider status is polled when the ai-analysis page loads. Even harmless-looking
+    // Agy probes such as "--version" can attach to Antigravity and create conversations,
+    // so status only validates local configuration. Real login/runtime errors surface
+    // during execute(), which runs only for an explicit generation request.
+    return this.onlineStatus(modelId);
   }
 
   async execute<T>(input: AiProviderExecuteInput<unknown>): Promise<AiProviderExecuteResult<T>> {
@@ -208,6 +162,17 @@ export class AgyCliProvider implements AiProvider {
     };
   }
 
+  private onlineStatus(modelId: string): AiProviderStatus {
+    return {
+      providerId: this.id,
+      label: this.label,
+      online: true,
+      configured: true,
+      quotaExceeded: false,
+      models: [{ modelId, label: modelId, online: true, quotaExceeded: false, recommended: true }]
+    };
+  }
+
   private resolveCommand() {
     const explicit = aiConfig.agyCli.command.trim();
     if (explicit) {
@@ -244,7 +209,18 @@ export class AgyCliProvider implements AiProvider {
       return configured;
     }
 
-    return mkdtempSync(path.join(os.tmpdir(), "neet2work-agy-"));
+    const defaultWorkdir = path.join(os.tmpdir(), DEFAULT_WORKDIR_NAME);
+    mkdirSync(defaultWorkdir, { recursive: true });
+    return defaultWorkdir;
+  }
+
+  private hasValidConfiguredWorkdir() {
+    const configured = aiConfig.agyCli.workdir.trim();
+    if (!configured) {
+      return true;
+    }
+
+    return path.isAbsolute(configured) && existsSync(configured);
   }
 
   private resolveModelId(requestedModelId?: string) {
@@ -450,46 +426,4 @@ export class AgyCliProvider implements AiProvider {
     return home ? path.join(home, ".gemini", "antigravity-cli") : "";
   }
 
-  private classifyProcessError(error: unknown): AgyCliStatusReason {
-    if (error instanceof ProviderExecutionError && error.code === "timeout") {
-      return "agy_probe_timeout";
-    }
-
-    if (error instanceof ProviderExecutionError && error.message === "missing_command") {
-      return "missing_command";
-    }
-
-    if (error instanceof ProviderExecutionError && error.message === "output_limit_exceeded") {
-      return "output_limit_exceeded";
-    }
-
-    const message = error instanceof Error ? error.message.toLowerCase() : "";
-    const reason = this.classifyProcessMessage(message);
-    if (reason) {
-      return reason;
-    }
-
-    return "agy_not_logged_in";
-  }
-
-  private classifyProcessMessage(rawMessage: string): AgyCliStatusReason | undefined {
-    const message = rawMessage.toLowerCase();
-    if (message.includes("eacces") || message.includes("eperm") || message.includes("permission")) {
-      return "agy_app_data_unwritable";
-    }
-
-    return undefined;
-  }
-
-  private classifySshError(error: unknown): AgyCliStatusReason {
-    if (error instanceof AgySshExecutionError) {
-      return error.reason;
-    }
-
-    if (error instanceof ProviderExecutionError && error.code === "invalid_output") {
-      return "invalid_json_output";
-    }
-
-    return "ssh_wrapper_timeout";
-  }
 }
