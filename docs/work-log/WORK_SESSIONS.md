@@ -190,3 +190,10 @@
 - Git: 현재 검증된 작업 HEAD로 `sub-main` 브랜치를 만들고 원격에 푸시했다. `main`은 그대로 유지했다. GitHub Actions deploy trigger와 `scripts/oracle-poll-deploy.sh` 기본 브랜치, Oracle 배포 문서를 `sub-main` 기준으로 수정했다.
 - Server: Oracle VM systemd `neet2work-deploy.service`의 `BRANCH`를 `sub-main`으로 변경하고 timer를 재시작했다. 기존 single-branch clone에서 `origin/sub-main` ref가 없던 문제는 poller가 명시 refspec으로 `refs/remotes/origin/sub-main`을 갱신하도록 수정해 해결했다.
 - Verification: `neet2work-deploy.service`를 즉시 실행해 `/opt/neet2work/.deployed-sha`와 `/opt/neet2work/repo`가 `sub-main` 최신 SHA를 가리키는 것을 확인했다. compose 컨테이너는 backend/frontend 모두 up 상태였고, `https://neet2work.duckdns.org/health`와 provider API는 200으로 응답했다.
+
+### 01:12 운영 AI provider 활성화 점검
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: 사용자 승인 후 Oracle VM 운영 env에서 Gemini 활성화 플래그와 기본 모델을 켜고, Codex Bridge 연결 조건을 점검했다.
+- Gemini: `/opt/neet2work/.env.production`과 repo runtime env에 `GEMINI_ENABLED=true`, `GEMINI_MODEL=gemini-2.5-flash`를 반영하고 backend 컨테이너를 재시작했다. 다만 `GEMINI_API_KEY` 줄은 존재하지만 값이 비어 있어 배포 providers API는 `missing_key_or_model` 상태다. 키 값은 출력하지 않고 줄 길이/존재 여부만 확인했다.
+- Codex Bridge: 운영 host와 backend 컨테이너 모두 `codex` 명령을 찾지 못했고, backend env는 `CODEX_BRIDGE_ENABLED=false` 상태다. 현재 배포에서 Codex를 쓰려면 서버 또는 backend image에 Codex CLI를 설치하고, `/app/.codex` 같은 persistent `CODEX_HOME`에서 backend-side 로그인 후 bridge smoke check를 통과해야 한다.
+- Verification: `https://neet2work.duckdns.org/api/draft-workflow/providers`가 200으로 응답했으며 현재 상태는 `codex_bridge disabled`, `gemini missing_key_or_model`, `fallback online`으로 확인됐다. 로컬 `.env`도 Gemini key 줄은 있으나 값은 비어 있음을 존재 여부만 확인했다.
