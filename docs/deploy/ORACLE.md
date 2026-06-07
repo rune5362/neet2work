@@ -58,7 +58,7 @@ reverse tunnel to a work PC running the backend with Codex Bridge enabled.
 Start the work PC backend, SSH reverse tunnel, and Caddy demo mode:
 
 ```powershell
-.\start-oracle-codex-demo-bridge.cmd
+.\2-demo-oracle-site.cmd
 ```
 
 The script waits until the tunnel is reachable from Oracle, switches Caddy into

@@ -235,3 +235,31 @@
 - Scope: `sub-main` push 후 `Deploy to Oracle VM` GitHub Actions run이 실패하는 원인을 확인하고 workflow를 수정했다.
 - CI: run `27099218739`의 실패 지점은 `Validate secrets` 단계였고, `ORACLE_HOST`, `ORACLE_USER`, `ORACLE_SSH_PRIVATE_KEY`가 GitHub Secrets에 비어 있어 exit 1이 발생했다. VM pull-based deploy를 병행 중이므로 GitHub deploy secrets가 없을 때는 실패 대신 notice를 남기고 deploy steps를 skip하도록 `.github/workflows/deploy-oracle.yml`을 변경했다.
 - Verification: GitHub run/job/log 확인, workflow diff review, `git diff --check`를 통과했다.
+
+### 02:43 Oracle Codex 데모 브릿지 AI 연결 복구
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: `start-oracle-codex-demo-bridge` 실행 후 공개 사이트의 Codex/Gemini/Gemma provider 연결 상태를 점검하고, Gemini가 disabled로 떨어지는 원인을 수정했다.
+- AI/Config: 로컬 `.env`에 Gemini key 값은 있었지만 `GEMINI_ENABLED=false`이고 모델 목록이 비어 있어 로컬 backend provider가 disabled로 뜨는 상태였다. secret 값은 출력하지 않고 enable flag와 `GEMINI_MODELS=gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash`만 로컬 설정에 반영했다.
+- Runtime: 이전 실행에서 남은 `127.0.0.1:3900 -> 127.0.0.1:3000` SSH reverse tunnel이 새 터널을 방해해 stale tunnel과 기존 demo script를 정리한 뒤 bridge를 재실행했다.
+- Verification: 공개 `https://neet2work.duckdns.org/api/draft-workflow/providers`에서 `codex_bridge`, `gemma-4-31b-it`, `gemma-4-26b-a4b-it`, `gemini-2.5-flash`가 모두 `online=true`로 확인됐다. Google API direct smoke에서 세 모델 모두 `안녕` 호출에 HTTP 200으로 응답했다. 로컬 3000 backend listener와 Oracle SSH reverse tunnel 프로세스가 유지 중임을 확인했다.
+
+### 02:52 로컬 단일 PC 시연 배치 추가
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: README의 Codex Bridge 실행 경로를 확인하고, 오라클이나 LAN 없이 작업 PC 한 대에서 frontend/backend/Codex/Gemini/Gemma를 켜는 로컬 시연 배치를 추가했다.
+- Scripts: `start-local-codex-demo.cmd`와 `scripts/start-local-codex-demo.ps1`을 추가했다. 기존 `start-codex-bridge.cmd`는 새 로컬 시연 스크립트를 호출하는 호환 alias로 변경했다.
+- Docs: README에 로컬 단일 PC Codex/Gemini 시연 섹션을 추가하고, 기존 LAN 시연과 Oracle 사이트 시연 경로와 구분했다.
+- Verification: `scripts/start-local-codex-demo.ps1 -DryRun`, `start-local-codex-demo.cmd -DryRun`, `start-codex-bridge.cmd -DryRun`, `git diff --check`를 통과했다.
+
+### 02:58 시연 배치 파일명 정리
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: 루트의 `start-*` 시연 배치 이름이 서로 비슷해 발표 중 헷갈릴 수 있어, 실행 목적별 숫자 prefix 파일명으로 정리했다.
+- Scripts: 루트 실행 파일을 `1-demo-local-pc.cmd`, `2-demo-lan-other-pc.cmd`, `3-demo-oracle-site.cmd`로 교체하고 기존 `start-codex-bridge.cmd`, `start-codex-bridge-lan.cmd`, `start-oracle-codex-demo-bridge.cmd`를 제거했다. 내부 PowerShell 스크립트는 안정성을 위해 유지했다.
+- Docs: README와 Oracle 배포 문서의 실행 명령을 새 파일명으로 갱신했다.
+- Verification: 새 3개 `.cmd` wrapper의 dry-run과 `git diff --check`를 통과했다.
+
+### 03:02 LAN 시연 경로 제거
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: 실제 시연 목적이 로컬 단일 PC와 Oracle 사이트 연결 두 가지로 좁혀져, 혼동을 줄이기 위해 LAN 전용 실행 경로를 제거했다.
+- Scripts: `2-demo-lan-other-pc.cmd`와 `scripts/start-codex-bridge-lan.ps1`을 제거하고, Oracle 사이트 시연 파일을 `2-demo-oracle-site.cmd`로 당겼다.
+- Docs: README의 LAN 시연 섹션을 삭제하고 Oracle 문서 실행 명령을 `2-demo-oracle-site.cmd`로 갱신했다.
+- Verification: `1-demo-local-pc.cmd -DryRun`, `2-demo-oracle-site.cmd -DryRun`, 사용자용 문서의 LAN/옛 파일명 참조 제거 확인을 통과했다.
