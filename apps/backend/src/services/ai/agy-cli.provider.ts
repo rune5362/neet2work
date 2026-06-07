@@ -166,9 +166,13 @@ export class AgyCliProvider implements AiProvider {
         throw new ProviderExecutionError("offline", "invalid_command");
       }
 
+      const formatAgyPrintTimeout = (ms: number) => {
+        return `${Math.max(1, Math.ceil(ms / 1000))}s`;
+      };
+
       const result = await this.runLocalProcess(
         command,
-        ["--sandbox", "--print-timeout", String(timeoutMs), "--print", prompt],
+        ["--sandbox", "--print-timeout", formatAgyPrintTimeout(timeoutMs), "--print", prompt],
         {
           timeoutMs,
           workdir,
