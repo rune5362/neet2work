@@ -3,7 +3,7 @@ name: Deploy to Oracle VM
 on:
   push:
     branches:
-      - main
+      - sub-main
   workflow_dispatch:
 
 concurrency:

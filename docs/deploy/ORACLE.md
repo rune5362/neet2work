@@ -62,8 +62,8 @@ If GitHub Actions secrets are not configured, the VM can poll the public GitHub
 repository instead:
 
 ```bash
-DEPLOY_ROOT=/opt/neet2work REPO_URL=https://github.com/rune5362/neet2work.git BRANCH=main bash scripts/oracle-poll-deploy.sh
+DEPLOY_ROOT=/opt/neet2work REPO_URL=https://github.com/rune5362/neet2work.git BRANCH=sub-main bash scripts/oracle-poll-deploy.sh
 ```
 
-On the Oracle VM this is installed as a systemd timer that checks `main`
+On the Oracle VM this is installed as a systemd timer that checks `sub-main`
 periodically and deploys only when the remote SHA changes.

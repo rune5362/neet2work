@@ -3,7 +3,7 @@ set -euo pipefail
 
 DEPLOY_ROOT="${DEPLOY_ROOT:-/opt/neet2work}"
 REPO_URL="${REPO_URL:-https://github.com/rune5362/neet2work.git}"
-BRANCH="${BRANCH:-main}"
+BRANCH="${BRANCH:-sub-main}"
 REPO_DIR="$DEPLOY_ROOT/repo"
 ENV_FILE="$DEPLOY_ROOT/.env.production"
 STATE_FILE="$DEPLOY_ROOT/.deployed-sha"
