@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { aiConfig } from "../../config/ai-config.js";
@@ -179,6 +179,15 @@ export class AgyCliProvider implements AiProvider {
         }
       );
 
+      try {
+        writeFileSync(
+          "agy_debug_exec.log",
+          `[DEBUG] ExitCode: ${result.exitCode}\n[STDERR]:\n${result.stderr}\n[STDOUT]:\n${result.stdout}\n`
+        );
+      } catch {
+        // ignore
+      }
+
       if (result.exitCode !== 0) {
         throw new ProviderExecutionError("provider_error", `agy cli exited non-zero (code: ${result.exitCode}). Stderr: ${result.stderr}`);
       }
@@ -292,7 +301,7 @@ export class AgyCliProvider implements AiProvider {
 
       const child = spawn(command, args, {
         cwd: options.workdir,
-        env: this.buildChildEnv(),
+        env: process.env,
         shell: false,
         stdio: ["ignore", "pipe", "pipe"],
         windowsHide: true
