@@ -299,9 +299,13 @@ export class AgyCliProvider implements AiProvider {
       let stdoutBytes = 0;
       let stderrBytes = 0;
 
-      const child = spawn(command, args, {
+      const cleanEnv = { ...process.env };
+      delete cleanEnv.AGY_BROWSER_ACTIVE_PORT_FILE;
+      delete cleanEnv.AGY_BROWSER_WS_URL;
+
+      const child = spawn("cmd.exe", ["/c", command, ...args], {
         cwd: options.workdir,
-        env: process.env,
+        env: cleanEnv,
         shell: false,
         stdio: ["ignore", "pipe", "pipe"],
         windowsHide: true

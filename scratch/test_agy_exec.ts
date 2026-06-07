@@ -1,29 +1,29 @@
 import { AgyCliProvider } from "../apps/backend/src/services/ai/agy-cli.provider.js";
 import { aiConfig } from "../apps/backend/src/config/ai-config.js";
 
-// 테스트를 위해 임시로 agyCli 활성화 및 workdir를 프로젝트 루트로 강제 고정
+// 테스트를 위해 임시로 agyCli 활성화, sandboxEnabled=true로 강제 고정
 aiConfig.agyCli.enabled = true;
+aiConfig.agyCli.sandboxEnabled = true;
 aiConfig.agyCli.workdir = "C:\\Users\\radmin\\Documents\\workspace\\2026_1\\neet2work";
 
-// 윈도우 인자 길이 제한(8191자)을 넘지 않도록 극도로 단순화한 쇼트 페이로드
-const shortPayload = {
+const validPayload = {
   target: {
-    company: "Test",
-    role: "Dev",
-    questionText: "Hi",
+    company: "Backend Bridge",
+    role: "Backend Engineer",
+    questionText: "지원 동기를 작성하세요.",
     charCountRule: "with_spaces",
-    jobPostingText: "API",
+    jobPostingText: "Node.js REST API",
     blindRecruitment: false
   },
   experienceInput: {
     profileContexts: [
       {
-        profileId: "p-1",
-        title: "P",
+        profileId: "profile-1",
+        title: "백엔드 프로필",
         schemaVersion: 1,
-        profileJson: { skills: ["Node"] },
-        desiredRoles: ["Dev"],
-        skills: ["Node"]
+        profileJson: { skills: ["Node.js"] },
+        desiredRoles: ["백엔드 엔지니어"],
+        skills: ["Node.js"]
       }
     ]
   }
@@ -39,7 +39,7 @@ async function test() {
   try {
     const result = await provider.execute({
       operation: "plan",
-      payload: shortPayload,
+      payload: validPayload,
       timeoutMs: 120_000
     });
     console.log("[TEST] Execute Success:", JSON.stringify(result, null, 2));
