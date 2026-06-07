@@ -93,8 +93,6 @@ function parseAgyCliConfigError(input: {
     if (!isValidRemoteWrapperPath(input.sshRemoteWrapper)) {
       return "ssh_wrapper_invalid";
     }
-  } else if (input.enabled && !input.command) {
-    return "missing_command";
   }
 
   return undefined;

@@ -9,6 +9,7 @@ import type {
   AiWorkflowOperation,
   FallbackReason
 } from "../../types/ai-routing.js";
+import { AgyCliProvider } from "./agy-cli.provider.js";
 import { CodexBridgeProvider } from "./codex-bridge.provider.js";
 import { GeminiProvider } from "./gemini.provider.js";
 import { HardcodedFallbackProvider } from "./hardcoded-fallback.provider.js";
@@ -27,6 +28,7 @@ export class AiRouter {
       new CodexBridgeProvider(),
       new GeminiProvider(),
       new LocalAiProvider(),
+      new AgyCliProvider(),
       new HardcodedFallbackProvider()
     ]);
   }

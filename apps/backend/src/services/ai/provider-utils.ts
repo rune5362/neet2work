@@ -55,6 +55,23 @@ export function extractJsonObject(raw: string) {
   }
 }
 
+export function parseStrictJsonObject(raw: string) {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    throw new ProviderExecutionError("invalid_output", "empty output");
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("json is not an object");
+    }
+    return parsed;
+  } catch {
+    throw new ProviderExecutionError("invalid_output", "invalid json output");
+  }
+}
+
 export function extractAssistantOutputFromJsonl(raw: string) {
   const lines = raw
     .split("\n")

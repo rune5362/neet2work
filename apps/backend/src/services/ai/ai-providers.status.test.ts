@@ -25,6 +25,32 @@ const mockAiConfig = vi.hoisted(() => ({
     model: "",
     timeoutMs: 120_000,
     protocol: "ollama" as const
+  },
+  agyCli: {
+    enabled: false,
+    command: "C:\\tools\\agy.exe",
+    model: "",
+    timeoutMs: 120_000,
+    sandboxEnabled: true,
+    maxPromptBytes: 200_000,
+    maxOutputBytes: 1_000_000,
+    maxConcurrency: 1,
+    modelAllowlist: [] as string[],
+    taskProfile: "cover_letter_review",
+    workdir: "",
+    configErrorReason: undefined as string | undefined,
+    ssh: {
+      enabled: false,
+      host: "",
+      port: 22,
+      username: "",
+      keyPath: "",
+      hostFingerprint: "",
+      knownHostsPath: "",
+      remoteWrapper: "/opt/neet2work/run-agy-sandbox-print",
+      connectTimeoutMs: 10_000,
+      execTimeoutMs: 120_000
+    }
   }
 }));
 
@@ -55,6 +81,9 @@ function resetConfig() {
   mockAiConfig.gemini.model = "";
   mockAiConfig.localAi.enabled = false;
   mockAiConfig.localAi.baseUrl = "http://localhost:11434";
+  mockAiConfig.agyCli.enabled = false;
+  mockAiConfig.agyCli.configErrorReason = undefined;
+  mockAiConfig.agyCli.ssh.enabled = false;
 }
 
 function createCodexAppServerMock(
@@ -103,19 +132,22 @@ describe("AI provider status", () => {
     const { CodexBridgeProvider } = await import("./codex-bridge.provider.js");
     const { GeminiProvider } = await import("./gemini.provider.js");
     const { LocalAiProvider } = await import("./local-ai.provider.js");
+    const { AgyCliProvider } = await import("./agy-cli.provider.js");
     const { HardcodedFallbackProvider } = await import("./hardcoded-fallback.provider.js");
 
     const statuses = await Promise.all([
       new CodexBridgeProvider().getStatus(),
       new GeminiProvider().getStatus(),
       new LocalAiProvider().getStatus(),
+      new AgyCliProvider().getStatus(),
       new HardcodedFallbackProvider().getStatus()
     ]);
 
     expect(statuses[0]).toMatchObject({ providerId: "codex_bridge", online: false, configured: false });
     expect(statuses[1]).toMatchObject({ providerId: "gemini", online: false, configured: false });
     expect(statuses[2]).toMatchObject({ providerId: "local", online: false, configured: false });
-    expect(statuses[3]).toMatchObject({ providerId: "fallback", online: true, configured: true });
+    expect(statuses[3]).toMatchObject({ providerId: "agy_cli", online: false, configured: false });
+    expect(statuses[4]).toMatchObject({ providerId: "fallback", online: true, configured: true });
   });
 
   it("reports Codex enabled but unavailable when login probe fails", async () => {

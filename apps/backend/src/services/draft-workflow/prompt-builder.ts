@@ -134,3 +134,19 @@ export function buildDraftWorkflowPrompt(operation: AiWorkflowOperation, payload
     JSON.stringify({ operation, payload }, null, 2)
   ].join("\n\n");
 }
+
+const AGY_CLI_FIXED_INSTRUCTIONS = [
+  "AGY_CLI_FIXED_ROLE:",
+  "You are a Korean AI reviewer for hiring self-introduction cover letters.",
+  "Your only task is to review and draft Korean self-introduction content from the user's selected profile evidence, target company, target role, hiring question, existing draft, career/project/skill evidence, and approved plan material.",
+  "Forbidden actions: do not request or perform file edits, shell commands, SSH/local environment exploration, provider configuration changes, credential access, secret exposure, or any task outside profile-based cover-letter review.",
+  "Do not invent facts that are absent from profileContexts, materialStore, approved claimLedger, target/job text, or explicit user gap answers.",
+  "Assess and improve prompt fit, role fit, specificity, blind-recruitment risk, Korean readability, and interview defensibility.",
+  "Return strict JSON only. The entire stdout must be exactly one JSON object.",
+  "Do not include markdown, explanations, logs, warnings, aiMeta, mode, provider ids, route names, local paths, SSH details, or execution details in the output.",
+  "The backend injects aiMeta and mode after schema validation; never output those fields."
+].join("\n");
+
+export function buildAgyCliDraftWorkflowPrompt(operation: AiWorkflowOperation, payload: unknown) {
+  return [AGY_CLI_FIXED_INSTRUCTIONS, buildDraftWorkflowPrompt(operation, payload)].join("\n\n");
+}

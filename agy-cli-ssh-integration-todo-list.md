@@ -25,42 +25,42 @@
 - [x] `aiConfig.agyCli` 설정 객체를 추가하고 숫자/boolean/allowlist/path 값을 안전하게 파싱한다.
 - [x] `AGY_CLI_SANDBOX_ENABLED`는 `true`만 허용하고, 약화 설정은 구성 오류로 처리한다.
 - [x] `AGY_CLI_TASK_PROFILE`은 `cover_letter_review`만 허용한다.
-- [ ] provider 실행 timeout은 `Math.min(input.timeoutMs, aiConfig.agyCli.timeoutMs)`로 제한한다.
-- [ ] 구성 오류의 status 동작을 고정한다: `getStatus()`는 `configured=false`, `online=false`, sanitized `reason`을 반환하고, `execute()`는 `ProviderExecutionError("offline", reason)`를 던진다.
+- [x] provider 실행 timeout은 `Math.min(input.timeoutMs, aiConfig.agyCli.timeoutMs)`로 제한한다.
+- [x] 구성 오류의 status 동작을 고정한다: `getStatus()`는 `configured=false`, `online=false`, sanitized `reason`을 반환하고, `execute()`는 `ProviderExecutionError("offline", reason)`를 던진다.
 - [x] `agy_cli` status reason은 아래 값으로 제한한다: `disabled`, `missing_command`, `invalid_command`, `sandbox_required`, `invalid_task_profile`, `agy_not_logged_in`, `agy_probe_timeout`, `agy_app_data_unwritable`, `ssh_missing_config`, `ssh_key_unreadable`, `ssh_host_key_mismatch`, `ssh_wrapper_invalid`, `ssh_wrapper_timeout`, `output_limit_exceeded`, `invalid_json_output`.
 
 ## Phase 3. Prompt Contract 및 Output 검증
 
-- [ ] `agy_cli` 전용 helper를 추가해 기존 `buildDraftWorkflowPrompt()` 결과 앞에 agy 전용 고정 instruction을 prepend한다.
-- [ ] 이 helper는 기존 `buildDraftWorkflowPrompt()`의 operation별 schema와 “backend가 `aiMeta`/`mode`를 주입한다” 규칙을 그대로 유지한다.
-- [ ] prompt envelope에는 프로필 기반 자기소개서 첨삭 역할, 입력 범위, 금지 동작, JSON-only 출력 요구를 포함한다.
-- [ ] `agy_cli` 출력에는 `aiMeta`와 `mode`를 포함하지 않도록 prompt에 명시한다.
-- [ ] `DraftWorkflowService.parseWorkflowResult()`가 기존처럼 `aiMeta`와 `mode`를 주입하는 구조를 유지한다.
-- [ ] `experienceInput.profileContexts`가 없는 요청은 `agy_cli`에서만 실행하지 않는다.
-- [ ] 위 profile precondition은 기존 draft-workflow schema와 다른 provider에는 적용하지 않는다.
-- [ ] 공용 `extractJsonObject()`를 `agy_cli`에서 사용하지 않는다.
-- [ ] `apps/backend/src/services/ai/provider-utils.ts`에 `parseStrictJsonObject()`를 추가한다.
-- [ ] `parseStrictJsonObject()`는 `JSON.parse(raw.trim())`만 허용하고, 앞뒤 설명문/markdown/로그가 섞이면 `ProviderExecutionError("invalid_output", "invalid json output")`를 던진다.
-- [ ] `agy_cli`만 `parseStrictJsonObject()`를 사용하고 기존 provider는 기존 `extractJsonObject()` 사용을 유지한다.
-- [ ] strict parser 실패 또는 zod schema 검증 실패 시 기존 fallback 흐름으로 전환한다.
+- [x] `agy_cli` 전용 helper를 추가해 기존 `buildDraftWorkflowPrompt()` 결과 앞에 agy 전용 고정 instruction을 prepend한다.
+- [x] 이 helper는 기존 `buildDraftWorkflowPrompt()`의 operation별 schema와 “backend가 `aiMeta`/`mode`를 주입한다” 규칙을 그대로 유지한다.
+- [x] prompt envelope에는 프로필 기반 자기소개서 첨삭 역할, 입력 범위, 금지 동작, JSON-only 출력 요구를 포함한다.
+- [x] `agy_cli` 출력에는 `aiMeta`와 `mode`를 포함하지 않도록 prompt에 명시한다.
+- [x] `DraftWorkflowService.parseWorkflowResult()`가 기존처럼 `aiMeta`와 `mode`를 주입하는 구조를 유지한다.
+- [x] `experienceInput.profileContexts`가 없는 요청은 `agy_cli`에서만 실행하지 않는다.
+- [x] 위 profile precondition은 기존 draft-workflow schema와 다른 provider에는 적용하지 않는다.
+- [x] 공용 `extractJsonObject()`를 `agy_cli`에서 사용하지 않는다.
+- [x] `apps/backend/src/services/ai/provider-utils.ts`에 `parseStrictJsonObject()`를 추가한다.
+- [x] `parseStrictJsonObject()`는 `JSON.parse(raw.trim())`만 허용하고, 앞뒤 설명문/markdown/로그가 섞이면 `ProviderExecutionError("invalid_output", "invalid json output")`를 던진다.
+- [x] `agy_cli`만 `parseStrictJsonObject()`를 사용하고 기존 provider는 기존 `extractJsonObject()` 사용을 유지한다.
+- [x] strict parser 실패 또는 zod schema 검증 실패 시 기존 fallback 흐름으로 전환한다.
 
 ## Phase 4. Local agy.exe Provider 구현
 
-- [ ] `apps/backend/src/services/ai/agy-cli.provider.ts`를 추가하고 `AiProvider` 인터페이스를 구현한다.
-- [ ] provider `id`는 `"agy_cli"`, label은 `"Agy CLI"`로 지정한다.
-- [ ] `AiRouter.createDefault()` provider map에 `new AgyCliProvider()`를 등록한다.
-- [ ] 로컬 실행은 `AGY_CLI_ENABLED=true`이고 `AGY_SSH_ENABLED=false`일 때만 사용한다.
-- [ ] `resolveAgyCliCommand()`는 명시 경로, `%LOCALAPPDATA%\agy\bin\agy.exe`, 제한된 fallback 순서로 탐색한다.
-- [ ] `AGY_CLI_COMMAND`는 절대 경로만 허용하고 파일명 allowlist를 적용한다.
-- [ ] 로컬 cwd는 `AGY_CLI_WORKDIR` 또는 안전한 임시 디렉터리로 고정한다.
-- [ ] child process env는 backend 전체 env를 넘기지 않고 필요한 최소값만 allowlist로 전달한다.
-- [ ] 로컬 실행은 `spawn(command, ["--sandbox", "--print-timeout", timeoutText, "--print", prompt], { shell: false })` 형태의 args 배열만 사용한다.
-- [ ] prompt 원문은 로그에 남기지 않는다.
-- [ ] stdout/stderr 누적 크기와 prompt 크기를 제한한다.
-- [ ] timeout, output limit 초과, non-zero exit code, strict JSON 실패 시 child process를 정리하고 provider error로 분류한다.
-- [ ] `getStatus()`에서 `agy.exe --version`으로 실행 파일을 확인한다.
-- [ ] `getStatus()`에서 짧은 timeout의 `agy.exe models` probe로 로그인 세션과 app data 쓰기 권한을 확인한다.
-- [ ] 미로그인으로 `--print`가 OAuth 대기 상태에 들어갈 수 있으므로 모든 probe와 실행은 timeout으로 감싼다.
+- [x] `apps/backend/src/services/ai/agy-cli.provider.ts`를 추가하고 `AiProvider` 인터페이스를 구현한다.
+- [x] provider `id`는 `"agy_cli"`, label은 `"Agy CLI"`로 지정한다.
+- [x] `AiRouter.createDefault()` provider map에 `new AgyCliProvider()`를 등록한다.
+- [x] 로컬 실행은 `AGY_CLI_ENABLED=true`이고 `AGY_SSH_ENABLED=false`일 때만 사용한다.
+- [x] `resolveAgyCliCommand()`는 명시 경로, `%LOCALAPPDATA%\agy\bin\agy.exe`, 제한된 fallback 순서로 탐색한다.
+- [x] `AGY_CLI_COMMAND`는 절대 경로만 허용하고 파일명 allowlist를 적용한다.
+- [x] 로컬 cwd는 `AGY_CLI_WORKDIR` 또는 안전한 임시 디렉터리로 고정한다.
+- [x] child process env는 backend 전체 env를 넘기지 않고 필요한 최소값만 allowlist로 전달한다.
+- [x] 로컬 실행은 `spawn(command, ["--sandbox", "--print-timeout", timeoutText, "--print", prompt], { shell: false })` 형태의 args 배열만 사용한다.
+- [x] prompt 원문은 로그에 남기지 않는다.
+- [x] stdout/stderr 누적 크기와 prompt 크기를 제한한다.
+- [x] timeout, output limit 초과, non-zero exit code, strict JSON 실패 시 child process를 정리하고 provider error로 분류한다.
+- [x] `getStatus()`에서 `agy.exe --version`으로 실행 파일을 확인한다.
+- [x] `getStatus()`에서 짧은 timeout의 `agy.exe models` probe로 로그인 세션과 app data 쓰기 권한을 확인한다.
+- [x] 미로그인으로 `--print`가 OAuth 대기 상태에 들어갈 수 있으므로 모든 probe와 실행은 timeout으로 감싼다.
 
 ## Phase 5. SSH Remote 연동
 

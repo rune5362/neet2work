@@ -1,0 +1,340 @@
+import { spawn } from "node:child_process";
+import { existsSync, mkdtempSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { aiConfig } from "../../config/ai-config.js";
+import type {
+  AgyCliStatusReason,
+  AiProvider,
+  AiProviderExecuteInput,
+  AiProviderExecuteResult,
+  AiProviderStatus
+} from "../../types/ai-routing.js";
+import { buildAgyCliDraftWorkflowPrompt } from "../draft-workflow/prompt-builder.js";
+import { parseStrictJsonObject, ProviderExecutionError } from "./provider-utils.js";
+
+type ProcessResult = {
+  stdout: string;
+  stderr: string;
+  exitCode: number | null;
+};
+
+const AGY_COMMAND_NAMES = new Set(["agy.exe", "agy", "Antigravity.exe", "Antigravity"]);
+const DEFAULT_MODEL_ID = "agy-cli";
+const STATUS_PROBE_TIMEOUT_MS = 5_000;
+
+export class AgyCliProvider implements AiProvider {
+  private static activeExecutions = 0;
+
+  readonly id = "agy_cli" as const;
+  readonly label = "Agy CLI";
+
+  async getStatus(): Promise<AiProviderStatus> {
+    const modelId = aiConfig.agyCli.model || DEFAULT_MODEL_ID;
+
+    if (!aiConfig.agyCli.enabled) {
+      return this.status(false, false, "disabled", modelId);
+    }
+
+    if (aiConfig.agyCli.ssh.enabled) {
+      return this.status(false, false, "ssh_missing_config", modelId);
+    }
+
+    const configReason = aiConfig.agyCli.configErrorReason;
+    if (configReason) {
+      return this.status(false, false, configReason, modelId);
+    }
+
+    const command = this.resolveCommand();
+    if (!command) {
+      return this.status(false, false, "missing_command", modelId);
+    }
+
+    const workdir = this.resolveWorkdir();
+    if (!workdir) {
+      return this.status(false, false, "invalid_command", modelId);
+    }
+
+    const startedAt = Date.now();
+    try {
+      const versionProbe = await this.runLocalProcess(command, ["--version"], {
+        timeoutMs: STATUS_PROBE_TIMEOUT_MS,
+        workdir,
+        maxOutputBytes: 16_384
+      });
+      if (versionProbe.exitCode !== 0) {
+        return this.status(false, false, "invalid_command", modelId);
+      }
+
+      const loginProbe = await this.runLocalProcess(command, ["models"], {
+        timeoutMs: STATUS_PROBE_TIMEOUT_MS,
+        workdir,
+        maxOutputBytes: 64_000
+      });
+      if (loginProbe.exitCode !== 0) {
+        throw new Error(loginProbe.stderr || "agy models failed");
+      }
+
+      return {
+        providerId: this.id,
+        label: this.label,
+        online: true,
+        configured: true,
+        quotaExceeded: false,
+        latencyMs: Date.now() - startedAt,
+        models: [{ modelId, label: modelId, online: true, quotaExceeded: false, recommended: true }]
+      };
+    } catch (error) {
+      const reason = this.classifyProcessError(error);
+      return this.status(true, false, reason, modelId);
+    }
+  }
+
+  async execute<T>(input: AiProviderExecuteInput<unknown>): Promise<AiProviderExecuteResult<T>> {
+    if (!aiConfig.agyCli.enabled) {
+      throw new ProviderExecutionError("offline", "disabled");
+    }
+
+    if (aiConfig.agyCli.ssh.enabled) {
+      throw new ProviderExecutionError("offline", "ssh_missing_config");
+    }
+
+    if (aiConfig.agyCli.configErrorReason) {
+      throw new ProviderExecutionError("offline", aiConfig.agyCli.configErrorReason);
+    }
+
+    if (!this.hasProfileContexts(input.payload)) {
+      throw new ProviderExecutionError("offline", "profile_context_required");
+    }
+
+    const command = this.resolveCommand();
+    if (!command) {
+      throw new ProviderExecutionError("offline", "missing_command");
+    }
+
+    const workdir = this.resolveWorkdir();
+    if (!workdir) {
+      throw new ProviderExecutionError("offline", "invalid_command");
+    }
+
+    const modelId = this.resolveModelId(input.modelId);
+    const prompt = buildAgyCliDraftWorkflowPrompt(input.operation, input.payload);
+    const promptBytes = Buffer.byteLength(prompt, "utf8");
+    if (promptBytes > aiConfig.agyCli.maxPromptBytes) {
+      throw new ProviderExecutionError("provider_error", "prompt too large");
+    }
+
+    if (AgyCliProvider.activeExecutions >= aiConfig.agyCli.maxConcurrency) {
+      throw new ProviderExecutionError("provider_error", "max concurrency exceeded");
+    }
+
+    const startedAt = Date.now();
+    const timeoutMs = Math.min(input.timeoutMs, aiConfig.agyCli.timeoutMs);
+    AgyCliProvider.activeExecutions += 1;
+
+    try {
+      const result = await this.runLocalProcess(
+        command,
+        ["--sandbox", "--print-timeout", String(timeoutMs), "--print", prompt],
+        {
+          timeoutMs,
+          workdir,
+          maxOutputBytes: aiConfig.agyCli.maxOutputBytes
+        }
+      );
+
+      if (result.exitCode !== 0) {
+        throw new ProviderExecutionError("provider_error", "agy cli exited non-zero");
+      }
+
+      const parsed = parseStrictJsonObject(result.stdout);
+      return {
+        data: parsed as T,
+        modelId,
+        latencyMs: Date.now() - startedAt
+      };
+    } finally {
+      AgyCliProvider.activeExecutions -= 1;
+    }
+  }
+
+  private status(configured: boolean, online: boolean, reason: AgyCliStatusReason, modelId: string): AiProviderStatus {
+    return {
+      providerId: this.id,
+      label: this.label,
+      online,
+      configured,
+      quotaExceeded: false,
+      reason,
+      models: modelId ? [{ modelId, label: modelId, online, quotaExceeded: false, recommended: online }] : []
+    };
+  }
+
+  private resolveCommand() {
+    const explicit = aiConfig.agyCli.command.trim();
+    if (explicit) {
+      if (!this.isAllowedAbsoluteCommand(explicit) || !existsSync(explicit)) {
+        return undefined;
+      }
+      return explicit;
+    }
+
+    if (process.platform === "win32" && process.env.LOCALAPPDATA) {
+      const official = path.join(process.env.LOCALAPPDATA, "agy", "bin", "agy.exe");
+      if (existsSync(official)) {
+        return official;
+      }
+    }
+
+    if (process.env.NODE_ENV === "development") {
+      return process.platform === "win32" ? "agy.exe" : "agy";
+    }
+
+    return undefined;
+  }
+
+  private isAllowedAbsoluteCommand(command: string) {
+    return path.isAbsolute(command) && AGY_COMMAND_NAMES.has(path.basename(command));
+  }
+
+  private resolveWorkdir() {
+    const configured = aiConfig.agyCli.workdir.trim();
+    if (configured) {
+      if (!path.isAbsolute(configured) || !existsSync(configured)) {
+        return undefined;
+      }
+      return configured;
+    }
+
+    return mkdtempSync(path.join(os.tmpdir(), "neet2work-agy-"));
+  }
+
+  private resolveModelId(requestedModelId?: string) {
+    const configured = aiConfig.agyCli.model || DEFAULT_MODEL_ID;
+    if (!requestedModelId) {
+      return configured;
+    }
+
+    return aiConfig.agyCli.modelAllowlist.includes(requestedModelId) ? requestedModelId : configured;
+  }
+
+  private hasProfileContexts(payload: unknown) {
+    if (!payload || typeof payload !== "object") {
+      return false;
+    }
+
+    const experienceInput = (payload as { experienceInput?: { profileContexts?: unknown[] } }).experienceInput;
+    return Array.isArray(experienceInput?.profileContexts) && experienceInput.profileContexts.length > 0;
+  }
+
+  private runLocalProcess(
+    command: string,
+    args: string[],
+    options: { timeoutMs: number; workdir: string; maxOutputBytes: number }
+  ) {
+    return new Promise<ProcessResult>((resolve, reject) => {
+      let settled = false;
+      let stdout = "";
+      let stderr = "";
+      let stdoutBytes = 0;
+      let stderrBytes = 0;
+
+      const child = spawn(command, args, {
+        cwd: options.workdir,
+        env: this.buildChildEnv(),
+        shell: false,
+        stdio: ["ignore", "pipe", "pipe"]
+      });
+
+      const finish = (callback: () => void) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        callback();
+      };
+
+      const killChild = () => {
+        try {
+          child.kill();
+        } catch {
+          // Best-effort cleanup only.
+        }
+      };
+
+      const timer = setTimeout(() => {
+        killChild();
+        finish(() => reject(new ProviderExecutionError("timeout", "agy cli timeout")));
+      }, options.timeoutMs);
+
+      const collect = (chunk: Buffer, stream: "stdout" | "stderr") => {
+        const bytes = chunk.byteLength;
+        if (stream === "stdout") {
+          stdoutBytes += bytes;
+          stdout += chunk.toString("utf8");
+        } else {
+          stderrBytes += bytes;
+          stderr += chunk.toString("utf8");
+        }
+
+        if (stdoutBytes + stderrBytes > options.maxOutputBytes) {
+          killChild();
+          finish(() => reject(new ProviderExecutionError("provider_error", "output_limit_exceeded")));
+        }
+      };
+
+      child.stdout?.on("data", (chunk: Buffer) => collect(chunk, "stdout"));
+      child.stderr?.on("data", (chunk: Buffer) => collect(chunk, "stderr"));
+      child.on("error", () => {
+        finish(() => reject(new ProviderExecutionError("offline", "missing_command")));
+      });
+      child.on("close", (exitCode) => {
+        finish(() => resolve({ stdout, stderr, exitCode }));
+      });
+    });
+  }
+
+  private buildChildEnv() {
+    const keys = [
+      "PATH",
+      "Path",
+      "SystemRoot",
+      "WINDIR",
+      "USERPROFILE",
+      "HOME",
+      "LOCALAPPDATA",
+      "APPDATA",
+      "TMP",
+      "TEMP"
+    ];
+    const env: NodeJS.ProcessEnv = {};
+
+    for (const key of keys) {
+      if (process.env[key]) {
+        env[key] = process.env[key];
+      }
+    }
+
+    return env;
+  }
+
+  private classifyProcessError(error: unknown): AgyCliStatusReason {
+    if (error instanceof ProviderExecutionError && error.code === "timeout") {
+      return "agy_probe_timeout";
+    }
+
+    if (error instanceof ProviderExecutionError && error.message === "missing_command") {
+      return "missing_command";
+    }
+
+    if (error instanceof ProviderExecutionError && error.message === "output_limit_exceeded") {
+      return "output_limit_exceeded";
+    }
+
+    const message = error instanceof Error ? error.message.toLowerCase() : "";
+    if (message.includes("eacces") || message.includes("eperm") || message.includes("permission")) {
+      return "agy_app_data_unwritable";
+    }
+
+    return "agy_not_logged_in";
+  }
+}
