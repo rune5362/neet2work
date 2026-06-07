@@ -183,3 +183,10 @@
 - DB/Supabase: `users`, `audit_logs`, `refresh_tokens`, `application_documents`, `candidate_profiles`, `application_sets`에 RLS를 활성화하고 anon/authenticated 권한을 회수했으며, 명시적인 `No direct Data API access` deny policy를 추가했다. 기존 RLS-only 테이블인 `_prisma_migrations`, `job_postings`, `resume_analyses`에도 동일한 deny policy를 추가했다. `pg_trgm` extension은 public schema에서 `extensions` schema로 이동했다.
 - Verification: Prisma `db:deploy`로 migration 3개를 운영 Supabase DB에 적용했고 `db:status`는 up to date를 반환했다. Supabase security advisor는 `lints: []`로 확인됐다. `corepack pnpm run lint`, `corepack pnpm run test` 344건, `corepack pnpm run build`, `git diff --check`를 통과했다. test/build는 Windows sandbox `spawn EPERM` 때문에 승인 경로로 재실행했다.
 - AI: 배포 서버 env에는 Gemini key 항목이 있으나 provider status는 아직 disabled다. 운영 Gemini 활성화는 유료 API 호출 가능성과 backend 재시작이 포함되어 사용자 명시 승인을 기다리는 상태다.
+
+### 00:52 sub-main 배포 브랜치 전환
+- Thread: `019e9b5a-8feb-7201-b8ea-d0c2972b408c`
+- Scope: `main`을 건드리지 않고 Oracle VM 자동배포용 `sub-main` 브랜치를 생성하고 배포 대상을 전환했다.
+- Git: 현재 검증된 작업 HEAD로 `sub-main` 브랜치를 만들고 원격에 푸시했다. `main`은 그대로 유지했다. GitHub Actions deploy trigger와 `scripts/oracle-poll-deploy.sh` 기본 브랜치, Oracle 배포 문서를 `sub-main` 기준으로 수정했다.
+- Server: Oracle VM systemd `neet2work-deploy.service`의 `BRANCH`를 `sub-main`으로 변경하고 timer를 재시작했다. 기존 single-branch clone에서 `origin/sub-main` ref가 없던 문제는 poller가 명시 refspec으로 `refs/remotes/origin/sub-main`을 갱신하도록 수정해 해결했다.
+- Verification: `neet2work-deploy.service`를 즉시 실행해 `/opt/neet2work/.deployed-sha`와 `/opt/neet2work/repo`가 `sub-main` 최신 SHA를 가리키는 것을 확인했다. compose 컨테이너는 backend/frontend 모두 up 상태였고, `https://neet2work.duckdns.org/health`와 provider API는 200으로 응답했다.
