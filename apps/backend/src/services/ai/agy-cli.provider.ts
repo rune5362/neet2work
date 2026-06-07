@@ -334,7 +334,9 @@ export class AgyCliProvider implements AiProvider {
       "LOCALAPPDATA",
       "APPDATA",
       "TMP",
-      "TEMP"
+      "TEMP",
+      "AGY_BROWSER_ACTIVE_PORT_FILE",
+      "AGY_BROWSER_WS_URL"
     ];
     const env: NodeJS.ProcessEnv = {};
 
@@ -343,9 +345,6 @@ export class AgyCliProvider implements AiProvider {
         env[key] = process.env[key];
       }
     }
-
-    delete env.AGY_BROWSER_ACTIVE_PORT_FILE;
-    delete env.AGY_BROWSER_WS_URL;
 
     return env;
   }

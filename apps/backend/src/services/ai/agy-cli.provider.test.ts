@@ -164,6 +164,8 @@ describe("AgyCliProvider", () => {
     vi.stubEnv("PATH", "C:\\Windows\\System32");
     vi.stubEnv("LOCALAPPDATA", "C:\\Users\\test\\AppData\\Local");
     vi.stubEnv("USERPROFILE", "C:\\Users\\test");
+    vi.stubEnv("AGY_BROWSER_ACTIVE_PORT_FILE", "C:\\Users\\test\\AppData\\Local\\Temp\\agy-port.json");
+    vi.stubEnv("AGY_BROWSER_WS_URL", "ws://127.0.0.1:12345/devtools/browser/test");
   });
 
   it("reports disabled status by default", async () => {
@@ -223,6 +225,8 @@ describe("AgyCliProvider", () => {
     expect(String(args[args.indexOf("--print") + 1])).not.toContain("not-allowed-model");
     expect(options.env.SECRET_TOKEN).toBeUndefined();
     expect(options.env.PATH).toBe("C:\\Windows\\System32");
+    expect(options.env.AGY_BROWSER_ACTIVE_PORT_FILE).toBe("C:\\Users\\test\\AppData\\Local\\Temp\\agy-port.json");
+    expect(options.env.AGY_BROWSER_WS_URL).toBe("ws://127.0.0.1:12345/devtools/browser/test");
   });
 
   it("uses a stable default workdir when AGY_CLI_WORKDIR is empty", async () => {
