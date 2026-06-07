@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const aiSelectionSchema = z.object({
   mode: z.enum(["auto", "manual"]),
-  providerId: z.enum(["codex_bridge", "gemini", "local", "fallback"]).optional(),
+  providerId: z.enum(["codex_bridge", "gemini", "local", "agy_cli", "fallback"]).optional(),
   modelId: z.string().optional()
 }).superRefine((selection, ctx) => {
   if (selection.mode === "manual" && !selection.providerId) {
@@ -210,7 +210,7 @@ export const answerStrategySchema = z.object({
 });
 
 export const aiExecutionMetaSchema = z.object({
-  providerId: z.enum(["codex_bridge", "gemini", "local", "fallback"]),
+  providerId: z.enum(["codex_bridge", "gemini", "local", "agy_cli", "fallback"]),
   modelId: z.string(),
   routingMode: z.enum(["auto", "manual"]),
   usedFallback: z.boolean(),

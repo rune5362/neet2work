@@ -15,19 +15,19 @@
 
 ## Phase 2. Backend Provider Contract 반영
 
-- [ ] `apps/backend/src/types/ai-routing.ts`의 `AiProviderId`에 `"agy_cli"`를 추가한다.
-- [ ] `apps/backend/src/types/draft-workflow.ts`의 provider id 타입에도 `"agy_cli"`를 추가한다.
-- [ ] `apps/backend/src/services/draft-workflow/schemas.ts`의 manual provider 선택 enum에 `"agy_cli"`를 추가한다.
-- [ ] 같은 파일의 `aiExecutionMetaSchema.providerId` enum에 `"agy_cli"`를 추가한다.
-- [ ] `apps/backend/src/config/ai-config.ts`의 `parseProviderOrder()` allowed 목록과 기본 provider order 처리에 `"agy_cli"`를 반영한다.
-- [ ] `.env.example`에 `AGY_CLI_*`, `AGY_SSH_*` 설정을 추가하되 `AGY_CLI_COMMAND`는 빈 값으로 둔다.
-- [ ] 확인된 개발 PC 경로 `C:\Users\pc07-00\AppData\Local\agy\bin\agy.exe`는 설명용 예시로만 남기고 기본 env 값으로 넣지 않는다.
-- [ ] `aiConfig.agyCli` 설정 객체를 추가하고 숫자/boolean/allowlist/path 값을 안전하게 파싱한다.
-- [ ] `AGY_CLI_SANDBOX_ENABLED`는 `true`만 허용하고, 약화 설정은 구성 오류로 처리한다.
-- [ ] `AGY_CLI_TASK_PROFILE`은 `cover_letter_review`만 허용한다.
+- [x] `apps/backend/src/types/ai-routing.ts`의 `AiProviderId`에 `"agy_cli"`를 추가한다.
+- [x] `apps/backend/src/types/draft-workflow.ts`의 provider id 타입에도 `"agy_cli"`를 추가한다.
+- [x] `apps/backend/src/services/draft-workflow/schemas.ts`의 manual provider 선택 enum에 `"agy_cli"`를 추가한다.
+- [x] 같은 파일의 `aiExecutionMetaSchema.providerId` enum에 `"agy_cli"`를 추가한다.
+- [x] `apps/backend/src/config/ai-config.ts`의 `parseProviderOrder()` allowed 목록과 기본 provider order 처리에 `"agy_cli"`를 반영한다.
+- [x] `.env.example`에 `AGY_CLI_*`, `AGY_SSH_*` 설정을 추가하되 `AGY_CLI_COMMAND`는 빈 값으로 둔다.
+- [x] 확인된 개발 PC 경로 `C:\Users\pc07-00\AppData\Local\agy\bin\agy.exe`는 설명용 예시로만 남기고 기본 env 값으로 넣지 않는다.
+- [x] `aiConfig.agyCli` 설정 객체를 추가하고 숫자/boolean/allowlist/path 값을 안전하게 파싱한다.
+- [x] `AGY_CLI_SANDBOX_ENABLED`는 `true`만 허용하고, 약화 설정은 구성 오류로 처리한다.
+- [x] `AGY_CLI_TASK_PROFILE`은 `cover_letter_review`만 허용한다.
 - [ ] provider 실행 timeout은 `Math.min(input.timeoutMs, aiConfig.agyCli.timeoutMs)`로 제한한다.
 - [ ] 구성 오류의 status 동작을 고정한다: `getStatus()`는 `configured=false`, `online=false`, sanitized `reason`을 반환하고, `execute()`는 `ProviderExecutionError("offline", reason)`를 던진다.
-- [ ] `agy_cli` status reason은 아래 값으로 제한한다: `disabled`, `missing_command`, `invalid_command`, `sandbox_required`, `invalid_task_profile`, `agy_not_logged_in`, `agy_probe_timeout`, `agy_app_data_unwritable`, `ssh_missing_config`, `ssh_key_unreadable`, `ssh_host_key_mismatch`, `ssh_wrapper_invalid`, `ssh_wrapper_timeout`, `output_limit_exceeded`, `invalid_json_output`.
+- [x] `agy_cli` status reason은 아래 값으로 제한한다: `disabled`, `missing_command`, `invalid_command`, `sandbox_required`, `invalid_task_profile`, `agy_not_logged_in`, `agy_probe_timeout`, `agy_app_data_unwritable`, `ssh_missing_config`, `ssh_key_unreadable`, `ssh_host_key_mismatch`, `ssh_wrapper_invalid`, `ssh_wrapper_timeout`, `output_limit_exceeded`, `invalid_json_output`.
 
 ## Phase 3. Prompt Contract 및 Output 검증
 

@@ -1,4 +1,4 @@
-export type AiProviderId = "codex_bridge" | "gemini" | "local" | "fallback";
+export type AiProviderId = "codex_bridge" | "gemini" | "local" | "agy_cli" | "fallback";
 
 export type AiRoutingMode = "auto" | "manual";
 
@@ -26,6 +26,26 @@ export type AiProviderStatus = {
     recommended?: boolean;
   }>;
 };
+
+export const agyCliStatusReasons = [
+  "disabled",
+  "missing_command",
+  "invalid_command",
+  "sandbox_required",
+  "invalid_task_profile",
+  "agy_not_logged_in",
+  "agy_probe_timeout",
+  "agy_app_data_unwritable",
+  "ssh_missing_config",
+  "ssh_key_unreadable",
+  "ssh_host_key_mismatch",
+  "ssh_wrapper_invalid",
+  "ssh_wrapper_timeout",
+  "output_limit_exceeded",
+  "invalid_json_output"
+] as const;
+
+export type AgyCliStatusReason = (typeof agyCliStatusReasons)[number];
 
 export type AiSelection = {
   mode: AiRoutingMode;
