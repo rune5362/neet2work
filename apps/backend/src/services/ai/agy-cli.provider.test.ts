@@ -34,6 +34,8 @@ const mockAiConfig = vi.hoisted(() => ({
 
 const mockSpawn = vi.hoisted(() => vi.fn());
 const mockExistsSync = vi.hoisted(() => vi.fn(() => true));
+const mockReadFileSync = vi.hoisted(() => vi.fn());
+const mockStatSync = vi.hoisted(() => vi.fn(() => ({ mtimeMs: Date.now() })));
 const mockRunRemoteWrapperWithStdin = vi.hoisted(() => vi.fn());
 const MockAgySshExecutionError = vi.hoisted(() =>
   class AgySshExecutionError extends Error {
@@ -57,6 +59,8 @@ vi.mock("node:fs", async () => {
   return {
     ...actual,
     existsSync: mockExistsSync,
+    readFileSync: mockReadFileSync,
+    statSync: mockStatSync,
     mkdtempSync: vi.fn(() => "C:\\tmp\\neet2work-agy-test")
   };
 });
@@ -146,11 +150,18 @@ describe("AgyCliProvider", () => {
     mockSpawn.mockReset();
     mockExistsSync.mockReset();
     mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReset();
+    mockReadFileSync.mockImplementation(() => {
+      throw new Error("unexpected read");
+    });
+    mockStatSync.mockReset();
+    mockStatSync.mockReturnValue({ mtimeMs: Date.now() });
     mockRunRemoteWrapperWithStdin.mockReset();
     vi.unstubAllEnvs();
     vi.stubEnv("SECRET_TOKEN", "do-not-pass");
     vi.stubEnv("PATH", "C:\\Windows\\System32");
     vi.stubEnv("LOCALAPPDATA", "C:\\Users\\test\\AppData\\Local");
+    vi.stubEnv("USERPROFILE", "C:\\Users\\test");
   });
 
   it("reports disabled status by default", async () => {
@@ -205,7 +216,7 @@ describe("AgyCliProvider", () => {
     expect(result.modelId).toBe("agy-cli");
     expect(mockSpawn).toHaveBeenCalledWith(
       "C:\\tools\\agy.exe",
-      expect.arrayContaining(["--sandbox", "--print-timeout", "90000", "--print"]),
+      expect.arrayContaining(["--sandbox", "--print-timeout", "90s", "--print"]),
       expect.objectContaining({
         cwd: "C:\\work\\agy",
         shell: false,
@@ -329,6 +340,36 @@ describe("AgyCliProvider", () => {
         timeoutMs: 10_000
       })
     ).rejects.toBeInstanceOf(ProviderExecutionError);
+  });
+
+  it("recovers empty local print stdout from the full Agy transcript", async () => {
+    mockAiConfig.agyCli.enabled = true;
+    mockSpawn.mockImplementation(() => createChild(""));
+    mockReadFileSync.mockImplementation((filePath: string) => {
+      if (filePath.endsWith("last_conversations.json")) {
+        return JSON.stringify({ "C:\\work\\agy": "11111111-1111-4111-8111-111111111111" });
+      }
+      if (filePath.endsWith("transcript_full.jsonl")) {
+        return [
+          JSON.stringify({ source: "USER_EXPLICIT", status: "DONE", content: "prompt" }),
+          JSON.stringify({ source: "MODEL", status: "DONE", content: "{\"state\":\"OUTLINE_READY\"}" })
+        ].join("\n");
+      }
+      throw new Error(`unexpected read: ${filePath}`);
+    });
+
+    const { AgyCliProvider } = await import("./agy-cli.provider.js");
+    const result = await new AgyCliProvider().execute<{ state: string }>({
+      operation: "plan",
+      payload: validPayload,
+      timeoutMs: 10_000
+    });
+
+    expect(result.data.state).toBe("OUTLINE_READY");
+    expect(mockReadFileSync).toHaveBeenCalledWith(
+      expect.stringContaining("transcript_full.jsonl"),
+      "utf8"
+    );
   });
 
   it("uses SSH wrapper stdin without local fallback when SSH mode is enabled", async () => {

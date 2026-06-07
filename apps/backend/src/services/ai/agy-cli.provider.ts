@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { aiConfig } from "../../config/ai-config.js";
@@ -86,7 +86,8 @@ export class AgyCliProvider implements AiProvider {
         maxOutputBytes: 16_384
       });
       if (versionProbe.exitCode !== 0) {
-        return this.status(false, false, "invalid_command", modelId);
+        const reason = this.classifyProcessMessage(versionProbe.stderr);
+        return this.status(true, false, reason ?? "invalid_command", modelId);
       }
 
       // loginProbe(agy models)를 호출하면 agy CLI가 Antigravity UI와 연동하며
@@ -179,20 +180,12 @@ export class AgyCliProvider implements AiProvider {
         }
       );
 
-      try {
-        writeFileSync(
-          "agy_debug_exec.log",
-          `[DEBUG] ExitCode: ${result.exitCode}\n[STDERR]:\n${result.stderr}\n[STDOUT]:\n${result.stdout}\n`
-        );
-      } catch {
-        // ignore
-      }
-
       if (result.exitCode !== 0) {
-        throw new ProviderExecutionError("provider_error", `agy cli exited non-zero (code: ${result.exitCode}). Stderr: ${result.stderr}`);
+        throw new ProviderExecutionError("provider_error", `agy cli exited non-zero (code: ${result.exitCode})`);
       }
 
-      const parsed = parseStrictJsonObject(result.stdout);
+      const stdout = result.stdout.trim() ? result.stdout : this.recoverTranscriptOutput(workdir, startedAt);
+      const parsed = parseStrictJsonObject(stdout);
       return {
         data: parsed as T,
         modelId,
@@ -299,13 +292,9 @@ export class AgyCliProvider implements AiProvider {
       let stdoutBytes = 0;
       let stderrBytes = 0;
 
-      const cleanEnv = { ...process.env };
-      delete cleanEnv.AGY_BROWSER_ACTIVE_PORT_FILE;
-      delete cleanEnv.AGY_BROWSER_WS_URL;
-
-      const child = spawn("cmd.exe", ["/c", command, ...args], {
+      const child = spawn(command, args, {
         cwd: options.workdir,
-        env: cleanEnv,
+        env: this.buildChildEnv(),
         shell: false,
         stdio: ["ignore", "pipe", "pipe"],
         windowsHide: true
@@ -379,7 +368,86 @@ export class AgyCliProvider implements AiProvider {
       }
     }
 
+    delete env.AGY_BROWSER_ACTIVE_PORT_FILE;
+    delete env.AGY_BROWSER_WS_URL;
+
     return env;
+  }
+
+  private recoverTranscriptOutput(workdir: string, startedAt: number) {
+    const appDataDir = this.resolveAgyAppDataDir();
+    if (!appDataDir) {
+      return "";
+    }
+
+    const conversationId = this.resolveLastConversationId(appDataDir, workdir);
+    if (!conversationId || !/^[0-9a-f-]{36}$/i.test(conversationId)) {
+      return "";
+    }
+
+    const transcriptPaths = ["transcript_full.jsonl", "transcript.jsonl"].map((fileName) =>
+      path.join(
+        appDataDir,
+        "brain",
+        conversationId,
+        ".system_generated",
+        "logs",
+        fileName
+      )
+    );
+
+    for (const transcriptPath of transcriptPaths) {
+      try {
+        const stats = statSync(transcriptPath);
+        if (stats.mtimeMs + 2_000 < startedAt) {
+          continue;
+        }
+
+        const lines = readFileSync(transcriptPath, "utf8").split(/\r?\n/).filter(Boolean);
+        for (let index = lines.length - 1; index >= 0; index -= 1) {
+          const line = lines[index];
+          try {
+            const entry = JSON.parse(line) as {
+              source?: string;
+              type?: string;
+              status?: string;
+              content?: unknown;
+            };
+            if (entry.source === "MODEL" && entry.status === "DONE" && typeof entry.content === "string") {
+              return entry.content;
+            }
+          } catch {
+            // Ignore malformed transcript lines.
+          }
+        }
+      } catch {
+        // Try the next transcript format.
+      }
+    }
+
+    return "";
+  }
+
+  private resolveLastConversationId(appDataDir: string, workdir: string) {
+    try {
+      const raw = readFileSync(path.join(appDataDir, "cache", "last_conversations.json"), "utf8");
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const direct = parsed[workdir];
+      if (typeof direct === "string") {
+        return direct;
+      }
+
+      const normalizedWorkdir = path.resolve(workdir).toLowerCase();
+      const matched = Object.entries(parsed).find(([key]) => path.resolve(key).toLowerCase() === normalizedWorkdir);
+      return typeof matched?.[1] === "string" ? matched[1] : "";
+    } catch {
+      return "";
+    }
+  }
+
+  private resolveAgyAppDataDir() {
+    const home = process.env.USERPROFILE || process.env.HOME;
+    return home ? path.join(home, ".gemini", "antigravity-cli") : "";
   }
 
   private classifyProcessError(error: unknown): AgyCliStatusReason {
@@ -396,11 +464,21 @@ export class AgyCliProvider implements AiProvider {
     }
 
     const message = error instanceof Error ? error.message.toLowerCase() : "";
+    const reason = this.classifyProcessMessage(message);
+    if (reason) {
+      return reason;
+    }
+
+    return "agy_not_logged_in";
+  }
+
+  private classifyProcessMessage(rawMessage: string): AgyCliStatusReason | undefined {
+    const message = rawMessage.toLowerCase();
     if (message.includes("eacces") || message.includes("eperm") || message.includes("permission")) {
       return "agy_app_data_unwritable";
     }
 
-    return "agy_not_logged_in";
+    return undefined;
   }
 
   private classifySshError(error: unknown): AgyCliStatusReason {

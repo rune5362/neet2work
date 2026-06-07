@@ -69,9 +69,9 @@ function parseAgyCliConfigError(input: {
   sshKnownHostsPath: string;
   sshRemoteWrapper: string;
 }): AgyCliStatusReason | undefined {
-  // if (!input.sandboxEnabled) {
-  //   return "sandbox_required";
-  // }
+  if (!input.sandboxEnabled) {
+    return "sandbox_required";
+  }
 
   if (input.taskProfile !== "cover_letter_review") {
     return "invalid_task_profile";
