@@ -148,6 +148,10 @@ type AttachedFile = {
   id: string;
   name: string;
   kind: AttachedFileKind;
+  mimeType: string;
+  size: number;
+  previewUrl: string | null;
+  previewHtml: string | null;
   textContent: string | null;
   readError: boolean;
   loading: boolean;
@@ -496,6 +500,94 @@ function getSentAttachmentStatusLabel(attachment: MessageAttachment) {
   }
 
   return "문서";
+}
+
+function safeCreateObjectUrl(file: File) {
+  if (typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+    return null;
+  }
+
+  return URL.createObjectURL(file);
+}
+
+function safeRevokeObjectUrl(url: string | null) {
+  if (!url || typeof URL === "undefined" || typeof URL.revokeObjectURL !== "function") {
+    return;
+  }
+
+  URL.revokeObjectURL(url);
+}
+
+function isPdfPreviewFile(file: AttachedFile) {
+  return file.mimeType === "application/pdf" || /\.pdf$/i.test(file.name);
+}
+
+function isDocxPreviewFile(file: AttachedFile) {
+  return /\.docx$/i.test(file.name) || file.mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+}
+
+function buildDocxPreviewSrcDoc(fileName: string, html: string) {
+  return `<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(fileName)}</title>
+  <style>
+    :root { color-scheme: light; }
+    body {
+      margin: 0;
+      padding: 32px;
+      background: #f1f5f9;
+      color: #0f172a;
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+      line-height: 1.7;
+    }
+    main {
+      box-sizing: border-box;
+      width: min(100%, 820px);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 42px 48px;
+      background: #ffffff;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
+    }
+    p { margin: 0 0 12px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+    }
+    td, th {
+      border: 1px solid #cbd5e1;
+      padding: 8px 10px;
+      vertical-align: top;
+    }
+    h1, h2, h3 { margin: 18px 0 10px; line-height: 1.35; }
+    ul, ol { padding-left: 22px; }
+    img { max-width: 100%; height: auto; }
+  </style>
+</head>
+<body>
+  <main>${html}</main>
+</body>
+</html>`;
+}
+
+function formatFileSize(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "";
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(bytes / 1024))}KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+function findSourceFileForAnalysis(sourceFiles: AttachedFile[], sourceId: string) {
+  return sourceFiles.find((file) => `attachment-${file.id}` === sourceId) ?? null;
 }
 
 function hasDraftWorkflowIntent(text: string) {
@@ -1065,6 +1157,7 @@ export function AIDraftChatBuilder() {
   const [newChatConfirmOpen, setNewChatConfirmOpen] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [submittedFiles, setSubmittedFiles] = useState<AttachedFile[]>([]);
+  const [activeDocumentPreviewFileId, setActiveDocumentPreviewFileId] = useState<string | null>(null);
   const [sentAttachmentSignature, setSentAttachmentSignature] = useState("");
   const [composerFileDragActive, setComposerFileDragActive] = useState(false);
   const [autoStartPlanRequestId, setAutoStartPlanRequestId] = useState(0);
@@ -1082,6 +1175,29 @@ export function AIDraftChatBuilder() {
   const referenceLoadRequestIdRef = useRef(0);
   const sendReplyTimeoutRef = useRef<number | null>(null);
   const composerFileDragDepthRef = useRef(0);
+  const attachmentPreviewUrlsRef = useRef<Set<string>>(new Set());
+
+  const createAttachmentPreviewUrl = (file: File) => {
+    const previewUrl = safeCreateObjectUrl(file);
+    if (previewUrl) {
+      attachmentPreviewUrlsRef.current.add(previewUrl);
+    }
+
+    return previewUrl;
+  };
+
+  const revokeAttachmentPreviewUrl = (previewUrl: string | null) => {
+    if (!previewUrl) {
+      return;
+    }
+
+    safeRevokeObjectUrl(previewUrl);
+    attachmentPreviewUrlsRef.current.delete(previewUrl);
+  };
+
+  const revokeAttachmentPreviewUrls = (files: AttachedFile[]) => {
+    files.forEach((file) => revokeAttachmentPreviewUrl(file.previewUrl));
+  };
 
   const clearSendReplyTimeout = () => {
     if (sendReplyTimeoutRef.current !== null) {
@@ -1089,6 +1205,13 @@ export function AIDraftChatBuilder() {
       sendReplyTimeoutRef.current = null;
     }
   };
+
+  useEffect(() => {
+    return () => {
+      attachmentPreviewUrlsRef.current.forEach((previewUrl) => safeRevokeObjectUrl(previewUrl));
+      attachmentPreviewUrlsRef.current.clear();
+    };
+  }, []);
 
   const syncComposerHeight = useCallback(() => {
     const textarea = composerInputRef.current;
@@ -1227,7 +1350,7 @@ export function AIDraftChatBuilder() {
     ? Math.min(completedProgressStepCount, draftProgressSteps.length - 1)
     : -1;
   const selectedProviderLabel = providerBadgeLabel(aiSelection.providerId ?? DEFAULT_AI_PROVIDER_ID);
-  const activeAiMeta = workflowDraft?.aiMeta ?? workflowPlan?.aiMeta;
+  const activeAiMeta = documentSession?.aiMeta ?? workflowDraft?.aiMeta ?? workflowPlan?.aiMeta;
   const realAiProviderOnline = providerStatuses.some(
     (provider) => provider.providerId !== "fallback" && provider.online && !provider.quotaExceeded
   );
@@ -1244,6 +1367,52 @@ export function AIDraftChatBuilder() {
     .map((draft, index) => `문항 ${index + 1}. ${draft.questionText}\n\n${draft.draftText ?? ""}`)
     .join("\n\n");
   const activeDocumentQuestion = documentSession?.interview.questions[0];
+  const hasDocumentDraft = documentDraftText.trim().length > 0;
+  const documentFileViewerItems = useMemo(() => {
+    if (!documentSession) {
+      return [];
+    }
+
+    const usedAttachmentIds = new Set<string>();
+    const analysisItems = documentSession.documentAnalyses.map((analysis) => {
+      const sourceFile = findSourceFileForAnalysis(sourceFiles, analysis.sourceId);
+      if (sourceFile) {
+        usedAttachmentIds.add(sourceFile.id);
+      }
+
+      return {
+        id: analysis.sourceId,
+        fileName: analysis.fileName,
+        detail: careerDocumentClassificationLabel(analysis.classification),
+        sourceFile
+      };
+    });
+    const extraItems = sourceFiles
+      .filter((file) => !usedAttachmentIds.has(file.id))
+      .map((file) => ({
+        id: `attachment-${file.id}`,
+        fileName: file.name,
+        detail: getAttachmentVisual(file).typeLabel,
+        sourceFile: file
+      }));
+
+    return [...analysisItems, ...extraItems];
+  }, [documentSession, sourceFiles]);
+  const activeDocumentPreviewItem = useMemo(() => {
+    if (!documentSession || documentFileViewerItems.length === 0) {
+      return null;
+    }
+
+    return (
+      documentFileViewerItems.find((item) => item.id === activeDocumentPreviewFileId) ??
+      documentFileViewerItems.find((item) => {
+        const file = item.sourceFile;
+        return Boolean(file?.previewHtml || (file?.previewUrl && isPdfPreviewFile(file)));
+      }) ??
+      documentFileViewerItems[0]
+    );
+  }, [activeDocumentPreviewFileId, documentFileViewerItems, documentSession]);
+  const activeDocumentPreviewFile = activeDocumentPreviewItem?.sourceFile ?? null;
   const documentDraftCharCount = documentDraftText
     ? {
         withSpaces: documentDraftText.length,
@@ -1360,20 +1529,6 @@ export function AIDraftChatBuilder() {
       `부족 슬롯: ${careerSession.completion.missingSlots.slice(0, 3).join(", ") || "없음"}`
     ];
   }, [careerSession]);
-  const documentSessionSummaryItems = useMemo(() => {
-    if (!documentSession) {
-      return [];
-    }
-
-    return [
-      `첨부 분석: ${documentSession.documentAnalyses.length}개`,
-      `GitHub 분석: ${documentSession.githubAnalyses.filter((analysis) => analysis.status === "fetched").length}/${documentSession.githubAnalyses.length}개`,
-      `포트폴리오 분석: ${documentSession.portfolioAnalyses.filter((analysis) => analysis.status === "fetched").length}/${documentSession.portfolioAnalyses.length}개`,
-      `사용 가능 근거: ${documentSession.evidenceVault.filter((item) => item.allowedInDraft).length}개`,
-      `남은 질문: ${documentSession.interview.questions.length}개`
-    ];
-  }, [documentSession]);
-
   const refreshProviderStatuses = useCallback(() => {
     return getDraftWorkflowProviders()
       .then((providers) => setProviderStatuses(providers))
@@ -1859,6 +2014,7 @@ export function AIDraftChatBuilder() {
       attachments: readyTextAttachments(sourceFiles).map((file) => ({
         sourceId: `attachment-${file.id}`,
         fileName: file.name,
+        mimeType: file.mimeType || undefined,
         text: file.textContent ?? ""
       })),
       target: {
@@ -1870,7 +2026,8 @@ export function AIDraftChatBuilder() {
         questionText: inferredQuestionText.trim() || selectedSelfIntroFormat.questionText,
         charLimit: inferredCharLimit,
         charCountRule: "with_spaces" as const
-      }
+      },
+      aiSelection
     };
   };
 
@@ -1902,6 +2059,10 @@ export function AIDraftChatBuilder() {
           id: crypto.randomUUID(),
           name: file.name,
           kind: (canExtractText ? "text" : "binary") as AttachedFileKind,
+          mimeType: file.type,
+          size: file.size,
+          previewUrl: createAttachmentPreviewUrl(file),
+          previewHtml: null,
           textContent: null,
           readError: false,
           loading: canExtractText,
@@ -1926,21 +2087,21 @@ export function AIDraftChatBuilder() {
         }
 
         try {
-          const textContent = isTextAttachment(file)
-            ? await file.text()
-            : (
-                await extractResumeFile({
-                  fileName: file.name,
-                  mimeType: file.type,
-                  contentBase64: await fileToBase64(file)
-                })
-              ).text;
+          const extracted = isTextAttachment(file)
+            ? { text: await file.text(), previewHtml: undefined }
+            : await extractResumeFile({
+                fileName: file.name,
+                mimeType: file.type,
+                contentBase64: await fileToBase64(file)
+              });
+          const textContent = extracted.text;
           setAttachedFiles((prev) => {
             const next = prev.map((item) =>
               item.id === attachment.id
                 ? {
                     ...item,
                     textContent,
+                    previewHtml: isTextAttachment(file) ? null : extracted.previewHtml ?? null,
                     readError: textContent.trim().length === 0,
                     loading: false,
                   }
@@ -2025,7 +2186,12 @@ export function AIDraftChatBuilder() {
   };
 
   const removeAttachedFile = (fileId: string) => {
-    setAttachedFiles((prev) => prev.filter((file) => file.id !== fileId));
+    setAttachedFiles((prev) => {
+      const removedFiles = prev.filter((file) => file.id === fileId);
+      revokeAttachmentPreviewUrls(removedFiles);
+      return prev.filter((file) => file.id !== fileId);
+    });
+    setActiveDocumentPreviewFileId((prev) => (prev === `attachment-${fileId}` ? null : prev));
     setSentAttachmentSignature("");
     resetWorkflow();
     playTone(settings.sound, "open");
@@ -2037,6 +2203,7 @@ export function AIDraftChatBuilder() {
     setWorkflowDraft(null);
     setCareerSession(null);
     setDocumentSession(null);
+    setActiveDocumentPreviewFileId(null);
     setWorkflowStatus("idle");
     setWorkflowError(null);
     setAutoStartPlanRequestId(0);
@@ -2122,7 +2289,8 @@ export function AIDraftChatBuilder() {
       const session = await answerCareerDocumentWorkflowQuestion({
         session: documentSession,
         questionId,
-        answer
+        answer,
+        aiSelection
       });
       if (requestId !== workflowRequestIdRef.current) {
         return null;
@@ -2534,6 +2702,7 @@ export function AIDraftChatBuilder() {
 
   const handleNewChat = () => {
     clearSendReplyTimeout();
+    revokeAttachmentPreviewUrls([...attachedFiles, ...submittedFiles]);
     setMessages([initialMessages[0]]);
     setExpandedUserMessageIds(new Set());
     setInput("");
@@ -2712,125 +2881,94 @@ export function AIDraftChatBuilder() {
               )}
 
               {documentSession && (
-                <section className="aiDraftResultCard aiDraftDocumentSession" aria-label="문서 작성 세션">
-                  <div className="aiDraftResultHeader">
-                    <div>
-                      <h2>자료 기반 문서 작성 세션</h2>
-                      <span>{documentSession.state === "DRAFT_READY" ? "초안 준비 완료" : "보완 질문 필요"}</span>
-                    </div>
-                  </div>
+                <section className="aiDraftResultCard aiDraftDocumentSession aiDraftDocumentFocus" aria-label="자기소개서 작성 진행">
+                  {documentFileViewerItems.length > 0 && (
+                    <div className="aiDraftFileViewerStrip" aria-label="첨부 파일 열기">
+                      {documentFileViewerItems.map((item) => {
+                        const sourceFile = item.sourceFile;
+                        const attachmentVisual = sourceFile ? getAttachmentVisual(sourceFile) : null;
+                        const fileSizeLabel = sourceFile ? formatFileSize(sourceFile.size) : "";
 
-                  <ol className="aiDraftWorkflowStages" aria-label="문서 작성 단계">
-                    {documentSession.stages.map((stage) => (
-                      <li className={stage.status} key={stage.id}>
-                        <span>{stage.label}</span>
-                        <em>{stage.status === "complete" ? "완료" : stage.status === "active" ? "진행 중" : stage.status === "blocked" ? "대기" : "예정"}</em>
-                      </li>
-                    ))}
-                  </ol>
-
-                  {documentSession.documentAnalyses.length > 0 && (
-                    <div className="aiDraftDocumentGrid" aria-label="첨부 문서 분석">
-                      {documentSession.documentAnalyses.map((analysis) => (
-                        <div className="aiDraftDocumentMiniCard" key={analysis.sourceId}>
-                          <strong>{analysis.fileName}</strong>
-                          <span>{careerDocumentClassificationLabel(analysis.classification)}</span>
-                          <p>{analysis.summary}</p>
-                          {analysis.template?.questions.length ? (
-                            <ul>
-                              {analysis.template.questions.slice(0, 3).map((question) => (
-                                <li key={question.questionId}>
-                                  {question.text}
-                                  {question.charLimit ? ` · ${question.charLimit}자` : ""}
-                                </li>
-                              ))}
-                            </ul>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {documentSession.githubAnalyses.length > 0 && (
-                    <div className="aiDraftEvidencePanel" aria-label="GitHub 분석">
-                      <strong>GitHub 분석</strong>
-                      <ul>
-                        {documentSession.githubAnalyses.map((analysis) => (
-                          <li key={analysis.sourceId}>
-                            {analysis.status === "fetched"
-                              ? `${analysis.owner}${analysis.repo ? `/${analysis.repo}` : ""} · 근거 ${analysis.facts.length}개`
-                              : analysis.fallbackMessage}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {documentSession.portfolioAnalyses.length > 0 && (
-                    <div className="aiDraftEvidencePanel" aria-label="포트폴리오 분석">
-                      <strong>포트폴리오 분석</strong>
-                      <ul>
-                        {documentSession.portfolioAnalyses.map((analysis) => (
-                          <li key={analysis.sourceId}>
-                            {analysis.status === "fetched"
-                              ? `${analysis.title ?? analysis.url} · 기술 ${analysis.detectedSkills.length}개`
-                              : analysis.fallbackMessage}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  <div className="aiDraftEvidencePanel" aria-label="Evidence Vault">
-                    <strong>Evidence Vault</strong>
-                    <ul>
-                      {documentSession.evidenceVault.slice(0, 6).map((item) => (
-                        <li key={item.evidenceId}>
-                          {item.fact}
-                          <span>
-                            {item.confidence} · {item.allowedInDraft ? "초안 사용 가능" : "확인 필요"}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {activeDocumentQuestion && (
-                    <div className="aiDraftGapPanel" aria-label="부족 정보 질문">
-                      <div className="aiDraftGapFieldset" key={activeDocumentQuestion.questionId}>
-                        <strong>{activeDocumentQuestion.question}</strong>
-                        <p className="aiDraftInputHint">{activeDocumentQuestion.whyAsking}</p>
-                      </div>
-                      <p className="aiDraftInputHint">
-                        보완 질문 {documentSession.interview.answers.length + 1}/
-                        {documentSession.interview.answers.length + documentSession.interview.questions.length}
-                      </p>
-                    </div>
-                  )}
-
-                  {documentSession.drafts.length > 0 && (
-                    <div className="aiDraftQuestionDrafts" aria-label="문항별 초안">
-                      {documentSession.drafts.map((draft, index) => (
-                        <article className={draft.status} key={draft.questionId}>
-                          <div>
-                            <strong>문항 {index + 1}</strong>
-                            <span>{draft.charLimit ? `${draft.charLimit}자 제한` : "글자수 제한 없음"}</span>
+                        return (
+                          <div className="aiDraftFileViewerItem" key={item.id}>
+                            <span className={`aiDraftSentAttachmentIcon ${attachmentVisual?.tone ?? "file"}`} aria-hidden="true">
+                              <FileText size={18} strokeWidth={2.2} />
+                              {attachmentVisual?.badge && (
+                                <span className="aiDraftAttachedFileIconBadge">{attachmentVisual.badge}</span>
+                              )}
+                            </span>
+                            <div>
+                              <strong>{item.fileName}</strong>
+                              <span>
+                                {item.detail}
+                                {fileSizeLabel ? ` · ${fileSizeLabel}` : ""}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              className={`aiDraftFileViewerOpen ${activeDocumentPreviewItem?.id === item.id ? "active" : ""}`}
+                              onClick={() => setActiveDocumentPreviewFileId(item.id)}
+                            >
+                              보기
+                            </button>
                           </div>
-                          <p>{draft.questionText}</p>
-                          {draft.status === "drafted" && draft.draftText ? (
-                            <blockquote>{draft.draftText}</blockquote>
-                          ) : (
-                            <ul>
-                              {draft.missingEvidence.map((item) => (
-                                <li key={item}>{item}</li>
-                              ))}
-                            </ul>
-                          )}
-                          {draft.risks.length > 0 && (
-                            <small>{draft.risks.join(" ")}</small>
-                          )}
-                        </article>
-                      ))}
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {activeDocumentPreviewItem && (
+                    <div className="aiDraftEmbeddedFilePanel" aria-label="첨부 원본 미리보기">
+                      <div className="aiDraftEmbeddedFileHeader">
+                        <div>
+                          <strong>{activeDocumentPreviewItem.fileName}</strong>
+                          <span>{activeDocumentPreviewItem.detail}</span>
+                        </div>
+                        {activeDocumentPreviewFile?.previewUrl && (
+                          <a href={activeDocumentPreviewFile.previewUrl} target="_blank" rel="noreferrer">
+                            새 창
+                          </a>
+                        )}
+                      </div>
+
+                      {activeDocumentPreviewFile?.previewUrl && isPdfPreviewFile(activeDocumentPreviewFile) ? (
+                        <iframe
+                          className="aiDraftEmbeddedFileFrame pdf"
+                          src={activeDocumentPreviewFile.previewUrl}
+                          title={`${activeDocumentPreviewItem.fileName} PDF 미리보기`}
+                        />
+                      ) : activeDocumentPreviewFile?.previewHtml && isDocxPreviewFile(activeDocumentPreviewFile) ? (
+                        <iframe
+                          className="aiDraftEmbeddedFileFrame docx"
+                          srcDoc={buildDocxPreviewSrcDoc(activeDocumentPreviewFile.name, activeDocumentPreviewFile.previewHtml)}
+                          sandbox=""
+                          referrerPolicy="no-referrer"
+                          title={`${activeDocumentPreviewItem.fileName} DOCX 미리보기`}
+                        />
+                      ) : activeDocumentPreviewFile?.textContent ? (
+                        <pre className="aiDraftEmbeddedTextPreview">{activeDocumentPreviewFile.textContent}</pre>
+                      ) : activeDocumentPreviewFile?.loading ? (
+                        <p className="aiDraftEmbeddedFileFallback">문서 미리보기를 불러오는 중</p>
+                      ) : (
+                        <p className="aiDraftEmbeddedFileFallback">이 파일은 앱 안 미리보기를 만들 수 없습니다.</p>
+                      )}
+                    </div>
+                  )}
+
+                  {activeDocumentQuestion ? (
+                    <div className="aiDraftNextQuestionCard" aria-live="polite">
+                      <span>다음 질문</span>
+                      <strong>{activeDocumentQuestion.question}</strong>
+                    </div>
+                  ) : hasDocumentDraft ? (
+                    <div className="aiDraftNextQuestionCard complete" aria-live="polite">
+                      <span>완성본</span>
+                      <strong>완성본 준비 완료</strong>
+                    </div>
+                  ) : (
+                    <div className="aiDraftNextQuestionCard pending" aria-live="polite">
+                      <span>다음 질문</span>
+                      <strong>다음 질문 준비 중</strong>
                     </div>
                   )}
                 </section>
@@ -2988,12 +3126,12 @@ export function AIDraftChatBuilder() {
                 </section>
               )}
 
-              {draftState === "complete" && workflowDraft && (
+              {draftState === "complete" && (workflowDraft || hasDocumentDraft) && (
                 <section className="aiDraftResultCard">
                   <div className="aiDraftResultHeader">
                     <div>
-                      <h2>AI 초안 결과</h2>
-                      <span>초안 v1</span>
+                      <h2>{workflowDraft ? "AI 초안 결과" : "완성본"}</h2>
+                      <span>{workflowDraft ? "초안 v1" : "문서 기반 초안"}</span>
                       {activeAiMeta && (
                         <span className={`aiDraftModeBadge ${activeAiMeta.usedFallback ? "fallback" : "ai"}`}>
                           {formatAiExecutionLabel(activeAiMeta)}
@@ -3029,7 +3167,7 @@ export function AIDraftChatBuilder() {
                     </div>
                   </div>
                   <p className="aiDraftResultText" style={{ "--draft-editor-font": `${editorFontSize}px` } as CSSProperties}>{displayDraft}</p>
-                  {resultInsightSections.length > 0 && (
+                  {workflowDraft && resultInsightSections.length > 0 && (
                     <div className="aiDraftResultInsights" aria-label="초안 검토 요약">
                       {resultInsightSections.map((section) => (
                         <div
@@ -3050,25 +3188,27 @@ export function AIDraftChatBuilder() {
                       ))}
                     </div>
                   )}
-                  <div className="aiDraftRevisePanel" aria-label="초안 수정">
-                    <label htmlFor="aiDraftRevisionRequest">수정 요청</label>
-                    <textarea
-                      id="aiDraftRevisionRequest"
-                      className="aiDraftGapTextarea"
-                      value={revisionRequest}
-                      rows={3}
-                      placeholder="예: 첫 문단을 더 간결하게, 성과 수치를 강조해 주세요."
-                      onChange={(event) => setRevisionRequest(event.target.value)}
-                    />
-                    <button
-                      type="button"
-                      className="aiDraftGapChoiceButton"
-                      disabled={revisionRequest.trim().length < 3}
-                      onClick={handleReviseDraft}
-                    >
-                      수정 적용
-                    </button>
-                  </div>
+                  {workflowDraft && (
+                    <div className="aiDraftRevisePanel" aria-label="초안 수정">
+                      <label htmlFor="aiDraftRevisionRequest">수정 요청</label>
+                      <textarea
+                        id="aiDraftRevisionRequest"
+                        className="aiDraftGapTextarea"
+                        value={revisionRequest}
+                        rows={3}
+                        placeholder="예: 첫 문단을 더 간결하게, 성과 수치를 강조해 주세요."
+                        onChange={(event) => setRevisionRequest(event.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className="aiDraftGapChoiceButton"
+                        disabled={revisionRequest.trim().length < 3}
+                        onClick={handleReviseDraft}
+                      >
+                        수정 적용
+                      </button>
+                    </div>
+                  )}
                   <div className="aiDraftResultToolbar">
                     <button
                       type="button"
@@ -3117,24 +3257,28 @@ export function AIDraftChatBuilder() {
                         </div>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      aria-label="편집기로 열기"
-                      title="편집기로 열기"
-                      data-tooltip="편집기로 열기"
-                    >
-                      <Icon name="edit" />
-                      편집기로 열기
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="다음 질문 이어가기"
-                      title="다음 질문 이어가기"
-                      data-tooltip="다음 질문 이어가기"
-                    >
-                      <Icon name="followUp" />
-                      다음 질문 이어가기
-                    </button>
+                    {workflowDraft && (
+                      <>
+                        <button
+                          type="button"
+                          aria-label="편집기로 열기"
+                          title="편집기로 열기"
+                          data-tooltip="편집기로 열기"
+                        >
+                          <Icon name="edit" />
+                          편집기로 열기
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="다음 질문 이어가기"
+                          title="다음 질문 이어가기"
+                          data-tooltip="다음 질문 이어가기"
+                        >
+                          <Icon name="followUp" />
+                          다음 질문 이어가기
+                        </button>
+                      </>
+                    )}
                   </div>
                 </section>
               )}
@@ -3365,66 +3509,41 @@ export function AIDraftChatBuilder() {
               </div>
             </section>
 
-            <section className="aiDraftInfoCard" aria-label="커리어 문서 코치 상태">
-              <div className="aiDraftCardTitle">
-                <span>문서 코치</span>
-                <small>
-                  {documentSession
-                    ? documentSession.state === "DRAFT_READY"
-                      ? "초안 준비"
-                      : "질문 진행"
-                    : careerSession
-                      ? careerDocumentTypeLabel(careerSession.documentType)
-                      : "대기 중"}
-                </small>
-              </div>
-              {documentSession ? (
-                <>
-                  <ul className="aiDraftSummary">
-                    {documentSessionSummaryItems.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                  {documentSession.interview.questions[0] && (
-                    <div className="aiDraftQuestionMeta">
-                      <strong>다음 질문</strong>
-                      <p>{documentSession.interview.questions[0].question}</p>
-                      <span>{documentSession.interview.questions[0].whyAsking}</span>
-                      <em>채팅 답변 대기</em>
-                    </div>
-                  )}
-                  {documentSession.risks.length > 0 && (
-                    <p className="aiDraftFootnote">{documentSession.risks[0]}</p>
-                  )}
-                </>
-              ) : careerSession ? (
-                <>
-                  <ul className="aiDraftSummary">
-                    {careerSessionSummaryItems.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                  {careerSession.nextQuestion && (
-                    <div className="aiDraftQuestionMeta">
-                      <strong>다음 질문</strong>
-                      <p>{careerSession.nextQuestion.question}</p>
-                      <span>{careerSession.nextQuestion.whyAsking}</span>
-                      <em>{careerSession.nextQuestion.targetSection}에 사용</em>
-                    </div>
-                  )}
-                  <p className="aiDraftFootnote">{careerSession.documentTypeReason}</p>
-                </>
-              ) : (
-                <>
-                  <ul className="aiDraftSummary">
-                    <li>자료에서 채울 수 있는 정보 먼저 추출</li>
-                    <li>없는 정보는 질문 1개씩 확인</li>
-                    <li>사용자 근거가 있는 내용만 초안에 사용</li>
-                  </ul>
-                  <p className="aiDraftFootnote">문항 분석을 시작하면 Evidence Vault와 다음 질문이 계산됩니다.</p>
-                </>
-              )}
-            </section>
+            {!documentSession && (
+              <section className="aiDraftInfoCard" aria-label="커리어 문서 코치 상태">
+                <div className="aiDraftCardTitle">
+                  <span>문서 코치</span>
+                  <small>{careerSession ? careerDocumentTypeLabel(careerSession.documentType) : "대기 중"}</small>
+                </div>
+                {careerSession ? (
+                  <>
+                    <ul className="aiDraftSummary">
+                      {careerSessionSummaryItems.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                    {careerSession.nextQuestion && (
+                      <div className="aiDraftQuestionMeta">
+                        <strong>다음 질문</strong>
+                        <p>{careerSession.nextQuestion.question}</p>
+                        <span>{careerSession.nextQuestion.whyAsking}</span>
+                        <em>{careerSession.nextQuestion.targetSection}에 사용</em>
+                      </div>
+                    )}
+                    <p className="aiDraftFootnote">{careerSession.documentTypeReason}</p>
+                  </>
+                ) : (
+                  <>
+                    <ul className="aiDraftSummary">
+                      <li>자료에서 채울 수 있는 정보 먼저 추출</li>
+                      <li>없는 정보는 질문 1개씩 확인</li>
+                      <li>사용자 근거가 있는 내용만 초안에 사용</li>
+                    </ul>
+                    <p className="aiDraftFootnote">문항 분석을 시작하면 다음 질문이 계산됩니다.</p>
+                  </>
+                )}
+              </section>
+            )}
 
             {providerStatuses.length > 0 && (
               <section className="aiDraftInfoCard" aria-label="AI Provider 상태">

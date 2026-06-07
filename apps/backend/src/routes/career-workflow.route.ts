@@ -33,10 +33,10 @@ careerWorkflowRouter.post("/document-session", async (req, res, next) => {
   }
 });
 
-careerWorkflowRouter.post("/document-session/answer", (req, res, next) => {
+careerWorkflowRouter.post("/document-session/answer", async (req, res, next) => {
   try {
     const body = careerDocumentWorkflowAnswerRequestSchema.parse(req.body);
-    const data = careerDocumentWorkflowService.answerQuestion(body);
+    const data = await careerDocumentWorkflowService.answerQuestion(body);
     res.json({ data });
   } catch (error) {
     next(error);

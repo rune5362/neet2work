@@ -209,7 +209,8 @@ function buildDynamicWhy(
   }
 ) {
   if (slot === "github_context") {
-    return "GitHub URL만 있거나 API 확인이 막히면 저장소 내용을 사실로 단정할 수 없어.";
+    const githubFallbackMessage = input.githubAnalyses.find((analysis) => analysis.status === "unavailable")?.fallbackMessage;
+    return githubFallbackMessage ?? "GitHub 저장소를 직접 확인하지 못해서 프로젝트 설명을 사용자에게 확인해야 해.";
   }
 
   if (slot === "portfolio_context") {

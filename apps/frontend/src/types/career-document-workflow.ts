@@ -1,3 +1,5 @@
+import type { AiExecutionMeta, AiSelection } from "./draft-workflow";
+
 export type CareerDocumentClassification =
   | "self_intro_template"
   | "existing_self_intro"
@@ -150,12 +152,14 @@ export type CareerDocumentWorkflowSessionRequest = {
   message: string;
   attachments?: CareerDocumentAttachmentInput[];
   target?: CareerDocumentWorkflowTarget;
+  aiSelection?: AiSelection;
 };
 
 export type CareerDocumentWorkflowAnswerRequest = {
   session: CareerDocumentWorkflowSession;
   questionId: string;
   answer: string;
+  aiSelection?: AiSelection;
 };
 
 export type CareerDocumentWorkflowSession = {
@@ -180,6 +184,7 @@ export type CareerDocumentWorkflowSession = {
     }>;
   };
   drafts: CareerDocumentDraft[];
+  aiMeta?: AiExecutionMeta;
   missingEvidence: string[];
   risks: string[];
 };

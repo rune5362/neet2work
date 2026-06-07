@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { aiExecutionMetaSchema, aiSelectionSchema } from "../draft-workflow/schemas.js";
 
 export const careerDocumentClassificationSchema = z.enum([
   "self_intro_template",
@@ -195,6 +196,7 @@ export const careerDocumentWorkflowSessionSchema = z.object({
     )
   }),
   drafts: z.array(careerDocumentDraftSchema),
+  aiMeta: aiExecutionMetaSchema.optional(),
   missingEvidence: z.array(z.string()),
   risks: z.array(z.string())
 });
@@ -202,11 +204,13 @@ export const careerDocumentWorkflowSessionSchema = z.object({
 export const careerDocumentWorkflowSessionRequestSchema = z.object({
   message: z.string().min(1),
   attachments: z.array(careerDocumentAttachmentInputSchema).optional(),
-  target: careerDocumentWorkflowTargetSchema.optional()
+  target: careerDocumentWorkflowTargetSchema.optional(),
+  aiSelection: aiSelectionSchema.optional()
 });
 
 export const careerDocumentWorkflowAnswerRequestSchema = z.object({
   session: careerDocumentWorkflowSessionSchema,
   questionId: z.string().min(1),
-  answer: z.string().min(1)
+  answer: z.string().min(1),
+  aiSelection: aiSelectionSchema.optional()
 });

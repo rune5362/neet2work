@@ -492,6 +492,7 @@ function createDraftWorkflowFetchMock(options?: { planFails?: boolean; draftFail
         data: {
           fileName: "resume.pdf",
           text: "PDF에서 추출한 포트폴리오 본문입니다.",
+          previewHtml: "<p>DOCX에서 변환한 포트폴리오 본문입니다.</p>",
           mode: "mock"
         }
       });
@@ -1092,6 +1093,7 @@ describe("AIDraftChatBuilder draft workflow flow", () => {
       charLimit: 700,
       charCountRule: "with_spaces"
     });
+    expect(body.aiSelection).toEqual({ mode: "manual", providerId: "codex_bridge" });
   });
 
   it("keeps writing conditions out of the side panel", async () => {
@@ -1152,12 +1154,14 @@ describe("AIDraftChatBuilder draft workflow flow", () => {
     });
 
     expect(screen.getByLabelText("보낸 첨부 파일")).toBeInTheDocument();
-    expect(screen.getByText("자료 기반 문서 작성 세션")).toBeInTheDocument();
-    expect(screen.getByText("자소서 양식")).toBeInTheDocument();
-    expect(screen.getByText("GitHub 분석")).toBeInTheDocument();
-    expect(screen.getByText("Evidence Vault")).toBeInTheDocument();
+    expect(screen.getByLabelText("자기소개서 작성 진행")).toBeInTheDocument();
+    expect(screen.getByLabelText("첨부 파일 열기")).toBeInTheDocument();
+    expect(screen.getByLabelText("첨부 원본 미리보기")).toBeInTheDocument();
+    expect(screen.getAllByText("자소서 양식").length).toBeGreaterThan(0);
+    expect(screen.queryByText("GitHub 분석")).not.toBeInTheDocument();
+    expect(screen.queryByText("Evidence Vault")).not.toBeInTheDocument();
     expect(screen.getAllByText("그 프로젝트에서 네가 직접 맡은 역할과 범위는 어디까지였어?").length).toBeGreaterThan(0);
-    expect(screen.getByText("본인 역할")).toBeInTheDocument();
+    expect(screen.queryByText("본인 역할")).not.toBeInTheDocument();
 
     expect(screen.queryByPlaceholderText("답변을 입력한 뒤 저장하세요")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "답변 저장" })).not.toBeInTheDocument();
@@ -1182,9 +1186,10 @@ describe("AIDraftChatBuilder draft workflow flow", () => {
     );
     const answerBody = JSON.parse(String(answerCall?.[1]?.body));
     expect(answerBody.answer).toBe("백엔드 API 명세와 상태 변경 로직 구현을 직접 맡았습니다.");
+    expect(answerBody.aiSelection).toEqual({ mode: "manual", providerId: "codex_bridge" });
     expect(await screen.findByText(/실전 백엔드 엔지니어 직무에 맞춰/)).toBeInTheDocument();
     expect(screen.getByText("답변을 반영해서 초안을 준비했어.")).toBeInTheDocument();
-    expect(screen.getByText(/GitHub 근거는 README 기반/)).toBeInTheDocument();
+    expect(screen.queryByText(/GitHub 근거는 README 기반/)).not.toBeInTheDocument();
   });
 
   it("injects a selected saved cover letter only as style reference", async () => {
@@ -1657,6 +1662,7 @@ describe("AIDraftChatBuilder chat UX", () => {
     const body = JSON.parse(String(documentSessionCall?.[1]?.body));
     expect(body.message).toContain("https://github.com/r2gul4r");
     expect(body.message).toContain("첨부한 자소서 양식에 맞춰서 초안을 작성해줘");
+    expect(body.aiSelection).toEqual({ mode: "manual", providerId: "codex_bridge" });
   });
 
   it("opens a confirmation dialog instead of resetting immediately on new chat", async () => {
@@ -1922,6 +1928,24 @@ describe("AIDraftChatBuilder chat UX", () => {
     const icon = document.querySelector(".aiDraftAttachedFileIcon.pdf") as HTMLElement;
     expect(icon).toBeInTheDocument();
     expect(icon.querySelector(".aiDraftAttachedFileIconBadge")).toBeNull();
+  });
+
+  it("renders converted docx files inside the original document viewer", async () => {
+    render(<AIDraftChatBuilder />);
+
+    await waitFor(() => {
+      expect(document.querySelector(".aiDraftComposerBar")).toBeInTheDocument();
+    });
+    await attachDocumentFile(
+      "resume.docx",
+      "docx bytes",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    );
+    await sendUserMessage("첨부한 파일을 보고 자소서 초안 작성해줘.");
+
+    expect(await screen.findByLabelText("첨부 원본 미리보기")).toBeInTheDocument();
+    expect(screen.getByTitle("resume.docx DOCX 미리보기")).toBeInTheDocument();
+    expect(screen.queryByLabelText("실시간 문서 미리보기")).not.toBeInTheDocument();
   });
 
   it("allows sending a docx attachment even when text extraction fails", async () => {

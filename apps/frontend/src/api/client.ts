@@ -179,7 +179,7 @@ export async function extractResumeFile(payload: {
   fileName: string;
   mimeType?: string;
   contentBase64: string;
-}): Promise<{ fileName: string; text: string; mode: "mock" | "ai" }> {
+}): Promise<{ fileName: string; text: string; previewHtml?: string; mode: "mock" | "ai" }> {
   const response = await fetch(`${API_BASE_URL}/api/resume/extract`, {
     method: "POST",
     headers: {
@@ -195,6 +195,7 @@ export async function extractResumeFile(payload: {
   const result = (await response.json()) as ApiItemResponse<{
     fileName: string;
     text: string;
+    previewHtml?: string;
     mode: "mock" | "ai";
   }>;
   return result.data;

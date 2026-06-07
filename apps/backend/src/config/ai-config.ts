@@ -1,6 +1,13 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import dotenv from "dotenv";
 import type { AiProviderId, AiRoutingMode } from "../types/ai-routing.js";
+
+const configDir = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(configDir, "../../../..", ".env") });
+dotenv.config({ path: path.resolve(configDir, "../..", ".env"), override: true });
 
 function parseProviderOrder(raw: string | undefined): AiProviderId[] {
   const allowed: AiProviderId[] = ["codex_bridge", "gemini", "local", "fallback"];

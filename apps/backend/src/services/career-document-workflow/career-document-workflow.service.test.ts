@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import type { AiExecutionMeta, AiProvider, AiSelection } from "../../types/ai-routing.js";
 import { CareerDocumentWorkflowService } from "./career-document-workflow.service.js";
+import { AiRouter } from "../ai/ai-router.js";
+import { HardcodedFallbackProvider } from "../ai/hardcoded-fallback.provider.js";
 import { documentAnalysisService } from "./document-analysis.service.js";
 import { draftGenerationService } from "./draft-generation.service.js";
 import { evidenceVaultService } from "./evidence-vault.service.js";
@@ -20,15 +23,89 @@ function jsonResponse(body: unknown, ok = true, status = ok ? 200 : 500, headers
   } as Response);
 }
 
-function createService(fetchMock: ReturnType<typeof vi.fn>) {
+const testDocumentFormatting = {
+  encoding: "UTF-8" as const,
+  fontFamily: "Malgun Gothic" as const,
+  fontDisplayName: "맑은 고딕" as const,
+  lineSpacing: "normal" as const,
+  normalizeWhitespace: true as const,
+  forbidMojibake: true as const
+};
+
+function createService(fetchMock: ReturnType<typeof vi.fn>, router = createFallbackOnlyRouter()) {
   return new CareerDocumentWorkflowService(
     documentAnalysisService,
     new GithubAnalysisService(fetchMock),
     new PortfolioAnalysisService(vi.fn()),
     evidenceVaultService,
     gapInterviewService,
-    draftGenerationService
+    draftGenerationService,
+    router
   );
+}
+
+function createFallbackOnlyRouter() {
+  return new AiRouter([new HardcodedFallbackProvider()]);
+}
+
+function createCodexDraftRouter(draftText: string) {
+  const aiMeta: AiExecutionMeta = {
+    providerId: "codex_bridge",
+    modelId: "codex-test-model",
+    routingMode: "manual",
+    usedFallback: false
+  };
+  const execute = vi.fn(async () => ({
+    data: {
+      mode: "ai" as const,
+      state: "REVIEW_COMPLETED" as const,
+      aiMeta,
+      draftText,
+      charCount: {
+        withSpaces: draftText.length,
+        withoutSpaces: draftText.replace(/\s/g, "").length,
+        limit: 700
+      },
+      evidenceMap: [],
+      documentFormatting: testDocumentFormatting,
+      reviewReport: {
+        scores: {
+          promptFit: 90,
+          jobFit: 88,
+          specificity: 87,
+          evidenceSafety: 92,
+          koreanReadability: 89,
+          aiLikenessRisk: 20,
+          blindRisk: 0,
+          interviewDefensibility: 86
+        },
+        issues: [],
+        likelyInterviewQuestions: [],
+        sensitiveWarnings: []
+      },
+      revisionOptions: []
+    },
+    modelId: "codex-test-model",
+    latencyMs: 1
+  }));
+  const provider: AiProvider = {
+    id: "codex_bridge",
+    label: "Codex Test",
+    getStatus: async () => ({
+      providerId: "codex_bridge",
+      label: "Codex Test",
+      online: true,
+      configured: true,
+      quotaExceeded: false,
+      models: [{ modelId: "codex-test-model", label: "Codex Test", online: true, quotaExceeded: false }]
+    }),
+    execute
+  };
+
+  return {
+    router: new AiRouter([provider, new HardcodedFallbackProvider()]),
+    execute
+  };
 }
 
 describe("career document workflow service", () => {
@@ -576,7 +653,7 @@ describe("career document workflow service", () => {
 
     for (let index = 0; index < 8 && session.interview.questions.length > 0; index += 1) {
       const question = session.interview.questions[0];
-      session = service.answerQuestion({
+      session = await service.answerQuestion({
         session,
         questionId: question.questionId,
         answer: answerForSlot(question.slot)
@@ -617,7 +694,7 @@ describe("career document workflow service", () => {
     const userRoleQuestion = session.interview.questions.find((question) => question.slot === "user_role");
 
     expect(userRoleQuestion).toBeDefined();
-    const answeredSession = service.answerQuestion({
+    const answeredSession = await service.answerQuestion({
       session,
       questionId: userRoleQuestion?.questionId ?? "",
       answer: "API design, route implementation, tests"
@@ -656,7 +733,8 @@ describe("career document workflow service", () => {
     });
     expect(session.evidenceVault.some((item) => item.sourceType.startsWith("github"))).toBe(false);
     expect(session.interview.questions[0]).toMatchObject({
-      slot: "github_context"
+      slot: "github_context",
+      whyAsking: expect.stringContaining("GitHub API rate limit이 소진")
     });
     expect(session.missingEvidence.some((item) => item.includes("GITHUB_TOKEN"))).toBe(true);
   });
@@ -745,7 +823,8 @@ describe("career document workflow service", () => {
       new PortfolioAnalysisService(portfolioFetchMock),
       evidenceVaultService,
       gapInterviewService,
-      draftGenerationService
+      draftGenerationService,
+      createFallbackOnlyRouter()
     );
 
     const session = await service.createSession({
@@ -807,7 +886,7 @@ describe("career document workflow service", () => {
       ]
     });
 
-    session = answerUntilReady(service, session);
+    session = await answerUntilReady(service, session);
 
     expect(session.state).toBe("DRAFT_READY");
     expect(session.documentAnalyses[0].classification).toBe("self_intro_template");
@@ -832,7 +911,8 @@ describe("career document workflow service", () => {
       new PortfolioAnalysisService(portfolioFetchMock),
       evidenceVaultService,
       gapInterviewService,
-      draftGenerationService
+      draftGenerationService,
+      createFallbackOnlyRouter()
     );
     let session = await service.createSession({
       message: "포트폴리오 https://portfolio.example.dev 내용을 분석해서 직무역량 자소서에 녹여줘.",
@@ -850,7 +930,7 @@ describe("career document workflow service", () => {
       ]
     });
 
-    session = answerUntilReady(service, session);
+    session = await answerUntilReady(service, session);
 
     const allEvidence = session.evidenceVault.map((item) => item.fact).join("\n");
     expect(session.state).toBe("DRAFT_READY");
@@ -883,11 +963,44 @@ describe("career document workflow service", () => {
       charLimit: 700
     });
 
-    session = answerUntilReady(service, session);
+    session = await answerUntilReady(service, session);
 
     expect(session.state).toBe("DRAFT_READY");
     expect(session.drafts[0].draftText).toContain("지원 동기");
     expect(session.drafts[0].draftText).not.toContain("확인된 프로젝트 경험");
+  });
+
+  it("routes completed document-session drafts through the selected AI provider", async () => {
+    const aiDraftText = "AI 라우터가 생성한 지원 직무 프로젝트 경험 초안입니다.";
+    const { router, execute } = createCodexDraftRouter(aiDraftText);
+    const routerExecute = vi.spyOn(router, "execute");
+    const service = createService(vi.fn(), router);
+    const aiSelection: AiSelection = { mode: "manual", providerId: "codex_bridge" };
+    let session = await service.createSession({
+      message: "지원자 상태 관리 API 프로젝트에서 백엔드 API 명세와 PostgreSQL 이력 테이블 구현을 담당했습니다.",
+      target: {
+        role: "백엔드 개발자",
+        questionText: "지원 직무와 관련된 프로젝트 경험을 작성해 주세요.",
+        charLimit: 700
+      },
+      aiSelection
+    });
+
+    session = await answerUntilReady(service, session, aiSelection);
+
+    expect(routerExecute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "draft",
+        aiSelection
+      })
+    );
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({ operation: "draft" }));
+    expect(session.aiMeta).toMatchObject({
+      providerId: "codex_bridge",
+      modelId: "codex-test-model",
+      usedFallback: false
+    });
+    expect(session.drafts[0].draftText).toBe(aiDraftText);
   });
 });
 
@@ -912,17 +1025,19 @@ function answerForSlot(slot: string) {
   }
 }
 
-function answerUntilReady(
+async function answerUntilReady(
   service: CareerDocumentWorkflowService,
-  session: Awaited<ReturnType<CareerDocumentWorkflowService["createSession"]>>
+  session: Awaited<ReturnType<CareerDocumentWorkflowService["createSession"]>>,
+  aiSelection?: AiSelection
 ) {
   let nextSession = session;
   for (let index = 0; index < 10 && nextSession.interview.questions.length > 0; index += 1) {
     const question = nextSession.interview.questions[0];
-    nextSession = service.answerQuestion({
+    nextSession = await service.answerQuestion({
       session: nextSession,
       questionId: question.questionId,
-      answer: answerForSlot(question.slot)
+      answer: answerForSlot(question.slot),
+      aiSelection
     });
   }
 
