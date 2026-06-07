@@ -115,12 +115,12 @@
 
 ## Phase 8. Manual Setup Checklist
 
-- [ ] 로컬 실행 계정에서 `agy.exe`를 미리 실행하고 로그인 절차를 완료한다.
-- [ ] 로컬 실행 계정이 `agy.exe` app data/config/log 디렉터리에 필요한 읽기/쓰기 권한을 갖는지 확인한다. 현재 확인된 Windows 예시는 `%LOCALAPPDATA%\agy\bin\agy.exe` 다.
-- [ ] 실제 `.env`에 `AGY_CLI_COMMAND`를 수동 설정한다.
+- [x] 로컬 실행 계정에서 `agy.exe`를 미리 실행하고 로그인 절차를 완료한다.
+- [x] 로컬 실행 계정이 `agy.exe` app data/config/log 디렉터리에 필요한 읽기/쓰기 권한을 갖는지 확인한다. 현재 확인된 Windows 예시는 `%LOCALAPPDATA%\agy\bin\agy.exe` 다.
+- [x] 실제 `.env`에 `AGY_CLI_COMMAND`를 수동 설정한다.
 - [ ] SSH 실행 시 원격 `AGY_SSH_USERNAME` 계정으로 로그인해 해당 계정에서 `agy.exe` 로그인 절차를 완료한다.
 - [ ] SSH 실행 시 원격 계정의 `agy.exe` app data/config/log 디렉터리 쓰기 권한을 확인한다. 원격 OS별 실제 경로는 `agy.exe` 실행 계정에서 확인한다.
 - [ ] 원격 서버에 sandbox print wrapper를 배치하고 외부 argument를 받지 않게 한다.
 - [ ] SSH host fingerprint 또는 known_hosts 값을 수동으로 검증해 설정한다.
-- [ ] 로컬 환경이 준비된 경우 `corepack pnpm --filter @neet2work/backend run agy:local:smoke`를 실행한다.
+- [ ] 로컬 환경이 준비된 경우 `corepack pnpm --filter @neet2work/backend run agy:local:smoke`를 실행한다. (`corepack`/`pnpm` PATH 부재로 직접 smoke 실행했으나 `--sandbox --print` 단계 non-zero)
 - [ ] SSH 환경이 준비된 경우 `corepack pnpm --filter @neet2work/backend run agy:ssh:smoke`를 실행한다.
