@@ -84,13 +84,13 @@
 
 ## Phase 6. Smoke Scripts
 
-- [ ] `apps/backend/src/scripts/agyLocalSmoke.ts`를 추가한다.
-- [ ] `apps/backend/src/scripts/agySshSmoke.ts`를 추가한다.
-- [ ] `apps/backend/package.json`에 `agy:local:smoke`와 `agy:ssh:smoke` script를 추가한다.
-- [ ] local smoke는 실행 파일 탐색, `--sandbox`, `--print`, 로그인 세션, app data 쓰기 권한, JSON-only 응답을 확인한다.
-- [ ] SSH smoke는 host key 검증, wrapper 실행, wrapper stdin 수신, 원격 로그인 세션, app data 쓰기 권한, JSON-only 응답을 확인한다.
-- [ ] smoke script는 민감 설정 값과 prompt 원문을 출력하지 않는다.
-- [ ] 준비되지 않은 환경에서는 명확한 sanitized reason과 non-zero exit code를 반환한다.
+- [x] `apps/backend/src/scripts/agyLocalSmoke.ts`를 추가한다.
+- [x] `apps/backend/src/scripts/agySshSmoke.ts`를 추가한다.
+- [x] `apps/backend/package.json`에 `agy:local:smoke`와 `agy:ssh:smoke` script를 추가한다.
+- [x] local smoke는 실행 파일 탐색, `--sandbox`, `--print`, 로그인 세션, app data 쓰기 권한, JSON-only 응답을 확인한다.
+- [x] SSH smoke는 host key 검증, wrapper 실행, wrapper stdin 수신, 원격 로그인 세션, app data 쓰기 권한, JSON-only 응답을 확인한다.
+- [x] smoke script는 민감 설정 값과 prompt 원문을 출력하지 않는다.
+- [x] 준비되지 않은 환경에서는 명확한 sanitized reason과 non-zero exit code를 반환한다.
 
 ## Phase 7. Tests
 

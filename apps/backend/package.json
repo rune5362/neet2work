@@ -26,6 +26,8 @@
     "jobs:operational:scheduler": "tsx src/scripts/jobOperationalScheduler.ts",
     "jobs:operational:jp-plan": "tsx src/scripts/jobOperationalJpPlan.ts",
     "codex:bridge:smoke": "tsx src/scripts/codexBridgeSmoke.ts",
+    "agy:local:smoke": "tsx src/scripts/agyLocalSmoke.ts",
+    "agy:ssh:smoke": "tsx src/scripts/agySshSmoke.ts",
     "db:studio": "prisma studio",
     "db:status": "prisma migrate status"
   },
