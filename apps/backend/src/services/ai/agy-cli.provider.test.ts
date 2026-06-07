@@ -33,6 +33,7 @@ const mockAiConfig = vi.hoisted(() => ({
 }));
 
 const mockSpawn = vi.hoisted(() => vi.fn());
+const mockRunRemoteWrapperWithStdin = vi.hoisted(() => vi.fn());
 
 vi.mock("node:child_process", () => ({
   spawn: mockSpawn
@@ -49,6 +50,20 @@ vi.mock("node:fs", async () => {
 
 vi.mock("../../config/ai-config.js", () => ({
   aiConfig: mockAiConfig
+}));
+
+vi.mock("./ssh-helper.js", () => ({
+  AgySshExecutionError: class AgySshExecutionError extends Error {
+    readonly code: "offline" | "timeout";
+    readonly reason: string;
+
+    constructor(reason: string) {
+      super(reason);
+      this.code = reason.endsWith("timeout") ? "timeout" : "offline";
+      this.reason = reason;
+    }
+  },
+  runRemoteWrapperWithStdin: mockRunRemoteWrapperWithStdin
 }));
 
 function resetConfig() {
@@ -113,6 +128,7 @@ describe("AgyCliProvider", () => {
   beforeEach(() => {
     resetConfig();
     mockSpawn.mockReset();
+    mockRunRemoteWrapperWithStdin.mockReset();
     vi.unstubAllEnvs();
     vi.stubEnv("SECRET_TOKEN", "do-not-pass");
     vi.stubEnv("PATH", "C:\\Windows\\System32");
@@ -218,5 +234,59 @@ describe("AgyCliProvider", () => {
         timeoutMs: 10_000
       })
     ).rejects.toBeInstanceOf(ProviderExecutionError);
+  });
+
+  it("uses SSH wrapper stdin without local fallback when SSH mode is enabled", async () => {
+    mockAiConfig.agyCli.enabled = true;
+    mockAiConfig.agyCli.ssh.enabled = true;
+    mockAiConfig.agyCli.ssh.host = "ssh.example.internal";
+    mockAiConfig.agyCli.ssh.username = "agyuser";
+    mockAiConfig.agyCli.ssh.keyPath = "C:\\keys\\agy";
+    mockAiConfig.agyCli.ssh.hostFingerprint = "SHA256:test";
+    mockRunRemoteWrapperWithStdin.mockResolvedValue({
+      stdout: "{\"state\":\"OUTLINE_READY\"}",
+      stderr: "remote stderr must not leak",
+      exitCode: 0
+    });
+
+    const { AgyCliProvider } = await import("./agy-cli.provider.js");
+    const result = await new AgyCliProvider().execute<{ state: string }>({
+      operation: "plan",
+      payload: validPayload,
+      timeoutMs: 180_000
+    });
+
+    expect(result.data.state).toBe("OUTLINE_READY");
+    expect(mockSpawn).not.toHaveBeenCalled();
+    expect(mockRunRemoteWrapperWithStdin).toHaveBeenCalledWith(
+      expect.objectContaining({
+        host: "ssh.example.internal",
+        username: "agyuser",
+        remoteWrapper: "/opt/neet2work/run-agy-sandbox-print"
+      }),
+      expect.stringContaining("AGY_CLI_FIXED_ROLE"),
+      90_000
+    );
+  });
+
+  it("reports SSH wrapper probe status without using local command fallback", async () => {
+    mockAiConfig.agyCli.enabled = true;
+    mockAiConfig.agyCli.ssh.enabled = true;
+    mockAiConfig.agyCli.ssh.host = "ssh.example.internal";
+    mockAiConfig.agyCli.ssh.username = "agyuser";
+    mockAiConfig.agyCli.ssh.keyPath = "C:\\keys\\agy";
+    mockAiConfig.agyCli.ssh.hostFingerprint = "SHA256:test";
+    mockRunRemoteWrapperWithStdin.mockResolvedValue({
+      stdout: "{\"ok\":true}",
+      stderr: "",
+      exitCode: 0
+    });
+
+    const { AgyCliProvider } = await import("./agy-cli.provider.js");
+    const status = await new AgyCliProvider().getStatus();
+
+    expect(status).toMatchObject({ configured: true, online: true });
+    expect(mockSpawn).not.toHaveBeenCalled();
+    expect(mockRunRemoteWrapperWithStdin).toHaveBeenCalled();
   });
 });

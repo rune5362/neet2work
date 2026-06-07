@@ -12,6 +12,7 @@ import type {
 } from "../../types/ai-routing.js";
 import { buildAgyCliDraftWorkflowPrompt } from "../draft-workflow/prompt-builder.js";
 import { parseStrictJsonObject, ProviderExecutionError } from "./provider-utils.js";
+import { AgySshExecutionError, runRemoteWrapperWithStdin } from "./ssh-helper.js";
 
 type ProcessResult = {
   stdout: string;
@@ -36,13 +37,35 @@ export class AgyCliProvider implements AiProvider {
       return this.status(false, false, "disabled", modelId);
     }
 
-    if (aiConfig.agyCli.ssh.enabled) {
-      return this.status(false, false, "ssh_missing_config", modelId);
-    }
-
     const configReason = aiConfig.agyCli.configErrorReason;
     if (configReason) {
       return this.status(false, false, configReason, modelId);
+    }
+
+    if (aiConfig.agyCli.ssh.enabled) {
+      const startedAt = Date.now();
+      try {
+        const result = await runRemoteWrapperWithStdin(
+          this.sshConfig(),
+          "Return exactly this JSON object and nothing else: {\"ok\":true}",
+          Math.min(STATUS_PROBE_TIMEOUT_MS, aiConfig.agyCli.ssh.execTimeoutMs)
+        );
+        if (result.exitCode !== 0) {
+          return this.status(true, false, "agy_not_logged_in", modelId);
+        }
+        parseStrictJsonObject(result.stdout);
+        return {
+          providerId: this.id,
+          label: this.label,
+          online: true,
+          configured: true,
+          quotaExceeded: false,
+          latencyMs: Date.now() - startedAt,
+          models: [{ modelId, label: modelId, online: true, quotaExceeded: false, recommended: true }]
+        };
+      } catch (error) {
+        return this.status(true, false, this.classifySshError(error), modelId);
+      }
     }
 
     const command = this.resolveCommand();
@@ -95,26 +118,12 @@ export class AgyCliProvider implements AiProvider {
       throw new ProviderExecutionError("offline", "disabled");
     }
 
-    if (aiConfig.agyCli.ssh.enabled) {
-      throw new ProviderExecutionError("offline", "ssh_missing_config");
-    }
-
     if (aiConfig.agyCli.configErrorReason) {
       throw new ProviderExecutionError("offline", aiConfig.agyCli.configErrorReason);
     }
 
     if (!this.hasProfileContexts(input.payload)) {
       throw new ProviderExecutionError("offline", "profile_context_required");
-    }
-
-    const command = this.resolveCommand();
-    if (!command) {
-      throw new ProviderExecutionError("offline", "missing_command");
-    }
-
-    const workdir = this.resolveWorkdir();
-    if (!workdir) {
-      throw new ProviderExecutionError("offline", "invalid_command");
     }
 
     const modelId = this.resolveModelId(input.modelId);
@@ -133,6 +142,30 @@ export class AgyCliProvider implements AiProvider {
     AgyCliProvider.activeExecutions += 1;
 
     try {
+      if (aiConfig.agyCli.ssh.enabled) {
+        const result = await runRemoteWrapperWithStdin(this.sshConfig(), prompt, timeoutMs);
+        if (result.exitCode !== 0) {
+          throw new ProviderExecutionError("provider_error", "agy ssh wrapper exited non-zero");
+        }
+
+        const parsed = parseStrictJsonObject(result.stdout);
+        return {
+          data: parsed as T,
+          modelId,
+          latencyMs: Date.now() - startedAt
+        };
+      }
+
+      const command = this.resolveCommand();
+      if (!command) {
+        throw new ProviderExecutionError("offline", "missing_command");
+      }
+
+      const workdir = this.resolveWorkdir();
+      if (!workdir) {
+        throw new ProviderExecutionError("offline", "invalid_command");
+      }
+
       const result = await this.runLocalProcess(
         command,
         ["--sandbox", "--print-timeout", String(timeoutMs), "--print", prompt],
@@ -216,6 +249,21 @@ export class AgyCliProvider implements AiProvider {
     }
 
     return aiConfig.agyCli.modelAllowlist.includes(requestedModelId) ? requestedModelId : configured;
+  }
+
+  private sshConfig() {
+    return {
+      host: aiConfig.agyCli.ssh.host,
+      port: aiConfig.agyCli.ssh.port,
+      username: aiConfig.agyCli.ssh.username,
+      keyPath: aiConfig.agyCli.ssh.keyPath,
+      hostFingerprint: aiConfig.agyCli.ssh.hostFingerprint,
+      knownHostsPath: aiConfig.agyCli.ssh.knownHostsPath,
+      remoteWrapper: aiConfig.agyCli.ssh.remoteWrapper,
+      connectTimeoutMs: aiConfig.agyCli.ssh.connectTimeoutMs,
+      execTimeoutMs: aiConfig.agyCli.ssh.execTimeoutMs,
+      maxOutputBytes: aiConfig.agyCli.maxOutputBytes
+    };
   }
 
   private hasProfileContexts(payload: unknown) {
@@ -336,5 +384,17 @@ export class AgyCliProvider implements AiProvider {
     }
 
     return "agy_not_logged_in";
+  }
+
+  private classifySshError(error: unknown): AgyCliStatusReason {
+    if (error instanceof AgySshExecutionError) {
+      return error.reason;
+    }
+
+    if (error instanceof ProviderExecutionError && error.code === "invalid_output") {
+      return "invalid_json_output";
+    }
+
+    return "ssh_wrapper_timeout";
   }
 }

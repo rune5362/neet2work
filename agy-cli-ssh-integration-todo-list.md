@@ -64,23 +64,23 @@
 
 ## Phase 5. SSH Remote 연동
 
-- [ ] backend package에 `ssh2`를 추가한다.
+- [x] backend package에 `ssh2`를 추가한다.
 - [ ] `ssh2` 설치 후 TypeScript build로 타입 제공 여부를 확인하고, 타입이 없으면 `@types/ssh2`를 추가한다.
 - [ ] lockfile을 갱신하고 신규 transitive dependency를 검토한다.
-- [ ] `apps/backend/src/services/ai/ssh-helper.ts`를 추가한다.
-- [ ] `runRemoteWrapperWithStdin(config, stdinData, timeoutMs)` 형태로 SSH wrapper 실행을 캡슐화한다.
-- [ ] SSH 실행은 `AGY_CLI_ENABLED=true`이고 `AGY_SSH_ENABLED=true`일 때만 사용한다.
-- [ ] SSH 모드에서는 로컬 executable fallback을 시도하지 않는다.
-- [ ] `AGY_SSH_HOST`, port, username, key path, host fingerprint 또는 known_hosts 설정을 필수 검증한다.
-- [ ] `AGY_SSH_ENABLED=true`인데 SSH 필수값이 빠진 경우 로컬 command가 있더라도 로컬 fallback을 하지 않고 offline으로 보고한다.
-- [ ] private key 인증만 허용하고 password auth, keyboard-interactive, agent forwarding, X11, PTY는 사용하지 않는다.
-- [ ] `AGY_SSH_REMOTE_WRAPPER`는 argument 없는 absolute path만 허용한다.
-- [ ] 원격 wrapper 기본 예시는 `/opt/neet2work/run-agy-sandbox-print`로 둔다.
+- [x] `apps/backend/src/services/ai/ssh-helper.ts`를 추가한다.
+- [x] `runRemoteWrapperWithStdin(config, stdinData, timeoutMs)` 형태로 SSH wrapper 실행을 캡슐화한다.
+- [x] SSH 실행은 `AGY_CLI_ENABLED=true`이고 `AGY_SSH_ENABLED=true`일 때만 사용한다.
+- [x] SSH 모드에서는 로컬 executable fallback을 시도하지 않는다.
+- [x] `AGY_SSH_HOST`, port, username, key path, host fingerprint 또는 known_hosts 설정을 필수 검증한다.
+- [x] `AGY_SSH_ENABLED=true`인데 SSH 필수값이 빠진 경우 로컬 command가 있더라도 로컬 fallback을 하지 않고 offline으로 보고한다.
+- [x] private key 인증만 허용하고 password auth, keyboard-interactive, agent forwarding, X11, PTY는 사용하지 않는다.
+- [x] `AGY_SSH_REMOTE_WRAPPER`는 argument 없는 absolute path만 허용한다.
+- [x] 원격 wrapper 기본 예시는 `/opt/neet2work/run-agy-sandbox-print`로 둔다.
 - [ ] wrapper는 stdin으로 prompt를 받고 내부에서 안전한 인자 배열로 `agy.exe --sandbox --print-timeout <timeout> --print <prompt>`를 실행한다.
-- [ ] known_hosts 사용 시 host와 port를 함께 검증한다.
-- [ ] fingerprint 사용 시 SHA256 fingerprint가 정확히 일치해야 한다.
-- [ ] SSH stdout/stderr 크기 제한, exec timeout, channel close, `conn.end()`, `conn.destroy()` cleanup을 구현한다.
-- [ ] 원격 stderr/stdout 원문, host, username, key path, fingerprint 전체값은 일반 로그/API 응답에 노출하지 않는다.
+- [x] known_hosts 사용 시 host와 port를 함께 검증한다.
+- [x] fingerprint 사용 시 SHA256 fingerprint가 정확히 일치해야 한다.
+- [x] SSH stdout/stderr 크기 제한, exec timeout, channel close, `conn.end()`, `conn.destroy()` cleanup을 구현한다.
+- [x] 원격 stderr/stdout 원문, host, username, key path, fingerprint 전체값은 일반 로그/API 응답에 노출하지 않는다.
 
 ## Phase 6. Smoke Scripts
 
