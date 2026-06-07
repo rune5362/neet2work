@@ -164,9 +164,14 @@ export class AgyCliProvider implements AiProvider {
         return `${Math.max(1, Math.ceil(ms / 1000))}s`;
       };
 
+      const args = ["--print-timeout", formatAgyPrintTimeout(timeoutMs), "--print", prompt];
+      if (aiConfig.agyCli.sandboxEnabled) {
+        args.unshift("--sandbox");
+      }
+
       const result = await this.runLocalProcess(
         command,
-        ["--sandbox", "--print-timeout", formatAgyPrintTimeout(timeoutMs), "--print", prompt],
+        args,
         {
           timeoutMs,
           workdir,
@@ -175,7 +180,7 @@ export class AgyCliProvider implements AiProvider {
       );
 
       if (result.exitCode !== 0) {
-        throw new ProviderExecutionError("provider_error", "agy cli exited non-zero");
+        throw new ProviderExecutionError("provider_error", `agy cli exited non-zero (code: ${result.exitCode}). Stderr: ${result.stderr}`);
       }
 
       const parsed = parseStrictJsonObject(result.stdout);
