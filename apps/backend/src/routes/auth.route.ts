@@ -12,6 +12,7 @@ import {
   updateProfile,
   updateProfileSchema
 } from "../services/auth.service.js";
+import { requireAuthenticatedUser } from "../middleware/auth.js";
 import { getAuthenticatedUserId } from "../utils/auth-session.js";
 
 export const authRouter = Router();
@@ -80,7 +81,7 @@ authRouter.post("/logout", async (req, res, next) => {
   }
 });
 
-authRouter.get("/me/security", async (req, res, next) => {
+authRouter.get("/me/security", requireAuthenticatedUser, async (req, res, next) => {
   try {
     const userId = getAuthenticatedUserId(req.get("authorization"));
     const summary = await getAccountSecuritySummary(userId);
@@ -93,7 +94,7 @@ authRouter.get("/me/security", async (req, res, next) => {
   }
 });
 
-authRouter.patch("/me", async (req, res, next) => {
+authRouter.patch("/me", requireAuthenticatedUser, async (req, res, next) => {
   try {
     const userId = getAuthenticatedUserId(req.get("authorization"));
     const body = updateProfileSchema.parse(req.body);

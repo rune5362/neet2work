@@ -193,7 +193,7 @@ AI 라우팅 정책:
 - `setup/` 아래 OS별 초기 세팅 문서를 제공합니다.
 - `docs/` 아래 API 계약, architecture, AI workflow, DB/API handoff 문서를 유지합니다.
 - work-log와 Figma bridge 관련 script가 포함되어 작업 기록과 디자인 연계 흐름을 지원합니다.
-- Windows 개발 환경에서는 `start-codex-bridge.cmd`로 Codex Bridge를 켠 개발 서버를 실행할 수 있습니다.
+- Windows 개발 환경에서는 `1-demo-local-pc.cmd`로 Codex Bridge와 Gemini/Gemma를 켠 로컬 시연 서버를 실행할 수 있습니다.
 
 ## 폴더 구조
 
@@ -304,6 +304,7 @@ CODEX_BRIDGE_REASONING_EFFORT=
 
 GEMINI_ENABLED=false
 GEMINI_API_KEY=
+GEMINI_MODELS=gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash
 GEMINI_MODEL=
 
 LOCAL_AI_ENABLED=false
@@ -346,7 +347,51 @@ corepack pnpm run codex:bridge:smoke -- --start-login
 corepack pnpm run codex:bridge:smoke -- --start-login --wait-login
 ```
 
-Windows에서 Codex Bridge를 켠 상태로 개발 서버를 바로 실행하려면 프로젝트 루트의 `start-codex-bridge.cmd`를 사용할 수 있습니다.
+Windows에서 Codex Bridge를 켠 상태로 개발 서버를 바로 실행하려면 프로젝트 루트의 `1-demo-local-pc.cmd`를 사용할 수 있습니다.
+
+### 로컬 단일 PC Codex/Gemini 시연
+
+작업 PC 한 대에서 브라우저, frontend, backend, Codex Bridge, Gemini/Gemma 라우팅을 모두 켜려면 다음 명령을 실행합니다.
+
+```bash
+1-demo-local-pc.cmd
+```
+
+브라우저에서는 다음 주소로 접속합니다.
+
+```text
+http://localhost:5173
+```
+
+이 스크립트는 로컬 시연 동안 `CODEX_BRIDGE_ENABLED=true`, `GEMINI_ENABLED=true`, `GEMINI_MODELS=gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash`를 process 환경변수로 설정하고 `corepack pnpm run dev`를 실행합니다. 실제 Gemini API key 값은 `.env`에서 읽히며 스크립트가 출력하지 않습니다.
+
+### Oracle 사이트 + 작업 PC Codex 시연
+
+오라클에 배포된 `https://neet2work.duckdns.org` 화면은 그대로 쓰고, `/api` 요청만 작업 PC의 Codex Bridge backend로 보내려면 작업 PC에서 다음 명령을 실행합니다.
+
+```bash
+2-demo-oracle-site.cmd
+```
+
+이 스크립트는 backend 실행, SSH reverse tunnel 연결, 오라클 Caddy 시연 모드 전환을 순서대로 처리합니다. 창을 닫거나 `Ctrl+C`로 종료하면 Caddy를 원래 모드로 되돌리고 backend/tunnel도 정리합니다.
+
+시연 PC에서는 기존 운영 주소로 접속합니다.
+
+```text
+https://neet2work.duckdns.org
+```
+
+강제 종료나 네트워크 끊김으로 자동 원복이 안 된 경우에만 수동으로 원복합니다.
+
+```bash
+oracle-caddy-demo-mode.cmd -Action disable
+```
+
+상태 확인:
+
+```bash
+oracle-caddy-demo-mode.cmd -Action status
+```
 
 ## 실행 방법
 

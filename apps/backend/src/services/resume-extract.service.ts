@@ -41,9 +41,18 @@ function assertExtractedText(fileName: string, text: string) {
   return normalized;
 }
 
-async function extractDocxText(input: ResumeExtractInput) {
-  const result = await mammoth.extractRawText({ buffer: decodeBase64Buffer(input.contentBase64) });
-  return assertExtractedText(input.fileName, result.value);
+async function extractDocxContent(input: ResumeExtractInput) {
+  const buffer = decodeBase64Buffer(input.contentBase64);
+  const [textResult, htmlResult] = await Promise.all([
+    mammoth.extractRawText({ buffer }),
+    mammoth.convertToHtml({ buffer })
+  ]);
+  const previewHtml = htmlResult.value.trim();
+
+  return {
+    text: assertExtractedText(input.fileName, textResult.value),
+    previewHtml: previewHtml || undefined
+  };
 }
 
 async function extractPdfText(input: ResumeExtractInput) {
@@ -68,9 +77,11 @@ export async function extractResumeFile(input: ResumeExtractInput): Promise<Resu
   }
 
   if (DOCX_EXTENSIONS.has(extension)) {
+    const docx = await extractDocxContent(input);
     return {
       fileName: input.fileName,
-      text: await extractDocxText(input),
+      text: docx.text,
+      previewHtml: docx.previewHtml,
       mode: "mock"
     };
   }

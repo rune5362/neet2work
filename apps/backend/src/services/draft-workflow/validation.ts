@@ -111,6 +111,10 @@ export function assertPlanPrioritizesAttachedRequirements(target: DraftTarget, p
 }
 
 export function assertDraftTextIsExportSafe(draftText: string) {
+  if (!draftText.trim()) {
+    throw new HttpError("초안 본문이 비어 있습니다.", 422);
+  }
+
   if (containsUnsafeExportText(draftText)) {
     throw new HttpError("초안에 문서 출력에 안전하지 않은 문자나 깨진 문자가 포함되었습니다.", 422);
   }

@@ -18,7 +18,7 @@ import { HomeTopNav } from "../components/HomeTopNav";
 import type { ApplicationDocumentType, DocumentListItem } from "../types/document";
 import type { ProfileListItem } from "../types/profile";
 
-type DocumentsFilter = "all" | "profile" | "cover_letter";
+type DocumentsFilter = "all" | "profile" | ApplicationDocumentType;
 type DocumentsSort = "updated" | "type" | "company";
 type LibraryItem =
   | { kind: "profile"; updatedAt: string; profile: ProfileListItem }
@@ -27,7 +27,8 @@ type LibraryItem =
 const documentFilters: Array<{ label: string; value: DocumentsFilter }> = [
   { label: "전체", value: "all" },
   { label: "프로필", value: "profile" },
-  { label: "자기소개서", value: "cover_letter" }
+  { label: "자기소개서", value: "cover_letter" },
+  { label: "이력서", value: "resume" }
 ];
 
 const documentSorts: Array<{ label: string; value: DocumentsSort }> = [
@@ -39,13 +40,14 @@ const documentSorts: Array<{ label: string; value: DocumentsSort }> = [
 const documentTypeOrder: Record<DocumentsFilter, number> = {
   all: 0,
   profile: 1,
-  cover_letter: 2
+  cover_letter: 2,
+  resume: 3
 };
 
 function getInitialFilter(): DocumentsFilter {
   const value = new URLSearchParams(window.location.search).get("type");
 
-  if (value === "profile" || value === "cover_letter") {
+  if (value === "profile" || value === "cover_letter" || value === "resume") {
     return value;
   }
 
@@ -121,7 +123,7 @@ function getItemTypeOrder(item: LibraryItem) {
     return documentTypeOrder.profile;
   }
 
-  return documentTypeOrder.cover_letter;
+  return documentTypeOrder[item.document.documentType];
 }
 
 function getItemCompanySortValue(item: LibraryItem) {
@@ -193,11 +195,11 @@ export function Documents() {
     try {
       const [profileResult, documentResult] = await Promise.all([
         getProfiles({ includeArchived: true }),
-        getDocuments({ documentType: "cover_letter", includeArchived: true })
+        getDocuments({ includeArchived: true })
       ]);
 
       setProfiles(profileResult);
-      setDocuments(documentResult.filter((document) => document.documentType === "cover_letter"));
+      setDocuments(documentResult);
     } catch (error) {
       if (isLoginRequiredError(error)) {
         setAuthRequired(true);
@@ -249,7 +251,7 @@ export function Documents() {
           return item.kind === "profile";
         }
 
-        return item.kind === "document" && item.document.documentType === "cover_letter";
+        return item.kind === "document" && item.document.documentType === filter;
       })
       .filter((item) => {
         if (!normalizedSearchText) {
@@ -306,10 +308,8 @@ export function Documents() {
 
     try {
       const copiedDocument = await copyDocument(documentId);
-      if (copiedDocument.documentType === "cover_letter") {
-        setDocuments((currentDocuments) => [copiedDocument, ...currentDocuments]);
-      }
-      setToastMessage("자기소개서 복사가 완료되었습니다.");
+      setDocuments((currentDocuments) => [copiedDocument, ...currentDocuments]);
+      setToastMessage(`${getDocumentTypeLabel(copiedDocument.documentType)} 복사가 완료되었습니다.`);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "문서 복사에 실패했습니다.");
     } finally {
@@ -331,7 +331,7 @@ export function Documents() {
       } else {
         await deleteDocument(itemId);
         setDocuments((currentDocuments) => currentDocuments.filter((document) => document.id !== itemId));
-        setToastMessage("자기소개서 삭제가 완료되었습니다.");
+        setToastMessage(`${getDocumentTypeLabel(item.document.documentType)} 삭제가 완료되었습니다.`);
       }
 
       setPendingDeleteItem(null);
@@ -470,7 +470,7 @@ export function Documents() {
           <span>문서함</span>
           <div>
             <h1>문서함</h1>
-            <p>프로필과 자기소개서를 한 곳에서 확인합니다.</p>
+            <p>프로필, 자기소개서, 이력서를 한 곳에서 확인합니다.</p>
           </div>
           <div className="documentsHeaderActions">
             <button type="button" onClick={() => { window.location.href = "/documents/profiles/new"; }}>
@@ -544,7 +544,7 @@ export function Documents() {
         ) : totalLibraryCount === 0 ? (
           <div className="documentsEmpty">
             <strong>저장된 항목이 없습니다.</strong>
-            <p>프로필과 자기소개서를 만들어 지원 자료를 정리합니다.</p>
+            <p>프로필과 지원 문서를 만들어 지원 자료를 정리합니다.</p>
             <div className="documentsEmptyActions">
               <button type="button" onClick={() => { window.location.href = "/documents/profiles/new"; }}>
                 프로필 만들기

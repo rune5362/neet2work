@@ -74,7 +74,7 @@ const profileJsonSchema = z.object({
   })
 });
 
-const draftProfileContextSchema = z.object({
+export const draftProfileContextSchema = z.object({
   profileId: z.string().min(1),
   title: z.string().min(1),
   schemaVersion: z.number().int().positive(),
@@ -278,7 +278,7 @@ export const draftWorkflowDraftSchema = z.object({
   mode: z.enum(["ai", "fallback"]),
   state: draftWorkflowStateSchema,
   aiMeta: aiExecutionMetaSchema,
-  draftText: z.string(),
+  draftText: z.string().min(1),
   charCount: z.object({
     withSpaces: z.number(),
     withoutSpaces: z.number(),

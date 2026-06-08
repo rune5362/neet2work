@@ -4,26 +4,31 @@ import { extractResumeFile } from "./resume-extract.service.js";
 
 const mocks = vi.hoisted(() => ({
   extractRawText: vi.fn(),
+  convertToHtml: vi.fn(),
   getText: vi.fn(),
   destroy: vi.fn()
 }));
 
 vi.mock("mammoth", () => ({
   default: {
-    extractRawText: mocks.extractRawText
+    extractRawText: mocks.extractRawText,
+    convertToHtml: mocks.convertToHtml
   }
 }));
 
 vi.mock("pdf-parse", () => ({
-  PDFParse: vi.fn().mockImplementation(() => ({
-    getText: mocks.getText,
-    destroy: mocks.destroy
-  }))
+  PDFParse: vi.fn(function PDFParse() {
+    return {
+      getText: mocks.getText,
+      destroy: mocks.destroy
+    };
+  })
 }));
 
 describe("extractResumeFile", () => {
   beforeEach(() => {
     mocks.extractRawText.mockReset();
+    mocks.convertToHtml.mockReset();
     mocks.getText.mockReset();
     mocks.destroy.mockReset();
     mocks.destroy.mockResolvedValue(undefined);
@@ -44,6 +49,7 @@ describe("extractResumeFile", () => {
 
   it("extracts docx file content", async () => {
     mocks.extractRawText.mockResolvedValue({ value: "DOCX 포트폴리오 본문입니다." });
+    mocks.convertToHtml.mockResolvedValue({ value: "<p>DOCX 포트폴리오 본문입니다.</p>" });
 
     const result = await extractResumeFile({
       fileName: "portfolio.docx",
@@ -52,8 +58,10 @@ describe("extractResumeFile", () => {
     });
 
     expect(result.text).toBe("DOCX 포트폴리오 본문입니다.");
+    expect(result.previewHtml).toBe("<p>DOCX 포트폴리오 본문입니다.</p>");
     expect(result.mode).toBe("mock");
     expect(mocks.extractRawText).toHaveBeenCalledWith({ buffer: expect.any(Buffer) });
+    expect(mocks.convertToHtml).toHaveBeenCalledWith({ buffer: expect.any(Buffer) });
   });
 
   it("extracts pdf text-layer content", async () => {

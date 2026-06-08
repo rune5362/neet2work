@@ -1,0 +1,38 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile.prod
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      CLIENT_URL: ${PUBLIC_FRONTEND_URL:?set PUBLIC_FRONTEND_URL in .env.production}
+      TRUST_PROXY: ${TRUST_PROXY:-true}
+      REQUIRE_HTTPS: ${REQUIRE_HTTPS:-false}
+      CODEX_HOME: ${CODEX_BRIDGE_HOME:-/app/.codex}
+    volumes:
+      - backend-local-data:/app/local-data
+      - backend-uploads:/app/uploads
+      - codex-home:/app/.codex
+    expose:
+      - "3000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile.prod
+      args:
+        VITE_API_BASE_URL: ${PUBLIC_API_BASE_URL:?set PUBLIC_API_BASE_URL in .env.production}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${HTTP_PORT:-8080}:80"
+    depends_on:
+      - backend
+
+volumes:
+  backend-local-data:
+  backend-uploads:
+  codex-home:

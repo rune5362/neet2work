@@ -1,9 +1,10 @@
 import type { AddressInfo } from "node:net";
 import express from "express";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 import { draftWorkflowRouter } from "./draft-workflow.route.js";
 import { HttpError } from "../utils/http-error.js";
+import { issueAccessToken } from "../services/token.service.js";
 
 function createDraftWorkflowTestApp() {
   const app = express();
@@ -35,13 +36,39 @@ function createDraftWorkflowTestApp() {
   return app;
 }
 
-async function request(path: string, init?: RequestInit): Promise<Response> {
+function authHeaders() {
+  const { accessToken } = issueAccessToken({
+    sub: "route-test-user",
+    email: "route-test@example.com",
+    status: "ACTIVE"
+  });
+  return `Bearer ${accessToken}`;
+}
+
+function withAuth(init?: RequestInit) {
+  const headers = new Headers(init?.headers);
+  if (!headers.has("Authorization")) {
+    headers.set("Authorization", authHeaders());
+  }
+
+  return {
+    ...init,
+    headers
+  };
+}
+
+async function request(
+  path: string,
+  init?: RequestInit,
+  options: { auth?: boolean } = {}
+): Promise<Response> {
   const app = createDraftWorkflowTestApp();
   const server = app.listen(0);
+  const requestInit = options.auth === false ? init : withAuth(init);
 
   try {
     const address = server.address() as AddressInfo;
-    return await fetch(`http://127.0.0.1:${address.port}${path}`, init);
+    return await fetch(`http://127.0.0.1:${address.port}${path}`, requestInit);
   } finally {
     await new Promise<void>((resolve, reject) => {
       server.close((error) => {
@@ -116,8 +143,15 @@ const validProfileContext = {
 };
 
 describe("draft workflow routes", () => {
+  beforeEach(() => {
+    process.env.AI_RATE_LIMIT_MAX_REQUESTS = "1000";
+    process.env.JWT_SECRET = "route-test-secret-that-is-long-enough";
+  });
+
   afterEach(() => {
+    delete process.env.AI_RATE_LIMIT_MAX_REQUESTS;
     delete process.env.AI_PROVIDER_ORDER;
+    delete process.env.JWT_SECRET;
   });
 
   it("GET /providers includes fallback provider", async () => {
@@ -126,6 +160,24 @@ describe("draft workflow routes", () => {
 
     expect(response.status).toBe(200);
     expect(body.data.some((item: { providerId: string; online: boolean }) => item.providerId === "fallback" && item.online)).toBe(true);
+  });
+
+  it("POST /plan requires authentication", async () => {
+    const response = await request("/api/draft-workflow/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        aiSelection: { mode: "auto" },
+        target: validTarget,
+        experienceInput: {
+          manualExperienceText: "Node.js와 PostgreSQL로 REST API 서버를 구축하고 운영했습니다."
+        }
+      })
+    }, { auth: false });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body.message).toBe("인증이 필요합니다.");
   });
 
   it("POST /providers/codex/login returns 400 when Codex Bridge is disabled", async () => {

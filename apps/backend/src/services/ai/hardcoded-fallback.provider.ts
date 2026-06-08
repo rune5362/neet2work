@@ -13,6 +13,7 @@ import type {
   GapAnswer,
   MaterialStore
 } from "../../types/draft-workflow.js";
+import { buildFallbackAnalysis, type AnalyzeFallbackInput } from "../analysis-fallback.js";
 import {
   countChars,
   defaultDocumentFormatting,
@@ -505,6 +506,9 @@ export class HardcodedFallbackProvider implements AiProvider {
   }
 
   private buildOperationResult(operation: AiWorkflowOperation, payload: unknown) {
+    if (operation === "analyze") {
+      return buildFallbackAnalysis(payload as AnalyzeFallbackInput);
+    }
     if (operation === "plan") {
       return buildFallbackPlan(payload as FallbackPlanPayload);
     }

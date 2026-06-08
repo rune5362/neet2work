@@ -52,6 +52,7 @@ type LifecycleSqlUpdate = {
 
 const DEFAULT_OUTPUT_DIR = path.join("tmp", "job-operational-sql");
 const MISSING_BELOW_THRESHOLD_REASON = "missing_threshold_not_met";
+const SAFE_ARTIFACT_TOKEN_PATTERN = /^[A-Za-z0-9._-]+$/u;
 
 export function parseJobOperationalSqlArtifactsArgs(
   argv: string[]
@@ -232,7 +233,10 @@ export function buildImportApplySql(batch: CollectedJobBatch): string {
 }
 
 export function buildLifecycleApplySql(parsedReport: unknown): string {
+  assertLifecycleArtifactTokens(parsedReport);
   const report = parseLifecycleApplyReport(parsedReport);
+  assertSafeArtifactToken(report.source, "lifecycle.source");
+  assertSafeArtifactToken(report.crawlBatchId, "lifecycle.crawlBatchId");
   const updates = buildLifecycleSqlUpdates(report);
   const updatesJson = dollarQuoteJson(updates, "n2w_lifecycle_updates");
   const advisoryKey = quoteSqlString(
@@ -360,6 +364,8 @@ export function buildLifecycleApplySql(parsedReport: unknown): string {
 export function buildJobOperationalSqlArtifactsManifest(
   options: SqlArtifactManifestOptions
 ): JobOperationalSqlArtifactsManifest {
+  assertSafeArtifactToken(options.source, "manifest.source");
+
   return {
     schemaVersion: "job_operational_sql_artifacts_v1",
     source: options.source,
@@ -551,6 +557,8 @@ function validateJobBatch(parsed: unknown) {
   assertNonEmptyString(parsed.mode, "batch.mode");
   assertNonEmptyString(parsed.crawlBatchId, "batch.crawlBatchId");
   assertIsoDate(parsed.collectedAt, "batch.collectedAt");
+  assertSafeArtifactToken(parsed.source, "batch.source");
+  assertSafeArtifactToken(parsed.crawlBatchId, "batch.crawlBatchId");
 
   if (parsed.mode !== "sample" && parsed.mode !== "batch") {
     throw new Error(`Unsupported batch mode: ${String(parsed.mode)}`);
@@ -602,6 +610,14 @@ function assertRecord(value: unknown, field: string): asserts value is Record<st
   }
 }
 
+function assertLifecycleArtifactTokens(parsedReport: unknown) {
+  assertRecord(parsedReport, "lifecycle report");
+  assertNonEmptyString(parsedReport.source, "lifecycle.source");
+  assertNonEmptyString(parsedReport.crawlBatchId, "lifecycle.crawlBatchId");
+  assertSafeArtifactToken(parsedReport.source, "lifecycle.source");
+  assertSafeArtifactToken(parsedReport.crawlBatchId, "lifecycle.crawlBatchId");
+}
+
 function assertNonEmptyString(value: unknown, field: string): asserts value is string {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`${field} must be a non-empty string.`);
@@ -613,6 +629,12 @@ function assertIsoDate(value: unknown, field: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     throw new Error(`${field} must be an ISO date.`);
+  }
+}
+
+function assertSafeArtifactToken(value: string, field: string) {
+  if (value.length > 120 || !SAFE_ARTIFACT_TOKEN_PATTERN.test(value)) {
+    throw new Error(`${field} must contain only letters, numbers, dot, underscore, or hyphen.`);
   }
 }
 

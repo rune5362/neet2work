@@ -9,8 +9,22 @@ import { buildDraftWorkflowPrompt } from "../draft-workflow/prompt-builder.js";
 import { CodexAppServerClient } from "./codex-app-server-client.js";
 import { extractJsonObject, ProviderExecutionError, withTimeout } from "./provider-utils.js";
 
+const CODEX_APP_SERVER_DEFAULT_MODEL_ID = "codex-app-server";
+
 function codexModelId() {
-  return aiConfig.codexBridge.model || "codex-app-server";
+  return aiConfig.codexBridge.model || CODEX_APP_SERVER_DEFAULT_MODEL_ID;
+}
+
+function normalizeCodexModelOverride(modelId?: string) {
+  const normalized = modelId?.trim();
+  if (!normalized || normalized === CODEX_APP_SERVER_DEFAULT_MODEL_ID) {
+    return undefined;
+  }
+  return normalized;
+}
+
+function resolveCodexModelOverride(modelId?: string) {
+  return normalizeCodexModelOverride(modelId) ?? normalizeCodexModelOverride(aiConfig.codexBridge.model);
 }
 
 function accountIsUsable(accountState: Awaited<ReturnType<CodexAppServerClient["readAccount"]>>) {
@@ -117,7 +131,7 @@ export class CodexBridgeProvider implements AiProvider {
 
     const startedAt = Date.now();
     const prompt = buildDraftWorkflowPrompt(input.operation, input.payload);
-    const modelId = input.modelId ?? aiConfig.codexBridge.model;
+    const modelId = resolveCodexModelOverride(input.modelId);
     let client: CodexAppServerClient | undefined;
 
     try {
@@ -130,6 +144,7 @@ export class CodexBridgeProvider implements AiProvider {
         throw new ProviderExecutionError("offline", "codex_not_logged_in");
       }
 
+      const turnTimeoutMs = Math.min(input.timeoutMs, aiConfig.codexBridge.turnTimeoutMs);
       const assistantOutput = await withTimeout(
         client.runPrompt({
           prompt,
@@ -137,14 +152,14 @@ export class CodexBridgeProvider implements AiProvider {
           reasoningEffort: aiConfig.codexBridge.reasoningEffort || undefined,
           cwd: process.cwd()
         }),
-        input.timeoutMs,
+        turnTimeoutMs,
         "codex app-server turn"
       );
       const parsed = extractJsonObject(assistantOutput);
 
       return {
         data: parsed as T,
-        modelId: modelId || "codex-app-server",
+        modelId: modelId || CODEX_APP_SERVER_DEFAULT_MODEL_ID,
         latencyMs: Date.now() - startedAt
       };
     } finally {

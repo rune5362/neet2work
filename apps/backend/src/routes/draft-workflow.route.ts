@@ -10,8 +10,10 @@ import {
   startCodexBridgeLogin
 } from "../services/ai/codex-login-session.service.js";
 import { HttpError } from "../utils/http-error.js";
+import { createProtectedAiRouteMiddleware } from "../middleware/protectedAiRoute.js";
 
 export const draftWorkflowRouter = Router();
+const protectedAiRoute = createProtectedAiRouteMiddleware();
 
 draftWorkflowRouter.get("/providers", async (_req, res, next) => {
   try {
@@ -22,7 +24,7 @@ draftWorkflowRouter.get("/providers", async (_req, res, next) => {
   }
 });
 
-draftWorkflowRouter.post("/providers/codex/login", async (_req, res, next) => {
+draftWorkflowRouter.post("/providers/codex/login", ...protectedAiRoute, async (_req, res, next) => {
   try {
     const data = await startCodexBridgeLogin();
     res.json({ data });
@@ -31,9 +33,10 @@ draftWorkflowRouter.post("/providers/codex/login", async (_req, res, next) => {
   }
 });
 
-draftWorkflowRouter.get("/providers/codex/login/:loginId", (req, res, next) => {
+draftWorkflowRouter.get("/providers/codex/login/:loginId", ...protectedAiRoute, (req, res, next) => {
   try {
-    const loginId = req.params.loginId.trim();
+    const rawLoginId = req.params.loginId;
+    const loginId = (Array.isArray(rawLoginId) ? rawLoginId[0] ?? "" : rawLoginId).trim();
     const data = getCodexBridgeLoginStatus(loginId);
     if (!data) {
       throw new HttpError(404, "Codex 로그인 세션을 찾을 수 없습니다.");
@@ -45,7 +48,7 @@ draftWorkflowRouter.get("/providers/codex/login/:loginId", (req, res, next) => {
   }
 });
 
-draftWorkflowRouter.post("/plan", async (req, res, next) => {
+draftWorkflowRouter.post("/plan", ...protectedAiRoute, async (req, res, next) => {
   try {
     const body = draftWorkflowPlanRequestSchema.parse(req.body);
     const data = await draftWorkflowService.createPlan(body);
@@ -55,7 +58,7 @@ draftWorkflowRouter.post("/plan", async (req, res, next) => {
   }
 });
 
-draftWorkflowRouter.post("/draft", async (req, res, next) => {
+draftWorkflowRouter.post("/draft", ...protectedAiRoute, async (req, res, next) => {
   try {
     const body = draftWorkflowDraftRequestSchema.parse(req.body);
     const data = await draftWorkflowService.createDraft(body);
@@ -65,7 +68,7 @@ draftWorkflowRouter.post("/draft", async (req, res, next) => {
   }
 });
 
-draftWorkflowRouter.post("/revise", async (req, res, next) => {
+draftWorkflowRouter.post("/revise", ...protectedAiRoute, async (req, res, next) => {
   try {
     const body = draftWorkflowReviseRequestSchema.parse(req.body);
     const data = await draftWorkflowService.reviseDraft(body);

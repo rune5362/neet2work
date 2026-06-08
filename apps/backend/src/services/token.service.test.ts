@@ -29,6 +29,7 @@ describe("token service", () => {
   afterEach(() => {
     delete process.env.ACCESS_TOKEN_EXPIRES_IN_SECONDS;
     delete process.env.JWT_SECRET;
+    delete process.env.NODE_ENV;
   });
 
   it("verifies access tokens issued by the service", () => {
@@ -72,5 +73,31 @@ describe("token service", () => {
     );
 
     expect(() => verifyAccessToken(accessToken)).toThrow("Invalid access token header");
+  });
+
+  it("rejects placeholder JWT secrets in production", () => {
+    process.env.NODE_ENV = "production";
+    process.env.JWT_SECRET = "change-me-to-a-long-random-secret";
+
+    expect(() =>
+      issueAccessToken({
+        sub: "user-1",
+        email: "user@example.com",
+        status: "ACTIVE"
+      })
+    ).toThrow("운영 환경 JWT_SECRET은 32바이트 이상의 무작위 값이어야 합니다.");
+  });
+
+  it("rejects short JWT secrets in production", () => {
+    process.env.NODE_ENV = "production";
+    process.env.JWT_SECRET = "short-secret";
+
+    expect(() =>
+      issueAccessToken({
+        sub: "user-1",
+        email: "user@example.com",
+        status: "ACTIVE"
+      })
+    ).toThrow("운영 환경 JWT_SECRET은 32바이트 이상의 무작위 값이어야 합니다.");
   });
 });

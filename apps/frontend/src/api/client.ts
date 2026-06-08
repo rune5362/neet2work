@@ -1,5 +1,6 @@
 import type { AnalysisResult } from "../types/analysis";
 import type {
+  AiSelection,
   AiProviderStatus,
   CodexBridgeLoginStatus,
   DraftWorkflowDraft,
@@ -8,6 +9,15 @@ import type {
   DraftWorkflowPlanRequest,
   DraftWorkflowReviseRequest
 } from "../types/draft-workflow";
+import type {
+  CareerWorkflowSession,
+  CareerWorkflowSessionRequest
+} from "../types/career-workflow";
+import type {
+  CareerDocumentWorkflowAnswerRequest,
+  CareerDocumentWorkflowSession,
+  CareerDocumentWorkflowSessionRequest
+} from "../types/career-document-workflow";
 import type { CareerStage, EmploymentTypeCategory, JobPosting } from "../types/job";
 
 export type EmploymentTypeFilterValue = EmploymentTypeCategory | "unspecified";
@@ -114,6 +124,22 @@ function buildApiUrl(
   return url.toString();
 }
 
+function jsonHeaders(accessToken?: string) {
+  const headers = new Headers();
+  headers.set("Content-Type", "application/json");
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
+  return headers;
+}
+
+function authHeaders(accessToken: string) {
+  const headers = new Headers();
+  headers.set("Authorization", `Bearer ${accessToken}`);
+  return headers;
+}
+
 export async function getJobs(query: JobListQuery = {}): Promise<ApiListResponse<JobPosting>> {
   const response = await fetch(buildApiUrl("/api/jobs", query));
 
@@ -146,15 +172,17 @@ export async function getJobById(id: string): Promise<JobPosting> {
   return result.data;
 }
 
-export async function analyzeResume(payload: {
-  resumeText: string;
-  jobId: string;
-}): Promise<AnalysisResult> {
+export async function analyzeResume(
+  payload: {
+    resumeText: string;
+    jobId: string;
+    aiSelection?: AiSelection;
+  },
+  accessToken: string
+): Promise<AnalysisResult> {
   const response = await fetch(`${API_BASE_URL}/api/analyze`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: jsonHeaders(accessToken),
     body: JSON.stringify(payload)
   });
 
@@ -166,16 +194,17 @@ export async function analyzeResume(payload: {
   return result.data;
 }
 
-export async function extractResumeFile(payload: {
-  fileName: string;
-  mimeType?: string;
-  contentBase64: string;
-}): Promise<{ fileName: string; text: string; mode: "mock" | "ai" }> {
+export async function extractResumeFile(
+  payload: {
+    fileName: string;
+    mimeType?: string;
+    contentBase64: string;
+  },
+  accessToken: string
+): Promise<{ fileName: string; text: string; previewHtml?: string; mode: "mock" | "ai" }> {
   const response = await fetch(`${API_BASE_URL}/api/resume/extract`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: jsonHeaders(accessToken),
     body: JSON.stringify(payload)
   });
 
@@ -186,6 +215,7 @@ export async function extractResumeFile(payload: {
   const result = (await response.json()) as ApiItemResponse<{
     fileName: string;
     text: string;
+    previewHtml?: string;
     mode: "mock" | "ai";
   }>;
   return result.data;
@@ -202,9 +232,64 @@ export async function getDraftWorkflowProviders(): Promise<AiProviderStatus[]> {
   return result.data;
 }
 
-export async function startCodexBridgeLogin(): Promise<CodexBridgeLoginStatus> {
+export async function createCareerWorkflowSession(
+  payload: CareerWorkflowSessionRequest,
+  accessToken: string
+): Promise<CareerWorkflowSession> {
+  const response = await fetch(`${API_BASE_URL}/api/career-workflow/session`, {
+    method: "POST",
+    headers: jsonHeaders(accessToken),
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error("커리어 문서 세션 분석에 실패했습니다.");
+  }
+
+  const result = (await response.json()) as ApiItemResponse<CareerWorkflowSession>;
+  return result.data;
+}
+
+export async function createCareerDocumentWorkflowSession(
+  payload: CareerDocumentWorkflowSessionRequest,
+  accessToken: string
+): Promise<CareerDocumentWorkflowSession> {
+  const response = await fetch(`${API_BASE_URL}/api/career-workflow/document-session`, {
+    method: "POST",
+    headers: jsonHeaders(accessToken),
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error("커리어 문서 작성 세션 생성에 실패했습니다.");
+  }
+
+  const result = (await response.json()) as ApiItemResponse<CareerDocumentWorkflowSession>;
+  return result.data;
+}
+
+export async function answerCareerDocumentWorkflowQuestion(
+  payload: CareerDocumentWorkflowAnswerRequest,
+  accessToken: string
+): Promise<CareerDocumentWorkflowSession> {
+  const response = await fetch(`${API_BASE_URL}/api/career-workflow/document-session/answer`, {
+    method: "POST",
+    headers: jsonHeaders(accessToken),
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error("보완 답변 저장에 실패했습니다.");
+  }
+
+  const result = (await response.json()) as ApiItemResponse<CareerDocumentWorkflowSession>;
+  return result.data;
+}
+
+export async function startCodexBridgeLogin(accessToken: string): Promise<CodexBridgeLoginStatus> {
   const response = await fetch(`${API_BASE_URL}/api/draft-workflow/providers/codex/login`, {
-    method: "POST"
+    method: "POST",
+    headers: authHeaders(accessToken)
   });
 
   if (!response.ok) {
@@ -215,8 +300,13 @@ export async function startCodexBridgeLogin(): Promise<CodexBridgeLoginStatus> {
   return result.data;
 }
 
-export async function getCodexBridgeLoginStatus(loginId: string): Promise<CodexBridgeLoginStatus> {
-  const response = await fetch(`${API_BASE_URL}/api/draft-workflow/providers/codex/login/${encodeURIComponent(loginId)}`);
+export async function getCodexBridgeLoginStatus(
+  loginId: string,
+  accessToken: string
+): Promise<CodexBridgeLoginStatus> {
+  const response = await fetch(`${API_BASE_URL}/api/draft-workflow/providers/codex/login/${encodeURIComponent(loginId)}`, {
+    headers: authHeaders(accessToken)
+  });
 
   if (!response.ok) {
     throw new Error("Codex 연결 상태 확인에 실패했습니다.");
@@ -227,11 +317,12 @@ export async function getCodexBridgeLoginStatus(loginId: string): Promise<CodexB
 }
 
 export async function createDraftWorkflowPlan(
-  payload: DraftWorkflowPlanRequest
+  payload: DraftWorkflowPlanRequest,
+  accessToken: string
 ): Promise<DraftWorkflowPlan> {
   const response = await fetch(`${API_BASE_URL}/api/draft-workflow/plan`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: jsonHeaders(accessToken),
     body: JSON.stringify(payload)
   });
 
@@ -244,11 +335,12 @@ export async function createDraftWorkflowPlan(
 }
 
 export async function createDraftWorkflowDraft(
-  payload: DraftWorkflowDraftRequest
+  payload: DraftWorkflowDraftRequest,
+  accessToken: string
 ): Promise<DraftWorkflowDraft> {
   const response = await fetch(`${API_BASE_URL}/api/draft-workflow/draft`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: jsonHeaders(accessToken),
     body: JSON.stringify(payload)
   });
 
@@ -261,11 +353,12 @@ export async function createDraftWorkflowDraft(
 }
 
 export async function reviseDraftWorkflowDraft(
-  payload: DraftWorkflowReviseRequest
+  payload: DraftWorkflowReviseRequest,
+  accessToken: string
 ): Promise<DraftWorkflowDraft> {
   const response = await fetch(`${API_BASE_URL}/api/draft-workflow/revise`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: jsonHeaders(accessToken),
     body: JSON.stringify(payload)
   });
 

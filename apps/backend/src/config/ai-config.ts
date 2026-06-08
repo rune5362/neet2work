@@ -13,6 +13,9 @@ if (process.env.NODE_ENV !== "test") {
   dotenv.config({ path: backendEnvPath, override: true });
 }
 
+const DEFAULT_PROVIDER_TIMEOUT_MS = 180_000;
+const DEFAULT_CODEX_BRIDGE_TURN_TIMEOUT_MS = 300_000;
+
 function parseProviderOrder(raw: string | undefined): AiProviderId[] {
   const allowed: AiProviderId[] = ["codex_bridge", "gemini", "local", "agy_cli", "fallback"];
   const parsed = (raw ?? "codex_bridge,gemini,local,agy_cli,fallback")
@@ -32,7 +35,7 @@ function parsePositiveInteger(raw: string | undefined, fallback: number) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function parseCsv(raw: string | undefined) {
+function parseModelList(raw: string | undefined): string[] {
   return (raw ?? "")
     .split(",")
     .map((item) => item.trim())
@@ -153,22 +156,30 @@ function resolveCodexBridgeHome() {
 export const aiConfig = {
   routingDefault: (process.env.AI_ROUTING_DEFAULT ?? "auto") as AiRoutingMode,
   providerOrder: parseProviderOrder(process.env.AI_PROVIDER_ORDER),
-  providerTimeoutMs: parsePositiveInteger(process.env.AI_PROVIDER_TIMEOUT_MS, 180_000),
+  providerTimeoutMs: parsePositiveInteger(process.env.AI_PROVIDER_TIMEOUT_MS, DEFAULT_PROVIDER_TIMEOUT_MS),
 
   codexBridge: {
     enabled: process.env.CODEX_BRIDGE_ENABLED === "true",
     command: resolveCodexBridgeCommand(),
     home: resolveCodexBridgeHome(),
     model: process.env.CODEX_BRIDGE_MODEL ?? "",
-    reasoningEffort: process.env.CODEX_BRIDGE_REASONING_EFFORT ?? ""
+    reasoningEffort: process.env.CODEX_BRIDGE_REASONING_EFFORT ?? "",
+    turnTimeoutMs: parsePositiveInteger(process.env.CODEX_BRIDGE_TURN_TIMEOUT_MS, DEFAULT_CODEX_BRIDGE_TURN_TIMEOUT_MS)
   },
 
-  gemini: {
-    enabled: process.env.GEMINI_ENABLED === "true",
-    apiKey: process.env.GEMINI_API_KEY ?? "",
-    model: process.env.GEMINI_MODEL ?? "",
-    timeoutMs: parsePositiveInteger(process.env.GEMINI_TIMEOUT_MS, 120_000)
-  },
+  gemini: (() => {
+    const modelsFromList = parseModelList(process.env.GEMINI_MODELS);
+    const legacyModel = process.env.GEMINI_MODEL?.trim() ?? "";
+    const models = modelsFromList.length > 0 ? modelsFromList : legacyModel ? [legacyModel] : [];
+
+    return {
+      enabled: process.env.GEMINI_ENABLED === "true",
+      apiKey: process.env.GEMINI_API_KEY ?? "",
+      model: models[0] ?? "",
+      models,
+      timeoutMs: parsePositiveInteger(process.env.GEMINI_TIMEOUT_MS, 120_000)
+    };
+  })(),
 
   localAi: {
     enabled: process.env.LOCAL_AI_ENABLED === "true",
@@ -202,7 +213,7 @@ export const aiConfig = {
       maxPromptBytes: parsePositiveInteger(process.env.AGY_CLI_MAX_PROMPT_BYTES, 200_000),
       maxOutputBytes: parsePositiveInteger(process.env.AGY_CLI_MAX_OUTPUT_BYTES, 1_000_000),
       maxConcurrency: parsePositiveInteger(process.env.AGY_CLI_MAX_CONCURRENCY, 1),
-      modelAllowlist: parseCsv(process.env.AGY_CLI_MODEL_ALLOWLIST),
+      modelAllowlist: parseModelList(process.env.AGY_CLI_MODEL_ALLOWLIST),
       taskProfile,
       workdir,
       ssh: {
@@ -236,7 +247,7 @@ export const aiConfig = {
 };
 
 export function isGeminiConfigured() {
-  return aiConfig.gemini.enabled && Boolean(aiConfig.gemini.apiKey) && Boolean(aiConfig.gemini.model);
+  return aiConfig.gemini.enabled && Boolean(aiConfig.gemini.apiKey) && aiConfig.gemini.models.length > 0;
 }
 
 export function isLocalAiConfigured() {

@@ -502,9 +502,14 @@ export async function refreshAccessTokenWithClient(
   const { refreshToken, refreshTokenHash, refreshTokenExpiresIn, refreshTokenExpiresAt } = issueRefreshToken();
 
   await prisma.$transaction(async (tx) => {
-    await tx.refreshToken.update({
+    const revokedToken = await tx.refreshToken.updateMany({
       where: {
-        id: storedToken.id
+        id: storedToken.id,
+        revokedAt: null,
+        deletedAt: null,
+        expiresAt: {
+          gt: now
+        }
       },
       data: {
         revokedAt: now,
@@ -512,6 +517,10 @@ export async function refreshAccessTokenWithClient(
         updatedBy: storedToken.user.id
       }
     });
+
+    if (revokedToken.count !== 1) {
+      throw new HttpError(401, "세션이 만료되었습니다. 다시 로그인해 주세요.");
+    }
 
     await tx.refreshToken.create({
       data: {

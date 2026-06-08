@@ -24,6 +24,7 @@ DEFAULT_LIST_URL = (
     "https://www.daijob.com/en/jobs/search?"
     "il%5B%5D=119&il%5B%5D=122&il%5B%5D=124"
 )
+ALLOWED_HOSTS = {"daijob.com", "www.daijob.com"}
 SOURCE = "daijob"
 TEXT_LIMIT = 5000
 MAX_LIMIT = 5
@@ -174,7 +175,7 @@ def canonical_detail_url(job_id: str, language: str = "en") -> str:
 
 
 def list_jobs(list_url: str, limit: int) -> list[SourceJobLink]:
-    result = fetch_text(list_url)
+    result = fetch_text(list_url, allowed_hosts=ALLOWED_HOSTS)
     if result.status >= 400:
         raise RuntimeError(f"Daijob list request failed: HTTP {result.status}")
 
@@ -241,7 +242,7 @@ def resolve_detail_result(job_id: str) -> tuple[FetchResult, str, str]:
     for language in DETAIL_LANGUAGE_PRIORITY:
         url = canonical_detail_url(job_id, language)
         try:
-            result = fetch_text(url)
+            result = fetch_text(url, allowed_hosts=ALLOWED_HOSTS)
         except RuntimeError as error:
             errors.append(f"{language}:{error}")
             continue

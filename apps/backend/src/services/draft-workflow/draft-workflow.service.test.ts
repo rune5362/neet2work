@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DraftWorkflowService, draftWorkflowService } from "./draft-workflow.service.js";
 import { AiRouter } from "../ai/ai-router.js";
-import { HttpError } from "../../utils/http-error.js";
 
 const sampleTarget = {
   company: "Backend Bridge",
@@ -91,6 +90,142 @@ describe("draftWorkflowService", () => {
     expect(draft.aiMeta.usedFallback).toBe(true);
   });
 
+  it("normalizes AI draft charCount instead of rejecting otherwise valid Codex output", async () => {
+    const plan = await draftWorkflowService.createPlan({
+      aiSelection: { mode: "auto" },
+      target: sampleTarget,
+      experienceInput: sampleExperience
+    });
+    const card = plan.experienceCards[0];
+    const allowedClaim = card.claimLedger.find((claim) => claim.allowedInDraft);
+    expect(allowedClaim).toBeDefined();
+    const allowedClaimId = allowedClaim?.claimId ?? "";
+    const draftText = "Node.js와 PostgreSQL 기반 REST API 경험을 바탕으로 지원 직무에 기여하겠습니다.";
+    const service = new DraftWorkflowService({
+      listProviderStatuses: async () => [],
+      execute: async () => ({
+        data: {
+          state: "REVIEW_COMPLETED",
+          draftText,
+          charCount: { withSpaces: 1, withoutSpaces: 1, limit: sampleTarget.charLimit },
+          evidenceMap: [
+            {
+              textRangeLabel: "1문단",
+              claimIds: [allowedClaimId],
+              experienceIds: [card.experienceId]
+            }
+          ],
+          documentFormatting,
+          reviewReport: {
+            scores: {
+              promptFit: 80,
+              jobFit: 80,
+              specificity: 75,
+              evidenceSafety: 90,
+              koreanReadability: 85,
+              aiLikenessRisk: 40,
+              blindRisk: 10,
+              interviewDefensibility: 80
+            },
+            issues: [],
+            likelyInterviewQuestions: [],
+            sensitiveWarnings: []
+          },
+          revisionOptions: []
+        },
+        aiMeta: {
+          providerId: "codex_bridge",
+          modelId: "codex-app-server",
+          routingMode: "manual",
+          usedFallback: false
+        }
+      })
+    } as unknown as AiRouter);
+
+    const draft = await service.createDraft({
+      aiSelection: { mode: "manual", providerId: "codex_bridge" },
+      target: sampleTarget,
+      experienceInput: sampleExperience,
+      plan
+    });
+
+    expect(draft.aiMeta.usedFallback).toBe(false);
+    expect(draft.charCount).toEqual({
+      withSpaces: draftText.length,
+      withoutSpaces: draftText.replace(/\s/g, "").length,
+      limit: sampleTarget.charLimit
+    });
+  });
+
+  it("falls back when an AI provider returns an empty draft body", async () => {
+    const plan = await draftWorkflowService.createPlan({
+      aiSelection: { mode: "auto" },
+      target: sampleTarget,
+      experienceInput: sampleExperience
+    });
+    const fallbackDraft = await draftWorkflowService.createDraft({
+      aiSelection: { mode: "manual", providerId: "fallback" },
+      target: sampleTarget,
+      experienceInput: sampleExperience,
+      plan
+    });
+    const service = new DraftWorkflowService({
+      listProviderStatuses: async () => [],
+      execute: async () => ({
+        data: {
+          state: "REVIEW_COMPLETED",
+          draftText: "",
+          charCount: { withSpaces: 0, withoutSpaces: 0, limit: sampleTarget.charLimit },
+          evidenceMap: [],
+          documentFormatting,
+          reviewReport: {
+            scores: {
+              promptFit: 0,
+              jobFit: 0,
+              specificity: 0,
+              evidenceSafety: 0,
+              koreanReadability: 0,
+              aiLikenessRisk: 0,
+              blindRisk: 0,
+              interviewDefensibility: 0
+            },
+            issues: [],
+            likelyInterviewQuestions: [],
+            sensitiveWarnings: []
+          },
+          revisionOptions: []
+        },
+        aiMeta: {
+          providerId: "codex_bridge",
+          modelId: "codex-app-server",
+          routingMode: "manual",
+          usedFallback: false
+        }
+      }),
+      executeFallback: async () => ({
+        data: fallbackDraft,
+        aiMeta: {
+          providerId: "fallback",
+          modelId: "hardcoded-demo",
+          routingMode: "manual",
+          usedFallback: true,
+          fallbackReason: "invalid_output"
+        }
+      })
+    } as unknown as AiRouter);
+
+    const draft = await service.createDraft({
+      aiSelection: { mode: "manual", providerId: "codex_bridge" },
+      target: sampleTarget,
+      experienceInput: sampleExperience,
+      plan
+    });
+
+    expect(draft.aiMeta.usedFallback).toBe(true);
+    expect(draft.aiMeta.fallbackReason).toBe("invalid_output");
+    expect(draft.draftText.length).toBeGreaterThan(20);
+  });
+
   it("reviseDraft returns updated draft text", async () => {
     const plan = await draftWorkflowService.createPlan({
       aiSelection: { mode: "auto" },
@@ -133,11 +268,17 @@ describe("draftWorkflowService", () => {
     expect(draft.draftText).toContain("월간 활성 사용자 1200명 증가");
   });
 
-  it("createDraft rejects drafts containing disallowed claims with 422", async () => {
+  it("createDraft falls back when an AI provider returns disallowed claims", async () => {
     const plan = await draftWorkflowService.createPlan({
       aiSelection: { mode: "auto" },
       target: sampleTarget,
       experienceInput: sampleExperience
+    });
+    const fallbackDraft = await draftWorkflowService.createDraft({
+      aiSelection: { mode: "manual", providerId: "fallback" },
+      target: sampleTarget,
+      experienceInput: sampleExperience,
+      plan
     });
 
     const service = new DraftWorkflowService({
@@ -173,26 +314,28 @@ describe("draftWorkflowService", () => {
           routingMode: "auto",
           usedFallback: false
         }
+      }),
+      executeFallback: async () => ({
+        data: fallbackDraft,
+        aiMeta: {
+          providerId: "fallback",
+          modelId: "hardcoded-demo",
+          routingMode: "auto",
+          usedFallback: true,
+          fallbackReason: "invalid_output"
+        }
       })
     } as unknown as AiRouter);
 
-    await expect(
-      service.createDraft({
-        aiSelection: { mode: "auto" },
-        target: sampleTarget,
-        experienceInput: sampleExperience,
-        plan
-      })
-    ).rejects.toBeInstanceOf(HttpError);
+    const draft = await service.createDraft({
+      aiSelection: { mode: "auto" },
+      target: sampleTarget,
+      experienceInput: sampleExperience,
+      plan
+    });
 
-    await expect(
-      service.createDraft({
-        aiSelection: { mode: "auto" },
-        target: sampleTarget,
-        experienceInput: sampleExperience,
-        plan
-      })
-    ).rejects.toMatchObject({ statusCode: 422 });
+    expect(draft.aiMeta.usedFallback).toBe(true);
+    expect(draft.aiMeta.fallbackReason).toBe("invalid_output");
   });
 
   it("createPlan falls back when an AI provider returns an invalid envelope", async () => {
@@ -271,7 +414,7 @@ describe("draftWorkflowService", () => {
     expect((agyData as { mode?: unknown; aiMeta?: unknown }).aiMeta).toBeUndefined();
   });
 
-  it("reviseDraft rejects revisions containing disallowed claims with 422", async () => {
+  it("reviseDraft rejects fallback revisions containing disallowed claims with 422", async () => {
     const plan = await draftWorkflowService.createPlan({
       aiSelection: { mode: "auto" },
       target: sampleTarget,
@@ -294,10 +437,10 @@ describe("draftWorkflowService", () => {
           draftText: `${draft.draftText}\n데모용 하드코딩 초안 문장은 실제 AI 결과가 아닙니다.`
         },
         aiMeta: {
-          providerId: "gemini",
-          modelId: "gemini-pro",
+          providerId: "fallback",
+          modelId: "hardcoded-demo",
           routingMode: "auto",
-          usedFallback: false
+          usedFallback: true
         }
       })
     } as unknown as AiRouter);
