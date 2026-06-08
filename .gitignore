@@ -15,6 +15,7 @@ __pycache__/
 build/
 dist/
 out/
+outputs/
 .next/
 coverage/
 .nyc_output/

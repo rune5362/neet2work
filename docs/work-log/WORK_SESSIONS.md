@@ -5,6 +5,19 @@
 
 ## 2026-06-09
 
+### 슬라이드 산출물 커밋 제외 기준 정리
+
+- 범위: 발표자료 생성 중 나온 `outputs/` 하위 중간 산출물은 커밋 후보에서 제외하고, 루트에 둔 최종 PDF만 커밋 후보로 남기도록 `.gitignore`를 보강했다.
+- Verification: `git status --short --ignored`로 `outputs/`가 ignored 상태이고 `neet2work-apple-keynote-copy-rhythm-v2-HQ.pdf`는 untracked 커밋 후보로 남아 있는 것을 확인했다.
+
+### sub-main 커밋/푸시 및 Oracle 배포 확인
+
+- 범위: 검증된 AI 문서 workflow 변경사항을 `sub-main`에만 커밋/푸시하고, Oracle 운영 배포가 해당 SHA를 반영하는지 확인했다. `main` 브랜치는 건드리지 않았다.
+- Git: `d960169 Improve AI document workflow and deployment support`를 생성했고 `origin/sub-main`이 `d96016976bf8a054710b295a77e38431b690ba19`를 가리키는 것을 확인했다.
+- Deploy: GitHub Actions run `27153600841`은 success였고, VM pull-based deploy가 `sub-main` 최신 SHA를 가져왔다. 운영 backend는 기존 env의 `TRUST_PROXY=true` 때문에 restart loop가 발생해 `/opt/neet2work/.env.production`과 `/opt/neet2work/repo/.env.production`을 `TRUST_PROXY=1`로 보정했다.
+- Runtime: 이전 시연용 Caddy demo tunnel mode가 켜져 있어 `/health`가 꺼진 `127.0.0.1:3900`으로 가던 문제를 normal mode로 복구했다.
+- Verification: 로컬 `corepack pnpm run test`, `corepack pnpm run build`, `git diff --check`, `git diff --cached --check` 통과. 운영 `https://neet2work.duckdns.org/health`는 `ok=true`, `database=connected`로 응답했고 `/ai-analysis`는 200 및 새 asset hash를 반환했다.
+
 ### AI 자소서 첨부 양식/복합 문서 처리 기준 보강
 
 - 범위: 첨부 DOCX/텍스트 양식이 한 페이지 시각 밀도, 표/칸 레이아웃, 이력서/자소서/기술스택/포트폴리오 복합 섹션을 포함할 때 분석 결과와 AI 계획 payload에 보존되도록 보강했다.
@@ -16,8 +29,11 @@
 - 범위: 기존 Worldpackers 참고 포트폴리오 PPT를 Apple keynote-inspired 발표 템플릿으로 재구성했다. 첫 장은 제목, 마지막 장은 Q&A로 유지하고 총 15장으로 맞췄다.
 - 디자인: Product Design으로 대상/정적 발표물/시각 기준을 확인하고, Creative Production 스타일 인테이크로 `apple-keynote-minimal`, `hero-product-screens`, `one-line-claims`, `black-white-rhythm`, `wide-whitespace`, `no-card-grids` 방향을 고정했다.
 - 내용: 기능 나열을 줄이고 큰 한 문장 중심으로 문제, 제품 루프, 작업 과정, 기술스택, 제품 화면, AI 자소서 작성 원칙을 이어갔다. AI 자소서 파트는 요구사항 고정, 근거 카드, gap 질문, plan/draft/review/revise 흐름을 별도 슬라이드로 강조했다.
+- 추가 조정: 발표 말투가 너무 딱딱해 보이는 단정형 문장을 줄이고, 이후 `다/습니다/입니다` 종결이 반복되는 문제를 다시 다듬었다. 최종 카피는 명사형, 짧은 구문, 질문형 라벨을 섞어 Apple keynote식 슬라이드 리듬에 맞췄다.
+- PDF: 기본 PDF 화질이 낮아 3840x2160 고해상도 프리뷰를 새로 렌더링하고 `neet2work-apple-keynote-copy-rhythm-v2-HQ.pdf`로 15페이지 PDF를 재추출했다.
+- PDF 캡처 보정: 6~9페이지 프론트 캡처가 좁은 프레임의 `cover` fit 때문에 좌우로 잘리는 문제를 확인하고, 스크린샷 기본 fit을 `contain`으로 바꿔 정보가 잘리지 않도록 4K 프리뷰와 HQ PDF를 다시 추출했다.
 - 산출물: `outputs/019ea6c4-3930-75a3-8065-72f5e2398669/presentations/neet2work-portfolio-apple-keynote/output/neet2work-apple-keynote-portfolio.pptx`
-- Verification: presentation builder로 15장 PPTX 재생성, PPT 패키지 검사 15 slide XML/4 media/0 empty entries 확인, contact sheet 생성 및 시각 검수, layout quality check 15 files 0 errors 0 warnings 통과.
+- Verification: presentation builder로 15장 PPTX 재생성, PPT 패키지 검사 15 slide XML/4 media/0 empty entries 확인, contact sheet 생성 및 시각 검수, layout quality check 15 files 0 errors 0 warnings 통과. 캡처 보정 후 6/7/8/9페이지 4K 프리뷰를 시각 확인하고, HQ PDF 15페이지를 재검증했다.
 
 ### Worldpackers 참고 포트폴리오 PPT 리디자인
 
