@@ -7,6 +7,9 @@ import type {
 } from "../../types/career-document-workflow.js";
 import { inferIntent, requiredSlotsForIntent } from "./document-analysis.service.js";
 
+const SELF_INTRO_ONE_PAGE_CHAR_LIMIT = 900;
+const SELF_INTRO_MAX_CHAR_LIMIT = 1200;
+
 export class DraftGenerationService {
   generate(input: {
     documentAnalyses: CareerDocumentAnalysis[];
@@ -28,13 +31,16 @@ export class DraftGenerationService {
     }
 
     return questions.map((question) => {
+      const normalizedQuestion = normalizeQuestionCharLimit(question);
       const missingSlots = question.requiredSlots.filter((slot) => !filledSlots.has(slot));
-      if (missingSlots.length > 0) {
+      const selectedEvidence = selectEvidenceForQuestion(allowedEvidence, normalizedQuestion);
+
+      if (missingSlots.length > 0 && selectedEvidence.length === 0) {
         return {
-          questionId: question.questionId,
-          questionText: question.text,
-          charLimit: question.charLimit,
-          charCountRule: question.charCountRule,
+          questionId: normalizedQuestion.questionId,
+          questionText: normalizedQuestion.text,
+          charLimit: normalizedQuestion.charLimit,
+          charCountRule: normalizedQuestion.charCountRule,
           status: "needs_more_evidence",
           usedEvidenceSourceIds: [],
           usedEvidenceFacts: [],
@@ -43,34 +49,34 @@ export class DraftGenerationService {
         } satisfies CareerDocumentDraft;
       }
 
-      const selectedEvidence = selectEvidenceForQuestion(allowedEvidence, question);
       const draftText = fitToLimit(
         buildDraftText({
-          question,
+          question: normalizedQuestion,
           evidence: selectedEvidence,
           target: input.target
         }),
-        question.charLimit,
-        question.charCountRule
+        normalizedQuestion.charLimit,
+        normalizedQuestion.charCountRule
       );
 
       return {
-        questionId: question.questionId,
-        questionText: question.text,
-        charLimit: question.charLimit,
-        charCountRule: question.charCountRule,
+        questionId: normalizedQuestion.questionId,
+        questionText: normalizedQuestion.text,
+        charLimit: normalizedQuestion.charLimit,
+        charCountRule: normalizedQuestion.charCountRule,
         status: "drafted",
         draftText,
         charCount: {
           withSpaces: draftText.length,
           withoutSpaces: draftText.replace(/\s/g, "").length,
-          limit: question.charLimit
+          limit: normalizedQuestion.charLimit
         },
         usedEvidenceSourceIds: Array.from(new Set(selectedEvidence.map((item) => item.sourceId))),
         usedEvidenceFacts: selectedEvidence.map((item) => item.fact),
-        missingEvidence: [],
+        missingEvidence: missingSlots.map(slotLabel),
         risks: unique([
           ...buildDraftRisks(selectedEvidence),
+          ...(missingSlots.length > 0 ? ["1차 초안은 확인된 근거만으로 작성했으며, 부족한 부분은 이어지는 질문 답변으로 보완해야 합니다."] : []),
           ...(hasExistingSelfIntro ? ["기존 자소서는 문장 복사가 아니라 구성과 문체 참고로만 사용해야 합니다."] : [])
         ])
       } satisfies CareerDocumentDraft;
@@ -82,7 +88,7 @@ function collectTemplateQuestions(documentAnalyses: CareerDocumentAnalysis[], ta
   const questions = documentAnalyses.flatMap((analysis) => analysis.template?.questions ?? []);
 
   if (questions.length > 0) {
-    return questions;
+    return questions.map(normalizeQuestionCharLimit);
   }
 
   if (target.questionText?.trim()) {
@@ -110,7 +116,22 @@ function collectTemplateQuestions(documentAnalyses: CareerDocumentAnalysis[], ta
       requiredSlots: requiredSlotsForIntent("role_competency"),
       writingRules: []
     } satisfies CareerDocumentQuestion
-  ];
+  ].map(normalizeQuestionCharLimit);
+}
+
+function normalizeQuestionCharLimit(question: CareerDocumentQuestion): CareerDocumentQuestion {
+  return {
+    ...question,
+    charLimit: clampSelfIntroCharLimit(question.charLimit)
+  };
+}
+
+function clampSelfIntroCharLimit(limit: number | undefined) {
+  if (!limit || !Number.isFinite(limit)) {
+    return SELF_INTRO_ONE_PAGE_CHAR_LIMIT;
+  }
+
+  return Math.min(SELF_INTRO_MAX_CHAR_LIMIT, Math.max(200, Math.round(limit)));
 }
 
 function selectEvidenceForQuestion(

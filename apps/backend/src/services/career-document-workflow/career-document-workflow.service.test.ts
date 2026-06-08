@@ -364,8 +364,9 @@ describe("career document workflow service", () => {
       ])
     );
     expect(session.drafts[0]).toMatchObject({
-      status: "needs_more_evidence",
-      usedEvidenceFacts: []
+      status: "drafted",
+      usedEvidenceFacts: expect.arrayContaining([expect.stringContaining("감지 기술스택")]),
+      missingEvidence: expect.arrayContaining(["본인 역할"])
     });
     expect(session.interview.questions.length).toBeGreaterThan(0);
   });

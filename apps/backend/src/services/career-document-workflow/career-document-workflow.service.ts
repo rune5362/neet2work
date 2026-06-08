@@ -22,6 +22,9 @@ import { githubAnalysisService, GithubAnalysisService } from "./github-analysis.
 import { portfolioAnalysisService, PortfolioAnalysisService } from "./portfolio-analysis.service.js";
 import { draftWorkflowDraftSchema, draftWorkflowPlanSchema } from "../draft-workflow/schemas.js";
 
+const SELF_INTRO_ONE_PAGE_CHAR_LIMIT = 900;
+const SELF_INTRO_MAX_CHAR_LIMIT = 1200;
+
 export class CareerDocumentWorkflowService {
   constructor(
     private readonly documents: DocumentAnalysisService = documentAnalysisService,
@@ -34,7 +37,7 @@ export class CareerDocumentWorkflowService {
   ) {}
 
   async createSession(request: CareerDocumentWorkflowSessionRequest): Promise<CareerDocumentWorkflowSession> {
-    const target = request.target ?? {};
+    const target = normalizeWorkflowTarget(request.target ?? {});
     const analysisContextText = buildAnalysisContextText(request);
     const documentAnalyses = this.documents.analyze(request.attachments ?? []);
     const githubAnalyses = await this.github.analyzeFromText(analysisContextText);
@@ -101,6 +104,7 @@ export class CareerDocumentWorkflowService {
   }
 
   async answerQuestion(request: CareerDocumentWorkflowAnswerRequest): Promise<CareerDocumentWorkflowSession> {
+    const target = normalizeWorkflowTarget(request.session.target);
     const previousAnswer = request.session.interview.answers.find(
       (item) => item.questionId === request.questionId
     );
@@ -120,7 +124,7 @@ export class CareerDocumentWorkflowService {
     const answerEvidence = this.evidence
       .build({
         message: "",
-        target: request.session.target,
+        target,
         documentAnalyses: [],
         githubAnalyses: [],
         portfolioAnalyses: [],
@@ -136,14 +140,14 @@ export class CareerDocumentWorkflowService {
       githubAnalyses: request.session.githubAnalyses,
       portfolioAnalyses: request.session.portfolioAnalyses,
       evidenceVault,
-      target: request.session.target,
+      target,
       answers
     });
     const questionResult = await this.generateQuestions({
       baseQuestions,
       documentAnalyses: request.session.documentAnalyses,
       evidenceVault,
-      target: request.session.target,
+      target,
       answers,
       aiSelection: request.aiSelection
     });
@@ -151,14 +155,14 @@ export class CareerDocumentWorkflowService {
     const baseDrafts = this.drafts.generate({
       documentAnalyses: request.session.documentAnalyses,
       evidenceVault,
-      target: request.session.target
+      target
     });
     const draftResult = await this.generateDrafts({
       baseDrafts,
       questions,
       documentAnalyses: request.session.documentAnalyses,
       evidenceVault,
-      target: request.session.target,
+      target,
       aiSelection: request.aiSelection
     });
     const state = resolveState(questions.length, draftResult.drafts);
@@ -166,6 +170,7 @@ export class CareerDocumentWorkflowService {
     return {
       ...request.session,
       state,
+      target,
       stages: buildStages(state),
       evidenceVault,
       interview: {
@@ -846,6 +851,21 @@ function collectRisks(
 
 function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
+}
+
+function normalizeWorkflowTarget(target: CareerDocumentWorkflowSession["target"]) {
+  return {
+    ...target,
+    charLimit: clampSelfIntroCharLimit(target.charLimit)
+  };
+}
+
+function clampSelfIntroCharLimit(limit: number | undefined) {
+  if (!limit || !Number.isFinite(limit)) {
+    return SELF_INTRO_ONE_PAGE_CHAR_LIMIT;
+  }
+
+  return Math.min(SELF_INTRO_MAX_CHAR_LIMIT, Math.max(200, Math.round(limit)));
 }
 
 function buildAnalysisContextText(request: CareerDocumentWorkflowSessionRequest) {

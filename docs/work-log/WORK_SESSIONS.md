@@ -263,3 +263,10 @@
 - Scripts: `2-demo-lan-other-pc.cmd`와 `scripts/start-codex-bridge-lan.ps1`을 제거하고, Oracle 사이트 시연 파일을 `2-demo-oracle-site.cmd`로 당겼다.
 - Docs: README의 LAN 시연 섹션을 삭제하고 Oracle 문서 실행 명령을 `2-demo-oracle-site.cmd`로 갱신했다.
 - Verification: `1-demo-local-pc.cmd -DryRun`, `2-demo-oracle-site.cmd -DryRun`, 사용자용 문서의 LAN/옛 파일명 참조 제거 확인을 통과했다.
+
+### 03:48 자소서 작성 흐름 채팅형 정리
+- Thread: current Codex thread
+- Scope: AI 분석 페이지의 자소서 작성 흐름을 카드/별도 답변칸 중심에서 GPT식 채팅 진행으로 바꾸고, 첨부 자료 기반 1차 초안 → 소크라테스식 보완 질문 → 2차 초안/수정 → 다운로드 흐름으로 정리했다.
+- Frontend: 다음 질문 카드와 별도 답변 textarea를 제거하고, 채팅 입력으로 보완 답변과 수정 요청을 모두 처리하도록 `AIDraftChatBuilder`를 수정했다. 선택한 자소서 참고본과 프로필도 문서 세션 첨부 자료로 보내도록 연결했다.
+- Backend: 자소서 분량을 1페이지 목표 900자, 최대 1.5페이지 상당 1200자로 제한하고, 근거가 일부라도 있으면 확인된 사실만으로 보수적 1차 초안을 먼저 만든 뒤 부족한 정보는 후속 질문으로 좁히도록 문서 워크플로를 조정했다.
+- Verification: frontend/backend 대상 Vitest, 전체 Vitest, frontend/backend build, `git diff --check`를 통과했다. 브라우저 DOM 확인으로 답변 textarea/다음 질문 카드가 사라지고 채팅 입력과 1페이지 안내 문구가 표시되는 것을 확인했다.
