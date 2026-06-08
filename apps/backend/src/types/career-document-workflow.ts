@@ -1,4 +1,5 @@
 import type { AiExecutionMeta, AiSelection } from "./ai-routing.js";
+import type { DraftProfileContext } from "./draft-workflow.js";
 
 export type CareerDocumentClassification =
   | "self_intro_template"
@@ -24,6 +25,72 @@ export type PrivacyRiskLevel = "none" | "low" | "medium" | "high";
 
 export type EvidenceConfidence = "high" | "medium" | "low";
 
+export type CareerDocumentCompletionStatus = "provisional" | "submission_ready";
+
+export type CareerDocumentCompletionGateId =
+  | "draft_available"
+  | "required_questions_answered"
+  | "missing_evidence_resolved"
+  | "evidence_locked";
+
+export type CareerDocumentCompletion = {
+  status: CareerDocumentCompletionStatus;
+  score: number;
+  summary: string;
+  gates: Array<{
+    id: CareerDocumentCompletionGateId;
+    label: string;
+    passed: boolean;
+    detail: string;
+  }>;
+};
+
+export type CareerDocumentPackage = {
+  documentType: "cover_letter" | "resume";
+  title: string;
+  content: string;
+  profileId?: string | null;
+  jobId?: string | null;
+  contentJson: {
+    schemaVersion: 1;
+    source: {
+      workflow: "career-document-workflow";
+      sessionId: string;
+      state: CareerDocumentSessionState;
+      generatedAt: string;
+      completionStatus: CareerDocumentCompletionStatus;
+    };
+    target: CareerDocumentWorkflowTarget;
+    profileSnapshot?: {
+      profileId: string;
+      title: string;
+      targetRole?: string | null;
+      desiredRoles: string[];
+      skills: string[];
+      profileText?: string;
+    };
+    sections: Array<{
+      sectionId: string;
+      title: string;
+      body: string;
+      usedEvidenceFacts: string[];
+      missingEvidence: string[];
+      risks: string[];
+    }>;
+    evidence: {
+      usedFacts: string[];
+      missingEvidence: string[];
+      risks: string[];
+    };
+    formatting: {
+      charCountRule: "with_spaces" | "without_spaces" | "unknown";
+      withSpaces: number;
+      withoutSpaces: number;
+      limit?: number;
+    };
+  };
+};
+
 export type CareerEvidenceSourceType =
   | "attached_document"
   | "self_intro_template"
@@ -31,6 +98,7 @@ export type CareerEvidenceSourceType =
   | "job_posting"
   | "reference_material"
   | "user_input"
+  | "profile_context"
   | "github_profile"
   | "github_repo_metadata"
   | "github_readme"
@@ -153,6 +221,7 @@ export type CareerDocumentWorkflowTarget = {
   company?: string;
   role?: string;
   jobPostingText?: string;
+  jobId?: string;
   writingStyle?: string;
   formatLabel?: string;
   questionText?: string;
@@ -171,6 +240,7 @@ export type CareerDocumentWorkflowSessionRequest = {
   message: string;
   attachments?: CareerDocumentAttachmentInput[];
   target?: CareerDocumentWorkflowTarget;
+  profileContexts?: DraftProfileContext[];
   aiSelection?: AiSelection;
 };
 
@@ -200,11 +270,14 @@ export type CareerDocumentWorkflowSession = {
   githubAnalyses: CareerGithubAnalysis[];
   portfolioAnalyses: CareerPortfolioAnalysis[];
   evidenceVault: CareerEvidenceVaultItem[];
+  profileContexts: DraftProfileContext[];
   interview: {
     questions: CareerGapQuestion[];
     answers: CareerGapAnswer[];
   };
   drafts: CareerDocumentDraft[];
+  completion: CareerDocumentCompletion;
+  documentPackages: CareerDocumentPackage[];
   aiMeta?: AiExecutionMeta;
   missingEvidence: string[];
   risks: string[];

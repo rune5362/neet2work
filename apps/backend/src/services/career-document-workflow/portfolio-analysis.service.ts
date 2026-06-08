@@ -2,6 +2,8 @@ import type {
   CareerPortfolioAnalysis,
   CareerPortfolioFact
 } from "../../types/career-document-workflow.js";
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -9,6 +11,7 @@ const URL_PATTERN = /https?:\/\/[^\s)>\]]+/gi;
 const USER_AGENT = "Neet2Work-Career-Document-Coach";
 const FALLBACK_MESSAGE = "포트폴리오 페이지를 직접 읽지 못했으므로 프로젝트 설명과 기술스택을 붙여넣어 달라.";
 const PORTFOLIO_FETCH_TIMEOUT_MS = Number(process.env.PORTFOLIO_ANALYSIS_TIMEOUT_MS) || 8_000;
+const BLOCKED_HOSTNAMES = new Set(["localhost", "localhost.", "0.0.0.0"]);
 const SKILL_MARKERS = [
   "React",
   "TypeScript",
@@ -59,6 +62,15 @@ export class PortfolioAnalysisService {
   }
 
   async analyzeUrl(url: string, sourceId: string): Promise<CareerPortfolioAnalysis> {
+    const parsedUrl = parseSafePortfolioUrl(url);
+    if (!parsedUrl) {
+      return unavailable(sourceId, url);
+    }
+
+    if (!this.fetchFn && await resolvesToBlockedAddress(parsedUrl.hostname)) {
+      return unavailable(sourceId, url);
+    }
+
     try {
       const response = await this.fetchWithTimeout(url, {
         headers: {
@@ -103,6 +115,7 @@ export class PortfolioAnalysisService {
     try {
       return await (this.fetchFn ?? fetch)(url, {
         ...init,
+        redirect: "error",
         signal: controller.signal
       });
     } finally {
@@ -113,6 +126,88 @@ export class PortfolioAnalysisService {
 
 function cleanUrl(url: string) {
   return url.replace(/[.,;:!?]+$/, "");
+}
+
+function parseSafePortfolioUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" || isBlockedHostname(parsed.hostname)) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function resolvesToBlockedAddress(hostname: string) {
+  if (isIP(hostname)) {
+    return false;
+  }
+
+  try {
+    const addresses = await lookup(hostname, { all: true, verbatim: false });
+    return addresses.length === 0 || addresses.some(({ address }) => isBlockedHostname(address));
+  } catch {
+    return true;
+  }
+}
+
+function isBlockedHostname(hostname: string) {
+  const normalized = hostname.toLowerCase().replace(/\.$/u, "");
+
+  if (
+    BLOCKED_HOSTNAMES.has(normalized) ||
+    normalized.endsWith(".localhost") ||
+    normalized.endsWith(".local")
+  ) {
+    return true;
+  }
+
+  const ipVersion = isIP(normalized);
+  if (ipVersion === 4) {
+    return isPrivateIpv4(normalized);
+  }
+  if (ipVersion === 6) {
+    return isPrivateIpv6(normalized);
+  }
+
+  return false;
+}
+
+function isPrivateIpv4(ipAddress: string) {
+  const parts = ipAddress.split(".").map((part) => Number(part));
+  const [first, second] = parts;
+
+  return (
+    parts.length !== 4 ||
+    parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255) ||
+    first === 10 ||
+    first === 127 ||
+    first === 0 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168) ||
+    first >= 224
+  );
+}
+
+function isPrivateIpv6(ipAddress: string) {
+  const normalized = ipAddress.toLowerCase();
+
+  return (
+    normalized === "::1" ||
+    normalized === "::" ||
+    normalized.startsWith("fc") ||
+    normalized.startsWith("fd") ||
+    normalized.startsWith("fe80:") ||
+    normalized.startsWith("::ffff:127.") ||
+    normalized.startsWith("::ffff:10.") ||
+    normalized.startsWith("::ffff:192.168.") ||
+    /^::ffff:172\.(1[6-9]|2\d|3[01])\./u.test(normalized) ||
+    normalized.startsWith("::ffff:169.254.")
+  );
 }
 
 function unavailable(sourceId: string, url: string): CareerPortfolioAnalysis {

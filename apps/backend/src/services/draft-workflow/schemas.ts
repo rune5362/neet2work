@@ -71,7 +71,7 @@ const profileJsonSchema = z.object({
   })
 });
 
-const draftProfileContextSchema = z.object({
+export const draftProfileContextSchema = z.object({
   profileId: z.string().min(1),
   title: z.string().min(1),
   schemaVersion: z.number().int().positive(),

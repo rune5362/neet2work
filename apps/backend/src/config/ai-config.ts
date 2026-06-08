@@ -13,6 +13,9 @@ if (process.env.NODE_ENV !== "test") {
   dotenv.config({ path: backendEnvPath, override: true });
 }
 
+const DEFAULT_PROVIDER_TIMEOUT_MS = 180_000;
+const DEFAULT_CODEX_BRIDGE_TURN_TIMEOUT_MS = 300_000;
+
 function parseProviderOrder(raw: string | undefined): AiProviderId[] {
   const allowed: AiProviderId[] = ["codex_bridge", "gemini", "local", "fallback"];
   const parsed = (raw ?? "codex_bridge,gemini,local,fallback")
@@ -89,14 +92,15 @@ function resolveCodexBridgeHome() {
 export const aiConfig = {
   routingDefault: (process.env.AI_ROUTING_DEFAULT ?? "auto") as AiRoutingMode,
   providerOrder: parseProviderOrder(process.env.AI_PROVIDER_ORDER),
-  providerTimeoutMs: Number(process.env.AI_PROVIDER_TIMEOUT_MS) || 180_000,
+  providerTimeoutMs: Number(process.env.AI_PROVIDER_TIMEOUT_MS) || DEFAULT_PROVIDER_TIMEOUT_MS,
 
   codexBridge: {
     enabled: process.env.CODEX_BRIDGE_ENABLED === "true",
     command: resolveCodexBridgeCommand(),
     home: resolveCodexBridgeHome(),
     model: process.env.CODEX_BRIDGE_MODEL ?? "",
-    reasoningEffort: process.env.CODEX_BRIDGE_REASONING_EFFORT ?? ""
+    reasoningEffort: process.env.CODEX_BRIDGE_REASONING_EFFORT ?? "",
+    turnTimeoutMs: Number(process.env.CODEX_BRIDGE_TURN_TIMEOUT_MS) || DEFAULT_CODEX_BRIDGE_TURN_TIMEOUT_MS
   },
 
   gemini: (() => {

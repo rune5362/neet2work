@@ -21,6 +21,7 @@ else:
 
 
 DEFAULT_LIST_URL = "https://www.jobkorea.co.kr/Search/?stext=python"
+ALLOWED_HOSTS = {"jobkorea.co.kr", "www.jobkorea.co.kr"}
 SOURCE = "jobkorea"
 TEXT_LIMIT = 5000
 MAX_LIMIT = 5
@@ -127,7 +128,7 @@ def canonical_detail_url(job_id: str) -> str:
 
 
 def list_jobs(list_url: str, limit: int) -> list[SourceJobLink]:
-    result = fetch_text(list_url)
+    result = fetch_text(list_url, allowed_hosts=ALLOWED_HOSTS)
     if result.status >= 400:
         raise RuntimeError(f"JobKorea list request failed: HTTP {result.status}")
 
@@ -238,7 +239,7 @@ def infer_skills(text: str) -> list[str]:
 
 
 def collect_detail(link: SourceJobLink) -> StandardJobPosting:
-    result = fetch_text(link.source_url)
+    result = fetch_text(link.source_url, allowed_hosts=ALLOWED_HOSTS)
     if result.status >= 400:
         raise RuntimeError(f"JobKorea detail request failed: HTTP {result.status} {link.source_url}")
 

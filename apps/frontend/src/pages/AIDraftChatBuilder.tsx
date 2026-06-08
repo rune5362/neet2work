@@ -26,7 +26,7 @@ import {
   startCodexBridgeLogin,
 } from "../api/client";
 import { getRequiredAccessToken } from "../api/authSession";
-import { getDocuments as getSavedDocuments } from "../api/documentClient";
+import { createDocument, getDocuments as getSavedDocuments } from "../api/documentClient";
 import { getProfiles } from "../api/profileClient";
 import arrowUpIcon from "../assets/icons/ai-draft-arrow-up.svg";
 import attachIcon from "../assets/icons/ai-draft-attach.svg";
@@ -62,7 +62,7 @@ import type {
   CareerWorkflowSourceInput
 } from "../types/career-workflow";
 import { careerDocumentTypeLabel } from "../types/career-workflow";
-import type { CareerDocumentWorkflowSession } from "../types/career-document-workflow";
+import type { CareerDocumentPackage, CareerDocumentWorkflowSession } from "../types/career-document-workflow";
 import { careerDocumentClassificationLabel } from "../types/career-document-workflow";
 
 type Sender = "ai" | "user";
@@ -271,10 +271,21 @@ function toSelectedJob(job: JobPosting): Job {
     id: job.id,
     company: job.company,
     title: job.title,
-    link: job.sourceUrl,
+    link: safeExternalJobUrl(job.sourceUrl),
     skills: job.skills,
     description: job.description
   };
+}
+
+function safeExternalJobUrl(value?: string | null) {
+  if (!value) return "";
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : "";
+  } catch {
+    return "";
+  }
 }
 
 const initialMessages: Message[] = [];
@@ -301,6 +312,38 @@ const draftProgressSteps = [
     threshold: 82,
   },
 ];
+
+const activeDraftProgressTargets = {
+  planning: [18, 31, 42, 55, 63, 69, 74, 79, 83, 87, 90, 92, 94],
+  drafting: [42, 55, 66, 74, 81, 85, 88, 91, 93, 95],
+  revising: [50, 62, 74, 82, 88, 91, 93, 95]
+} satisfies Record<"planning" | "drafting" | "revising", number[]>;
+
+function getActiveDraftProgressTarget(
+  state: DraftState,
+  tick: number,
+  fallbackScore: number
+) {
+  if (state !== "planning" && state !== "drafting" && state !== "revising") {
+    return fallbackScore;
+  }
+
+  const targets = activeDraftProgressTargets[state];
+  return Math.max(fallbackScore, targets[Math.min(tick, targets.length - 1)] ?? fallbackScore);
+}
+
+function getActiveDraftProgressTitle(state: DraftState, tick: number) {
+  if (state === "planning") {
+    return tick >= 4 ? "자료를 읽고 부족한 근거를 대조하고 있습니다..." : tick >= 2 ? "자료와 문항을 정밀 분석하고 있습니다..." : "문항과 경험을 분석하고 있습니다...";
+  }
+  if (state === "drafting") {
+    return tick >= 4 ? "초안 표현과 근거 일관성을 확인하고 있습니다..." : tick >= 2 ? "근거를 문장 구조로 엮고 있습니다..." : "AI가 초안을 작성하고 있습니다...";
+  }
+  if (state === "revising") {
+    return tick >= 2 ? "표현과 근거 일관성을 다시 확인하고 있습니다..." : "AI가 초안을 수정하고 있습니다...";
+  }
+  return "AI 초안 결과";
+}
 
 const COMPOSER_INPUT_MIN_HEIGHT = 22;
 const COMPOSER_INPUT_MAX_HEIGHT = 240;
@@ -674,8 +717,11 @@ function inferCharLimitFromText(text: string) {
 
 function inferQuestionTextFromText(text: string) {
   const candidates = splitConditionCandidates(text);
-  const explicit = candidates.find((line) => /문항|항목|질문/.test(line));
-  return explicit && explicit.length >= 5 ? explicit.replace(/^(문항|항목|질문)\s*[:：-]?\s*/, "").trim() : null;
+  const explicit = candidates.find((line) =>
+    /^(문항|항목|질문)\s*[:：-]\s*\S/.test(line) ||
+    /^\d+\s*[.)]\s*\S/.test(line)
+  );
+  return explicit && explicit.length >= 5 ? explicit.replace(/^(문항|항목|질문|\d+\s*[.)])\s*[:：-]?\s*/, "").trim() : null;
 }
 
 function uniqueSkillLabels(skills: string[]) {
@@ -1127,6 +1173,11 @@ export function AIDraftChatBuilder() {
   const [documentSession, setDocumentSession] = useState<CareerDocumentWorkflowSession | null>(null);
   const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus>("idle");
   const [workflowError, setWorkflowError] = useState<string | null>(null);
+  const [documentSaveStatus, setDocumentSaveStatus] = useState<{
+    status: "idle" | "saving" | "success" | "error";
+    message: string | null;
+    packageType?: CareerDocumentPackage["documentType"];
+  }>({ status: "idle", message: null });
   const [gapAnswerDrafts, setGapAnswerDrafts] = useState<Record<string, string>>({});
   const [confirmedGapQuestionIds, setConfirmedGapQuestionIds] = useState<Set<string>>(() => new Set());
   const [outlineConfirmed, setOutlineConfirmed] = useState(false);
@@ -1163,6 +1214,7 @@ export function AIDraftChatBuilder() {
   const [newChatConfirmOpen, setNewChatConfirmOpen] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [submittedFiles, setSubmittedFiles] = useState<AttachedFile[]>([]);
+  const [draftProgressTick, setDraftProgressTick] = useState(0);
   const [activeDocumentPreviewFileId, setActiveDocumentPreviewFileId] = useState<string | null>(null);
   const [sentAttachmentSignature, setSentAttachmentSignature] = useState("");
   const [composerFileDragActive, setComposerFileDragActive] = useState(false);
@@ -1413,13 +1465,15 @@ export function AIDraftChatBuilder() {
       : inputAtsResult
         ? "입력 기반 계산"
         : "대화 후 계산";
-  const draftFitTargetScore =
+  const baseDraftFitTargetScore =
     workflowDraft?.reviewReport.scores.promptFit ??
     workflowPlan?.fitAssessments[0]?.fitScore ??
     inputAtsResult?.score ??
     0;
-  const completedProgressStepCount = draftProgressSteps.filter((step) => draftFitProgress >= Math.min(step.threshold, draftFitTargetScore)).length;
   const isDraftProgressActive = draftState === "planning" || draftState === "drafting" || draftState === "revising";
+  const draftFitTargetScore = getActiveDraftProgressTarget(draftState, draftProgressTick, baseDraftFitTargetScore);
+  const draftProgressTitle = getActiveDraftProgressTitle(draftState, draftProgressTick);
+  const completedProgressStepCount = draftProgressSteps.filter((step) => draftFitProgress >= Math.min(step.threshold, draftFitTargetScore)).length;
   const activeProgressStepIndex = isDraftProgressActive
     ? Math.min(completedProgressStepCount, draftProgressSteps.length - 1)
     : -1;
@@ -1436,12 +1490,20 @@ export function AIDraftChatBuilder() {
     : realAiProviderOnline
       ? { label: "연결됨", status: "online" }
       : { label: "연결 안됨", status: "offline" };
-  const draftedDocumentDrafts = documentSession?.drafts.filter((draft) => draft.status === "drafted" && draft.draftText) ?? [];
-  const documentDraftText = draftedDocumentDrafts
+  const documentDraftsWithText = documentSession?.drafts.filter((draft) => draft.draftText?.trim()) ?? [];
+  const hasProvisionalDocumentDraft =
+    documentSession?.completion.status === "provisional" ||
+    documentDraftsWithText.some((draft) => draft.status === "needs_more_evidence");
+  const documentDraftText = documentDraftsWithText
     .map((draft, index) => `문항 ${index + 1}. ${draft.questionText}\n\n${draft.draftText ?? ""}`)
     .join("\n\n");
   const activeDocumentQuestion = documentSession?.interview.questions[0];
   const hasDocumentDraft = documentDraftText.trim().length > 0;
+  const shouldShowDocumentDraft = Boolean(documentSession && hasDocumentDraft && (draftState === "plan_ready" || draftState === "complete"));
+  const shouldShowResultDraft = Boolean((draftState === "complete" && workflowDraft) || shouldShowDocumentDraft);
+  const documentDraftTitle = hasProvisionalDocumentDraft ? "가초안" : "완성본";
+  const documentDraftSubtitle = hasProvisionalDocumentDraft ? "보완 중인 문서 기반 가초안" : "문서 기반 초안";
+  const documentDraftStatusLabel = hasProvisionalDocumentDraft ? "보완 필요" : "완료";
   const documentFileViewerItems = useMemo(() => {
     if (!documentSession) {
       return [];
@@ -1905,6 +1967,20 @@ export function AIDraftChatBuilder() {
   }, []);
 
   useEffect(() => {
+    if (!isDraftProgressActive) {
+      setDraftProgressTick(0);
+      return undefined;
+    }
+
+    setDraftProgressTick(0);
+    const intervalId = window.setInterval(() => {
+      setDraftProgressTick((value) => Math.min(value + 1, 12));
+    }, 12_000);
+
+    return () => window.clearInterval(intervalId);
+  }, [draftState, isDraftProgressActive]);
+
+  useEffect(() => {
     const setMeterProgress = (nextValue: number) => {
       draftFitProgressRef.current = nextValue;
       setDraftFitProgress(nextValue);
@@ -1915,7 +1991,7 @@ export function AIDraftChatBuilder() {
       return undefined;
     }
 
-    const startValue = draftState === "planning" || draftState === "drafting" || draftState === "revising" ? 0 : draftFitProgressRef.current;
+    const startValue = draftFitProgressRef.current;
     const targetValue = draftFitTargetScore;
     const duration = draftState === "planning" || draftState === "drafting" || draftState === "revising" ? 1500 : 900;
     const startedAt = performance.now();
@@ -2194,6 +2270,7 @@ export function AIDraftChatBuilder() {
     setWorkflowDraft(null);
     setWorkflowStatus("idle");
     setWorkflowError(null);
+    setDocumentSaveStatus({ status: "idle", message: null });
     if (draftState === "complete") {
       setDraftState("plan_ready");
     }
@@ -2336,12 +2413,14 @@ export function AIDraftChatBuilder() {
         company: selectedJob?.company,
         role: selectedJob?.title ?? undefined,
         jobPostingText: jobPostingText || undefined,
+        jobId: selectedJob?.id,
         writingStyle: settings.tone,
         formatLabel: selectedSelfIntroFormat.label,
         questionText: inferredQuestionText.trim() || selectedSelfIntroFormat.questionText,
         charLimit: inferredCharLimit,
         charCountRule: "with_spaces" as const
       },
+      profileContexts: selectedProfileContexts.length > 0 ? selectedProfileContexts : undefined,
       aiSelection
     };
   };
@@ -2635,6 +2714,7 @@ export function AIDraftChatBuilder() {
     setActiveDocumentPreviewFileId(null);
     setWorkflowStatus("idle");
     setWorkflowError(null);
+    setDocumentSaveStatus({ status: "idle", message: null });
     setAutoStartPlanRequestId(0);
     setAutoStartDocumentRequestId(0);
     setGapAnswerDrafts({});
@@ -2790,8 +2870,10 @@ export function AIDraftChatBuilder() {
             sender: "ai",
             time: nowTime(),
             text: nextQuestion
-              ? `답변을 반영했어. 다음으로 확인할게: ${nextQuestion.question}`
-              : "답변을 반영해서 초안을 준비했어.",
+              ? `답변을 반영해 가초안을 갱신했어. 다음으로 확인할게: ${nextQuestion.question}`
+              : session.completion.status === "submission_ready"
+                ? "답변을 반영해서 제출 준비 기준을 통과한 초안을 준비했어."
+                : "답변을 반영해서 가초안을 갱신했어.",
           },
         ]);
       });
@@ -3152,6 +3234,39 @@ export function AIDraftChatBuilder() {
     playTone(settings.sound, "success");
   };
 
+  const handleSaveDocumentPackage = async (documentPackage: CareerDocumentPackage) => {
+    setDocumentSaveStatus({
+      status: "saving",
+      message: `${documentPackage.documentType === "resume" ? "이력서" : "자기소개서"}를 문서함에 저장 중입니다.`,
+      packageType: documentPackage.documentType
+    });
+
+    try {
+      const savedDocument = await createDocument({
+        title: documentPackage.title,
+        documentType: documentPackage.documentType,
+        profileId: documentPackage.profileId ?? null,
+        jobId: documentPackage.jobId ?? null,
+        content: documentPackage.content,
+        contentJson: documentPackage.contentJson
+      });
+
+      setDocumentSaveStatus({
+        status: "success",
+        message: `${savedDocument.title} 문서함 저장 완료`,
+        packageType: documentPackage.documentType
+      });
+      playTone(settings.sound, "success");
+    } catch (error) {
+      setDocumentSaveStatus({
+        status: "error",
+        message: error instanceof Error ? error.message : "문서함 저장에 실패했습니다.",
+        packageType: documentPackage.documentType
+      });
+      playTone(settings.sound, "ready");
+    }
+  };
+
   const handleNewChat = () => {
     clearSendReplyTimeout();
     revokeAttachmentPreviewUrls([...attachedFiles, ...submittedFiles]);
@@ -3456,8 +3571,10 @@ export function AIDraftChatBuilder() {
                     </div>
                   ) : hasDocumentDraft ? (
                     <div className="aiDraftNextQuestionCard complete" aria-live="polite">
-                      <span>완성본</span>
-                      <strong>완성본 준비 완료</strong>
+                      <span>{documentDraftTitle}</span>
+                      <strong>
+                        {documentSession?.completion.status === "submission_ready" ? "완성본 준비 완료" : "가초안 준비 완료"}
+                      </strong>
                     </div>
                   ) : (
                     <div className="aiDraftNextQuestionCard pending" aria-live="polite">
@@ -3582,13 +3699,7 @@ export function AIDraftChatBuilder() {
                     <span>적합도</span>
                   </div>
                   <div>
-                    <h2>
-                      {draftState === "planning"
-                        ? "문항과 경험을 분석하고 있습니다..."
-                        : draftState === "drafting" || draftState === "revising"
-                          ? "AI가 초안을 작성하고 있습니다..."
-                          : "AI 초안 결과"}
-                    </h2>
+                    <h2>{draftProgressTitle}</h2>
                     <div className="aiDraftProgressSteps">
                       {draftProgressSteps.map((step, index) => {
                         const isComplete = index < completedProgressStepCount;
@@ -3620,19 +3731,19 @@ export function AIDraftChatBuilder() {
                 </section>
               )}
 
-              {draftState === "complete" && (workflowDraft || hasDocumentDraft) && (
+              {shouldShowResultDraft && (
                 <section className="aiDraftResultCard">
                   <div className="aiDraftResultHeader">
                     <div>
-                      <h2>{workflowDraft ? "AI 초안 결과" : "완성본"}</h2>
-                      <span>{workflowDraft ? "초안 v1" : "문서 기반 초안"}</span>
+                      <h2>{workflowDraft ? "AI 초안 결과" : documentDraftTitle}</h2>
+                      <span>{workflowDraft ? "초안 v1" : documentDraftSubtitle}</span>
                       {activeAiMeta && (
                         <span className={`aiDraftModeBadge ${activeAiMeta.usedFallback ? "fallback" : "ai"}`}>
                           {formatAiExecutionLabel(activeAiMeta)}
                         </span>
                       )}
                     </div>
-                    <strong>완료</strong>
+                    <strong>{workflowDraft ? "완료" : documentDraftStatusLabel}</strong>
                   </div>
                   <div className="aiDraftUtilityBar" aria-label="초안 편집 도구">
                     <div className="aiDraftCharCount">
@@ -3681,6 +3792,32 @@ export function AIDraftChatBuilder() {
                         </div>
                       ))}
                     </div>
+                  )}
+                  {documentSession && !workflowDraft && (
+                    <div className="aiDraftResultInsights" aria-label="문서 초안 제출 준비도">
+                      <div className={`aiDraftResultInsightSection ${hasProvisionalDocumentDraft ? "warning" : ""}`}>
+                        <div className="aiDraftResultInsightHeader">
+                          <h3>제출 준비도</h3>
+                          <span>{documentSession.completion.score}%</span>
+                        </div>
+                        <p>{documentSession.completion.summary}</p>
+                        <ul>
+                          {documentSession.completion.gates.map((gate) => (
+                            <li key={gate.id}>
+                              {gate.passed ? "통과" : "보완"} · {gate.label}: {gate.detail}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                  {documentSaveStatus.message && (
+                    <p
+                      className={`aiDraftInputHint ${documentSaveStatus.status === "error" ? "error" : ""}`}
+                      role={documentSaveStatus.status === "error" ? "alert" : "status"}
+                    >
+                      {documentSaveStatus.message}
+                    </p>
                   )}
                   {workflowDraft && (
                     <div className="aiDraftRevisePanel" aria-label="초안 수정">
@@ -3775,6 +3912,22 @@ export function AIDraftChatBuilder() {
                         </button>
                       </>
                     )}
+                    {documentSession?.documentPackages.map((documentPackage) => (
+                      <button
+                        type="button"
+                        key={`${documentPackage.documentType}-${documentPackage.title}`}
+                        disabled={documentSaveStatus.status === "saving"}
+                        onClick={() => {
+                          void handleSaveDocumentPackage(documentPackage);
+                        }}
+                        aria-label={`${documentPackage.documentType === "resume" ? "이력서" : "자기소개서"} 문서함에 저장`}
+                        title={`${documentPackage.documentType === "resume" ? "이력서" : "자기소개서"} 문서함에 저장`}
+                        data-tooltip={`${documentPackage.documentType === "resume" ? "이력서" : "자기소개서"} 문서함에 저장`}
+                      >
+                        <Icon name="edit" />
+                        {documentPackage.documentType === "resume" ? "이력서 저장" : "자소서 저장"}
+                      </button>
+                    ))}
                   </div>
                 </section>
               )}
@@ -4178,8 +4331,16 @@ export function AIDraftChatBuilder() {
                   <div>
                     <dt>공고 링크</dt>
                     <dd>
-                      <a href={selectedJob.link}>{selectedJob.link}</a>
-                      <Icon name="external" />
+                      {selectedJob.link ? (
+                        <>
+                          <a href={selectedJob.link} rel="noopener noreferrer" target="_blank">
+                            {selectedJob.link}
+                          </a>
+                          <Icon name="external" />
+                        </>
+                      ) : (
+                        <span>공고 링크 없음</span>
+                      )}
                     </dd>
                   </div>
                 </dl>

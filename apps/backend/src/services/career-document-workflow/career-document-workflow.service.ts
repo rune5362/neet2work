@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { AiExecutionMeta, AiSelection } from "../../types/ai-routing.js";
 import type { DraftWorkflowDraft, DraftWorkflowPlan } from "../../types/draft-workflow.js";
 import type {
+  CareerDocumentPackage,
   CareerDocumentDraft,
   CareerDocumentQuestion,
   CareerDocumentSessionState,
@@ -21,6 +22,13 @@ import { gapInterviewService, GapInterviewService } from "./gap-interview.servic
 import { githubAnalysisService, GithubAnalysisService } from "./github-analysis.service.js";
 import { portfolioAnalysisService, PortfolioAnalysisService } from "./portfolio-analysis.service.js";
 import { draftWorkflowDraftSchema, draftWorkflowPlanSchema } from "../draft-workflow/schemas.js";
+import {
+  buildFallbackStructureRules,
+  buildReferenceRuleTexts,
+  buildSocraticDraftingRules
+} from "./self-intro-style-guide.js";
+
+const CAREER_DOCUMENT_AI_TIMEOUT_MS = Number(process.env.CAREER_DOCUMENT_AI_TIMEOUT_MS) || 300_000;
 
 export class CareerDocumentWorkflowService {
   constructor(
@@ -34,6 +42,7 @@ export class CareerDocumentWorkflowService {
   ) {}
 
   async createSession(request: CareerDocumentWorkflowSessionRequest): Promise<CareerDocumentWorkflowSession> {
+    const sessionId = randomUUID();
     const target = request.target ?? {};
     const analysisContextText = buildAnalysisContextText(request);
     const documentAnalyses = this.documents.analyze(request.attachments ?? []);
@@ -44,7 +53,8 @@ export class CareerDocumentWorkflowService {
       target,
       documentAnalyses,
       githubAnalyses,
-      portfolioAnalyses
+      portfolioAnalyses,
+      profileContexts: request.profileContexts
     });
     const answers: CareerGapAnswer[] = [];
     const baseQuestions = this.interview.build({
@@ -79,24 +89,41 @@ export class CareerDocumentWorkflowService {
       aiSelection: request.aiSelection
     });
     const state = resolveState(questions.length, draftResult.drafts);
-
-    return {
-      sessionId: randomUUID(),
+    const completion = buildCompletion(state, questions, draftResult.drafts);
+    const missingEvidence = collectMissingEvidence(draftResult.drafts, githubAnalyses, portfolioAnalyses);
+    const risks = collectRisks(draftResult.drafts, githubAnalyses, portfolioAnalyses);
+    const documentPackages = buildDocumentPackages({
+      sessionId,
       state,
       target,
-      stages: buildStages(state),
+      profileContexts: request.profileContexts ?? [],
+      drafts: draftResult.drafts,
+      evidenceVault,
+      completion,
+      missingEvidence,
+      risks
+    });
+
+    return {
+      sessionId,
+      state,
+      target,
+      stages: buildStages(state, draftResult.drafts),
       documentAnalyses,
       githubAnalyses,
       portfolioAnalyses,
       evidenceVault,
+      profileContexts: request.profileContexts ?? [],
       interview: {
         questions,
         answers
       },
       drafts: draftResult.drafts,
+      completion,
+      documentPackages,
       aiMeta: draftResult.aiMeta ?? questionResult.aiMeta,
-      missingEvidence: collectMissingEvidence(draftResult.drafts, githubAnalyses, portfolioAnalyses),
-      risks: collectRisks(draftResult.drafts, githubAnalyses, portfolioAnalyses)
+      missingEvidence,
+      risks
     };
   }
 
@@ -162,20 +189,36 @@ export class CareerDocumentWorkflowService {
       aiSelection: request.aiSelection
     });
     const state = resolveState(questions.length, draftResult.drafts);
+    const completion = buildCompletion(state, questions, draftResult.drafts);
+    const missingEvidence = collectMissingEvidence(draftResult.drafts, request.session.githubAnalyses, request.session.portfolioAnalyses);
+    const risks = collectRisks(draftResult.drafts, request.session.githubAnalyses, request.session.portfolioAnalyses);
+    const documentPackages = buildDocumentPackages({
+      sessionId: request.session.sessionId,
+      state,
+      target: request.session.target,
+      profileContexts: request.session.profileContexts,
+      drafts: draftResult.drafts,
+      evidenceVault,
+      completion,
+      missingEvidence,
+      risks
+    });
 
     return {
       ...request.session,
       state,
-      stages: buildStages(state),
+      stages: buildStages(state, draftResult.drafts),
       evidenceVault,
       interview: {
         questions,
         answers
       },
       drafts: draftResult.drafts,
+      completion,
+      documentPackages,
       aiMeta: draftResult.aiMeta ?? questionResult.aiMeta,
-      missingEvidence: collectMissingEvidence(draftResult.drafts, request.session.githubAnalyses, request.session.portfolioAnalyses),
-      risks: collectRisks(draftResult.drafts, request.session.githubAnalyses, request.session.portfolioAnalyses)
+      missingEvidence,
+      risks
     };
   }
 
@@ -198,7 +241,8 @@ export class CareerDocumentWorkflowService {
       const result = await this.router.execute<DraftWorkflowPlan>({
         operation: "plan",
         aiSelection,
-        payload: buildAiQuestionPlanPayload(input)
+        payload: buildAiQuestionPlanPayload(input),
+        timeoutMs: CAREER_DOCUMENT_AI_TIMEOUT_MS
       });
 
       if (result.aiMeta.usedFallback) {
@@ -296,7 +340,8 @@ export class CareerDocumentWorkflowService {
       const result = await this.router.execute<DraftWorkflowDraft>({
         operation: "draft",
         aiSelection: input.aiSelection,
-        payload: buildAiDraftPayload(input)
+        payload: buildAiDraftPayload(input),
+        timeoutMs: CAREER_DOCUMENT_AI_TIMEOUT_MS
       });
 
       if (result.aiMeta.usedFallback) {
@@ -405,6 +450,11 @@ function buildAiQuestionPlanPayload(input: {
   }));
   const evidenceFacts = allowedEvidence.map((item) => item.fact);
   const answerFacts = input.answers.map((answer) => `${answer.slot ?? answer.questionId}: ${answer.answer}`);
+  const referenceRules = [
+    ...input.documentAnalyses.flatMap((analysis) => analysis.template?.writingRules ?? []),
+    ...buildReferenceRuleTexts(),
+    ...buildSocraticDraftingRules()
+  ];
   const baseQuestionNotes = input.baseQuestions.map(
     (question) => `- slot=${question.slot}; priority=${question.priority}; why=${question.whyAsking}; targetQuestionIds=${question.targetQuestionIds.join(",")}`
   );
@@ -437,6 +487,8 @@ function buildAiQuestionPlanPayload(input: {
       additionalContext: [
         "현재 감지된 부족 정보 슬롯입니다. 기존 규칙 문장을 복사하지 말고, 첨부 자료/대화/직무 맥락에 맞는 새 한국어 질문을 한 문장으로 작성해 주세요.",
         "질문은 사용자가 채팅에서 바로 답할 수 있어야 하고, 부족한 사실만 확인해야 합니다.",
+        "레퍼런스는 문장 구조와 평가 기준으로만 사용하고, 레퍼런스의 사실/문장을 사용자 사실로 쓰지 마세요.",
+        ...referenceRules,
         ...baseQuestionNotes
       ].join("\n")
     },
@@ -496,7 +548,7 @@ function buildAiQuestionPlanPayload(input: {
           priority: "critical" as const,
           appliesTo: [question.questionId]
         })),
-        referenceRules: input.documentAnalyses.flatMap((analysis) => analysis.template?.writingRules ?? []),
+        referenceRules,
         profile: {
           coreStrengths: allowedEvidence.filter((item) => item.targetSlots.includes("skills")).map((item) => item.fact),
           tone: input.target.writingStyle ?? "",
@@ -594,6 +646,12 @@ function buildAiDraftPayload(input: {
     allowedInDraft: item.allowedInDraft && !item.needsUserConfirmation
   }));
   const allowedClaimIds = claimLedger.filter((claim) => claim.allowedInDraft).map((claim) => claim.claimId);
+  const referenceRules = [
+    ...question.writingRules,
+    ...buildReferenceRuleTexts(),
+    ...buildSocraticDraftingRules(),
+    ...buildFallbackStructureRules()
+  ];
   const target = {
     company: input.target.company ?? "",
     role: input.target.role ?? "지원 직무",
@@ -604,7 +662,7 @@ function buildAiDraftPayload(input: {
     blindRecruitment: false,
     writingStyle: input.target.writingStyle,
     sectionName: input.target.formatLabel,
-    requirementSourceText: [input.draft.questionText, ...question.writingRules].filter(Boolean).join("\n")
+    requirementSourceText: [input.draft.questionText, ...referenceRules].filter(Boolean).join("\n")
   };
 
   return {
@@ -618,7 +676,9 @@ function buildAiDraftPayload(input: {
       additionalContext: [
         input.target.formatLabel ? `작성 형식: ${input.target.formatLabel}` : "",
         input.target.writingStyle ? `문체: ${input.target.writingStyle}` : "",
-        question.intent ? `문항 의도: ${question.intent}` : ""
+        question.intent ? `문항 의도: ${question.intent}` : "",
+        "레퍼런스 규칙은 문장 구조와 품질 점검에만 사용하고, 레퍼런스의 사실이나 예문을 새 초안 사실로 쓰지 마세요.",
+        ...referenceRules
       ].filter(Boolean).join("\n")
     },
     plan: {
@@ -690,7 +750,7 @@ function buildAiDraftPayload(input: {
             appliesTo: [input.draft.questionId]
           }
         ],
-        referenceRules: question.writingRules,
+        referenceRules,
         profile: {
           coreStrengths: allowedEvidence.filter((item) => item.targetSlots.includes("skills")).map((item) => item.fact),
           tone: input.target.writingStyle ?? "",
@@ -715,7 +775,12 @@ function buildAiDraftPayload(input: {
             sectionName: input.draft.questionId,
             mainClaim: allowedEvidence[0]?.fact ?? "사용자 확인 자료 기반 답변",
             evidenceIds: allowedEvidence.map((item) => item.evidenceId),
-            avoidRepeating: []
+            avoidRepeating: [
+              "기술 스택은 ... 기반으로 구성했습니다",
+              "확인 가능한 결과로",
+              "사용자 입력",
+              "선택 프로필"
+            ]
           }
         ],
         outputRules: {
@@ -787,7 +852,304 @@ function fitAiDraftToLimit(
   return `${visible.trimEnd()}...`;
 }
 
-function buildStages(state: CareerDocumentSessionState): CareerDocumentWorkflowSession["stages"] {
+function buildCompletion(
+  state: CareerDocumentSessionState,
+  questions: CareerGapQuestion[],
+  drafts: CareerDocumentDraft[]
+): CareerDocumentWorkflowSession["completion"] {
+  const draftsWithText = drafts.filter((draft) => draft.draftText?.trim());
+  const missingEvidence = unique(drafts.flatMap((draft) => draft.missingEvidence));
+  const gates: CareerDocumentWorkflowSession["completion"]["gates"] = [
+    {
+      id: "draft_available",
+      label: "가초안 생성",
+      passed: draftsWithText.length > 0,
+      detail: draftsWithText.length > 0 ? `${draftsWithText.length}개 문항의 가초안이 있습니다.` : "아직 가초안을 만들 근거가 부족합니다."
+    },
+    {
+      id: "required_questions_answered",
+      label: "필수 보완 질문",
+      passed: questions.length === 0,
+      detail: questions.length === 0 ? "남은 필수 보완 질문이 없습니다." : `${questions.length}개 보완 질문이 남아 있습니다.`
+    },
+    {
+      id: "missing_evidence_resolved",
+      label: "부족 근거 해소",
+      passed: missingEvidence.length === 0,
+      detail: missingEvidence.length === 0 ? "문항별 부족 근거가 없습니다." : `${missingEvidence.slice(0, 3).join(", ")} 보완이 필요합니다.`
+    },
+    {
+      id: "evidence_locked",
+      label: "근거 잠금",
+      passed: draftsWithText.length > 0 && draftsWithText.every((draft) => draft.usedEvidenceFacts.length > 0),
+      detail:
+        draftsWithText.length > 0
+          ? "초안 문장이 첨부/대화/GitHub/포트폴리오 근거에 연결되어 있습니다."
+          : "근거에 연결된 초안 문장이 아직 없습니다."
+    }
+  ];
+  const passedGateCount = gates.filter((gate) => gate.passed).length;
+  const score = Math.round((passedGateCount / gates.length) * 100);
+  const status = state === "DRAFT_READY" && gates.every((gate) => gate.passed) ? "submission_ready" : "provisional";
+
+  return {
+    status,
+    score,
+    summary:
+      status === "submission_ready"
+        ? "제출 준비 기준을 통과했습니다."
+        : "가초안 상태입니다. 남은 질문을 답하면 같은 초안을 갱신해 완성도를 높입니다.",
+    gates
+  };
+}
+
+function buildDocumentPackages(input: {
+  sessionId: string;
+  state: CareerDocumentSessionState;
+  target: CareerDocumentWorkflowSession["target"];
+  profileContexts: CareerDocumentWorkflowSession["profileContexts"];
+  drafts: CareerDocumentDraft[];
+  evidenceVault: CareerEvidenceVaultItem[];
+  completion: CareerDocumentWorkflowSession["completion"];
+  missingEvidence: string[];
+  risks: string[];
+}): CareerDocumentPackage[] {
+  const packages: CareerDocumentPackage[] = [];
+  const primaryProfile = input.profileContexts[0];
+  const usedFacts = unique(input.drafts.flatMap((draft) => draft.usedEvidenceFacts));
+  const packageBase = {
+    sessionId: input.sessionId,
+    state: input.state,
+    target: input.target,
+    profileContexts: input.profileContexts,
+    completion: input.completion,
+    missingEvidence: input.missingEvidence,
+    risks: input.risks,
+    usedFacts
+  };
+  const coverLetterSections = input.drafts
+    .filter((draft) => draft.draftText?.trim())
+    .map((draft, index) => ({
+      sectionId: draft.questionId,
+      title: draft.questionText || `자기소개서 문항 ${index + 1}`,
+      body: draft.draftText?.trim() ?? "",
+      usedEvidenceFacts: draft.usedEvidenceFacts,
+      missingEvidence: draft.missingEvidence,
+      risks: draft.risks
+    }));
+
+  if (coverLetterSections.length > 0) {
+    const content = coverLetterSections
+      .map((section, index) => `문항 ${index + 1}. ${section.title}\n\n${section.body}`)
+      .join("\n\n");
+
+    packages.push(
+      buildPackage({
+        ...packageBase,
+        documentType: "cover_letter",
+        title: buildPackageTitle(input.target, "자기소개서", input.completion.status),
+        content,
+        sections: coverLetterSections,
+        profile: primaryProfile
+      })
+    );
+  }
+
+  const resumeContent = buildResumeContent({
+    target: input.target,
+    profile: primaryProfile,
+    evidenceVault: input.evidenceVault,
+    missingEvidence: input.missingEvidence
+  });
+
+  if (resumeContent.trim()) {
+    packages.push(
+      buildPackage({
+        ...packageBase,
+        documentType: "resume",
+        title: buildPackageTitle(input.target, "이력서", input.completion.status),
+        content: resumeContent,
+        sections: [
+          {
+            sectionId: "resume-summary",
+            title: "이력서 요약",
+            body: resumeContent,
+            usedEvidenceFacts: usedFacts,
+            missingEvidence: input.missingEvidence,
+            risks: input.risks
+          }
+        ],
+        profile: primaryProfile
+      })
+    );
+  }
+
+  return packages;
+}
+
+function buildPackage(input: {
+  documentType: "cover_letter" | "resume";
+  title: string;
+  content: string;
+  sessionId: string;
+  state: CareerDocumentSessionState;
+  target: CareerDocumentWorkflowSession["target"];
+  profileContexts: CareerDocumentWorkflowSession["profileContexts"];
+  completion: CareerDocumentWorkflowSession["completion"];
+  sections: CareerDocumentPackage["contentJson"]["sections"];
+  usedFacts: string[];
+  missingEvidence: string[];
+  risks: string[];
+  profile?: CareerDocumentWorkflowSession["profileContexts"][number];
+}): CareerDocumentPackage {
+  const charCountRule = input.target.charCountRule ?? "with_spaces";
+  const profileSnapshot = input.profile
+    ? {
+        profileId: input.profile.profileId,
+        title: input.profile.title,
+        targetRole: input.profile.targetRole,
+        desiredRoles: input.profile.desiredRoles,
+        skills: input.profile.skills.length > 0 ? input.profile.skills : input.profile.profileJson.skills,
+        profileText: input.profile.profileText
+      }
+    : undefined;
+
+  return {
+    documentType: input.documentType,
+    title: input.title,
+    content: input.content,
+    profileId: input.profile?.profileId ?? null,
+    jobId: input.target.jobId ?? null,
+    contentJson: {
+      schemaVersion: 1,
+      source: {
+        workflow: "career-document-workflow",
+        sessionId: input.sessionId,
+        state: input.state,
+        generatedAt: new Date().toISOString(),
+        completionStatus: input.completion.status
+      },
+      target: input.target,
+      ...(profileSnapshot ? { profileSnapshot } : {}),
+      sections: input.sections,
+      evidence: {
+        usedFacts: input.usedFacts,
+        missingEvidence: input.missingEvidence,
+        risks: input.risks
+      },
+      formatting: {
+        charCountRule,
+        withSpaces: input.content.length,
+        withoutSpaces: input.content.replace(/\s/g, "").length,
+        limit: input.target.charLimit
+      }
+    }
+  };
+}
+
+function buildPackageTitle(
+  target: CareerDocumentWorkflowSession["target"],
+  label: "자기소개서" | "이력서",
+  status: CareerDocumentWorkflowSession["completion"]["status"]
+) {
+  const role = target.role?.trim() || "지원";
+  const suffix = status === "submission_ready" ? "완성본" : "가초안";
+  return `${role} ${label} ${suffix}`;
+}
+
+function buildResumeContent(input: {
+  target: CareerDocumentWorkflowSession["target"];
+  profile?: CareerDocumentWorkflowSession["profileContexts"][number];
+  evidenceVault: CareerEvidenceVaultItem[];
+  missingEvidence: string[];
+}) {
+  const lines: string[] = [];
+  const profile = input.profile;
+  const skills = unique([
+    ...(profile?.skills ?? []),
+    ...(profile?.profileJson.skills ?? []),
+    ...input.evidenceVault
+      .filter((item) => item.targetSlots.includes("skills"))
+      .flatMap((item) => extractSkillCandidates(item.fact))
+  ]).slice(0, 18);
+  const desiredRoles = unique([
+    input.target.role ?? "",
+    profile?.targetRole ?? "",
+    ...(profile?.desiredRoles ?? []),
+    ...(profile?.profileJson.desired?.roles ?? [])
+  ]);
+  const summary = profile?.profileJson.summary?.description?.trim() || profile?.profileJson.summary?.headline?.trim();
+  const hasProfileProjects = (profile?.profileJson.projects ?? []).some(
+    (project) => (project.name || project.title || project.role || project.result || project.impact || project.achievements?.length)
+  );
+  const projectFacts = unique([
+    ...(profile?.profileJson.projects ?? []).map((project) =>
+      [
+        project.name || project.title,
+        project.role ? `역할: ${project.role}` : "",
+        project.result || project.impact || project.achievements?.join(", ")
+      ].filter(Boolean).join(" / ")
+    ),
+    ...input.evidenceVault
+      .filter((item) =>
+        (item.targetSlots.includes("project_name") || item.targetSlots.includes("actions")) &&
+        !(hasProfileProjects && item.sourceType === "profile_context")
+      )
+      .map((item) => item.fact)
+  ]).filter((fact) => fact.trim().length > 0).slice(0, 6);
+
+  if (profile?.profileJson.basics.name?.trim()) {
+    lines.push(`이름: ${profile.profileJson.basics.name.trim()}`);
+  }
+  if (desiredRoles.length > 0) {
+    lines.push(`희망 직무: ${desiredRoles.join(", ")}`);
+  }
+  if (skills.length > 0) {
+    lines.push(`기술 스택: ${skills.join(", ")}`);
+  }
+  if (summary) {
+    lines.push(`요약: ${summary}`);
+  }
+  if (projectFacts.length > 0) {
+    lines.push("프로젝트 경험:");
+    for (const fact of projectFacts) {
+      lines.push(`- ${simplifyPackageFact(fact)}`);
+    }
+  }
+  if (input.missingEvidence.length > 0) {
+    lines.push(`보완 필요: ${input.missingEvidence.slice(0, 5).join(", ")}`);
+  }
+
+  return lines.join("\n");
+}
+
+function extractSkillCandidates(fact: string) {
+  const knownSkills = [
+    "TypeScript",
+    "JavaScript",
+    "React",
+    "Vite",
+    "Node.js",
+    "Express",
+    "PostgreSQL",
+    "Prisma",
+    "REST API",
+    "GitHub Actions",
+    "Docker",
+    "SQL",
+    "Python"
+  ];
+  const lower = fact.toLowerCase();
+  return knownSkills.filter((skill) => lower.includes(skill.toLowerCase()));
+}
+
+function simplifyPackageFact(fact: string) {
+  return fact.replace(/^선택 프로필 [^:]+:\s*/, "").replace(/\s+/g, " ").trim();
+}
+
+function buildStages(state: CareerDocumentSessionState, drafts: CareerDocumentDraft[]): CareerDocumentWorkflowSession["stages"] {
+  const hasDraftText = drafts.some((draft) => draft.draftText?.trim());
+
   return [
     {
       id: "material_collection",
@@ -807,7 +1169,7 @@ function buildStages(state: CareerDocumentSessionState): CareerDocumentWorkflowS
     {
       id: "section_drafts",
       label: "문항별 초안",
-      status: state === "DRAFT_READY" ? "complete" : state === "INTERVIEW_REQUIRED" ? "blocked" : "pending"
+      status: state === "DRAFT_READY" ? "complete" : hasDraftText ? "active" : state === "INTERVIEW_REQUIRED" ? "blocked" : "pending"
     }
   ];
 }

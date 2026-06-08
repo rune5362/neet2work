@@ -21,6 +21,7 @@ else:
 
 
 DEFAULT_LIST_URL = "https://www.careercross.com/en/"
+ALLOWED_HOSTS = {"careercross.com", "www.careercross.com"}
 SOURCE = "careercross"
 TEXT_LIMIT = 5000
 MAX_LIMIT = 5
@@ -100,7 +101,7 @@ def canonical_detail_url(job_id: str) -> str:
 
 
 def list_jobs(list_url: str, limit: int) -> list[SourceJobLink]:
-    result = fetch_text(list_url)
+    result = fetch_text(list_url, allowed_hosts=ALLOWED_HOSTS)
     if result.status >= 400:
         raise RuntimeError(f"CareerCross list request failed: HTTP {result.status}")
 
@@ -165,7 +166,7 @@ def extract_description(text: str) -> str:
 
 
 def collect_detail(link: SourceJobLink) -> StandardJobPosting:
-    result = fetch_text(link.source_url)
+    result = fetch_text(link.source_url, allowed_hosts=ALLOWED_HOSTS)
     if result.status >= 400:
         raise RuntimeError(
             f"CareerCross detail request failed: HTTP {result.status} {link.source_url}"

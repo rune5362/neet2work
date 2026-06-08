@@ -363,7 +363,7 @@ const careerDocumentSessionResult = {
     { id: "material_collection" as const, label: "자료 수집", status: "complete" as const },
     { id: "evidence_analysis" as const, label: "근거 분석", status: "complete" as const },
     { id: "gap_interview" as const, label: "부족 정보 질문", status: "active" as const },
-    { id: "section_drafts" as const, label: "문항별 초안", status: "blocked" as const }
+    { id: "section_drafts" as const, label: "문항별 초안", status: "active" as const }
   ],
   documentAnalyses: [
     {
@@ -429,6 +429,7 @@ const careerDocumentSessionResult = {
       targetSlots: ["project_name", "actions"]
     }
   ],
+  profileContexts: [],
   interview: {
     questions: [
       {
@@ -449,10 +450,134 @@ const careerDocumentSessionResult = {
       charLimit: 700,
       charCountRule: "unknown" as const,
       status: "needs_more_evidence" as const,
-      usedEvidenceSourceIds: [],
-      usedEvidenceFacts: [],
+      draftText:
+        "실전 백엔드 엔지니어 직무에 맞춰 지원자 상태 관리 API 경험을 중심으로 정리하겠습니다. GitHub 자료에서는 지원자 상태 관리 API와 이력 추적 기능이 확인됩니다.",
+      charCount: { withSpaces: 91, withoutSpaces: 72, limit: 700 },
+      usedEvidenceSourceIds: ["github-1"],
+      usedEvidenceFacts: [
+        "GitHub 저장소 example/applicant-tracker README 요약: 지원자 상태 관리 API와 이력 추적 기능"
+      ],
       missingEvidence: ["본인 역할"],
-      risks: ["근거가 부족한 문항은 초안 대신 보완 질문을 먼저 남겼습니다."]
+      risks: ["근거가 부족한 항목은 가초안에서 단정하지 않고 보완 질문으로 남겼습니다."]
+    }
+  ],
+  completion: {
+    status: "provisional" as const,
+    score: 50,
+    summary: "가초안 상태입니다. 남은 질문을 답하면 같은 초안을 갱신해 완성도를 높입니다.",
+    gates: [
+      {
+        id: "draft_available" as const,
+        label: "가초안 생성",
+        passed: true,
+        detail: "1개 문항의 가초안이 있습니다."
+      },
+      {
+        id: "required_questions_answered" as const,
+        label: "필수 보완 질문",
+        passed: false,
+        detail: "1개 보완 질문이 남아 있습니다."
+      },
+      {
+        id: "missing_evidence_resolved" as const,
+        label: "부족 근거 해소",
+        passed: false,
+        detail: "본인 역할 보완이 필요합니다."
+      },
+      {
+        id: "evidence_locked" as const,
+        label: "근거 잠금",
+        passed: true,
+        detail: "초안 문장이 첨부/대화/GitHub/포트폴리오 근거에 연결되어 있습니다."
+      }
+    ]
+  },
+  documentPackages: [
+    {
+      documentType: "cover_letter" as const,
+      title: "실전 백엔드 엔지니어 자기소개서 가초안",
+      content:
+        "문항 1. 지원 직무와 관련된 프로젝트 경험을 작성해 주세요. 700자 이내.\n\n실전 백엔드 엔지니어 직무에 맞춰 지원자 상태 관리 API 경험을 중심으로 정리하겠습니다. GitHub 자료에서는 지원자 상태 관리 API와 이력 추적 기능이 확인됩니다.",
+      profileId: null,
+      jobId: null,
+      contentJson: {
+        schemaVersion: 1 as const,
+        source: {
+          workflow: "career-document-workflow" as const,
+          sessionId: "career-document-session-1",
+          state: "INTERVIEW_REQUIRED" as const,
+          generatedAt: "2026-06-08T00:00:00.000Z",
+          completionStatus: "provisional" as const
+        },
+        target: { role: "실전 백엔드 엔지니어" },
+        sections: [
+          {
+            sectionId: "attachment-template-q1",
+            title: "지원 직무와 관련된 프로젝트 경험을 작성해 주세요. 700자 이내.",
+            body: "실전 백엔드 엔지니어 직무에 맞춰 지원자 상태 관리 API 경험을 중심으로 정리하겠습니다. GitHub 자료에서는 지원자 상태 관리 API와 이력 추적 기능이 확인됩니다.",
+            usedEvidenceFacts: [
+              "GitHub 저장소 example/applicant-tracker README 요약: 지원자 상태 관리 API와 이력 추적 기능"
+            ],
+            missingEvidence: ["본인 역할"],
+            risks: ["근거가 부족한 항목은 가초안에서 단정하지 않고 보완 질문으로 남겼습니다."]
+          }
+        ],
+        evidence: {
+          usedFacts: [
+            "GitHub 저장소 example/applicant-tracker README 요약: 지원자 상태 관리 API와 이력 추적 기능"
+          ],
+          missingEvidence: ["본인 역할"],
+          risks: []
+        },
+        formatting: {
+          charCountRule: "with_spaces" as const,
+          withSpaces: 132,
+          withoutSpaces: 104,
+          limit: 700
+        }
+      }
+    },
+    {
+      documentType: "resume" as const,
+      title: "실전 백엔드 엔지니어 이력서 가초안",
+      content: "희망 직무: 실전 백엔드 엔지니어\n프로젝트 경험:\n- GitHub 저장소 example/applicant-tracker README 요약: 지원자 상태 관리 API와 이력 추적 기능\n보완 필요: 본인 역할",
+      profileId: null,
+      jobId: null,
+      contentJson: {
+        schemaVersion: 1 as const,
+        source: {
+          workflow: "career-document-workflow" as const,
+          sessionId: "career-document-session-1",
+          state: "INTERVIEW_REQUIRED" as const,
+          generatedAt: "2026-06-08T00:00:00.000Z",
+          completionStatus: "provisional" as const
+        },
+        target: { role: "실전 백엔드 엔지니어" },
+        sections: [
+          {
+            sectionId: "resume-summary",
+            title: "이력서 요약",
+            body: "희망 직무: 실전 백엔드 엔지니어\n프로젝트 경험:\n- GitHub 저장소 example/applicant-tracker README 요약: 지원자 상태 관리 API와 이력 추적 기능\n보완 필요: 본인 역할",
+            usedEvidenceFacts: [
+              "GitHub 저장소 example/applicant-tracker README 요약: 지원자 상태 관리 API와 이력 추적 기능"
+            ],
+            missingEvidence: ["본인 역할"],
+            risks: []
+          }
+        ],
+        evidence: {
+          usedFacts: [
+            "GitHub 저장소 example/applicant-tracker README 요약: 지원자 상태 관리 API와 이력 추적 기능"
+          ],
+          missingEvidence: ["본인 역할"],
+          risks: []
+        },
+        formatting: {
+          charCountRule: "with_spaces" as const,
+          withSpaces: 96,
+          withoutSpaces: 80
+        }
+      }
     }
   ],
   missingEvidence: ["본인 역할"],
@@ -508,6 +633,130 @@ const careerDocumentAnsweredSessionResult = {
       risks: ["GitHub 근거는 README 기반이라 세부 기여는 사용자 확인이 필요합니다."]
     }
   ],
+  documentPackages: [
+    {
+      documentType: "cover_letter" as const,
+      title: "실전 백엔드 엔지니어 자기소개서 완성본",
+      content:
+        "문항 1. 지원 직무와 관련된 프로젝트 경험을 작성해 주세요. 700자 이내.\n\n실전 백엔드 엔지니어 직무에 맞춰 지원자 상태 관리 API 경험을 중심으로 답변하겠습니다. 이 경험에서 제가 직접 맡은 범위는 백엔드 API 명세와 상태 변경 로직 구현입니다.",
+      profileId: null,
+      jobId: null,
+      contentJson: {
+        schemaVersion: 1 as const,
+        source: {
+          workflow: "career-document-workflow" as const,
+          sessionId: "career-document-session-1",
+          state: "DRAFT_READY" as const,
+          generatedAt: "2026-06-08T00:00:00.000Z",
+          completionStatus: "submission_ready" as const
+        },
+        target: { role: "실전 백엔드 엔지니어" },
+        sections: [
+          {
+            sectionId: "attachment-template-q1",
+            title: "지원 직무와 관련된 프로젝트 경험을 작성해 주세요. 700자 이내.",
+            body: "실전 백엔드 엔지니어 직무에 맞춰 지원자 상태 관리 API 경험을 중심으로 답변하겠습니다. 이 경험에서 제가 직접 맡은 범위는 백엔드 API 명세와 상태 변경 로직 구현입니다.",
+            usedEvidenceFacts: [
+              "GitHub 저장소 example/applicant-tracker README 요약: 지원자 상태 관리 API와 이력 추적 기능",
+              "백엔드 API 명세와 상태 변경 로직 구현을 직접 맡았습니다."
+            ],
+            missingEvidence: [],
+            risks: ["GitHub 근거는 README 기반이라 세부 기여는 사용자 확인이 필요합니다."]
+          }
+        ],
+        evidence: {
+          usedFacts: [
+            "GitHub 저장소 example/applicant-tracker README 요약: 지원자 상태 관리 API와 이력 추적 기능",
+            "백엔드 API 명세와 상태 변경 로직 구현을 직접 맡았습니다."
+          ],
+          missingEvidence: [],
+          risks: []
+        },
+        formatting: {
+          charCountRule: "with_spaces" as const,
+          withSpaces: 139,
+          withoutSpaces: 111,
+          limit: 700
+        }
+      }
+    },
+    {
+      documentType: "resume" as const,
+      title: "실전 백엔드 엔지니어 이력서 완성본",
+      content:
+        "희망 직무: 실전 백엔드 엔지니어\n프로젝트 경험:\n- GitHub 저장소 example/applicant-tracker README 요약: 지원자 상태 관리 API와 이력 추적 기능\n- 백엔드 API 명세와 상태 변경 로직 구현을 직접 맡았습니다.",
+      profileId: null,
+      jobId: null,
+      contentJson: {
+        schemaVersion: 1 as const,
+        source: {
+          workflow: "career-document-workflow" as const,
+          sessionId: "career-document-session-1",
+          state: "DRAFT_READY" as const,
+          generatedAt: "2026-06-08T00:00:00.000Z",
+          completionStatus: "submission_ready" as const
+        },
+        target: { role: "실전 백엔드 엔지니어" },
+        sections: [
+          {
+            sectionId: "resume-summary",
+            title: "이력서 요약",
+            body: "희망 직무: 실전 백엔드 엔지니어\n프로젝트 경험:\n- GitHub 저장소 example/applicant-tracker README 요약: 지원자 상태 관리 API와 이력 추적 기능\n- 백엔드 API 명세와 상태 변경 로직 구현을 직접 맡았습니다.",
+            usedEvidenceFacts: [
+              "GitHub 저장소 example/applicant-tracker README 요약: 지원자 상태 관리 API와 이력 추적 기능",
+              "백엔드 API 명세와 상태 변경 로직 구현을 직접 맡았습니다."
+            ],
+            missingEvidence: [],
+            risks: []
+          }
+        ],
+        evidence: {
+          usedFacts: [
+            "GitHub 저장소 example/applicant-tracker README 요약: 지원자 상태 관리 API와 이력 추적 기능",
+            "백엔드 API 명세와 상태 변경 로직 구현을 직접 맡았습니다."
+          ],
+          missingEvidence: [],
+          risks: []
+        },
+        formatting: {
+          charCountRule: "with_spaces" as const,
+          withSpaces: 122,
+          withoutSpaces: 99
+        }
+      }
+    }
+  ],
+  completion: {
+    status: "submission_ready" as const,
+    score: 100,
+    summary: "제출 준비 기준을 통과했습니다.",
+    gates: [
+      {
+        id: "draft_available" as const,
+        label: "가초안 생성",
+        passed: true,
+        detail: "1개 문항의 가초안이 있습니다."
+      },
+      {
+        id: "required_questions_answered" as const,
+        label: "필수 보완 질문",
+        passed: true,
+        detail: "남은 필수 보완 질문이 없습니다."
+      },
+      {
+        id: "missing_evidence_resolved" as const,
+        label: "부족 근거 해소",
+        passed: true,
+        detail: "문항별 부족 근거가 없습니다."
+      },
+      {
+        id: "evidence_locked" as const,
+        label: "근거 잠금",
+        passed: true,
+        detail: "초안 문장이 첨부/대화/GitHub/포트폴리오 근거에 연결되어 있습니다."
+      }
+    ]
+  },
   missingEvidence: [],
   risks: []
 };
@@ -555,6 +804,36 @@ function createDraftWorkflowFetchMock(options?: {
 }) {
   return vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
+
+    if (url.includes("/api/documents") && init?.method === "POST") {
+      const body = JSON.parse(String(init.body ?? "{}"));
+      return apiResponse({
+        data: {
+          id: `saved-${body.documentType ?? "document"}`,
+          candidateKey: "candidate-1",
+          title: body.title,
+          documentType: body.documentType,
+          profileId: body.profileId ?? null,
+          profileTitle: null,
+          jobId: body.jobId ?? null,
+          jobTitle: null,
+          company: null,
+          content: body.content,
+          contentJson: body.contentJson ?? null,
+          source: "user",
+          profileSnapshotText: null,
+          profileSnapshotJson: null,
+          jobSnapshotJson: null,
+          isArchived: false,
+          createdAt: "2026-06-08T00:00:00.000Z",
+          updatedAt: "2026-06-08T00:00:00.000Z",
+          deletedAt: null,
+          createdBy: "user-1",
+          updatedBy: null,
+          deletedBy: null
+        }
+      });
+    }
 
     if (url.includes("/api/documents")) {
       return apiResponse({ data: [savedCoverLetterReference], count: 1 });
@@ -856,6 +1135,30 @@ describe("AIDraftChatBuilder job context", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/api/jobs/careercross-1591647")
     );
+  });
+
+  it("does not render unsafe selected job source URLs as links", async () => {
+    window.history.pushState({}, "", "/ai-analysis?jobId=careercross-1591647");
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.includes("/api/jobs/careercross-1591647")) {
+        return apiResponse({
+          data: {
+            ...apiJob,
+            sourceUrl: "javascript:alert(1)"
+          }
+        });
+      }
+
+      return createDraftWorkflowFetchMock()(input, init);
+    });
+
+    render(<AIDraftChatBuilder />);
+
+    expect(await screen.findByText("실전 백엔드 엔지니어")).toBeInTheDocument();
+    expect(screen.getByText("공고 링크 없음")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "javascript:alert(1)" })).not.toBeInTheDocument();
   });
 
   it("starts without a hardcoded selected job when no jobId query is provided", async () => {
@@ -1258,7 +1561,10 @@ describe("AIDraftChatBuilder draft workflow flow", () => {
     expect(screen.queryByRole("button", { name: "답변 저장" })).not.toBeInTheDocument();
 
     expect(screen.getAllByText("그 프로젝트에서 네가 직접 맡은 역할과 범위는 어디까지였어?").length).toBeGreaterThan(0);
-    expect(screen.queryByText(/실전 백엔드 엔지니어 직무에 맞춰/)).not.toBeInTheDocument();
+    expect(screen.getAllByText("가초안").length).toBeGreaterThan(0);
+    expect(screen.getByText("보완 필요")).toBeInTheDocument();
+    expect(screen.getByText("제출 준비도")).toBeInTheDocument();
+    expect(screen.getByText(/실전 백엔드 엔지니어 직무에 맞춰/)).toBeInTheDocument();
 
     const chatInput = screen.getByPlaceholderText("메시지를 입력하세요...");
     fireEvent.change(chatInput, {
@@ -1279,8 +1585,74 @@ describe("AIDraftChatBuilder draft workflow flow", () => {
     expect(answerBody.answer).toBe("백엔드 API 명세와 상태 변경 로직 구현을 직접 맡았습니다.");
     expect(answerBody.aiSelection).toEqual({ mode: "manual", providerId: "codex_bridge" });
     expect(await screen.findByText(/실전 백엔드 엔지니어 직무에 맞춰/)).toBeInTheDocument();
-    expect(screen.getByText("답변을 반영해서 초안을 준비했어.")).toBeInTheDocument();
+    expect(screen.getByText("답변을 반영해서 제출 준비 기준을 통과한 초안을 준비했어.")).toBeInTheDocument();
     expect(screen.queryByText(/GitHub 근거는 README 기반/)).not.toBeInTheDocument();
+  });
+
+  it("saves generated cover-letter and resume packages with content JSON", async () => {
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("실전 백엔드 엔지니어");
+    await attachTextFile(
+      "template.txt",
+      "문항: 지원 직무와 관련된 프로젝트 경험을 작성해 주세요. 700자 이내."
+    );
+    await sendUserMessage("이 GitHub 보고 첨부한 양식에 맞춰 초안 작성해줘. https://github.com/example/applicant-tracker");
+
+    const coverLetterSaveButton = await screen.findByRole("button", { name: "자기소개서 문서함에 저장" });
+    fireEvent.click(coverLetterSaveButton);
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.filter(
+          ([input, init]) => String(input).includes("/api/documents") && init?.method === "POST"
+        )
+      ).toHaveLength(1);
+    });
+    const coverLetterSaveCall = fetchMock.mock.calls.find(
+      ([input, init]) => String(input).includes("/api/documents") && init?.method === "POST"
+    );
+    const coverLetterBody = JSON.parse(String(coverLetterSaveCall?.[1]?.body));
+    expect(coverLetterBody).toMatchObject({
+      documentType: "cover_letter",
+      title: "실전 백엔드 엔지니어 자기소개서 가초안",
+      contentJson: {
+        source: {
+          workflow: "career-document-workflow",
+          sessionId: "career-document-session-1",
+          completionStatus: "provisional"
+        }
+      }
+    });
+    expect(coverLetterBody.content).toContain("문항 1.");
+    expect(await screen.findByText("실전 백엔드 엔지니어 자기소개서 가초안 문서함 저장 완료")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "이력서 문서함에 저장" }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.filter(
+          ([input, init]) => String(input).includes("/api/documents") && init?.method === "POST"
+        )
+      ).toHaveLength(2);
+    });
+    const saveCalls = fetchMock.mock.calls.filter(
+      ([input, init]) => String(input).includes("/api/documents") && init?.method === "POST"
+    );
+    const resumeBody = JSON.parse(String(saveCalls[1]?.[1]?.body));
+    expect(resumeBody).toMatchObject({
+      documentType: "resume",
+      title: "실전 백엔드 엔지니어 이력서 가초안",
+      contentJson: {
+        source: {
+          workflow: "career-document-workflow",
+          sessionId: "career-document-session-1",
+          completionStatus: "provisional"
+        }
+      }
+    });
+    expect(resumeBody.content).toContain("희망 직무: 실전 백엔드 엔지니어");
+    expect(await screen.findByText("실전 백엔드 엔지니어 이력서 가초안 문서함 저장 완료")).toBeInTheDocument();
   });
 
   it("injects a selected saved cover letter only as style reference", async () => {
@@ -1734,7 +2106,7 @@ describe("AIDraftChatBuilder chat UX", () => {
     const textarea = screen.getByPlaceholderText("메시지를 입력하세요...");
     fireEvent.change(textarea, {
       target: {
-        value: "https://github.com/r2gul4r 첨부한 자소서 양식에 맞춰서 초안을 작성해줘"
+        value: "https://github.com/r2gul4r 첨부한 자소서 양식에 맞춰서 초안을 작성해줘. 부족한 정보는 보완 질문으로 남겨줘."
       }
     });
     fireEvent.keyDown(textarea, { key: "Enter", shiftKey: false });
@@ -1754,7 +2126,40 @@ describe("AIDraftChatBuilder chat UX", () => {
     const body = JSON.parse(String(documentSessionCall?.[1]?.body));
     expect(body.message).toContain("https://github.com/r2gul4r");
     expect(body.message).toContain("첨부한 자소서 양식에 맞춰서 초안을 작성해줘");
+    expect(body.target.questionText).toBe("지원 직무와 관련된 프로젝트 경험을 구체적으로 작성해 주세요.");
+    expect(body.target.questionText).not.toContain("보완 질문");
     expect(body.aiSelection).toEqual({ mode: "manual", providerId: "codex_bridge" });
+  });
+
+  it("sends selected profile contexts to the document analysis session", async () => {
+    setStoredAuthSession();
+    render(<AIDraftChatBuilder />);
+
+    await screen.findByText("Backend Bridge");
+    fireEvent.click(screen.getByRole("button", { name: "작성 옵션" }));
+    fireEvent.click(screen.getByRole("button", { name: "프로필 추가" }));
+    fireEvent.click(await screen.findByRole("option", { name: /백엔드 지원 프로필/ }));
+
+    await sendUserMessage("https://github.com/r2gul4r 기준으로 자기소개서 초안 작성해줘.");
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/career-workflow/document-session"),
+        expect.objectContaining({ method: "POST" })
+      );
+    });
+
+    const documentSessionCall = fetchMock.mock.calls.find(
+      ([input, init]) => String(input).includes("/api/career-workflow/document-session") && init?.method === "POST"
+    );
+    const body = JSON.parse(String(documentSessionCall?.[1]?.body));
+    expect(body.profileContexts).toHaveLength(1);
+    expect(body.profileContexts[0]).toMatchObject({
+      profileId: savedCandidateProfile.id,
+      title: savedCandidateProfile.title,
+      skills: savedCandidateProfile.skills
+    });
+    expect(body.profileContexts[0].profileJson).toEqual(savedCandidateProfileJson);
   });
 
   it("opens a confirmation dialog instead of resetting immediately on new chat", async () => {

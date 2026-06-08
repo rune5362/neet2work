@@ -64,7 +64,7 @@ function isAllowedOrigin(origin?: string) {
 
 function createHttpsGuard() {
   return (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    if (process.env.REQUIRE_HTTPS !== "true") {
+    if (!shouldRequireHttps()) {
       next();
       return;
     }
@@ -81,6 +81,20 @@ function createHttpsGuard() {
   };
 }
 
+function shouldRequireHttps() {
+  const value = process.env.REQUIRE_HTTPS?.trim();
+
+  if (value === "true") {
+    return true;
+  }
+
+  if (value === "false") {
+    return false;
+  }
+
+  return (process.env.NODE_ENV || NODE_ENV) === "production";
+}
+
 function resolveTrustProxySetting() {
   const value = process.env.TRUST_PROXY?.trim();
 
@@ -89,6 +103,10 @@ function resolveTrustProxySetting() {
   }
 
   if (value === "true") {
+    if ((process.env.NODE_ENV || NODE_ENV) === "production") {
+      throw new Error("TRUST_PROXY=true is not allowed in production. Use a hop count or explicit subnet.");
+    }
+
     return true;
   }
 

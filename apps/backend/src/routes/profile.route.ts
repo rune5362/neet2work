@@ -9,9 +9,11 @@ import {
   protectProfile,
   updateProfileMeta
 } from "../services/profile.service.js";
+import { requireAuthenticatedUser } from "../middleware/auth.js";
 import { getAuthenticatedCandidateKey, getAuthenticatedUserId } from "../utils/auth-session.js";
 
 export const profileRouter = Router();
+profileRouter.use(requireAuthenticatedUser);
 
 const optionalTextSchema = z.string().trim().min(1).nullable().optional();
 const stringListSchema = z.array(z.string().trim()).default([]);

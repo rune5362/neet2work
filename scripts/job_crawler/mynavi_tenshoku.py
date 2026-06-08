@@ -21,6 +21,7 @@ else:
 
 
 DEFAULT_LIST_URL = "https://tenshoku.mynavi.jp/list/o1G/"
+ALLOWED_HOSTS = {"tenshoku.mynavi.jp"}
 SOURCE = "mynavi_tenshoku"
 TEXT_LIMIT = 5000
 MAX_LIMIT = 5
@@ -100,7 +101,7 @@ def canonical_detail_url(job_id: str) -> str:
 
 
 def list_jobs(list_url: str, limit: int) -> list[SourceJobLink]:
-    result = fetch_text(list_url)
+    result = fetch_text(list_url, allowed_hosts=ALLOWED_HOSTS)
     if result.status >= 400:
         raise RuntimeError(f"Mynavi Tenshoku list request failed: HTTP {result.status}")
 
@@ -195,7 +196,7 @@ def extract_detail_body(text: str) -> str:
 
 
 def collect_detail(link: SourceJobLink) -> StandardJobPosting:
-    result = fetch_text(link.source_url)
+    result = fetch_text(link.source_url, allowed_hosts=ALLOWED_HOSTS)
     if result.status >= 400:
         raise RuntimeError(
             f"Mynavi Tenshoku detail request failed: HTTP {result.status} {link.source_url}"

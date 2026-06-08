@@ -30,16 +30,41 @@ export class DraftGenerationService {
     return questions.map((question) => {
       const missingSlots = question.requiredSlots.filter((slot) => !filledSlots.has(slot));
       if (missingSlots.length > 0) {
+        const selectedEvidence = selectEvidenceForQuestion(allowedEvidence, question);
+        const provisionalDraftText =
+          selectedEvidence.length > 0
+            ? fitToLimit(
+                buildProvisionalDraftText({
+                  question,
+                  evidence: selectedEvidence,
+                  target: input.target
+                }),
+                question.charLimit,
+                question.charCountRule
+              )
+            : undefined;
+
         return {
           questionId: question.questionId,
           questionText: question.text,
           charLimit: question.charLimit,
           charCountRule: question.charCountRule,
           status: "needs_more_evidence",
-          usedEvidenceSourceIds: [],
-          usedEvidenceFacts: [],
+          draftText: provisionalDraftText,
+          charCount: provisionalDraftText
+            ? {
+                withSpaces: provisionalDraftText.length,
+                withoutSpaces: provisionalDraftText.replace(/\s/g, "").length,
+                limit: question.charLimit
+              }
+            : undefined,
+          usedEvidenceSourceIds: Array.from(new Set(selectedEvidence.map((item) => item.sourceId))),
+          usedEvidenceFacts: selectedEvidence.map((item) => item.fact),
           missingEvidence: missingSlots.map(slotLabel),
-          risks: ["근거가 부족한 문항은 초안 대신 보완 질문을 먼저 남겼습니다."]
+          risks: unique([
+            ...buildDraftRisks(selectedEvidence),
+            "근거가 부족한 항목은 가초안에서 단정하지 않고 보완 질문으로 남겼습니다."
+          ])
         } satisfies CareerDocumentDraft;
       }
 
@@ -121,7 +146,12 @@ function selectEvidenceForQuestion(
     item.targetSlots.some((slot) => question.requiredSlots.includes(slot))
   );
   const nonTemplate = slotMatches.filter((item) => item.sourceType !== "self_intro_template");
-  const selected = nonTemplate.length > 0 ? nonTemplate : slotMatches;
+  const selectedWithoutUserInstructions = nonTemplate.filter((item) => item.sourceType !== "user_input");
+  const selected = selectedWithoutUserInstructions.length > 0
+    ? selectedWithoutUserInstructions
+    : nonTemplate.length > 0
+      ? nonTemplate
+      : slotMatches;
 
   return selected.slice(0, 8);
 }
@@ -141,24 +171,41 @@ function buildDraftText(input: {
   const learning = findFactBySlot(input.evidence, "learning");
   const companyFit = findFactBySlot(input.evidence, "company_fit");
   const stylePrefix = input.target.formatLabel ? `${input.target.formatLabel} 형식으로 ` : "";
+  const roleText = simplifyFact(role);
+  const projectText = project ? simplifyFact(project) : "확인된 프로젝트 경험";
+  const userRoleText = userRole ? simplifyFact(userRole) : "";
+  const problemText = problem ? simplifyFact(problem) : "";
+  const actionsText = actions ? simplifyFact(actions) : "";
+  const technicalChoiceText = technicalChoice ? simplifyFact(technicalChoice) : "";
+  const resultText = result ? simplifyFact(result) : "";
+  const learningText = learning ? simplifyFact(learning) : "";
+  const companyFitText = companyFit ? simplifyFact(companyFit) : "";
   const opening =
     input.question.intent === "company_fit"
-      ? `${stylePrefix}${role} 지원 동기는 ${companyFit ? simplifyFact(companyFit) : "확인된 직무 연결 근거"}에서 출발합니다.`
-      : `${stylePrefix}${role}에 맞춰 ${project ? simplifyFact(project) : "확인된 프로젝트 경험"}을 중심으로 답변하겠습니다.`;
+      ? `${stylePrefix}${roleText} 지원 동기는 ${companyFitText || "확인된 직무 연결 근거"}에서 출발합니다.`
+      : `${stylePrefix}${roleText}에 필요한 실무 역량은 ${projectText} 경험에서 확인할 수 있습니다.`;
   const sentences = [
     opening,
-    userRole ? `이 경험에서 제가 직접 맡은 범위는 ${simplifyFact(userRole)}입니다.` : undefined,
-    problem ? `출발점은 ${simplifyFact(problem)}였습니다.` : undefined,
-    actions ? `이를 해결하기 위해 ${simplifyFact(actions)} 과정을 실행했습니다.` : undefined,
-    technicalChoice ? `기술과 구조는 ${simplifyFact(technicalChoice)} 근거로 선택했습니다.` : undefined,
-    result ? `확인 가능한 결과는 ${simplifyFact(result)}입니다.` : undefined,
-    learning ? `이 과정에서 ${simplifyFact(learning)}을 배웠습니다.` : undefined,
+    userRoleText ? `이 프로젝트에서 저는 ${userRoleText}을 맡았습니다.` : undefined,
+    problemText ? `출발점은 ${problemText}였습니다.` : undefined,
+    actionsText && actionsText !== userRoleText ? `이를 해결하기 위해 ${actionsText} 과정을 실행했습니다.` : undefined,
+    technicalChoiceText ? `기술 스택은 ${technicalChoiceText}을 기반으로 구성했습니다.` : undefined,
+    resultText ? buildResultSentence(resultText) : undefined,
+    learningText ? `이 과정에서 ${learningText}을 배웠습니다.` : undefined,
     companyFit && input.question.intent !== "company_fit"
-      ? `따라서 이 경험은 ${simplifyFact(companyFit)} 측면에서 지원 직무와 연결됩니다.`
+      ? `따라서 이 경험은 ${companyFitText} 측면에서 지원 직무와 연결됩니다.`
       : undefined
   ].filter(Boolean);
 
   return sentences.join(" ");
+}
+
+function buildProvisionalDraftText(input: {
+  question: CareerDocumentQuestion;
+  evidence: CareerEvidenceVaultItem[];
+  target: CareerDocumentWorkflowTarget;
+}) {
+  return buildDraftText(input).replace("을 중심으로 답변하겠습니다.", "을 중심으로 정리하겠습니다.");
 }
 
 function findFactBySlot(evidence: CareerEvidenceVaultItem[], slot: string) {
@@ -167,11 +214,30 @@ function findFactBySlot(evidence: CareerEvidenceVaultItem[], slot: string) {
 
 function simplifyFact(fact: string) {
   return fact
+    .replace(/^선택 프로필 .+? 기술스택:\s*/i, "")
+    .replace(/^선택 프로필 .+? 희망 직무:\s*/i, "")
+    .replace(/^선택 프로필 .+? 요약:\s*/i, "")
+    .replace(/^선택 프로필 .+? 프로젝트:\s*/i, "")
+    .replace(/^선택 프로필 .+? 프로젝트명:\s*/i, "")
+    .replace(/^선택 프로필 .+? 프로젝트 역할:\s*/i, "")
+    .replace(/^선택 프로필 .+? 프로젝트 성과:\s*/i, "")
     .replace(/^(사용자 입력|기존 자소서|참고자료|채용공고|GitHub 저장소 [^:]+ (?:설명|README 요약|사용 언어|최근 업데이트)|GitHub 프로필 소개)\s*:\s*/i, "")
     .replace(/^GitHub 저장소 ([^ ]+) 메타데이터가 확인됐습니다\.$/, "$1 저장소")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 220);
+}
+
+function buildResultSentence(resultText: string) {
+  if (/[.!?。]$/.test(resultText) || /다$/.test(resultText)) {
+    return `확인 가능한 결과로 ${ensureSentence(resultText)}`;
+  }
+
+  return `확인 가능한 결과는 ${resultText}입니다.`;
+}
+
+function ensureSentence(text: string) {
+  return /[.!?。]$/.test(text) ? text : `${text}.`;
 }
 
 function fitToLimit(text: string, limit: number | undefined, charCountRule: CareerDocumentQuestion["charCountRule"]) {

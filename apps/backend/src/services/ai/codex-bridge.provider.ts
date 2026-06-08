@@ -144,6 +144,7 @@ export class CodexBridgeProvider implements AiProvider {
         throw new ProviderExecutionError("offline", "codex_not_logged_in");
       }
 
+      const turnTimeoutMs = Math.min(input.timeoutMs, aiConfig.codexBridge.turnTimeoutMs);
       const assistantOutput = await withTimeout(
         client.runPrompt({
           prompt,
@@ -151,7 +152,7 @@ export class CodexBridgeProvider implements AiProvider {
           reasoningEffort: aiConfig.codexBridge.reasoningEffort || undefined,
           cwd: process.cwd()
         }),
-        input.timeoutMs,
+        turnTimeoutMs,
         "codex app-server turn"
       );
       const parsed = extractJsonObject(assistantOutput);

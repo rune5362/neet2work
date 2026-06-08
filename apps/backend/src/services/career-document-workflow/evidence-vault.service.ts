@@ -9,6 +9,7 @@ import type {
   EvidenceConfidence,
   PrivacyRiskLevel
 } from "../../types/career-document-workflow.js";
+import type { DraftProfileContext } from "../../types/draft-workflow.js";
 
 const URL_PATTERN = /https?:\/\/[^\s)>\]]+/gi;
 const COMMAND_WORD_PATTERN = /(?:분석|초안|작성|써줘|써\s*줘|맞춰|부탁|해주세요|해\s*주세요)/g;
@@ -20,6 +21,7 @@ export class EvidenceVaultService {
     documentAnalyses: CareerDocumentAnalysis[];
     githubAnalyses: CareerGithubAnalysis[];
     portfolioAnalyses: CareerPortfolioAnalysis[];
+    profileContexts?: DraftProfileContext[];
     answers?: CareerGapAnswer[];
   }): CareerEvidenceVaultItem[] {
     const items: CareerEvidenceVaultItem[] = [];
@@ -53,6 +55,10 @@ export class EvidenceVaultService {
           target: input.target
         })
       );
+    }
+
+    for (const profile of input.profileContexts ?? []) {
+      items.push(...this.profileEvidence(profile, input.target, items.length));
     }
 
     for (const analysis of input.documentAnalyses) {
@@ -110,6 +116,128 @@ export class EvidenceVaultService {
     }
 
     return items.filter((item) => item.privacyRisk !== "high" || !item.allowedInDraft);
+  }
+
+  private profileEvidence(
+    profile: DraftProfileContext,
+    target: CareerDocumentWorkflowTarget,
+    startIndex: number
+  ): CareerEvidenceVaultItem[] {
+    const items: CareerEvidenceVaultItem[] = [];
+    const baseIndex = () => startIndex + items.length;
+    const skills = unique([
+      ...profile.skills,
+      ...(profile.profileJson.skills ?? [])
+    ]);
+    const desiredRoles = unique([
+      ...profile.desiredRoles,
+      ...(profile.profileJson.desired?.roles ?? [])
+    ]);
+    const summary = profile.profileJson.summary?.description?.trim() || profile.profileJson.summary?.headline?.trim();
+
+    if (skills.length > 0) {
+      items.push(
+        createEvidence({
+          index: baseIndex(),
+          sourceId: profile.profileId,
+          sourceType: "profile_context",
+          fact: `선택 프로필 ${profile.title} 기술스택: ${skills.join(", ")}`,
+          confidence: "high",
+          allowedInDraft: true,
+          needsUserConfirmation: false,
+          target,
+          targetSlotsOverride: ["skills", "technical_choice"]
+        })
+      );
+    }
+
+    if (desiredRoles.length > 0 || profile.targetRole?.trim()) {
+      items.push(
+        createEvidence({
+          index: baseIndex(),
+          sourceId: profile.profileId,
+          sourceType: "profile_context",
+          fact: `선택 프로필 ${profile.title} 희망 직무: ${unique([profile.targetRole ?? "", ...desiredRoles]).join(", ")}`,
+          confidence: "high",
+          allowedInDraft: true,
+          needsUserConfirmation: false,
+          target,
+          targetSlotsOverride: ["target_role"]
+        })
+      );
+    }
+
+    if (summary) {
+      items.push(
+        createEvidence({
+          index: baseIndex(),
+          sourceId: profile.profileId,
+          sourceType: "profile_context",
+          fact: `선택 프로필 ${profile.title} 요약: ${summary}`,
+          confidence: "high",
+          allowedInDraft: true,
+          needsUserConfirmation: false,
+          target,
+          targetSlotsOverride: []
+        })
+      );
+    }
+
+    for (const [index, project] of (profile.profileJson.projects ?? []).entries()) {
+      const projectTitle = project.name?.trim() || project.title?.trim();
+      const projectRole = project.role?.trim();
+      const projectResult = project.result?.trim() || project.impact?.trim() || project.achievements?.filter(Boolean).join(", ");
+
+      if (projectTitle) {
+        items.push(
+          createEvidence({
+            index: baseIndex(),
+            sourceId: `${profile.profileId}-project-${index + 1}`,
+            sourceType: "profile_context",
+            fact: `선택 프로필 ${profile.title} 프로젝트명: ${projectTitle}`,
+            confidence: "high",
+            allowedInDraft: true,
+            needsUserConfirmation: false,
+            target,
+            targetSlotsOverride: ["project_name"]
+          })
+        );
+      }
+
+      if (projectRole) {
+        items.push(
+          createEvidence({
+            index: baseIndex(),
+            sourceId: `${profile.profileId}-project-${index + 1}-role`,
+            sourceType: "profile_context",
+            fact: `선택 프로필 ${profile.title} 프로젝트 역할: ${projectTitle ? `${projectTitle}에서 ` : ""}${projectRole}`,
+            confidence: "high",
+            allowedInDraft: true,
+            needsUserConfirmation: false,
+            target,
+            targetSlotsOverride: ["user_role", "actions"]
+          })
+        );
+      }
+
+      if (projectResult) {
+        items.push(
+          createEvidence({
+            index: baseIndex(),
+            sourceId: `${profile.profileId}-project-${index + 1}-result`,
+            sourceType: "profile_context",
+            fact: `선택 프로필 ${profile.title} 프로젝트 성과: ${projectResult}`,
+            confidence: "high",
+            allowedInDraft: true,
+            needsUserConfirmation: false,
+            target,
+            targetSlotsOverride: ["result"]
+          })
+        );
+      }
+    }
+
+    return items;
   }
 
   private documentEvidence(
