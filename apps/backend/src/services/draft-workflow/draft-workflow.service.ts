@@ -7,7 +7,7 @@ import type {
   DraftWorkflowPlanRequest,
   DraftWorkflowReviseRequest
 } from "../../types/draft-workflow.js";
-import { ZodError, type ZodType } from "zod";
+import { ZodError, type ZodType, type ZodTypeDef } from "zod";
 import {
   draftWorkflowDraftSchema,
   draftWorkflowPlanSchema
@@ -19,7 +19,9 @@ import {
 
 type RouterResult<T> = { data: T; aiMeta: AiExecutionMeta };
 
-function parseWorkflowResult<T>(schema: ZodType<T>, result: RouterResult<T>) {
+type WorkflowResultSchema<T> = ZodType<T, ZodTypeDef, unknown>;
+
+function parseWorkflowResult<T>(schema: WorkflowResultSchema<T>, result: RouterResult<T>) {
   const data = typeof result.data === "object" && result.data !== null ? result.data : {};
   return schema.parse({
     ...data,
@@ -111,7 +113,7 @@ export class DraftWorkflowService {
     operation: AiWorkflowOperation;
     payload: unknown;
     aiSelection: AiSelection;
-    schema: ZodType<T>;
+    schema: WorkflowResultSchema<T>;
   }) {
     const result = await this.router.execute<T>({
       operation: input.operation,
