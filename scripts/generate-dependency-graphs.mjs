@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
@@ -10,29 +10,99 @@ const configPath = path.join(repoRoot, ".dependency-cruiser.cjs");
 
 const allSourceRoots = ["apps/backend/src", "apps/frontend/src"];
 
+function renderOverviewGraph() {
+  return `flowchart LR
+  subgraph frontend["Frontend"]
+    pages["pages"]
+    components["components"]
+    api["api clients"]
+    frontendTypes["types"]
+  end
+
+  subgraph backend["Backend"]
+    routes["routes"]
+    middleware["middleware"]
+    services["services"]
+    backendTypes["types"]
+    database["database"]
+    prisma["Prisma Client"]
+  end
+
+  subgraph external["External"]
+    postgres["PostgreSQL"]
+    ai["AI Providers"]
+  end
+
+  pages --> components
+  pages --> api
+  components --> frontendTypes
+  api --> routes
+  routes --> middleware
+  routes --> services
+  services --> backendTypes
+  services --> database
+  database --> prisma
+  prisma --> postgres
+  services --> ai
+`;
+}
+
+function renderBackendGraph() {
+  return `flowchart LR
+  routes["routes"]
+  middleware["middleware"]
+  services["services"]
+  ai["services/ai"]
+  workflows["workflow services"]
+  types["types"]
+  database["database"]
+  scripts["operational scripts"]
+  prisma["Prisma Client"]
+  external["PostgreSQL / AI Providers / Crawlers"]
+
+  routes --> middleware
+  routes --> services
+  services --> workflows
+  services --> ai
+  services --> types
+  services --> database
+  scripts --> services
+  scripts --> database
+  database --> prisma
+  prisma --> external
+  ai --> external
+`;
+}
+
+function renderFrontendGraph() {
+  return `flowchart LR
+  app["App routes"]
+  pages["pages"]
+  components["components"]
+  api["api clients"]
+  authSession["authSession"]
+  types["types"]
+  utils["utils"]
+  assets["assets"]
+  backend["Backend API"]
+
+  app --> pages
+  pages --> components
+  pages --> api
+  pages --> utils
+  components --> assets
+  api --> authSession
+  api --> types
+  pages --> types
+  api --> backend
+`;
+}
+
 const graphs = [
   {
     fileName: "dependency-graph",
     sources: allSourceRoots,
     description: "전체 파일 단위 의존성 그래프"
-  },
-  {
-    fileName: "overview",
-    sources: allSourceRoots,
-    description: "backend/frontend의 상위 폴더 구조 그래프",
-    collapse: "^apps/[^/]+/src/[^/]+"
-  },
-  {
-    fileName: "backend",
-    sources: ["apps/backend/src"],
-    description: "backend 앱 내부 의존성 그래프",
-    collapse: "^apps/backend/src/(services/[^/]+|[^/]+)"
-  },
-  {
-    fileName: "frontend",
-    sources: ["apps/frontend/src"],
-    description: "frontend 앱 내부 의존성 그래프",
-    collapse: "^apps/frontend/src/(pages/[^/]+|components/[^/]+|api/[^/]+|types/[^/]+|[^/]+)"
   },
   {
     fileName: "draft-workflow",
@@ -85,6 +155,12 @@ const graphs = [
 ];
 
 mkdirSync(outputDir, { recursive: true });
+writeFileSync(path.join(outputDir, "overview.mmd"), renderOverviewGraph());
+console.log("Generating overview.mmd - 사람이 읽는 상위 구조 요약 그래프");
+writeFileSync(path.join(outputDir, "backend.mmd"), renderBackendGraph());
+console.log("Generating backend.mmd - 사람이 읽는 backend 요약 그래프");
+writeFileSync(path.join(outputDir, "frontend.mmd"), renderFrontendGraph());
+console.log("Generating frontend.mmd - 사람이 읽는 frontend 요약 그래프");
 
 for (const graph of graphs) {
   const outputPath = path.join(outputDir, `${graph.fileName}.mmd`);

@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
@@ -63,8 +63,14 @@ if (existsSync(sourceDir)) {
 }
 
 if (existsSync(dependencyGraphDir)) {
+  const fullGraphSvgPath = path.join(dependencyGraphDir, "dependency-graph.svg");
+  if (existsSync(fullGraphSvgPath)) {
+    unlinkSync(fullGraphSvgPath);
+  }
+
   const dependencyGraphFiles = readdirSync(dependencyGraphDir)
     .filter((fileName) => fileName.endsWith(".mmd"))
+    .filter((fileName) => fileName !== "dependency-graph.mmd")
     .sort();
 
   renderTargets.push(
