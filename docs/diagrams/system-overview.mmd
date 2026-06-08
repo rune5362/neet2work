@@ -1,0 +1,11 @@
+flowchart LR
+  user["User"]
+  frontend["Frontend\nReact + Vite"]
+  backend["Backend\nExpress API"]
+  database["PostgreSQL\nPrisma"]
+  ai["AI Providers\nCodex / Gemini / Local / Agy CLI"]
+
+  user --> frontend
+  frontend --> backend
+  backend --> database
+  backend --> ai

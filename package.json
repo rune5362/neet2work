@@ -12,6 +12,14 @@
     "figma:serve-log": "node scripts/serve-figma-work-log.mjs",
     "figma:bridge:startup:register": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/register-figma-work-log-bridge-startup.ps1 -StartNow",
     "figma:bridge:startup:unregister": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/register-figma-work-log-bridge-startup.ps1 -Unregister",
+    "docs:prepare": "node scripts/prepare-generated-docs.mjs",
+    "docs:api:html": "corepack pnpm run docs:prepare && typedoc --options typedoc.html.json",
+    "docs:api:md": "corepack pnpm run docs:prepare && typedoc --options typedoc.markdown.json",
+    "docs:deps:json": "corepack pnpm run docs:prepare && depcruise apps/backend/src apps/frontend/src --config .dependency-cruiser.cjs --output-type json --output-to docs/generated/dependencies/dependency-cruise.json",
+    "docs:deps:mermaid": "corepack pnpm run docs:prepare && depcruise apps/backend/src apps/frontend/src --config .dependency-cruiser.cjs --output-type mermaid --output-to docs/generated/dependencies/dependency-graph.mmd",
+    "docs:deps:html": "corepack pnpm run docs:prepare && depcruise apps/backend/src apps/frontend/src --config .dependency-cruiser.cjs --output-type html --output-to docs/generated/dependencies/dependency-report.html",
+    "docs:diagrams": "node scripts/render-mermaid-diagrams.mjs",
+    "docs:generate": "corepack pnpm run docs:prepare && corepack pnpm run docs:api:html && corepack pnpm run docs:api:md && corepack pnpm run docs:deps:json && corepack pnpm run docs:deps:mermaid && corepack pnpm run docs:deps:html && corepack pnpm run docs:diagrams",
     "setup": "corepack pnpm install && corepack pnpm run setup:env && corepack pnpm run db:generate && corepack pnpm run setup:playwright",
     "setup:windows": "powershell -ExecutionPolicy Bypass -File scripts/setup-windows.ps1",
     "setup:unix": "bash scripts/setup-unix.sh",
@@ -56,9 +64,13 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
+    "@mermaid-js/mermaid-cli": "^11.15.0",
     "concurrently": "^9.0.0",
+    "dependency-cruiser": "^17.4.3",
     "eslint": "^9.0.0",
     "prettier": "^3.0.0",
+    "typedoc": "^0.28.19",
+    "typedoc-plugin-markdown": "^4.12.0",
     "typescript-eslint": "^8.0.0"
   },
   "engines": {

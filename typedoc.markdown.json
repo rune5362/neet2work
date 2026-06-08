@@ -1,0 +1,23 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "Neet2Work Internal API",
+  "entryPoints": ["apps/backend/src", "apps/frontend/src"],
+  "entryPointStrategy": "expand",
+  "out": "docs/generated/api-md",
+  "tsconfig": "typedoc.tsconfig.json",
+  "plugin": ["typedoc-plugin-markdown"],
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/src/test/**",
+    "**/src/generated/**",
+    "**/dist/**",
+    "**/node_modules/**"
+  ],
+  "excludeExternals": true,
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "readme": "none",
+  "skipErrorChecking": true,
+  "sort": ["source-order"]
+}

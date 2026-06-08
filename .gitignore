@@ -19,6 +19,7 @@ out/
 coverage/
 .nyc_output/
 apps/backend/src/generated/prisma/
+docs/generated/
 
 # React / Vite
 .vite/
