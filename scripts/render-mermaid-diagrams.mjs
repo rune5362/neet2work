@@ -55,20 +55,28 @@ const chromeExecutablePath = findChromeExecutable();
 const tempDir = path.join(repoRoot, "node_modules", ".tmp");
 const puppeteerConfigPath = path.join(tempDir, "mermaid-puppeteer-config.json");
 
-if (chromeExecutablePath) {
-  mkdirSync(tempDir, { recursive: true });
-  writeFileSync(
-    puppeteerConfigPath,
-    `${JSON.stringify(
-      {
-        executablePath: chromeExecutablePath,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"]
-      },
-      null,
-      2
-    )}\n`
+if (!chromeExecutablePath) {
+  console.error(
+    [
+      "Mermaid rendering needs a Chromium executable.",
+      "Run `corepack pnpm run setup:playwright` or set MERMAID_CHROME_PATH to a local chrome.exe path."
+    ].join("\n")
   );
+  process.exit(1);
 }
+
+mkdirSync(tempDir, { recursive: true });
+writeFileSync(
+  puppeteerConfigPath,
+  `${JSON.stringify(
+    {
+      executablePath: chromeExecutablePath,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    },
+    null,
+    2
+  )}\n`
+);
 
 const mermaidCliPath = path.join(repoRoot, "node_modules", "@mermaid-js", "mermaid-cli", "src", "cli.js");
 
@@ -77,9 +85,7 @@ for (const fileName of diagramFiles) {
   const outputPath = path.join(outputDir, fileName.replace(/\.mmd$/, ".svg"));
   const args = ["-i", inputPath, "-o", outputPath];
 
-  if (chromeExecutablePath) {
-    args.push("--puppeteerConfigFile", puppeteerConfigPath);
-  }
+  args.push("--puppeteerConfigFile", puppeteerConfigPath);
 
   const result = spawnSync(process.execPath, [mermaidCliPath, ...args], {
     cwd: repoRoot,
