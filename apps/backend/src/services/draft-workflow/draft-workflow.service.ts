@@ -32,13 +32,31 @@ function parseWorkflowResult<T>(schema: WorkflowResultSchema<T>, result: RouterR
   });
 }
 
+/**
+ * 자기소개서 draft workflow의 AI 실행, fallback, 결과 검증을 조율합니다.
+ *
+ * @remarks
+ * route 계층은 Zod로 요청을 검증하고 이 service는 provider 선택, AI 응답 파싱,
+ * 근거 잠금 검증, fallback 재시도 같은 domain 결정을 담당합니다.
+ */
 export class DraftWorkflowService {
   constructor(private readonly router: AiRouter = defaultAiRouter) {}
 
+  /**
+   * 현재 draft workflow에서 선택 가능한 AI provider 상태를 반환합니다.
+   *
+   * @returns provider별 연결 가능 여부와 추천 모델 정보입니다.
+   */
   async getProviders() {
     return this.router.listProviderStatuses();
   }
 
+  /**
+   * 문항과 사용자 경험 자료를 분석해 작성 계획을 생성합니다.
+   *
+   * @param request - 목표 문항, 경험 입력, AI provider 선택을 담은 계획 생성 요청입니다.
+   * @returns 문항 의도, 경험 카드, 근거 저장소, 문단 outline을 포함한 계획입니다.
+   */
   async createPlan(request: DraftWorkflowPlanRequest) {
     const payload = {
       target: request.target,
@@ -71,6 +89,12 @@ export class DraftWorkflowService {
     }
   }
 
+  /**
+   * 확정된 계획과 보완 답변을 바탕으로 자기소개서 초안을 생성합니다.
+   *
+   * @param request - 계획, 목표 문항, 경험 입력, 선택 outline을 담은 초안 생성 요청입니다.
+   * @returns 근거 매핑과 검토 리포트가 포함된 초안입니다.
+   */
   async createDraft(request: DraftWorkflowDraftRequest) {
     const payload = {
       target: request.target,
@@ -96,6 +120,12 @@ export class DraftWorkflowService {
     });
   }
 
+  /**
+   * 기존 초안을 검토 이슈나 사용자 요청에 맞게 다시 작성합니다.
+   *
+   * @param request - 수정 대상 초안, 원 계획, 수정 지시를 담은 요청입니다.
+   * @returns 수정 후에도 근거 잠금 검증을 통과한 초안입니다.
+   */
   async reviseDraft(request: DraftWorkflowReviseRequest) {
     const payload = {
       target: request.target,

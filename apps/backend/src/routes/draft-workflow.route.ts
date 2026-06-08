@@ -12,6 +12,13 @@ import {
 import { HttpError } from "../utils/http-error.js";
 import { createProtectedAiRouteMiddleware } from "../middleware/protectedAiRoute.js";
 
+/**
+ * 자기소개서 문항 분석, 작성 계획, 초안 생성, 수정 요청을 제공하는 AI draft workflow HTTP surface입니다.
+ *
+ * @remarks
+ * provider 상태 조회를 제외한 생성/수정 계열 엔드포인트는 보호된 AI route로 동작하며,
+ * route는 요청 검증과 service 호출만 담당합니다.
+ */
 export const draftWorkflowRouter = Router();
 const protectedAiRoute = createProtectedAiRouteMiddleware();
 

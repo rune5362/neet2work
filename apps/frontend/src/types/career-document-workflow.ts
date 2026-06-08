@@ -23,6 +23,9 @@ export type CareerDocumentCompletionGateId =
   | "missing_evidence_resolved"
   | "evidence_locked";
 
+/**
+ * 생성 결과가 제출 가능한 수준인지 판단하기 위한 완료 상태입니다.
+ */
 export type CareerDocumentCompletion = {
   status: CareerDocumentCompletionStatus;
   score: number;
@@ -35,6 +38,9 @@ export type CareerDocumentCompletion = {
   }>;
 };
 
+/**
+ * 문서 저장 API로 넘길 수 있도록 정규화된 생성 문서 패키지입니다.
+ */
 export type CareerDocumentPackage = {
   documentType: "cover_letter" | "resume";
   title: string;
@@ -105,6 +111,9 @@ export type CareerDocumentQuestion = {
   writingRules: string[];
 };
 
+/**
+ * 첨부 자료를 분류하고 문항, 작성 규칙, 추출 텍스트로 정리한 결과입니다.
+ */
 export type CareerDocumentAnalysis = {
   sourceId: string;
   fileName: string;
@@ -157,6 +166,9 @@ export type CareerPortfolioAnalysis = {
   fallbackMessage?: string;
 };
 
+/**
+ * 여러 자료 출처에서 모은 사실과 초안 사용 가능 여부를 담는 근거 항목입니다.
+ */
 export type CareerEvidenceVaultItem = {
   evidenceId: string;
   sourceId: string;
@@ -169,6 +181,9 @@ export type CareerEvidenceVaultItem = {
   targetSlots: string[];
 };
 
+/**
+ * 초안 작성 전에 사용자의 확인이나 추가 설명이 필요한 질문입니다.
+ */
 export type CareerGapQuestion = {
   questionId: string;
   slot: string;
@@ -179,6 +194,9 @@ export type CareerGapQuestion = {
   answer?: string;
 };
 
+/**
+ * 문항별 초안과 사용 근거, 누락 근거, 위험 신호를 함께 담은 결과입니다.
+ */
 export type CareerDocumentDraft = {
   questionId: string;
   questionText: string;
@@ -197,6 +215,9 @@ export type CareerDocumentDraft = {
   risks: string[];
 };
 
+/**
+ * 통합 커리어 문서 workflow가 생성물을 맞출 목표 맥락입니다.
+ */
 export type CareerDocumentWorkflowTarget = {
   company?: string;
   role?: string;
@@ -216,6 +237,9 @@ export type CareerDocumentAttachmentInput = {
   text: string;
 };
 
+/**
+ * `/api/career-workflow/document-session` 요청 payload입니다.
+ */
 export type CareerDocumentWorkflowSessionRequest = {
   message: string;
   attachments?: CareerDocumentAttachmentInput[];
@@ -224,6 +248,9 @@ export type CareerDocumentWorkflowSessionRequest = {
   aiSelection?: AiSelection;
 };
 
+/**
+ * `/api/career-workflow/document-session/answer` 요청 payload입니다.
+ */
 export type CareerDocumentWorkflowAnswerRequest = {
   session: CareerDocumentWorkflowSession;
   questionId: string;
@@ -231,6 +258,9 @@ export type CareerDocumentWorkflowAnswerRequest = {
   aiSelection?: AiSelection;
 };
 
+/**
+ * 자료 분석, 질문, 초안, 저장 패키지를 모두 포함하는 통합 작성 세션입니다.
+ */
 export type CareerDocumentWorkflowSession = {
   sessionId: string;
   state: CareerDocumentSessionState;
@@ -261,6 +291,9 @@ export type CareerDocumentWorkflowSession = {
   risks: string[];
 };
 
+/**
+ * 첨부 자료 분류값을 화면 표시용 라벨로 변환합니다.
+ */
 export function careerDocumentClassificationLabel(classification: CareerDocumentClassification) {
   const labels: Record<CareerDocumentClassification, string> = {
     self_intro_template: "자소서 양식",

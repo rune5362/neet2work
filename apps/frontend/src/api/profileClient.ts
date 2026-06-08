@@ -76,6 +76,11 @@ async function sendJson<T>(
   return response.json() as Promise<T>;
 }
 
+/**
+ * 로그인 사용자의 지원 프로필 목록을 조회합니다.
+ *
+ * @param options - 보호된 프로필 포함 여부입니다.
+ */
 export async function getProfiles(options: { includeArchived?: boolean } = {}): Promise<ProfileListItem[]> {
   const query = buildQuery({
     includeArchived: options.includeArchived
@@ -88,6 +93,9 @@ export async function getProfiles(options: { includeArchived?: boolean } = {}): 
   return result.data;
 }
 
+/**
+ * 새 지원 프로필을 생성합니다.
+ */
 export async function createProfile(payload: CreateProfilePayload): Promise<ProfileDetail> {
   const result = await sendJson<ApiItemResponse<ProfileDetail>>(
     "/api/profiles",
@@ -99,6 +107,9 @@ export async function createProfile(payload: CreateProfilePayload): Promise<Prof
   return result.data;
 }
 
+/**
+ * 지원 프로필 상세 정보를 조회합니다.
+ */
 export async function getProfile(profileId: string): Promise<ProfileDetail> {
   const query = buildQuery({});
   const result = await getJson<ApiItemResponse<ProfileDetail>>(
@@ -109,6 +120,9 @@ export async function getProfile(profileId: string): Promise<ProfileDetail> {
   return result.data;
 }
 
+/**
+ * 지원 프로필의 목표 정보, 기본 여부, 보호 상태를 수정합니다.
+ */
 export async function updateProfileMeta(
   profileId: string,
   payload: UpdateProfileMetaPayload
@@ -123,6 +137,12 @@ export async function updateProfileMeta(
   return result.data;
 }
 
+/**
+ * 지원 프로필을 보호 상태로 전환해 기본 목록에서 숨깁니다.
+ *
+ * @remarks
+ * 기존 archive 용어와 같은 backend lifecycle을 사용하지만, UI에서는 보호/해제 용어를 사용합니다.
+ */
 export async function protectProfile(profileId: string): Promise<ProfileDetail> {
   const query = buildQuery({});
   const response = await authorizedFetch(`/api/profiles/${profileId}?${query}`, {
@@ -137,6 +157,9 @@ export async function protectProfile(profileId: string): Promise<ProfileDetail> 
   return result.data;
 }
 
+/**
+ * 보호 상태인 지원 프로필을 다시 기본 목록에 노출합니다.
+ */
 export async function unprotectProfile(profileId: string): Promise<ProfileDetail> {
   return updateProfileMeta(profileId, { isArchived: false });
 }
@@ -144,6 +167,9 @@ export async function unprotectProfile(profileId: string): Promise<ProfileDetail
 export const archiveProfile = protectProfile;
 export const restoreProfile = unprotectProfile;
 
+/**
+ * 기존 지원 프로필을 복사해 새 프로필로 생성합니다.
+ */
 export async function copyProfile(profileId: string): Promise<ProfileDetail> {
   const result = await sendJson<ApiItemResponse<ProfileDetail>>(
     `/api/profiles/${profileId}/copy`,
@@ -155,6 +181,9 @@ export async function copyProfile(profileId: string): Promise<ProfileDetail> {
   return result.data;
 }
 
+/**
+ * 지원 프로필을 삭제 lifecycle로 전환합니다.
+ */
 export async function deleteProfile(profileId: string): Promise<ProfileDetail> {
   const result = await sendJson<ApiItemResponse<ProfileDetail>>(
     `/api/profiles/${profileId}/delete`,

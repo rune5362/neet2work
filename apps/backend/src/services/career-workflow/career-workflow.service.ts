@@ -111,7 +111,20 @@ const SLOT_WHY: Record<string, string> = {
   core_strength: "자유 형식 문서는 먼저 중심 강점을 정해야 구조가 흔들리지 않아."
 };
 
+/**
+ * 자료 분류, 근거 추출, 보완 질문 생성을 담당하는 커리어 문서 준비 workflow입니다.
+ *
+ * @remarks
+ * 이 service는 문서 생성 직전 단계의 세션 상태를 만들며, AI 호출 없이 입력 자료와
+ * 사용자의 답변을 구조화된 evidence vault로 정리합니다.
+ */
 export class CareerWorkflowService {
+  /**
+   * 입력 자료를 문서 유형과 근거 항목으로 분류해 workflow 세션을 시작합니다.
+   *
+   * @param request - 목표 회사/직무와 사용자가 제공한 원문 자료 목록입니다.
+   * @returns 다음 보완 질문 또는 생성 가능 상태를 포함한 세션입니다.
+   */
   createSession(request: CareerWorkflowSessionRequest): CareerWorkflowSession {
     const target = request.target ?? {};
     const normalizedSources = this.normalizeSources(request.sources ?? []);
@@ -143,10 +156,22 @@ export class CareerWorkflowService {
     };
   }
 
+  /**
+   * 현재 세션에서 아직 채워지지 않은 핵심 slot에 대한 다음 질문을 반환합니다.
+   *
+   * @param session - 진행 중인 커리어 workflow 세션입니다.
+   * @returns 추가 질문이 필요 없으면 `undefined`를 반환합니다.
+   */
   getNextQuestion(session: CareerWorkflowSession): CareerNextQuestion | undefined {
     return session.nextQuestion ?? this.buildNextQuestion(session.documentType, session.completion);
   }
 
+  /**
+   * 사용자의 보완 답변을 근거 항목으로 편입하고 세션 진행도를 다시 계산합니다.
+   *
+   * @param request - 기존 세션, 질문 id, 사용자의 답변을 담은 요청입니다.
+   * @returns 갱신된 세션과 새로 승인된 근거 항목입니다.
+   */
   answerQuestion(request: CareerWorkflowAnswerQuestionRequest): CareerWorkflowAnswerQuestionResponse {
     const existingQuestion =
       request.session.nextQuestion?.questionId === request.questionId

@@ -3,6 +3,9 @@ import type {
   ApplicationDocumentType
 } from "../generated/prisma/client.js";
 
+/**
+ * 후보자가 작성하거나 AI가 생성한 지원 문서 목록/상세 응답 항목입니다.
+ */
 export type DocumentListItem = {
   id: string;
   candidateKey: string;
@@ -30,6 +33,12 @@ export type DocumentListItem = {
 
 export type DocumentDetail = DocumentListItem;
 
+/**
+ * 문서 생성 service가 받는 입력입니다.
+ *
+ * @remarks
+ * `candidateKey`는 소유자 범위, `actorUserId`는 감사 로그 행위자를 표현합니다.
+ */
 export type CreateDocumentInput = {
   candidateKey: string;
   title: string;
@@ -41,6 +50,9 @@ export type CreateDocumentInput = {
   actorUserId?: string | null;
 };
 
+/**
+ * 문서 본문과 lifecycle 메타데이터를 갱신하는 service 입력입니다.
+ */
 export type UpdateDocumentMetaInput = {
   candidateKey: string;
   title?: string;

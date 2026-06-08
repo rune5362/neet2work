@@ -1,6 +1,9 @@
 import type { AiExecutionMeta } from "./ai-routing.js";
 import type { CandidateProfileJson } from "./profile.js";
 
+/**
+ * 자기소개서 작성 workflow가 UI와 backend 사이에서 공유하는 진행 상태입니다.
+ */
 export type DraftWorkflowState =
   | "SESSION_CREATED"
   | "TARGET_CAPTURED"
@@ -21,6 +24,12 @@ export type DraftWorkflowState =
   | "USER_CONFIRMATION_REQUIRED"
   | "REFERENCE_RISK_FLAGGED";
 
+/**
+ * AI가 답해야 할 자기소개서 문항과 채용 맥락입니다.
+ *
+ * @remarks
+ * `blindRecruitment`와 `charCountRule`은 초안 검증과 문체 제약에 직접 사용됩니다.
+ */
 export type DraftTarget = {
   company: string;
   role: string;
@@ -35,6 +44,12 @@ export type DraftTarget = {
   previousDraftText?: string;
 };
 
+/**
+ * 초안 생성에 사용할 사용자 경험 자료 묶음입니다.
+ *
+ * @remarks
+ * 프로필 컨텍스트, 직접 입력, 포트폴리오, 참고 자소서를 같은 workflow 입력으로 합칩니다.
+ */
 export type DraftExperienceInput = {
   portfolioText?: string;
   manualExperienceText?: string;
@@ -73,6 +88,9 @@ export type DocumentFormatting = {
   forbidMojibake: true;
 };
 
+/**
+ * AI 계획 단계가 추출한 요구사항, 경험, 문단별 근거 저장소입니다.
+ */
 export type MaterialStore = {
   requirements: Array<{
     requirementId: string;
@@ -119,6 +137,9 @@ export type Claim = {
   allowedInDraft: boolean;
 };
 
+/**
+ * 초안에 사용할 수 있는 경험 단위와 그 경험을 뒷받침하는 근거 ledger입니다.
+ */
 export type ExperienceCard = {
   experienceId: string;
   source: "portfolio" | "manual" | "conversation" | "fallback";
@@ -170,6 +191,9 @@ export type AnswerStrategy = {
   }>;
 };
 
+/**
+ * 문항 분석 후 초안 작성 전에 UI가 검토하고 확정할 수 있는 계획 결과입니다.
+ */
 export type DraftWorkflowPlan = {
   mode: "ai" | "fallback";
   state: DraftWorkflowState;
@@ -192,6 +216,9 @@ export type DraftWorkflowPlan = {
   }>;
 };
 
+/**
+ * 생성 또는 수정된 자기소개서 초안과 근거 검토 리포트입니다.
+ */
 export type DraftWorkflowDraft = {
   mode: "ai" | "fallback";
   state: DraftWorkflowState;
@@ -236,12 +263,18 @@ export type GapAnswer = {
   answer: string;
 };
 
+/**
+ * `/api/draft-workflow/plan` 요청 payload입니다.
+ */
 export type DraftWorkflowPlanRequest = {
   aiSelection: import("./ai-routing.js").AiSelection;
   target: DraftTarget;
   experienceInput: DraftExperienceInput;
 };
 
+/**
+ * `/api/draft-workflow/draft` 요청 payload입니다.
+ */
 export type DraftWorkflowDraftRequest = {
   aiSelection: import("./ai-routing.js").AiSelection;
   target: DraftTarget;
@@ -251,6 +284,9 @@ export type DraftWorkflowDraftRequest = {
   confirmedOutline?: DraftWorkflowPlan["outline"];
 };
 
+/**
+ * `/api/draft-workflow/revise` 요청 payload입니다.
+ */
 export type DraftWorkflowReviseRequest = {
   aiSelection: import("./ai-routing.js").AiSelection;
   target: DraftTarget;

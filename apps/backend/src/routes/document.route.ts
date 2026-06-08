@@ -12,6 +12,13 @@ import {
 import { requireAuthenticatedUser } from "../middleware/auth.js";
 import { getAuthenticatedCandidateKey, getAuthenticatedUserId } from "../utils/auth-session.js";
 
+/**
+ * 후보자별 지원 문서의 생성, 조회, 보호, 복사, 삭제 lifecycle을 제공하는 HTTP surface입니다.
+ *
+ * @remarks
+ * 삭제 요청은 즉시 hard delete가 아니라 보호 상태로 전환되는 soft lifecycle을 사용하며,
+ * 실제 삭제는 `/delete` 명령으로 분리되어 있습니다.
+ */
 export const documentRouter = Router();
 documentRouter.use(requireAuthenticatedUser);
 

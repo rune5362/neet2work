@@ -30,6 +30,13 @@ import {
 
 const CAREER_DOCUMENT_AI_TIMEOUT_MS = Number(process.env.CAREER_DOCUMENT_AI_TIMEOUT_MS) || 300_000;
 
+/**
+ * 첨부 자료 분석부터 보완 질문, 초안, 저장 가능한 문서 패키지까지 생성하는 통합 workflow입니다.
+ *
+ * @remarks
+ * GitHub/portfolio/첨부 문서를 근거 저장소로 통합한 뒤 AI provider를 통해 질문과 초안을 보강합니다.
+ * provider 출력이 유효하지 않으면 service 내부에서 fallback draft 구조를 사용합니다.
+ */
 export class CareerDocumentWorkflowService {
   constructor(
     private readonly documents: DocumentAnalysisService = documentAnalysisService,
@@ -41,6 +48,12 @@ export class CareerDocumentWorkflowService {
     private readonly router: AiRouter = defaultAiRouter
   ) {}
 
+  /**
+   * 커리어 문서 작성 세션을 만들고 초기 질문, 초안, 문서 패키지를 생성합니다.
+   *
+   * @param request - 사용자 메시지, 첨부 자료, 목표 정보, 프로필 컨텍스트, AI 선택값입니다.
+   * @returns UI가 단계별 진행 상황과 생성 결과를 표시할 수 있는 workflow 세션입니다.
+   */
   async createSession(request: CareerDocumentWorkflowSessionRequest): Promise<CareerDocumentWorkflowSession> {
     const sessionId = randomUUID();
     const target = request.target ?? {};
@@ -127,6 +140,12 @@ export class CareerDocumentWorkflowService {
     };
   }
 
+  /**
+   * 보완 질문 답변을 반영해 근거 저장소와 초안, 문서 패키지를 다시 계산합니다.
+   *
+   * @param request - 기존 세션, 답변 대상 질문, 답변 내용, AI 선택값입니다.
+   * @returns 답변 반영 후의 최신 workflow 세션입니다.
+   */
   async answerQuestion(request: CareerDocumentWorkflowAnswerRequest): Promise<CareerDocumentWorkflowSession> {
     const previousAnswer = request.session.interview.answers.find(
       (item) => item.questionId === request.questionId
