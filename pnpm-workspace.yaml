@@ -3,8 +3,10 @@ packages:
 
 allowBuilds:
   "@prisma/engines": true
+  cpu-features: true
   "esbuild": true
   "prisma": true
+  ssh2: true
 
 minimumReleaseAge: 1440
 verifyDepsBeforeRun: false
