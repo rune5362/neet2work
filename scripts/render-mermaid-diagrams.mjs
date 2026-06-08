@@ -6,6 +6,8 @@ import process from "node:process";
 const repoRoot = process.cwd();
 const sourceDir = path.join(repoRoot, "docs", "diagrams");
 const outputDir = path.join(repoRoot, "docs", "generated", "diagrams");
+const dependencyGraphPath = path.join(repoRoot, "docs", "generated", "dependencies", "dependency-graph.mmd");
+const dependencyGraphOutputPath = path.join(repoRoot, "docs", "generated", "dependencies", "dependency-graph.svg");
 
 function findChromeExecutable() {
   const explicitPath = process.env.MERMAID_CHROME_PATH?.trim();
@@ -30,21 +32,43 @@ function findChromeExecutable() {
         }
       }
     }
+
+    const chromeCandidates = [
+      "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+    ];
+    const chromePath = chromeCandidates.find((candidate) => existsSync(candidate));
+    if (chromePath) {
+      return chromePath;
+    }
   }
 
   return undefined;
 }
 
-if (!existsSync(sourceDir)) {
-  console.log("No docs/diagrams directory found. Skipping Mermaid rendering.");
-  process.exit(0);
+const renderTargets = [];
+
+if (existsSync(sourceDir)) {
+  const diagramFiles = readdirSync(sourceDir)
+    .filter((fileName) => fileName.endsWith(".mmd"))
+    .sort();
+
+  renderTargets.push(
+    ...diagramFiles.map((fileName) => ({
+      inputPath: path.join(sourceDir, fileName),
+      outputPath: path.join(outputDir, fileName.replace(/\.mmd$/, ".svg"))
+    }))
+  );
 }
 
-const diagramFiles = readdirSync(sourceDir)
-  .filter((fileName) => fileName.endsWith(".mmd"))
-  .sort();
+if (existsSync(dependencyGraphPath)) {
+  renderTargets.push({
+    inputPath: dependencyGraphPath,
+    outputPath: dependencyGraphOutputPath
+  });
+}
 
-if (diagramFiles.length === 0) {
+if (renderTargets.length === 0) {
   console.log("No Mermaid .mmd files found. Skipping Mermaid rendering.");
   process.exit(0);
 }
@@ -80,9 +104,8 @@ writeFileSync(
 
 const mermaidCliPath = path.join(repoRoot, "node_modules", "@mermaid-js", "mermaid-cli", "src", "cli.js");
 
-for (const fileName of diagramFiles) {
-  const inputPath = path.join(sourceDir, fileName);
-  const outputPath = path.join(outputDir, fileName.replace(/\.mmd$/, ".svg"));
+for (const { inputPath, outputPath } of renderTargets) {
+  mkdirSync(path.dirname(outputPath), { recursive: true });
   const args = ["-i", inputPath, "-o", outputPath];
 
   args.push("--puppeteerConfigFile", puppeteerConfigPath);
