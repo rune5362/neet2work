@@ -8533,6 +8533,17 @@ textarea:focus {
   line-height: 1.55;
 }
 
+.aiDraftDocumentAnswerField {
+  display: grid;
+  gap: 8px;
+}
+
+.aiDraftDocumentAnswerField > span {
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .aiDraftEmbeddedFilePanel {
   display: grid;
   gap: 10px;

@@ -50,3 +50,43 @@
 - 저장 UX: 자소서/이력서 저장 버튼은 한 문서 저장 중 다른 저장 요청이 겹치지 않도록 전체 저장 버튼을 잠근다.
 - 앱 브라우저 검증: 기존 테스트 문서를 정리한 뒤 `임시 프로필 - 기술스택 없음`을 선택했다. Codex 생성은 첫 실측 176초, 두 번째 실측 88초에 `Codex · AI`로 완료됐고 5분 제한 전 Fallback 없이 끝났다. 문서함에는 자기소개서, 이력서, 기술스택 미입력 프로필 3개 항목이 남아 있으며 자소서/이력서 상세 본문을 확인했다.
 - Verification: `corepack pnpm --filter backend test -- career-document-workflow.service.test.ts`, `corepack pnpm --filter frontend test -- AIDraftChatBuilder.test.tsx`, `corepack pnpm --filter backend build`, `corepack pnpm --filter frontend build` 통과.
+
+### Linkareer 구조 반영 및 이력서/프로필 품질 보강
+
+- 범위: Linkareer IT 합격 자소서 검색 결과를 원문 저장 없이 구조 패턴만 확인하고, AI 자소서 결과의 이력서/프로필 품질 문제를 보완했다.
+- 변경: `self-intro-style-guide`에 Linkareer IT 검색 목록 기반 구조 규칙을 추가했다. IT 문항은 기술 나열이 아니라 프로젝트 문제 해결, 협업, 서비스 기여, 향후 기여 의도를 분리해 쓰도록 했다.
+- 이력서: GitHub 프로필 공개 저장소 수, 메타데이터 확인, 우선 분석 같은 분석 로그가 이력서 본문에 들어가지 않도록 필터링하고, `[기본 정보]`, `[기술 스택]`, `[요약]`, `[프로젝트 경험]` 섹션으로 저장되게 바꿨다.
+- 프로필: 선택 프로필에 기술스택이 비어 있고 GitHub/포트폴리오에서 스택이 확인되면 `profileSkillSuggestions`를 내려주고, 프론트에서 `프로필 기술스택 저장` 버튼으로 기존 인적사항을 유지한 채 병합 저장하도록 했다.
+- 문장 품질: 규칙 기반 자소서 초안에서 `설계했습니다.을`, `CSS을` 같은 조사 오류가 나오지 않도록 완성 문장과 기술스택 문장을 분리 처리했다.
+- 데이터 검증: `test@example.com` 계정의 `임시 프로필 - 기술스택 없음`에 GitHub 기반 기술스택 `TypeScript, JavaScript, CSS, HTML, Python, React, Vite, Node.js, Tailwind CSS`를 반영했고, 기존 자기소개서/이력서 문서를 최신 패키지로 업데이트했다.
+- Verification: Linkareer IT 검색 결과 확인, 로컬 API 프로필/문서 재조회, `corepack pnpm --filter backend test -- career-document-workflow.service.test.ts`, `corepack pnpm --filter frontend test -- AIDraftChatBuilder.test.tsx`, `corepack pnpm --filter backend build`, `corepack pnpm --filter frontend build`, `git diff --check` 통과.
+
+### Codex 초안 invalid_output Fallback 방지
+
+- 범위: 문답 후 AI 자소서 초안 생성이 `Fallback (잘못된 출력)`으로 떨어지는 경로를 점검했다.
+- 변경: Codex/Gemini provider 파서가 `draft`/`revise` 작업에서 JSON 객체 없이 순수 본문만 반환한 경우 `{ draftText }`로 살려 보내도록 했다. `career-document-workflow`는 정식 스키마를 먼저 통과시키고, 실패한 경우에만 `draftText` 중심 응답을 글자수, 문서 포맷, 리뷰 리포트 기본값으로 보정해 AI 초안으로 유지한다.
+- 테스트: `provider-utils.test.ts`를 추가하고, Codex의 `draftText` 전용 응답이 fallback으로 표시되지 않는 회귀 테스트를 추가했다.
+- 앱/로컬 검증: 로컬 API에서 `test@example.com` 계정으로 Codex 수동 provider 문서 세션을 새로 생성해 `providerId: codex_bridge`, `usedFallback: false`, `state: DRAFT_READY`를 확인했다. 기존 앱 브라우저 화면은 이전에 생성된 fallback 결과라 새 요청 기준 검증과 구분했다.
+- Verification: `corepack pnpm --filter backend test -- provider-utils.test.ts career-document-workflow.service.test.ts`, `corepack pnpm --filter backend build`, `git diff --check` 통과. Vitest 실행 중 기존 `TimeoutNaNWarning`은 계속 출력된다.
+
+### 최종 자기소개서 생성 테스트
+
+- 범위: 로컬 시연 계정의 문서함을 비우고 Codex provider로 최종 자기소개서 생성 흐름을 반복 검증했다.
+- 데이터 정리: 기존 이력서 1개와 자기소개서 1개를 삭제해 문서 조회 count 0을 확인했다.
+- 생성 검증: `임시 프로필 - 기술스택 없음` 프로필과 Neet2Work/GitHub 근거를 사용해 `career-document-workflow` 세션을 생성했고, 최종 결과가 `DRAFT_READY`, `submission_ready`, `providerId: codex_bridge`, `usedFallback: false`로 완료되는지 확인했다.
+- 저장/화면 확인: 최종 자기소개서 1개만 문서함에 저장했고, 앱 브라우저에서 `/documents/cmq4vyj2c0000d4tiqduxohrq` 상세 화면을 새로고침해 제목과 본문 표시를 확인했다. 저장 본문에는 `Fallback`, `잘못된 출력`, `claimLedger`, `evidenceMap`, `materialStore` 같은 내부/오류 라벨이 없음을 확인했다.
+
+### 실무형/직무역량 중심 자소서 양식 고정
+
+- 범위: 첨부 DOCX의 `Self-introduction (자기소개서)` 파트를 기준으로 AI 자소서 기본 양식을 재구성했다.
+- 변경: AI 자소서 화면의 기본 자소서 형식을 `실무형/직무역량 중심 자소서 양식` 단일 옵션으로 고정하고, 자기소개/성장과정/성격소개/직무역량/지원동기 및 포부 5개 섹션 템플릿을 문서 세션 요청에 가상 첨부 양식으로 포함하도록 했다.
+- 백엔드: 번호형 템플릿 파서가 서문 제목을 문항으로 오인하지 않고 섹션 첫 줄을 깔끔한 문항 제목으로 쓰도록 보강했다. 다중 섹션 자기소개서 저장 본문은 `문항 1.` 대신 실제 섹션 제목을 사용한다.
+- 앱 브라우저 검증: `/ai-analysis` 새로고침 후 `자소서 형식` 영역에 `실무형/직무역량 중심 자소서 양식`과 `자기소개, 성장과정, 성격소개, 직무역량, 지원동기 및 포부 · 총 1200자 내외`가 표시되고 기존 단일 선택지들이 보이지 않음을 확인했다. 저장/전송 동작은 수행하지 않았다.
+- Verification: `corepack pnpm --filter backend test -- career-document-workflow.service.test.ts provider-utils.test.ts`, `corepack pnpm --filter frontend test -- AIDraftChatBuilder.test.tsx`, `corepack pnpm --filter backend build`, `corepack pnpm --filter frontend build`, `git diff --check` 통과. Vitest 실행 중 기존 `TimeoutNaNWarning`은 계속 출력된다.
+
+### AI 자소서 문답칸 UX 보강
+
+- 범위: AI 자소서 화면에서 문서 세션 보완 질문이 뜬 뒤 사용자가 일반 채팅창이 아니라 전용 문답칸으로 답변하는 흐름을 보강했다.
+- 변경: 보완 질문 카드에 `답변` textarea와 `답변 저장` 버튼을 추가하고, 답변 저장 즉시 `답변을 저장했어. 가초안에 반영하고 다음 질문을 계산하는 중이야.` 안내 메시지를 표시하도록 했다. 일반 채팅 입력값은 비워진 상태로 유지된다.
+- 앱 브라우저 검증: `/ai-analysis`에서 대충 작성 요청을 보낸 뒤 Codex provider로 약 68초 후 가초안/보완 질문/전용 답변칸이 표시됐다. 답변 저장 직후 진행 메시지가 즉시 보이고, 약 104초 후 답변이 가초안에 반영되며 다음 질문으로 넘어가는 것을 확인했다. 두 번째 답변도 전용 문답칸으로 저장되어 약 44초 후 다음 질문으로 이동했다. 세 번째 답변은 저장 직후 안내까지 확인했으나 퇴근 전 중단되어 최종 반영 대기는 미완료다.
+- Verification: `corepack pnpm --filter frontend test -- AIDraftChatBuilder.test.tsx` 통과. 샌드박스에서는 기존 Windows `esbuild spawn EPERM`으로 실패해 실제 로컬 권한으로 재실행했다.

@@ -49,6 +49,37 @@ function createFallbackOnlyRouter() {
 }
 
 function createCodexDraftRouter(draftText: string) {
+  return createCodexDraftDataRouter({
+    mode: "ai" as const,
+    state: "REVIEW_COMPLETED" as const,
+    draftText,
+    charCount: {
+      withSpaces: draftText.length,
+      withoutSpaces: draftText.replace(/\s/g, "").length,
+      limit: 700
+    },
+    evidenceMap: [],
+    documentFormatting: testDocumentFormatting,
+    reviewReport: {
+      scores: {
+        promptFit: 90,
+        jobFit: 88,
+        specificity: 87,
+        evidenceSafety: 92,
+        koreanReadability: 89,
+        aiLikenessRisk: 20,
+        blindRisk: 0,
+        interviewDefensibility: 86
+      },
+      issues: [],
+      likelyInterviewQuestions: [],
+      sensitiveWarnings: []
+    },
+    revisionOptions: []
+  });
+}
+
+function createCodexDraftDataRouter(data: unknown) {
   const aiMeta: AiExecutionMeta = {
     providerId: "codex_bridge",
     modelId: "codex-test-model",
@@ -56,35 +87,7 @@ function createCodexDraftRouter(draftText: string) {
     usedFallback: false
   };
   const execute = vi.fn(async () => ({
-    data: {
-      mode: "ai" as const,
-      state: "REVIEW_COMPLETED" as const,
-      aiMeta,
-      draftText,
-      charCount: {
-        withSpaces: draftText.length,
-        withoutSpaces: draftText.replace(/\s/g, "").length,
-        limit: 700
-      },
-      evidenceMap: [],
-      documentFormatting: testDocumentFormatting,
-      reviewReport: {
-        scores: {
-          promptFit: 90,
-          jobFit: 88,
-          specificity: 87,
-          evidenceSafety: 92,
-          koreanReadability: 89,
-          aiLikenessRisk: 20,
-          blindRisk: 0,
-          interviewDefensibility: 86
-        },
-        issues: [],
-        likelyInterviewQuestions: [],
-        sensitiveWarnings: []
-      },
-      revisionOptions: []
-    },
+    data,
     modelId: "codex-test-model",
     latencyMs: 1
   }));
@@ -872,11 +875,156 @@ describe("career document workflow service", () => {
       profileId: "profile-demo",
       documentType: "resume"
     });
+    expect(resumePackage?.content).toContain("[기술 스택]");
     expect(resumePackage?.content).toContain("기술 스택: TypeScript");
     expect(resumePackage?.content).toContain("Neet2Work");
+    expect(resumePackage?.content).not.toContain("선택 프로필");
+    expect(resumePackage?.content).not.toContain("GitHub 프로필");
+    expect(resumePackage?.content).not.toContain("메타데이터");
     expect(resumePackage?.contentJson.profileSnapshot?.skills).toEqual(
       expect.arrayContaining(["TypeScript", "React", "Node.js", "Express", "Prisma", "PostgreSQL"])
     );
+  });
+
+  it("suggests verified GitHub skills for an empty selected profile and keeps resume content polished", async () => {
+    const packageJson = {
+      dependencies: {
+        express: "latest",
+        react: "latest"
+      },
+      devDependencies: {
+        "@vitejs/plugin-react": "latest",
+        typescript: "latest",
+        vite: "latest"
+      }
+    };
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes("/users/r2gul4r/repos")) {
+        return jsonResponse([
+          {
+            name: "photoEditer",
+            full_name: "r2gul4r/photoEditer",
+            description: "Local photo correction tool for analyzing real photos and suggesting mood-based edits.",
+            language: "TypeScript",
+            updated_at: "2026-06-06T00:00:00Z",
+            pushed_at: "2026-06-06T00:00:00Z",
+            default_branch: "main"
+          }
+        ]);
+      }
+
+      if (url.includes("/users/r2gul4r")) {
+        return jsonResponse({
+          login: "r2gul4r",
+          public_repos: 13
+        });
+      }
+
+      if (url.includes("/repos/r2gul4r/photoEditer/languages")) {
+        return jsonResponse({ TypeScript: 2400, JavaScript: 700, Python: 500, CSS: 200, HTML: 100 });
+      }
+
+      if (url.includes("/repos/r2gul4r/photoEditer/readme")) {
+        return jsonResponse({
+          encoding: "base64",
+          content: Buffer.from("사진 분석과 분위기 기반 보정 제안 도구입니다.", "utf8").toString("base64")
+        });
+      }
+
+      if (url.includes("/repos/r2gul4r/photoEditer/git/trees/main")) {
+        return jsonResponse({
+          tree: [
+            { path: "package.json", type: "blob" },
+            { path: "src/App.tsx", type: "blob" },
+            { path: "vite.config.ts", type: "blob" }
+          ]
+        });
+      }
+
+      if (url.includes("/repos/r2gul4r/photoEditer/contents/package.json")) {
+        return jsonResponse({
+          encoding: "base64",
+          content: Buffer.from(JSON.stringify(packageJson), "utf8").toString("base64"),
+          size: 1024
+        });
+      }
+
+      return jsonResponse({});
+    });
+    const service = createService(fetchMock);
+
+    const session = await service.createSession({
+      message: "https://github.com/r2gul4r 보고 풀스택 개발자 자소서와 이력서를 작성해줘.",
+      target: {
+        role: "풀스택 개발자",
+        questionText: "지원 직무와 관련된 프로젝트 경험을 작성해 주세요."
+      },
+      profileContexts: [
+        {
+          profileId: "profile-empty-skills",
+          title: "임시 프로필 - 기술스택 없음",
+          schemaVersion: 1,
+          targetRole: "풀스택 개발자",
+          targetCompany: null,
+          desiredRoles: ["풀스택 개발자", "백엔드 개발자"],
+          skills: [],
+          profileText: "지원 문서 흐름을 정리하는 개발자입니다.",
+          profileJson: {
+            basics: {
+              name: "임시 지원자",
+              email: "temp-demo@neet2work.local",
+              phone: "010-1111-2222",
+              location: "Seoul",
+              links: {
+                github: "https://github.com/r2gul4r"
+              }
+            },
+            desired: {
+              roles: ["풀스택 개발자", "백엔드 개발자"],
+              industries: [],
+              locations: [],
+              employmentTypes: []
+            },
+            summary: {
+              headline: "",
+              description: "사용자 경험을 정리하고 지원 문서로 연결하는 서비스를 만들고 싶은 개발자입니다."
+            },
+            skills: [],
+            projects: [
+              {
+                name: "Neet2Work",
+                role: "지원 문서 작성 흐름을 정리하고 부족한 근거를 질문으로 확인하는 과정 설계",
+                result: "가초안과 보완 질문을 통해 완성도를 높이는 흐름 검증"
+              }
+            ],
+            experiences: [],
+            certifications: [],
+            education: [],
+            activities: [],
+            metadata: {
+              lastUpdatedBy: "user",
+              lastAiUpdatedAt: null
+            }
+          }
+        }
+      ]
+    });
+    const resumePackage = session.documentPackages.find((item) => item.documentType === "resume");
+    const coverLetterPackage = session.documentPackages.find((item) => item.documentType === "cover_letter");
+
+    expect(session.profileSkillSuggestions).toEqual([
+      expect.objectContaining({
+        profileId: "profile-empty-skills",
+        skills: expect.arrayContaining(["TypeScript", "JavaScript", "React", "Vite", "Node.js", "Express", "Python"])
+      })
+    ]);
+    expect(resumePackage?.content).toContain("[기술 스택]");
+    expect(resumePackage?.content).toContain("GitHub 프로젝트: r2gul4r/photoEditer");
+    expect(resumePackage?.content).not.toContain("public repository");
+    expect(resumePackage?.content).not.toContain("메타데이터");
+    expect(resumePackage?.content).not.toContain("우선 분석");
+    expect(resumePackage?.content).not.toContain("사용 언어:");
+    expect(coverLetterPackage?.content).not.toMatch(/했습니다\.을|CSS을|Tailwind CSS을/);
   });
 
   it("maps a saved answer back to the answered question slot even when answer text lacks slot keywords", async () => {
@@ -958,6 +1106,91 @@ describe("career document workflow service", () => {
       charLimit: 700
     });
     expect(session.interview.questions.every((question) => question.targetQuestionIds.includes("selected-format-q1"))).toBe(true);
+  });
+
+  it("defaults unspecified cover-letter length to a DOCX page target and stores a single answer without a question heading", async () => {
+    const service = createService(vi.fn());
+    let session = await service.createSession({
+      message: "Neet2Work에서 AI 자기소개서 작성 흐름을 만들고 문서함 저장까지 연결했습니다.",
+      target: {
+        role: "풀스택 개발자",
+        questionText: "지원 직무와 관련된 프로젝트 경험을 구체적으로 작성해 주세요.",
+        charCountRule: "with_spaces"
+      }
+    });
+
+    expect(session.drafts[0]).toMatchObject({
+      questionText: "지원 직무와 관련된 프로젝트 경험을 구체적으로 작성해 주세요.",
+      charLimit: 1200
+    });
+
+    session = await answerUntilReady(service, session);
+    const coverLetterPackage = session.documentPackages.find((item) => item.documentType === "cover_letter");
+
+    expect(coverLetterPackage?.content).toBe(session.drafts[0].draftText);
+    expect(coverLetterPackage?.content).not.toMatch(/^문항 1\./);
+    expect(coverLetterPackage?.contentJson.sections[0]).toMatchObject({
+      title: "지원 직무와 관련된 프로젝트 경험을 구체적으로 작성해 주세요."
+    });
+  });
+
+  it("extracts the practical role-competency cover-letter template into clean section titles", async () => {
+    const service = createService(vi.fn());
+    const templateText = [
+      "Self-introduction (자기소개서)",
+      "1. 자기소개",
+      "- 소제목을 작성하고, 첫 문장은 두괄식으로 자신을 표현하는 한 문장으로 시작해 주세요.",
+      "- 강점, 가치관, 태도는 직접 체험한 경험과 근거로 뒷받침하고 타인과 비교하는 표현은 쓰지 마세요.",
+      "- 220자 내외.",
+      "",
+      "2. 성장과정",
+      "- 지원 분야에 관심을 가진 계기부터 기술을 익히기 위해 노력한 과정을 직무 관점으로 작성해 주세요.",
+      "- 220자 내외.",
+      "",
+      "3. 성격소개",
+      "- 장점과 단점을 함께 쓰되, 단점은 실제로 보완하려고 한 노력과 업무 상황에 적용할 수 있는 방식으로 작성해 주세요.",
+      "- 180자 내외.",
+      "",
+      "4. 직무역량",
+      "- 프로젝트 수행 경험을 중심으로 맡은 역할, 사용 기술, 문제 해결 행동, 결과를 작성해 주세요.",
+      "- 320자 내외.",
+      "",
+      "5. 지원동기 및 포부",
+      "- 자신의 목표를 회사나 직무의 방향성과 연결하고, 입사 후 기여할 구체적 행동을 작성해 주세요.",
+      "- 260자 내외."
+    ].join("\n");
+    let session = await service.createSession({
+      message: "Neet2Work 프로젝트로 실무형 자소서를 작성해줘.",
+      target: {
+        role: "풀스택 개발자",
+        company: "지원 기업",
+        formatLabel: "실무형/직무역량 중심 자소서 양식"
+      },
+      attachments: [
+        {
+          fileName: "실무형_직무역량_중심_자소서_양식.txt",
+          text: templateText
+        }
+      ]
+    });
+    const questions = session.documentAnalyses[0].template?.questions ?? [];
+
+    expect(questions.map((question) => question.text)).toEqual([
+      "자기소개",
+      "성장과정",
+      "성격소개",
+      "직무역량",
+      "지원동기 및 포부"
+    ]);
+    expect(questions.map((question) => question.charLimit)).toEqual([220, 220, 180, 320, 260]);
+
+    session = await answerUntilReady(service, session);
+    const coverLetterPackage = session.documentPackages.find((item) => item.documentType === "cover_letter");
+
+    expect(coverLetterPackage?.contentJson.sections).toHaveLength(5);
+    expect(coverLetterPackage?.content).toContain("자기소개\n\n");
+    expect(coverLetterPackage?.content).toContain("직무역량\n\n");
+    expect(coverLetterPackage?.content).not.toContain("문항 1.");
   });
 
   it("keeps README project documents as reference material even when they mention self-intro workflow terms", async () => {
@@ -1204,6 +1437,33 @@ describe("career document workflow service", () => {
       usedFallback: false
     });
     expect(session.drafts[0].draftText).toBe(aiDraftText);
+    expect(session.drafts[0].risks).not.toContain("AI 초안 응답 형식을 보정해 사용했습니다.");
+  });
+
+  it("keeps Codex draftText-only responses out of fallback mode", async () => {
+    const aiDraftText = "Neet2Work에서 자소서 작성 흐름을 정리하고 보완 질문으로 근거를 확인한 경험을 중심으로 작성한 초안입니다.";
+    const { router } = createCodexDraftDataRouter({ draftText: aiDraftText });
+    const service = createService(vi.fn(), router);
+    const aiSelection: AiSelection = { mode: "manual", providerId: "codex_bridge" };
+    let session = await service.createSession({
+      message: "Neet2Work에서 자소서 AI 로직을 세팅하고 사용자 피드백을 반영해 결과를 개선했습니다.",
+      target: {
+        role: "풀스택 개발자",
+        questionText: "지원 직무와 관련된 프로젝트 경험을 작성해 주세요.",
+        charLimit: 700
+      },
+      aiSelection
+    });
+
+    session = await answerUntilReady(service, session, aiSelection);
+
+    expect(session.aiMeta).toMatchObject({
+      providerId: "codex_bridge",
+      modelId: "codex-test-model",
+      usedFallback: false
+    });
+    expect(session.drafts[0].draftText).toBe(aiDraftText);
+    expect(session.drafts[0].risks).toContain("AI 초안 응답 형식을 보정해 사용했습니다.");
   });
 
   it("uses AI-generated gap questions when the selected provider can plan the session", async () => {

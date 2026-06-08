@@ -6,6 +6,8 @@ import type {
 } from "../../types/career-document-workflow.js";
 
 const QUESTION_MARKERS = [
+  /자기\s*소개/,
+  /성격\s*소개/,
   /지원\s*동기/,
   /직무\s*역량/,
   /입사\s*후\s*포부/,
@@ -178,7 +180,8 @@ function splitQuestionBlocks(text: string) {
     .filter((part) => part.length >= 5);
 
   if (splitByMarker.length > 1) {
-    return splitByMarker;
+    const numberedBlocks = splitByMarker.filter((part) => /^\s*(?:(?:문항|항목|질문)\s*)?\d{1,2}\s*[).:-]/i.test(part));
+    return numberedBlocks.length > 0 ? numberedBlocks : splitByMarker;
   }
 
   return text
@@ -188,7 +191,12 @@ function splitQuestionBlocks(text: string) {
 }
 
 function cleanupQuestionText(text: string) {
-  return text
+  const firstLine = text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .find((line) => line.length > 0) ?? text;
+
+  return firstLine
     .replace(/^\s*(?:문항|항목|질문|Q)?\s*\d{0,2}\s*[).:-]?\s*/i, "")
     .replace(/\s+/g, " ")
     .trim();

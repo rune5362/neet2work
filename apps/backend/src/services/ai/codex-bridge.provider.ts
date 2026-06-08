@@ -7,7 +7,7 @@ import type {
 } from "../../types/ai-routing.js";
 import { buildDraftWorkflowPrompt } from "../draft-workflow/prompt-builder.js";
 import { CodexAppServerClient } from "./codex-app-server-client.js";
-import { extractJsonObject, ProviderExecutionError, withTimeout } from "./provider-utils.js";
+import { extractWorkflowOutput, ProviderExecutionError, withTimeout } from "./provider-utils.js";
 
 const CODEX_APP_SERVER_DEFAULT_MODEL_ID = "codex-app-server";
 
@@ -155,7 +155,7 @@ export class CodexBridgeProvider implements AiProvider {
         turnTimeoutMs,
         "codex app-server turn"
       );
-      const parsed = extractJsonObject(assistantOutput);
+      const parsed = extractWorkflowOutput(assistantOutput, input.operation);
 
       return {
         data: parsed as T,

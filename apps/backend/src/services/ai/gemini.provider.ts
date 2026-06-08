@@ -6,7 +6,7 @@ import type {
   AiProviderStatus
 } from "../../types/ai-routing.js";
 import { buildDraftWorkflowPrompt } from "../draft-workflow/prompt-builder.js";
-import { extractJsonObject, ProviderExecutionError, withTimeout } from "./provider-utils.js";
+import { extractWorkflowOutput, ProviderExecutionError, withTimeout } from "./provider-utils.js";
 
 const TRANSIENT_HTTP_RETRY_COUNT = 1;
 
@@ -74,7 +74,7 @@ export class GeminiProvider implements AiProvider {
 
     for (const modelId of modelIds) {
       try {
-        const data = await this.generateWithModel<T>(modelId, prompt, input.timeoutMs);
+        const data = await this.generateWithModel<T>(modelId, prompt, input.operation, input.timeoutMs);
 
         return {
           data,
@@ -94,7 +94,12 @@ export class GeminiProvider implements AiProvider {
     throw lastError ?? new ProviderExecutionError("provider_error", "gemini provider error");
   }
 
-  private async generateWithModel<T>(modelId: string, prompt: string, timeoutMs: number) {
+  private async generateWithModel<T>(
+    modelId: string,
+    prompt: string,
+    operation: AiProviderExecuteInput<unknown>["operation"],
+    timeoutMs: number
+  ) {
     let response: Response | undefined;
 
     for (let attempt = 0; attempt <= TRANSIENT_HTTP_RETRY_COUNT; attempt += 1) {
@@ -122,7 +127,7 @@ export class GeminiProvider implements AiProvider {
       candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
     };
     const text = body.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("\n") ?? "";
-    const parsed = extractJsonObject(text);
+    const parsed = extractWorkflowOutput(text, operation);
 
     return parsed as T;
   }

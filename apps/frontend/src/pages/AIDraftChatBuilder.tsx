@@ -27,7 +27,7 @@ import {
 } from "../api/client";
 import { getRequiredAccessToken } from "../api/authSession";
 import { createDocument, getDocuments as getSavedDocuments } from "../api/documentClient";
-import { getProfiles } from "../api/profileClient";
+import { getProfiles, updateProfileMeta } from "../api/profileClient";
 import arrowUpIcon from "../assets/icons/ai-draft-arrow-up.svg";
 import attachIcon from "../assets/icons/ai-draft-attach.svg";
 import chevronIcon from "../assets/icons/ai-draft-chevron.svg";
@@ -62,7 +62,11 @@ import type {
   CareerWorkflowSourceInput
 } from "../types/career-workflow";
 import { careerDocumentTypeLabel } from "../types/career-workflow";
-import type { CareerDocumentPackage, CareerDocumentWorkflowSession } from "../types/career-document-workflow";
+import type {
+  CareerDocumentPackage,
+  CareerDocumentWorkflowSession,
+  CareerProfileSkillSuggestion
+} from "../types/career-document-workflow";
 import { careerDocumentClassificationLabel } from "../types/career-document-workflow";
 
 type Sender = "ai" | "user";
@@ -117,13 +121,16 @@ type AiSettings = {
 
 type TextFormat = "TXT" | "Markdown";
 type DraftDownloadFormat = "txt" | "markdown" | "doc" | "pdf";
-type SelfIntroFormatId = "role_competency" | "motivation" | "growth" | "collaboration";
+type SelfIntroFormatId = "practical_role_competency";
 
 type SelfIntroFormatOption = {
   id: SelfIntroFormatId;
   label: string;
   questionText: string;
   charLimit: number;
+  description: string;
+  templateFileName: string;
+  templateText: string;
 };
 
 type DraftDownloadOption = {
@@ -399,30 +406,48 @@ function buildGapAnswersFromDrafts(
     .filter((item) => item.answer.length > 0);
 }
 
+const PRACTICAL_ROLE_COMPETENCY_TEMPLATE_TEXT = [
+  "Self-introduction (자기소개서)",
+  "1. 자기소개",
+  "- 소제목을 작성하고, 첫 문장은 두괄식으로 자신을 표현하는 한 문장으로 시작해 주세요.",
+  "- 강점, 가치관, 태도는 직접 체험한 경험과 근거로 뒷받침하고 타인과 비교하는 표현은 쓰지 마세요.",
+  "- 220자 내외.",
+  "",
+  "2. 성장과정",
+  "- 지원 분야에 관심을 가진 계기부터 기술을 익히기 위해 노력한 과정을 직무 관점으로 작성해 주세요.",
+  "- 전공/비전공 여부보다 지원 분야로 들어온 전환점과 학습 노력을 중심으로 작성해 주세요.",
+  "- 220자 내외.",
+  "",
+  "3. 성격소개",
+  "- 장점과 단점을 함께 쓰되, 단점은 실제로 보완하려고 한 노력과 업무 상황에 적용할 수 있는 방식으로 작성해 주세요.",
+  "- 장점은 강화한 경험, 단점은 개선한 행동을 중심으로 작성해 주세요.",
+  "- 180자 내외.",
+  "",
+  "4. 직무역량",
+  "- 프로젝트 수행 경험을 중심으로 맡은 역할, 사용 기술, 문제 해결 행동, 결과를 작성해 주세요.",
+  "- 경험의 개수보다 대표 경험을 어떻게 해석하고 직무 역량으로 연결했는지 드러내 주세요.",
+  "- 320자 내외.",
+  "",
+  "5. 지원동기 및 포부",
+  "- 자신의 목표를 회사나 직무의 방향성과 연결하고, 입사 후 기여할 구체적 행동을 작성해 주세요.",
+  "- 막연히 열심히 하겠다는 표현 대신 보유 기술과 직무 역량을 바탕으로 단계적 기여 방식을 제시해 주세요.",
+  "- 260자 내외.",
+  "",
+  "공통 작성 규칙",
+  "- 각 단락에는 헤드라인 또는 소제목을 둘 수 있습니다.",
+  "- 모든 내용은 사용자 자료, 프로필, GitHub 분석, 대화 답변에서 확인된 사실만 사용합니다.",
+  "- 한 페이지를 채우는 자기소개서 본문을 목표로 하되 길어져도 1.5페이지를 넘기지 않습니다."
+].join("\n");
+
 const SELF_INTRO_FORMAT_OPTIONS: SelfIntroFormatOption[] = [
   {
-    id: "role_competency",
-    label: "직무역량",
-    questionText: "지원 직무와 관련된 프로젝트 경험을 구체적으로 작성해 주세요.",
-    charLimit: 800
-  },
-  {
-    id: "motivation",
-    label: "지원동기",
-    questionText: "지원 동기와 입사 후 기여 계획을 작성해 주세요.",
-    charLimit: 700
-  },
-  {
-    id: "growth",
-    label: "성장과정",
-    questionText: "성장 과정에서 직무 역량으로 이어진 경험을 작성해 주세요.",
-    charLimit: 700
-  },
-  {
-    id: "collaboration",
-    label: "협업/문제해결",
-    questionText: "협업 또는 문제 해결 경험을 상황, 역할, 행동, 결과 중심으로 작성해 주세요.",
-    charLimit: 800
+    id: "practical_role_competency",
+    label: "실무형/직무역량 중심 자소서 양식",
+    questionText: "실무형/직무역량 중심 자소서 양식의 5개 항목에 맞춰 작성해 주세요.",
+    charLimit: 1200,
+    description: "자기소개, 성장과정, 성격소개, 직무역량, 지원동기 및 포부",
+    templateFileName: "실무형_직무역량_중심_자소서_양식.txt",
+    templateText: PRACTICAL_ROLE_COMPETENCY_TEMPLATE_TEXT
   }
 ];
 const DEFAULT_SELF_INTRO_FORMAT = SELF_INTRO_FORMAT_OPTIONS[0];
@@ -1178,7 +1203,13 @@ export function AIDraftChatBuilder() {
     message: string | null;
     packageType?: CareerDocumentPackage["documentType"];
   }>({ status: "idle", message: null });
+  const [profileSkillSaveStatus, setProfileSkillSaveStatus] = useState<{
+    status: "idle" | "saving" | "success" | "error";
+    message: string | null;
+    profileId?: string;
+  }>({ status: "idle", message: null });
   const [gapAnswerDrafts, setGapAnswerDrafts] = useState<Record<string, string>>({});
+  const [documentAnswerDrafts, setDocumentAnswerDrafts] = useState<Record<string, string>>({});
   const [confirmedGapQuestionIds, setConfirmedGapQuestionIds] = useState<Set<string>>(() => new Set());
   const [outlineConfirmed, setOutlineConfirmed] = useState(false);
   const [revisionRequest, setRevisionRequest] = useState("");
@@ -1495,7 +1526,11 @@ export function AIDraftChatBuilder() {
     documentSession?.completion.status === "provisional" ||
     documentDraftsWithText.some((draft) => draft.status === "needs_more_evidence");
   const documentDraftText = documentDraftsWithText
-    .map((draft, index) => `문항 ${index + 1}. ${draft.questionText}\n\n${draft.draftText ?? ""}`)
+    .map((draft, index) =>
+      documentDraftsWithText.length === 1
+        ? (draft.draftText ?? "").trim()
+        : `문항 ${index + 1}. ${draft.questionText}\n\n${draft.draftText ?? ""}`
+    )
     .join("\n\n");
   const activeDocumentQuestion = documentSession?.interview.questions[0];
   const hasDocumentDraft = documentDraftText.trim().length > 0;
@@ -2241,6 +2276,9 @@ export function AIDraftChatBuilder() {
   );
   const activeGapQuestion = draftState === "plan_ready" ? pendingGapQuestions[0] : undefined;
   const activeGapAnswerDraft = activeGapQuestion ? gapAnswerDrafts[activeGapQuestion.questionId] ?? "" : "";
+  const activeDocumentAnswerDraft = activeDocumentQuestion
+    ? documentAnswerDrafts[activeDocumentQuestion.questionId] ?? ""
+    : "";
   const answeredGapQuestionCount = neededGapQuestions.filter((question) =>
     confirmedGapQuestionIds.has(question.questionId)
   ).length;
@@ -2266,11 +2304,18 @@ export function AIDraftChatBuilder() {
     resetWorkflowPartialAfterGapChange();
   };
 
+  const updateDocumentAnswerDraft = (questionId: string, answer: string) => {
+    setDocumentAnswerDrafts((prev) => ({ ...prev, [questionId]: answer }));
+    setWorkflowError(null);
+  };
+
   const resetWorkflowPartialAfterGapChange = () => {
     setWorkflowDraft(null);
     setWorkflowStatus("idle");
     setWorkflowError(null);
     setDocumentSaveStatus({ status: "idle", message: null });
+    setProfileSkillSaveStatus({ status: "idle", message: null });
+    setDocumentAnswerDrafts({});
     if (draftState === "complete") {
       setDraftState("plan_ready");
     }
@@ -2400,15 +2445,24 @@ export function AIDraftChatBuilder() {
       .trim();
     const messageText = [userConversationText, input.trim()].filter((text) => text.length > 0).join("\n\n");
     const jobPostingText = targetForm.jobPostingText.trim() || (selectedJob ? buildDefaultJobPostingText(selectedJob) : "");
+    const selectedTemplateAttachment = {
+      sourceId: `self-intro-template-${selectedSelfIntroFormat.id}`,
+      fileName: selectedSelfIntroFormat.templateFileName,
+      mimeType: "text/plain",
+      text: selectedSelfIntroFormat.templateText
+    };
 
     return {
       message: messageText || resumeText,
-      attachments: readyTextAttachments(sourceFiles).map((file) => ({
-        sourceId: `attachment-${file.id}`,
-        fileName: file.name,
-        mimeType: file.mimeType || undefined,
-        text: file.textContent ?? ""
-      })),
+      attachments: [
+        selectedTemplateAttachment,
+        ...readyTextAttachments(sourceFiles).map((file) => ({
+          sourceId: `attachment-${file.id}`,
+          fileName: file.name,
+          mimeType: file.mimeType || undefined,
+          text: file.textContent ?? ""
+        }))
+      ],
       target: {
         company: selectedJob?.company,
         role: selectedJob?.title ?? undefined,
@@ -2715,9 +2769,11 @@ export function AIDraftChatBuilder() {
     setWorkflowStatus("idle");
     setWorkflowError(null);
     setDocumentSaveStatus({ status: "idle", message: null });
+    setProfileSkillSaveStatus({ status: "idle", message: null });
     setAutoStartPlanRequestId(0);
     setAutoStartDocumentRequestId(0);
     setGapAnswerDrafts({});
+    setDocumentAnswerDrafts({});
     setConfirmedGapQuestionIds(new Set());
     setOutlineConfirmed(false);
     setRevisionRequest("");
@@ -2824,13 +2880,71 @@ export function AIDraftChatBuilder() {
     }
   };
 
+  const handleDocumentAnswerSubmit = () => {
+    if (!activeDocumentQuestion || !documentSession) {
+      return;
+    }
+
+    const answer = activeDocumentAnswerDraft.trim();
+    if (!answer || workflowStatus === "loading") {
+      return;
+    }
+
+    playTone(settings.sound, "send");
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        sender: "user",
+        time: nowTime(),
+        text: answer
+      }
+    ]);
+    setSubmittedUserText((prev) => [prev, answer].filter((text) => text.trim().length > 0).join("\n\n"));
+    setDocumentAnswerDrafts((prev) => {
+      const next = { ...prev };
+      delete next[activeDocumentQuestion.questionId];
+      return next;
+    });
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        sender: "ai",
+        time: nowTime(),
+        text: "답변을 저장했어. 가초안에 반영하고 다음 질문을 계산하는 중이야."
+      }
+    ]);
+
+    void answerDocumentQuestionFromChat(activeDocumentQuestion.questionId, answer).then((session) => {
+      if (!session) {
+        return;
+      }
+
+      const nextQuestion = session.interview.questions[0];
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          sender: "ai",
+          time: nowTime(),
+          text: nextQuestion
+            ? `답변을 반영해 가초안을 갱신했어. 다음으로 확인할게: ${nextQuestion.question}`
+            : session.completion.status === "submission_ready"
+              ? "답변을 반영해서 제출 준비 기준을 통과한 초안을 준비했어."
+              : "답변을 반영해서 가초안을 갱신했어."
+        }
+      ]);
+    });
+  };
+
   const handleSend = () => {
     const trimmed = input.trim();
     const attachmentsToSubmit = hasUnsentSendableAttachments ? sendableAttachmentItems : [];
     if (!trimmed && attachmentsToSubmit.length === 0) return;
 
     clearSendReplyTimeout();
-    if (activeDocumentQuestion && trimmed && workflowStatus !== "loading") {
+    if (activeDocumentQuestion && documentSession && trimmed) {
       playTone(settings.sound, "send");
       const userMessage: Message = {
         id: crypto.randomUUID(),
@@ -2856,6 +2970,15 @@ export function AIDraftChatBuilder() {
       }
       setInput("");
       window.requestAnimationFrame(syncComposerHeight);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          sender: "ai",
+          time: nowTime(),
+          text: "답변을 저장했어. 가초안에 반영하고 다음 질문을 계산하는 중이야."
+        }
+      ]);
 
       void answerDocumentQuestionFromChat(activeDocumentQuestion.questionId, trimmed).then((session) => {
         if (!session) {
@@ -3267,6 +3390,78 @@ export function AIDraftChatBuilder() {
     }
   };
 
+  const handleSaveProfileSkillSuggestion = async (suggestion: CareerProfileSkillSuggestion) => {
+    const currentProfile = selectedProfileContexts.find((profile) => profile.profileId === suggestion.profileId);
+    if (!currentProfile?.profileJson) {
+      setProfileSkillSaveStatus({
+        status: "error",
+        message: "프로필 원본을 찾지 못해 기술스택을 저장하지 못했습니다.",
+        profileId: suggestion.profileId
+      });
+      playTone(settings.sound, "ready");
+      return;
+    }
+
+    const nextSkills = uniqueSkillLabels([
+      ...currentProfile.skills,
+      ...currentProfile.profileJson.skills,
+      ...suggestion.skills
+    ]);
+    const nextProfileJson = {
+      ...currentProfile.profileJson,
+      skills: nextSkills,
+      metadata: {
+        ...currentProfile.profileJson.metadata,
+        lastUpdatedBy: "ai" as const,
+        lastAiUpdatedAt: new Date().toISOString()
+      }
+    };
+
+    setProfileSkillSaveStatus({
+      status: "saving",
+      message: `${suggestion.title} 기술스택을 프로필에 저장 중입니다.`,
+      profileId: suggestion.profileId
+    });
+
+    try {
+      const updatedProfile = await updateProfileMeta(suggestion.profileId, {
+        profileJson: nextProfileJson
+      });
+      const nextContext = toDraftProfileContext(updatedProfile);
+      if (nextContext) {
+        setSelectedProfileContexts((prev) =>
+          prev.map((profile) => (profile.profileId === suggestion.profileId ? nextContext : profile))
+        );
+      }
+      setProfileOptions((prev) =>
+        prev.map((profile) => (profile.id === updatedProfile.id ? updatedProfile : profile))
+      );
+      setDocumentSession((prev) =>
+        prev
+          ? {
+              ...prev,
+              profileSkillSuggestions: prev.profileSkillSuggestions.filter(
+                (item) => item.profileId !== suggestion.profileId
+              )
+            }
+          : prev
+      );
+      setProfileSkillSaveStatus({
+        status: "success",
+        message: `${updatedProfile.title} 기술스택 저장 완료`,
+        profileId: suggestion.profileId
+      });
+      playTone(settings.sound, "success");
+    } catch (error) {
+      setProfileSkillSaveStatus({
+        status: "error",
+        message: error instanceof Error ? error.message : "프로필 기술스택 저장에 실패했습니다.",
+        profileId: suggestion.profileId
+      });
+      playTone(settings.sound, "ready");
+    }
+  };
+
   const handleNewChat = () => {
     clearSendReplyTimeout();
     revokeAttachmentPreviewUrls([...attachedFiles, ...submittedFiles]);
@@ -3568,6 +3763,28 @@ export function AIDraftChatBuilder() {
                     <div className="aiDraftNextQuestionCard" aria-live="polite">
                       <span>다음 질문</span>
                       <strong>{activeDocumentQuestion.question}</strong>
+                      <label className="aiDraftDocumentAnswerField">
+                        <span>답변</span>
+                        <textarea
+                          className="aiDraftGapTextarea"
+                          value={activeDocumentAnswerDraft}
+                          placeholder="답변을 입력한 뒤 저장하세요"
+                          rows={3}
+                          onChange={(event) =>
+                            updateDocumentAnswerDraft(activeDocumentQuestion.questionId, event.target.value)
+                          }
+                        />
+                      </label>
+                      <div className="aiDraftGapActions">
+                        <button
+                          type="button"
+                          className="aiDraftGapConfirmButton"
+                          disabled={activeDocumentAnswerDraft.trim().length === 0 || workflowStatus === "loading"}
+                          onClick={handleDocumentAnswerSubmit}
+                        >
+                          답변 저장
+                        </button>
+                      </div>
                     </div>
                   ) : hasDocumentDraft ? (
                     <div className="aiDraftNextQuestionCard complete" aria-live="polite">
@@ -3819,6 +4036,14 @@ export function AIDraftChatBuilder() {
                       {documentSaveStatus.message}
                     </p>
                   )}
+                  {profileSkillSaveStatus.message && (
+                    <p
+                      className={`aiDraftInputHint ${profileSkillSaveStatus.status === "error" ? "error" : ""}`}
+                      role={profileSkillSaveStatus.status === "error" ? "alert" : "status"}
+                    >
+                      {profileSkillSaveStatus.message}
+                    </p>
+                  )}
                   {workflowDraft && (
                     <div className="aiDraftRevisePanel" aria-label="초안 수정">
                       <label htmlFor="aiDraftRevisionRequest">수정 요청</label>
@@ -3926,6 +4151,22 @@ export function AIDraftChatBuilder() {
                       >
                         <Icon name="edit" />
                         {documentPackage.documentType === "resume" ? "이력서 저장" : "자소서 저장"}
+                      </button>
+                    ))}
+                    {documentSession?.profileSkillSuggestions.map((suggestion) => (
+                      <button
+                        type="button"
+                        key={`profile-skills-${suggestion.profileId}`}
+                        disabled={profileSkillSaveStatus.status === "saving"}
+                        onClick={() => {
+                          void handleSaveProfileSkillSuggestion(suggestion);
+                        }}
+                        aria-label={`${suggestion.title} 기술스택 프로필에 저장`}
+                        title={`${suggestion.title} 기술스택 프로필에 저장`}
+                        data-tooltip={suggestion.reason}
+                      >
+                        <Icon name="edit" />
+                        프로필 기술스택 저장
                       </button>
                     ))}
                   </div>
@@ -4369,7 +4610,7 @@ export function AIDraftChatBuilder() {
                 ))}
               </div>
               <p className="aiDraftFootnote">
-                {inferredQuestionText} · {inferredCharLimit}자
+                {selectedSelfIntroFormat.description} · 총 {inferredCharLimit}자 내외
               </p>
             </section>
 

@@ -91,6 +91,14 @@ export type CareerDocumentPackage = {
   };
 };
 
+export type CareerProfileSkillSuggestion = {
+  profileId: string;
+  title: string;
+  skills: string[];
+  source: "github" | "portfolio" | "mixed";
+  reason: string;
+};
+
 export type CareerEvidenceSourceType =
   | "attached_document"
   | "self_intro_template"
@@ -278,6 +286,7 @@ export type CareerDocumentWorkflowSession = {
   drafts: CareerDocumentDraft[];
   completion: CareerDocumentCompletion;
   documentPackages: CareerDocumentPackage[];
+  profileSkillSuggestions: CareerProfileSkillSuggestion[];
   aiMeta?: AiExecutionMeta;
   missingEvidence: string[];
   risks: string[];

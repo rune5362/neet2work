@@ -7,6 +7,8 @@ import type {
 } from "../../types/career-document-workflow.js";
 import { inferIntent, requiredSlotsForIntent } from "./document-analysis.service.js";
 
+const DEFAULT_DOCX_COVER_LETTER_CHAR_LIMIT = 1200;
+
 export class DraftGenerationService {
   generate(input: {
     documentAnalyses: CareerDocumentAnalysis[];
@@ -107,7 +109,7 @@ function collectTemplateQuestions(documentAnalyses: CareerDocumentAnalysis[], ta
   const questions = documentAnalyses.flatMap((analysis) => analysis.template?.questions ?? []);
 
   if (questions.length > 0) {
-    return questions;
+    return questions.map(applyDefaultCoverLetterLimit);
   }
 
   if (target.questionText?.trim()) {
@@ -117,7 +119,7 @@ function collectTemplateQuestions(documentAnalyses: CareerDocumentAnalysis[], ta
       {
         questionId: "selected-format-q1",
         text: target.questionText.trim(),
-        charLimit: target.charLimit,
+        charLimit: target.charLimit ?? DEFAULT_DOCX_COVER_LETTER_CHAR_LIMIT,
         charCountRule: target.charCountRule ?? "unknown",
         intent,
         requiredSlots: requiredSlotsForIntent(intent),
@@ -130,12 +132,20 @@ function collectTemplateQuestions(documentAnalyses: CareerDocumentAnalysis[], ta
     {
       questionId: "default-q1",
       text: "지원 직무와 관련된 프로젝트 경험을 구체적으로 작성해 주세요.",
+      charLimit: target.charLimit ?? DEFAULT_DOCX_COVER_LETTER_CHAR_LIMIT,
       charCountRule: "unknown" as const,
       intent: "role_competency",
       requiredSlots: requiredSlotsForIntent("role_competency"),
       writingRules: []
     } satisfies CareerDocumentQuestion
   ];
+}
+
+function applyDefaultCoverLetterLimit(question: CareerDocumentQuestion): CareerDocumentQuestion {
+  return {
+    ...question,
+    charLimit: question.charLimit ?? DEFAULT_DOCX_COVER_LETTER_CHAR_LIMIT
+  };
 }
 
 function selectEvidenceForQuestion(
@@ -186,12 +196,12 @@ function buildDraftText(input: {
       : `${stylePrefix}${roleText}에 필요한 실무 역량은 ${projectText} 경험에서 확인할 수 있습니다.`;
   const sentences = [
     opening,
-    userRoleText ? `이 프로젝트에서 저는 ${userRoleText}을 맡았습니다.` : undefined,
+    userRoleText ? buildRoleSentence(userRoleText) : undefined,
     problemText ? `출발점은 ${problemText}였습니다.` : undefined,
-    actionsText && actionsText !== userRoleText ? `이를 해결하기 위해 ${actionsText} 과정을 실행했습니다.` : undefined,
-    technicalChoiceText ? `기술 스택은 ${technicalChoiceText}을 기반으로 구성했습니다.` : undefined,
+    actionsText && actionsText !== userRoleText ? buildActionSentence(actionsText) : undefined,
+    technicalChoiceText ? `기술적으로는 ${technicalChoiceText}를 활용했습니다.` : undefined,
     resultText ? buildResultSentence(resultText) : undefined,
-    learningText ? `이 과정에서 ${learningText}을 배웠습니다.` : undefined,
+    learningText ? buildLearningSentence(learningText) : undefined,
     companyFit && input.question.intent !== "company_fit"
       ? `따라서 이 경험은 ${companyFitText} 측면에서 지원 직무와 연결됩니다.`
       : undefined
@@ -234,6 +244,34 @@ function buildResultSentence(resultText: string) {
   }
 
   return `확인 가능한 결과는 ${resultText}입니다.`;
+}
+
+function buildRoleSentence(roleText: string) {
+  if (looksLikeSentence(roleText)) {
+    return `이 프로젝트에서 저는 ${ensureSentence(roleText)}`;
+  }
+
+  return `이 프로젝트에서 저는 ${roleText} 역할을 맡았습니다.`;
+}
+
+function buildActionSentence(actionText: string) {
+  if (looksLikeSentence(actionText)) {
+    return `이를 해결하기 위해 ${ensureSentence(actionText)}`;
+  }
+
+  return `이를 해결하기 위해 ${actionText} 과정을 실행했습니다.`;
+}
+
+function buildLearningSentence(learningText: string) {
+  if (looksLikeSentence(learningText)) {
+    return `이 과정에서 ${ensureSentence(learningText)}`;
+  }
+
+  return `이 과정에서 ${learningText}을 배웠습니다.`;
+}
+
+function looksLikeSentence(text: string) {
+  return /[.!?。]$/.test(text) || /(다|습니다|했다|했습니다)$/.test(text);
 }
 
 function ensureSentence(text: string) {

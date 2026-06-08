@@ -236,6 +236,14 @@ export const careerDocumentPackageSchema = z.object({
   })
 });
 
+export const careerProfileSkillSuggestionSchema = z.object({
+  profileId: z.string(),
+  title: z.string(),
+  skills: z.array(z.string()),
+  source: z.enum(["github", "portfolio", "mixed"]),
+  reason: z.string()
+});
+
 export const careerDocumentAttachmentInputSchema = z.object({
   sourceId: z.string().optional(),
   fileName: z.string().min(1),
@@ -272,6 +280,7 @@ export const careerDocumentWorkflowSessionSchema = z.object({
   drafts: z.array(careerDocumentDraftSchema),
   completion: careerDocumentCompletionSchema,
   documentPackages: z.array(careerDocumentPackageSchema),
+  profileSkillSuggestions: z.array(careerProfileSkillSuggestionSchema),
   aiMeta: aiExecutionMetaSchema.optional(),
   missingEvidence: z.array(z.string()),
   risks: z.array(z.string())
