@@ -6,6 +6,7 @@ import process from "node:process";
 const repoRoot = process.cwd();
 const sourceDir = path.join(repoRoot, "docs", "diagrams");
 const outputDir = path.join(repoRoot, "docs", "generated", "diagrams");
+const classDiagramDir = path.join(repoRoot, "docs", "generated", "classes");
 const databaseDiagramDir = path.join(repoRoot, "docs", "generated", "database");
 const dependencyGraphDir = path.join(repoRoot, "docs", "generated", "dependencies");
 
@@ -70,6 +71,19 @@ if (existsSync(dependencyGraphDir)) {
     ...dependencyGraphFiles.map((fileName) => ({
       inputPath: path.join(dependencyGraphDir, fileName),
       outputPath: path.join(dependencyGraphDir, fileName.replace(/\.mmd$/, ".svg"))
+    }))
+  );
+}
+
+if (existsSync(classDiagramDir)) {
+  const classDiagramFiles = readdirSync(classDiagramDir)
+    .filter((fileName) => fileName.endsWith(".mmd"))
+    .sort();
+
+  renderTargets.push(
+    ...classDiagramFiles.map((fileName) => ({
+      inputPath: path.join(classDiagramDir, fileName),
+      outputPath: path.join(classDiagramDir, fileName.replace(/\.mmd$/, ".svg"))
     }))
   );
 }

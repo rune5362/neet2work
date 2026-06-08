@@ -1,0 +1,23 @@
+sequenceDiagram
+  actor User
+  participant UI as Login Page
+  participant Client as frontend api client
+  participant AuthRoute as auth.route
+  participant AuthService as auth.service
+  participant TokenService as token.service
+  participant DB as PostgreSQL
+
+  User->>UI: 이메일과 비밀번호 입력
+  UI->>Client: login(payload)
+  Client->>AuthRoute: POST /api/auth/login
+  AuthRoute->>AuthService: login(payload)
+  AuthService->>DB: 사용자와 passwordHash 조회
+  DB-->>AuthService: User
+  AuthService->>AuthService: 비밀번호 검증과 계정 상태 확인
+  AuthService->>TokenService: access token과 refresh token 생성
+  TokenService->>DB: refresh token hash 저장
+  DB-->>TokenService: 저장 완료
+  TokenService-->>AuthService: token bundle
+  AuthService-->>AuthRoute: LoginResult
+  AuthRoute-->>Client: { data: LoginResult }
+  Client-->>UI: 세션 저장

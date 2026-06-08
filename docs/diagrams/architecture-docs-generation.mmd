@@ -1,0 +1,16 @@
+flowchart TD
+  source["Source code and docs sources"]
+  typedoc["TypeDoc\nAPI HTML and Markdown"]
+  depcruise["Dependency Cruiser\nJSON HTML Mermaid"]
+  prisma["Prisma doc generator\nModel docs and ERD Mermaid"]
+  manual["Manual Mermaid sources\ndocs/diagrams"]
+  renderer["Mermaid renderer\nmmd to SVG"]
+  generated["docs/generated"]
+
+  source --> typedoc --> generated
+  source --> depcruise --> generated
+  source --> prisma --> generated
+  manual --> renderer
+  depcruise --> renderer
+  prisma --> renderer
+  renderer --> generated

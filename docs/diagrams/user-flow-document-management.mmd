@@ -1,0 +1,22 @@
+flowchart TD
+  library["문서/프로필 라이브러리"]
+  filter["유형과 보호 상태 필터"]
+  createChoice{"새 항목 생성?"}
+  createProfile["프로필 작성"]
+  createDocument["지원 문서 작성"]
+  detail["상세 화면"]
+  edit["제목, 연결 대상, 본문 수정"]
+  copy["복사본 생성"]
+  protect["보호 상태로 전환"]
+  unprotect["보호 해제"]
+  delete["삭제 lifecycle 전환"]
+
+  library --> filter --> createChoice
+  createChoice -->|프로필| createProfile --> detail
+  createChoice -->|문서| createDocument --> detail
+  createChoice -->|기존 항목| detail
+  detail --> edit --> detail
+  detail --> copy --> detail
+  detail --> protect --> library
+  library --> unprotect --> detail
+  detail --> delete --> library
