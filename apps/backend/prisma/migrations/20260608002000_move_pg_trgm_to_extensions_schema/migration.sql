@@ -3,4 +3,13 @@
 
 CREATE SCHEMA IF NOT EXISTS extensions;
 
-ALTER EXTENSION pg_trgm SET SCHEMA extensions;
+DO $$
+BEGIN
+  BEGIN
+    ALTER EXTENSION pg_trgm SET SCHEMA extensions;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'Skipping pg_trgm schema move because the migration role does not own the extension.';
+  END;
+END
+$$;
