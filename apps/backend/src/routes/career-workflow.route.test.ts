@@ -251,7 +251,7 @@ describe("career workflow routes", () => {
     );
     expect(body.data.interview.questions.length).toBeGreaterThan(0);
     expect(body.data.drafts[0]).toMatchObject({
-      status: "drafted",
+      status: "needs_more_evidence",
       draftText: expect.any(String),
       missingEvidence: expect.arrayContaining([expect.any(String)])
     });

@@ -7,9 +7,11 @@ import {
   getApplicationSets,
   updateApplicationSet
 } from "../services/applicationSet.service.js";
+import { requireAuthenticatedUser } from "../middleware/auth.js";
 import { getAuthenticatedCandidateKey } from "../utils/auth-session.js";
 
 export const applicationSetRouter = Router();
+applicationSetRouter.use(requireAuthenticatedUser);
 
 const optionalTextSchema = z.string().trim().min(1).nullable().optional();
 

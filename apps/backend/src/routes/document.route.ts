@@ -9,9 +9,11 @@ import {
   protectDocument,
   updateDocumentMeta
 } from "../services/document.service.js";
+import { requireAuthenticatedUser } from "../middleware/auth.js";
 import { getAuthenticatedCandidateKey, getAuthenticatedUserId } from "../utils/auth-session.js";
 
 export const documentRouter = Router();
+documentRouter.use(requireAuthenticatedUser);
 
 const optionalTextSchema = z.string().trim().min(1).nullable().optional();
 const documentTypeSchema = z.enum(["resume", "cover_letter"]);

@@ -113,7 +113,9 @@ describe("server HTTP contract", () => {
     delete process.env.ALLOW_LOCALHOST_ORIGINS;
     delete process.env.JWT_SECRET;
     delete process.env.NODE_ENV;
+    delete process.env.REQUIRE_HTTPS;
     delete process.env.R2_ACCESS_KEY_ID;
+    delete process.env.TRUST_PROXY;
   });
 
   it("reports only live runtime capabilities in health", async () => {
@@ -142,6 +144,7 @@ describe("server HTTP contract", () => {
 
   it("rejects unconfigured localhost origins in production by default", async () => {
     process.env.NODE_ENV = "production";
+    process.env.REQUIRE_HTTPS = "false";
 
     const response = await request(createApp(), "/api/jobs", {
       headers: {
@@ -156,6 +159,7 @@ describe("server HTTP contract", () => {
   it("allows unconfigured localhost origins in production only when explicitly enabled", async () => {
     process.env.ALLOW_LOCALHOST_ORIGINS = "true";
     process.env.NODE_ENV = "production";
+    process.env.REQUIRE_HTTPS = "false";
 
     const response = await request(createApp(), "/api/jobs", {
       headers: {
@@ -165,6 +169,26 @@ describe("server HTTP contract", () => {
 
     expect(response.headers.get("access-control-allow-origin")).toBe("http://localhost:5174");
     expect(response.headers.get("access-control-allow-credentials")).toBe("true");
+  });
+
+  it("requires HTTPS by default in production", async () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.REQUIRE_HTTPS;
+
+    const response = await request(createApp(), "/api/jobs");
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      message: "HTTPS 연결이 필요합니다."
+    });
+  });
+
+  it("rejects wildcard trust proxy in production", () => {
+    process.env.NODE_ENV = "production";
+    process.env.TRUST_PROXY = "true";
+
+    expect(() => createApp()).toThrow("TRUST_PROXY=true is not allowed in production");
   });
 
   it("requires authentication for candidate-owned library routes", async () => {
@@ -225,6 +249,40 @@ describe("server HTTP contract", () => {
     expect(body).toEqual({
       message: "인증이 필요합니다.",
       fallback: true
+    });
+  });
+
+  it("rejects access tokens when the backing user is no longer active", async () => {
+    const findFirst = vi.fn().mockResolvedValue(null);
+    getPrismaClientMock.mockReturnValue({
+      user: { findFirst }
+    } as unknown as ReturnType<typeof getPrismaClient>);
+
+    const response = await request(createApp(), "/api/resume/extract", {
+      method: "POST",
+      headers: jsonAuthHeaders(),
+      body: JSON.stringify({
+        fileName: "resume.txt",
+        mimeType: "text/plain",
+        contentBase64: Buffer.from("첨부 텍스트 파일 본문입니다.", "utf-8").toString("base64")
+      })
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({
+      message: "세션이 만료되었습니다. 다시 로그인해 주세요.",
+      fallback: true
+    });
+    expect(findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "server-test-user",
+        deletedAt: null,
+        status: "ACTIVE"
+      },
+      select: {
+        id: true
+      }
     });
   });
 

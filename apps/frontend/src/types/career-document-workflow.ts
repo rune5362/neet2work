@@ -1,4 +1,4 @@
-import type { AiExecutionMeta, AiSelection } from "./draft-workflow";
+import type { AiExecutionMeta, AiSelection, DraftProfileContext } from "./draft-workflow";
 
 export type CareerDocumentClassification =
   | "self_intro_template"
@@ -15,6 +15,80 @@ export type CareerDocumentSessionState =
 export type PrivacyRiskLevel = "none" | "low" | "medium" | "high";
 export type EvidenceConfidence = "high" | "medium" | "low";
 
+export type CareerDocumentCompletionStatus = "provisional" | "submission_ready";
+
+export type CareerDocumentCompletionGateId =
+  | "draft_available"
+  | "required_questions_answered"
+  | "missing_evidence_resolved"
+  | "evidence_locked";
+
+export type CareerDocumentCompletion = {
+  status: CareerDocumentCompletionStatus;
+  score: number;
+  summary: string;
+  gates: Array<{
+    id: CareerDocumentCompletionGateId;
+    label: string;
+    passed: boolean;
+    detail: string;
+  }>;
+};
+
+export type CareerDocumentPackage = {
+  documentType: "cover_letter" | "resume";
+  title: string;
+  content: string;
+  profileId?: string | null;
+  jobId?: string | null;
+  contentJson: {
+    schemaVersion: 1;
+    source: {
+      workflow: "career-document-workflow";
+      sessionId: string;
+      state: CareerDocumentSessionState;
+      generatedAt: string;
+      completionStatus: CareerDocumentCompletionStatus;
+    };
+    target: CareerDocumentWorkflowTarget;
+    profileSnapshot?: {
+      profileId: string;
+      title: string;
+      targetRole?: string | null;
+      desiredRoles: string[];
+      skills: string[];
+      profileText?: string;
+    };
+    sections: Array<{
+      sectionId: string;
+      title: string;
+      body: string;
+      usedEvidenceFacts: string[];
+      missingEvidence: string[];
+      risks: string[];
+    }>;
+    evidence: {
+      usedFacts: string[];
+      missingEvidence: string[];
+      risks: string[];
+    };
+    formatting: {
+      charCountRule: "with_spaces" | "without_spaces" | "unknown";
+      withSpaces: number;
+      withoutSpaces: number;
+      limit?: number;
+    };
+  };
+};
+
+export type CareerProfileSkillSuggestion = {
+  profileId: string;
+  title: string;
+  skills: string[];
+  source: "github" | "portfolio" | "mixed";
+  reason: string;
+};
+
 export type CareerEvidenceSourceType =
   | "attached_document"
   | "self_intro_template"
@@ -22,6 +96,7 @@ export type CareerEvidenceSourceType =
   | "job_posting"
   | "reference_material"
   | "user_input"
+  | "profile_context"
   | "github_profile"
   | "github_repo_metadata"
   | "github_readme"
@@ -38,6 +113,21 @@ export type CareerDocumentQuestion = {
   writingRules: string[];
 };
 
+export type CareerDocumentTemplateSectionKind =
+  | "resume"
+  | "self_intro"
+  | "skills"
+  | "portfolio"
+  | "common_rules";
+
+export type CareerDocumentTemplateSection = {
+  sectionId: string;
+  kind: CareerDocumentTemplateSectionKind;
+  title: string;
+  order: number;
+  requirements: string[];
+};
+
 export type CareerDocumentAnalysis = {
   sourceId: string;
   fileName: string;
@@ -48,6 +138,8 @@ export type CareerDocumentAnalysis = {
   template?: {
     questions: CareerDocumentQuestion[];
     writingRules: string[];
+    layoutRules: string[];
+    sections: CareerDocumentTemplateSection[];
     submissionFormat?: string;
   };
   summary: string;
@@ -134,6 +226,7 @@ export type CareerDocumentWorkflowTarget = {
   company?: string;
   role?: string;
   jobPostingText?: string;
+  jobId?: string;
   writingStyle?: string;
   formatLabel?: string;
   questionText?: string;
@@ -152,6 +245,7 @@ export type CareerDocumentWorkflowSessionRequest = {
   message: string;
   attachments?: CareerDocumentAttachmentInput[];
   target?: CareerDocumentWorkflowTarget;
+  profileContexts?: DraftProfileContext[];
   aiSelection?: AiSelection;
 };
 
@@ -175,6 +269,7 @@ export type CareerDocumentWorkflowSession = {
   githubAnalyses: CareerGithubAnalysis[];
   portfolioAnalyses: CareerPortfolioAnalysis[];
   evidenceVault: CareerEvidenceVaultItem[];
+  profileContexts: DraftProfileContext[];
   interview: {
     questions: CareerGapQuestion[];
     answers: Array<{
@@ -184,6 +279,9 @@ export type CareerDocumentWorkflowSession = {
     }>;
   };
   drafts: CareerDocumentDraft[];
+  completion: CareerDocumentCompletion;
+  documentPackages: CareerDocumentPackage[];
+  profileSkillSuggestions: CareerProfileSkillSuggestion[];
   aiMeta?: AiExecutionMeta;
   missingEvidence: string[];
   risks: string[];

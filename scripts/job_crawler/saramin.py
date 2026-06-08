@@ -21,6 +21,7 @@ else:
 
 
 DEFAULT_LIST_URL = "https://www.saramin.co.kr/zf_user/jobs/list/job-category?cat_mcls=2"
+ALLOWED_HOSTS = {"saramin.co.kr", "www.saramin.co.kr"}
 SOURCE = "saramin"
 TEXT_LIMIT = 5000
 MAX_LIMIT = 5
@@ -167,7 +168,7 @@ def canonical_detail_url(job_id: str) -> str:
 
 
 def list_jobs(list_url: str, limit: int) -> list[SourceJobLink]:
-    result = fetch_text(list_url)
+    result = fetch_text(list_url, allowed_hosts=ALLOWED_HOSTS)
     if result.status >= 400:
         raise RuntimeError(f"Saramin list request failed: HTTP {result.status}")
 
@@ -303,7 +304,7 @@ def infer_skills(text: str) -> list[str]:
 
 
 def collect_detail(link: SourceJobLink) -> StandardJobPosting:
-    result = fetch_text(link.source_url)
+    result = fetch_text(link.source_url, allowed_hosts=ALLOWED_HOSTS)
     if result.status >= 400:
         raise RuntimeError(f"Saramin detail request failed: HTTP {result.status} {link.source_url}")
 

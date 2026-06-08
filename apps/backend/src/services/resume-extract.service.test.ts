@@ -17,10 +17,12 @@ vi.mock("mammoth", () => ({
 }));
 
 vi.mock("pdf-parse", () => ({
-  PDFParse: vi.fn().mockImplementation(() => ({
-    getText: mocks.getText,
-    destroy: mocks.destroy
-  }))
+  PDFParse: vi.fn(function PDFParse() {
+    return {
+      getText: mocks.getText,
+      destroy: mocks.destroy
+    };
+  })
 }));
 
 describe("extractResumeFile", () => {

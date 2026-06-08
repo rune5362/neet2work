@@ -21,6 +21,7 @@ else:
 
 
 DEFAULT_LIST_URL = "https://linkareer.com/list/intern"
+ALLOWED_HOSTS = {"linkareer.com", "www.linkareer.com"}
 ALLOWED_LIST_PATHS = {"/list/recruit", "/list/intern"}
 SOURCE = "linkareer"
 TEXT_LIMIT = 5000
@@ -131,7 +132,7 @@ def list_category(list_url: str) -> str:
 
 def list_jobs(list_url: str, limit: int) -> list[SourceJobLink]:
     category = list_category(list_url)
-    result = fetch_text(list_url)
+    result = fetch_text(list_url, allowed_hosts=ALLOWED_HOSTS)
     if result.status >= 400:
         raise RuntimeError(f"Linkareer list request failed: HTTP {result.status}")
 
@@ -248,7 +249,7 @@ def find_first(patterns: list[str], text: str, default: str) -> str:
 
 
 def collect_detail(link: SourceJobLink) -> StandardJobPosting:
-    result = fetch_text(link.source_url)
+    result = fetch_text(link.source_url, allowed_hosts=ALLOWED_HOSTS)
     if result.status >= 400:
         raise RuntimeError(f"Linkareer detail request failed: HTTP {result.status} {link.source_url}")
 

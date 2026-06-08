@@ -56,10 +56,11 @@ export class AiRouter {
     operation: AiWorkflowOperation;
     payload: unknown;
     aiSelection: AiSelection;
+    timeoutMs?: number;
   }): Promise<{ data: T; aiMeta: AiExecutionMeta }> {
     const routingMode = input.aiSelection.mode ?? aiConfig.routingDefault;
     const candidates = this.resolveCandidates(routingMode, input.aiSelection);
-    const timeoutMs = aiConfig.providerTimeoutMs;
+    const timeoutMs = input.timeoutMs ?? aiConfig.providerTimeoutMs;
     let lastReason: FallbackReason = "all_providers_unavailable";
 
     for (const candidate of candidates) {

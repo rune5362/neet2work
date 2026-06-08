@@ -7,7 +7,7 @@ import type {
 } from "../../types/ai-routing.js";
 import { buildDraftWorkflowPrompt } from "../draft-workflow/prompt-builder.js";
 import { CodexAppServerClient } from "./codex-app-server-client.js";
-import { extractJsonObject, ProviderExecutionError, withTimeout } from "./provider-utils.js";
+import { extractWorkflowOutput, ProviderExecutionError, withTimeout } from "./provider-utils.js";
 
 const CODEX_APP_SERVER_DEFAULT_MODEL_ID = "codex-app-server";
 
@@ -144,6 +144,7 @@ export class CodexBridgeProvider implements AiProvider {
         throw new ProviderExecutionError("offline", "codex_not_logged_in");
       }
 
+      const turnTimeoutMs = Math.min(input.timeoutMs, aiConfig.codexBridge.turnTimeoutMs);
       const assistantOutput = await withTimeout(
         client.runPrompt({
           prompt,
@@ -151,10 +152,10 @@ export class CodexBridgeProvider implements AiProvider {
           reasoningEffort: aiConfig.codexBridge.reasoningEffort || undefined,
           cwd: process.cwd()
         }),
-        input.timeoutMs,
+        turnTimeoutMs,
         "codex app-server turn"
       );
-      const parsed = extractJsonObject(assistantOutput);
+      const parsed = extractWorkflowOutput(assistantOutput, input.operation);
 
       return {
         data: parsed as T,
