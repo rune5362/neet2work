@@ -5,6 +5,7 @@ import process from "node:process";
 for (const directory of [
   "docs/generated/api-html",
   "docs/generated/api-md",
+  "docs/generated/database",
   "docs/generated/dependencies",
   "docs/generated/diagrams"
 ]) {

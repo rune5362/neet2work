@@ -6,6 +6,7 @@ import process from "node:process";
 const repoRoot = process.cwd();
 const sourceDir = path.join(repoRoot, "docs", "diagrams");
 const outputDir = path.join(repoRoot, "docs", "generated", "diagrams");
+const databaseDiagramDir = path.join(repoRoot, "docs", "generated", "database");
 const dependencyGraphDir = path.join(repoRoot, "docs", "generated", "dependencies");
 
 function findChromeExecutable() {
@@ -69,6 +70,19 @@ if (existsSync(dependencyGraphDir)) {
     ...dependencyGraphFiles.map((fileName) => ({
       inputPath: path.join(dependencyGraphDir, fileName),
       outputPath: path.join(dependencyGraphDir, fileName.replace(/\.mmd$/, ".svg"))
+    }))
+  );
+}
+
+if (existsSync(databaseDiagramDir)) {
+  const databaseDiagramFiles = readdirSync(databaseDiagramDir)
+    .filter((fileName) => fileName.endsWith(".mmd"))
+    .sort();
+
+  renderTargets.push(
+    ...databaseDiagramFiles.map((fileName) => ({
+      inputPath: path.join(databaseDiagramDir, fileName),
+      outputPath: path.join(databaseDiagramDir, fileName.replace(/\.mmd$/, ".svg"))
     }))
   );
 }
