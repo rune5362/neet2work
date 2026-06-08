@@ -54,8 +54,13 @@ if ([string]::IsNullOrWhiteSpace($FrontendApiBaseUrl)) {
 
 Remove-Item -LiteralPath $ReleaseDir -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $ZipFile -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath "apps/backend/dist" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath "apps/frontend/dist" -Recurse -Force -ErrorAction SilentlyContinue
 
 Invoke-CheckedCommand "corepack" "pnpm" "run" "build"
+
+Assert-PathExists "apps/backend/dist/generated/prisma/client.js"
+Assert-PathExists "apps/backend/dist/generated/prisma/internal/class.js"
 
 New-Item -ItemType Directory -Force (Join-Path $ReleaseDir "apps/backend") | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $ReleaseDir "apps/frontend") | Out-Null
@@ -71,6 +76,9 @@ Copy-Item -LiteralPath "apps/backend/data" -Destination (Join-Path $ReleaseDir "
 
 Copy-Item -LiteralPath "apps/frontend/package.json" -Destination (Join-Path $ReleaseDir "apps/frontend")
 Copy-Item -LiteralPath "apps/frontend/dist" -Destination (Join-Path $ReleaseDir "apps/frontend/dist") -Recurse
+
+Assert-PathExists (Join-Path $ReleaseDir "apps/backend/dist/generated/prisma/client.js")
+Assert-PathExists (Join-Path $ReleaseDir "apps/backend/dist/generated/prisma/internal/class.js")
 
 Compress-Archive -Path (Join-Path $ReleaseDir "*") -DestinationPath $ZipFile -Force
 
