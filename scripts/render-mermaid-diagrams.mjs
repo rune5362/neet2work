@@ -6,8 +6,7 @@ import process from "node:process";
 const repoRoot = process.cwd();
 const sourceDir = path.join(repoRoot, "docs", "diagrams");
 const outputDir = path.join(repoRoot, "docs", "generated", "diagrams");
-const dependencyGraphPath = path.join(repoRoot, "docs", "generated", "dependencies", "dependency-graph.mmd");
-const dependencyGraphOutputPath = path.join(repoRoot, "docs", "generated", "dependencies", "dependency-graph.svg");
+const dependencyGraphDir = path.join(repoRoot, "docs", "generated", "dependencies");
 
 function findChromeExecutable() {
   const explicitPath = process.env.MERMAID_CHROME_PATH?.trim();
@@ -61,11 +60,17 @@ if (existsSync(sourceDir)) {
   );
 }
 
-if (existsSync(dependencyGraphPath)) {
-  renderTargets.push({
-    inputPath: dependencyGraphPath,
-    outputPath: dependencyGraphOutputPath
-  });
+if (existsSync(dependencyGraphDir)) {
+  const dependencyGraphFiles = readdirSync(dependencyGraphDir)
+    .filter((fileName) => fileName.endsWith(".mmd"))
+    .sort();
+
+  renderTargets.push(
+    ...dependencyGraphFiles.map((fileName) => ({
+      inputPath: path.join(dependencyGraphDir, fileName),
+      outputPath: path.join(dependencyGraphDir, fileName.replace(/\.mmd$/, ".svg"))
+    }))
+  );
 }
 
 if (renderTargets.length === 0) {

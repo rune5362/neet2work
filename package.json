@@ -16,7 +16,7 @@
     "docs:api:html": "corepack pnpm run docs:prepare && typedoc --options typedoc.html.json",
     "docs:api:md": "corepack pnpm run docs:prepare && typedoc --options typedoc.markdown.json",
     "docs:deps:json": "corepack pnpm run docs:prepare && depcruise apps/backend/src apps/frontend/src --config .dependency-cruiser.cjs --output-type json --output-to docs/generated/dependencies/dependency-cruise.json",
-    "docs:deps:mermaid": "corepack pnpm run docs:prepare && depcruise apps/backend/src apps/frontend/src --config .dependency-cruiser.cjs --output-type mermaid --output-to docs/generated/dependencies/dependency-graph.mmd",
+    "docs:deps:mermaid": "corepack pnpm run docs:prepare && node scripts/generate-dependency-graphs.mjs",
     "docs:deps:html": "corepack pnpm run docs:prepare && depcruise apps/backend/src apps/frontend/src --config .dependency-cruiser.cjs --output-type html --output-to docs/generated/dependencies/dependency-report.html",
     "docs:diagrams": "node scripts/render-mermaid-diagrams.mjs",
     "docs:generate": "corepack pnpm run docs:prepare && corepack pnpm run docs:api:html && corepack pnpm run docs:api:md && corepack pnpm run docs:deps:json && corepack pnpm run docs:deps:mermaid && corepack pnpm run docs:deps:html && corepack pnpm run docs:diagrams",
