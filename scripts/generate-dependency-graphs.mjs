@@ -12,13 +12,6 @@ const allSourceRoots = ["apps/backend/src", "apps/frontend/src"];
 
 function renderOverviewGraph() {
   return `flowchart LR
-  subgraph frontend["Frontend"]
-    pages["pages"]
-    components["components"]
-    api["api clients"]
-    frontendTypes["types"]
-  end
-
   subgraph backend["Backend"]
     routes["routes"]
     middleware["middleware"]
@@ -33,10 +26,13 @@ function renderOverviewGraph() {
     ai["AI Providers"]
   end
 
-  pages --> components
-  pages --> api
-  components --> frontendTypes
-  api --> routes
+  subgraph frontend["Frontend"]
+    pages["pages"]
+    components["components"]
+    api["api clients"]
+    frontendTypes["types"]
+  end
+
   routes --> middleware
   routes --> services
   services --> backendTypes
@@ -44,6 +40,11 @@ function renderOverviewGraph() {
   database --> prisma
   prisma --> postgres
   services --> ai
+  routes -. "called by frontend api" .-> api
+
+  api -- "used by pages" --> pages
+  pages --> components
+  components --> frontendTypes
 `;
 }
 

@@ -3,50 +3,74 @@
 오늘 작업 상세 기록 원장이다.
 지난 날짜 기록은 `docs/work-log/archive/`에 보관한다.
 
-## 2026-06-08
+## 2026-06-09
 
-### 로컬 실행 환경 검증
+### presentation-skill 프로젝트 추가
 
-- 범위: README, 루트/app package script, `.env.example`, Windows setup 문서를 기준으로 현재 PC 실행 가능 여부를 검증했다.
-- 환경: Node.js `v24.14.1`, Corepack `0.34.6`, pnpm `11.1.1`; Node는 README 권장 `24.14.0`과 패치 버전만 다르고 package engine 범위에는 맞다.
-- 확인: `corepack pnpm run check` 실제 PC 권한에서 통과. Frontend 3개 test file 105 tests, backend 30개 test file 242 tests 통과, frontend/backend build 통과, Prisma Client 생성 확인.
-- 런타임 smoke: 임시 `corepack pnpm run dev` 실행 후 backend `/health`, `/api/jobs?limit=1`, `/api/draft-workflow/providers`, frontend Vite HTML 응답을 확인하고 프로세스를 종료했다. `/health`는 database `connected`, ai `mock`, storage `local`로 응답했다.
-- AI 경로: `corepack pnpm run codex:bridge:smoke` 통과. Codex app-server stdio 연결과 ChatGPT Pro 계정 상태가 확인됐다.
-- 주의: `.env`는 `.env.example` 대비 `AI_API_KEY`, `AI_MODEL`, `AI_RATE_LIMIT_MAX_REQUESTS`, `AI_RATE_LIMIT_WINDOW_SECONDS`, `TRUST_PROXY` 키가 빠져 있다. 현재 코드는 해당 값에 기본값/fallback이 있어 실행은 정상이다.
+- 범위: GitHub `sirilsengolraj-source/presentation-skill` 저장소를 프로젝트 로컬 Codex skill로 추가했다.
+- 변경: `.codex/skills/presentation-skill/` 아래에 `SKILL.md`, `DESIGN.md`, `README.md`, `references/`, `scripts/`, `templates/`, `examples/` 등 skill 파일을 설치했다.
+- Verification: 설치 스크립트 완료 메시지 확인, 설치된 `SKILL.md`의 `name: presentation-skill` 확인, `git status --short`로 신규 skill 디렉터리 추가 범위 확인.
 
-### `.env.example` 변수 목록 동기화
+### dependency overview SVG 배치 조정
 
-- 범위: 비밀값을 복사하지 않고 `.env`의 변수 이름 목록만 기준으로 `.env.example`을 동기화했다.
-- 변경: `.env`에 없는 `AI_API_KEY`, `AI_MODEL`, `AI_RATE_LIMIT_MAX_REQUESTS`, `AI_RATE_LIMIT_WINDOW_SECONDS`, `TRUST_PROXY` 항목과 전용 설명을 `.env.example`에서 제거했다.
-- Verification: `.env`와 `.env.example`의 변수 키가 각각 56개로 일치하고, `git diff --check -- .env.example`를 통과했다.
+- 범위: `docs/generated/dependencies/overview.svg`의 `Frontend` 영역이 더 오른쪽에 배치되도록 dependency overview Mermaid 생성 흐름을 조정했다.
+- 변경: `scripts/generate-dependency-graphs.mjs`의 overview 그래프에서 backend/external을 먼저 배치하고, frontend API client를 진입점으로 둬 Mermaid LR 레이아웃이 frontend 클러스터를 우측으로 밀도록 했다.
+- Verification: `corepack pnpm run docs:deps:mermaid`, `corepack pnpm run docs:diagrams`, `git diff --check` 통과. 생성된 SVG에서 `Frontend` 클러스터 x 좌표가 `346.84375`로 이동한 것을 확인했다.
 
-### 보안 취약점 스캔 및 수정
+### Neet2Work 발표용 PPTX 생성
 
-- 범위: backend 인증/세션, candidate-owned route, portfolio/job crawler 외부 fetch, Figma work-log bridge, frontend 공고 링크, SQL artifact 생성, npm advisory를 점검했다.
-- 변경: 보호 route 인증 적용, active user DB 재확인, production HTTPS 기본 요구, production `TRUST_PROXY=true` 차단, SSRF/DNS-rebinding 차단, Figma bridge origin allowlist, unsafe URL 렌더링 차단, SQL artifact token 검증, `vitest` 및 transitive advisory 패치 버전 반영.
-- Verification: `corepack pnpm audit --recursive`, `corepack pnpm run lint`, `corepack pnpm run test`, `corepack pnpm run build`, `python -B -m unittest discover -s scripts\job_crawler`, `node --check scripts\serve-figma-work-log.mjs`, `git diff --check` 통과.
-- 산출물: `C:\Users\pc07-00\AppData\Local\Temp\codex-security-scans\neet2work\f8a5671_20260608T101005+09-00\report.md`.
+- 범위: `presentation-skill` saved workspace 방식으로 Neet2Work 최종 발표용 PPTX를 생성했다.
+- 변경: `.codex/skills/presentation-skill/decks/neet2work-project-presentation/`에 `design_brief.json`, `content_plan.json`, `evidence_plan.json`, `asset_plan.json`, `outline.json`, Playwright 캡처 helper와 화면 캡처 asset을 작성했다.
+- 산출물: `.codex/skills/presentation-skill/decks/neet2work-project-presentation/build/neet2work-pptx.pptx` 40장. 전체 컨셉, 기능 정의, 설계, 구현 순서로 구성하고 `docs/generated` SVG 및 홈/채용공고/AI 분석/문서함/로그인 캡처를 포함했다.
+- Verification: `cmd /c npm run check:node`, `cmd /c npm run check:python`, Playwright headless 화면 캡처, `python3 scripts/build_workspace.py --workspace decks/neet2work-project-presentation --qa --skip-render --overwrite` 통과. QA 결과 overflow 0, overlap 0, placeholder 0, geometry violation 0, design error 0. `python-pptx`로 40장 제목 순서와 placeholder 문자열 없음 확인.
 
-### AI 자소서 가초안 반복 흐름 개선
+### Neet2Work PPTX SVG 호환성 수정
 
-- 범위: `career-document-workflow` 문서 세션과 `AIDraftChatBuilder` 화면에서 자소서 작성 흐름을 조정했다.
-- 변경: 근거가 일부라도 있으면 `needs_more_evidence` 상태에서도 증거 기반 가초안을 생성하고, 보완 질문 답변 후 같은 세션에서 가초안/초안을 갱신하도록 했다. 세션 응답에 `completion` 게이트를 추가해 가초안과 제출 준비 상태를 분리했다.
-- UI: 질문이 남아 있어도 가초안 결과 카드와 제출 준비도를 표시하고, `가초안`, `보완 필요`, `완성본` 상태 문구를 구분했다.
-- Verification: `corepack pnpm --filter backend test -- career-document-workflow.service.test.ts`, `corepack pnpm --filter frontend test -- AIDraftChatBuilder.test.tsx`, `corepack pnpm run build` 통과.
+- 범위: PowerPoint에서 일부 SVG 다이어그램 텍스트가 보이지 않는 문제를 해결했다.
+- 변경: `assets/helpers/render-svg-assets.mjs`를 추가해 `docs/generated` SVG 10개를 Playwright inline SVG 렌더링으로 PNG asset으로 변환하고, `outline.json`의 설계 figure 경로를 `assets/diagrams-png/*.png`로 교체했다.
+- Verification: PNG 대표 asset에서 텍스트 렌더링 확인, PPTX 재빌드 QA 통과. 최종 PPTX media 확인 결과 `svg_count=0`, PNG media 16개 포함. `python-pptx`로 40장, 첫/마지막 제목, placeholder 문자열 없음 확인.
 
-### AI 자소서 문서함 연동 검증
+### Neet2Work 발표용 PPTX timestamp workspace 생성
 
-- 범위: 문서함 프로필/자기소개서/이력서 저장 JSON 구조를 분석하고, AI 자소서 생성 세션에서 저장용 문서 패키지를 함께 만들도록 연동했다.
-- 변경: 문서 세션 요청/응답에 선택 프로필 컨텍스트와 `cover_letter`/`resume` 문서 패키지를 추가했다. 프론트에는 생성 결과에서 자소서와 이력서를 각각 문서함에 저장하는 버튼을 추가했고, 문서함은 이력서 문서 타입까지 표시/필터링하도록 확장했다.
-- 앱 브라우저 검증: `test@example.com` 시연 계정으로 로그인해 `시연용 개발자 프로필`의 기본 인적사항은 유지하고 기술스택만 입력했다. AI 자소서 화면에서 해당 프로필을 선택하고 `https://github.com/r2gul4r` 기반 초안을 생성한 뒤, 자소서와 이력서를 문서함에 저장하고 상세 화면에서 기술스택/깃허브 근거가 반영되는지 확인했다.
-- 주의: Codex provider는 앱 브라우저에서 31% 진행 상태에 머물러 최종 프론트 검증은 Fallback provider로 완료했다. 중간 반복 테스트로 저장된 예전 자소서/이력서 문서가 문서함에 남아 있다.
-- Verification: 앱 브라우저 프론트 플로우 검증, `corepack pnpm --filter backend test -- career-document-workflow.service.test.ts`, `corepack pnpm --filter frontend test -- AIDraftChatBuilder.test.tsx`, `corepack pnpm --filter frontend build`, `corepack pnpm --filter backend build` 통과.
+- 범위: 기존 `neet2work-project-presentation` workspace를 덮어쓰지 않고, 사용 기술과 생성 시간을 담은 새 발표 산출물 폴더를 만들었다.
+- 변경: `.codex/skills/presentation-skill/decks/neet2work__pd-cp__20260609-1541/`에 기존 PNG 다이어그램과 화면 캡처를 재사용한 deck source를 복사하고, 출력명을 `build/neet2work.pptx`로 정리했다. PPTX에는 SVG를 이미지로 직접 넣지 않고 PNG asset을 사용했다.
+- 산출물: `.codex/skills/presentation-skill/decks/neet2work__pd-cp__20260609-1541/build/neet2work.pptx` 39장. QA overlap을 만든 `Auth login sequence` 중복 텍스트 장표는 제거했다.
+- Verification: `node scripts/build_deck_pptxgenjs.js --outline decks/neet2work__pd-cp__20260609-1541/outline.json --output decks/neet2work__pd-cp__20260609-1541/build/neet2work.pptx --style-preset executive-clinical` 성공. `python3 scripts/qa_gate.py --skip-render --fail-on-design-warnings` 통과, overflow 0, overlap 0, placeholder 0, design warnings 0. LibreOffice `soffice`가 없어 rendered slide QA는 실행하지 못했다.
 
-### Codex 자소서 생성 대기/저장 재검증
+### Neet2Work Tech Blueprint PPTX 재제작
 
-- 범위: AI 자소서 Codex provider가 31% 근처에서 멈춘 것처럼 보이던 현상, 공개 합격 자소서 레퍼런스 구조 규칙, 문서함 저장 흐름을 재검증했다.
-- 변경: 자소서 생성 전용 AI 대기 시간을 5분으로 분리하고, Codex bridge turn timeout 기본값도 5분으로 맞췄다. 진행률 UI는 장시간 생성 중에도 단계별로 계속 전진하도록 조정했고, 요청 문장 안의 "보완 질문" 문구가 문항으로 오인되지 않게 질문 추론 조건을 좁혔다.
-- 레퍼런스: 공개 자료 원문을 저장하지 않고 URL과 요약된 구조/평가 규칙만 `self-intro-style-guide`에 반영했다. `STAR`, 결과 중심, 질문 의도 우선, AI 문체 회피, 부족 근거 질문 규칙을 생성 프롬프트에 주입했다.
-- 저장 UX: 자소서/이력서 저장 버튼은 한 문서 저장 중 다른 저장 요청이 겹치지 않도록 전체 저장 버튼을 잠근다.
-- 앱 브라우저 검증: 기존 테스트 문서를 정리한 뒤 `임시 프로필 - 기술스택 없음`을 선택했다. Codex 생성은 첫 실측 176초, 두 번째 실측 88초에 `Codex · AI`로 완료됐고 5분 제한 전 Fallback 없이 끝났다. 문서함에는 자기소개서, 이력서, 기술스택 미입력 프로필 3개 항목이 남아 있으며 자소서/이력서 상세 본문을 확인했다.
-- Verification: `corepack pnpm --filter backend test -- career-document-workflow.service.test.ts`, `corepack pnpm --filter frontend test -- AIDraftChatBuilder.test.tsx`, `corepack pnpm --filter backend build`, `corepack pnpm --filter frontend build` 통과.
+- 범위: 기존 발표 deck의 문장/장표 구조를 재사용하지 않고, 개발자 청중용 `Tech Blueprint` 콘셉트로 새 발표 workspace를 만들었다.
+- 변경: `scripts/generate-tech-blueprint-deck.mjs`를 추가해 Product Design 브리프와 Creative Production style route를 반영한 새 `design_brief.json`, `content_plan.json`, `evidence_plan.json`, `asset_plan.json`, `outline.json`을 생성했다. 기존 PNG 다이어그램/화면 캡처만 재사용하고, 표지/설계/구현 전환용 blueprint 콘셉트 PNG 3개를 새로 생성했다.
+- 산출물: `.codex/skills/presentation-skill/decks/neet2work__tech-blueprint-pd-cp__20260609-1606/build/neet2work.pptx` 41장. PPTX media에는 PNG asset 19개가 포함되고 SVG media는 포함하지 않았다.
+- Verification: `node scripts/build_deck_pptxgenjs.js --outline decks/neet2work__tech-blueprint-pd-cp__20260609-1606/outline.json --output decks/neet2work__tech-blueprint-pd-cp__20260609-1606/build/neet2work.pptx --style-preset midnight-neon` 성공. `python3 scripts/qa_gate.py --skip-render --fail-on-design-warnings` 통과, overflow 0, overlap 0, placeholder 0, design warnings 0. PPTX 내부 검사 결과 slide 41, media 19, svgMedia 0, badTokens none. LibreOffice `soffice`가 없어 rendered slide QA는 실행하지 못했다.
+
+### Neet2Work Tech Blueprint PPTX 복구 및 한국어화
+
+- 범위: Tech Blueprint PPTX가 PowerPoint에서 복구 프롬프트를 띄우고 본문이 영어로 보이는 문제를 수정했다.
+- 변경: `scripts/localize-tech-blueprint-deck.mjs`를 추가해 `outline.json` 본문을 한국어로 재작성하고, `image-sidebar` 장표의 `sections` 필드를 renderer가 기대하는 `sidebar_sections`로 변환했다. 숫자가 아닌 KPI 텍스트가 `?`로 렌더링되던 2개 장표는 `split` 장표로 교체했다.
+- 산출물: `.codex/skills/presentation-skill/decks/neet2work__tech-blueprint-pd-cp__20260609-1606/build/neet2work.pptx` 41장. 안정적인 `executive-clinical` preset으로 재빌드했다.
+- Verification: `python3 scripts/qa_gate.py --skip-render --fail-on-design-warnings` 통과, overflow 0, overlap 0, placeholder 0, design warnings 0. PPTX 내부 검사 결과 slide 41, media 19, svgMedia 0, badTokens none, brokenMediaRels none. `extract_outline.py`로 추출한 텍스트에서 placeholder/영어 fallback/`?` 토큰이 없음을 확인했다. LibreOffice `soffice`가 없어 rendered slide QA는 실행하지 못했다.
+
+### presentation-skill deck build 산출물 ignore 등록
+
+- 범위: 방금 생성한 발표 deck의 빌드 결과물이 Git 추적 대상으로 올라오지 않도록 ignore 규칙을 추가했다.
+- 변경: `.gitignore`에 `.codex/skills/presentation-skill/decks/**/build/` 패턴을 추가했다.
+- Verification: `git check-ignore -v .codex\skills\presentation-skill\decks\neet2work__tech-blueprint-pd-cp__20260609-1606\build\neet2work.pptx`로 최종 PPTX가 새 규칙에 매칭되는 것을 확인했다.
+
+### presentation-skill 로컬 workspace ignore 범위 조정
+
+- 범위: build 산출물만 ignore하면 `.codex/skills/presentation-skill/` 아래 skill 설치 파일, deck source, assets가 대량 untracked로 노출되는 문제를 정리했다.
+- 변경: `.gitignore`의 presentation-skill ignore 규칙을 `.codex/skills/presentation-skill/` 전체로 조정했다.
+- Verification: `git status --short --untracked-files=all`에서 `.codex/skills/presentation-skill/` 대량 untracked 항목이 사라진 것을 확인하고, `git check-ignore -v`로 `SKILL.md`, `outline.json`, 최종 `neet2work.pptx`가 같은 규칙에 매칭되는 것을 확인했다.
+
+### 브라우저 자동화를 통한 프로필 및 자기소개서 등록
+
+- 범위: Neet2Work 및 GDG 사이트의 프로필 폼 및 자기소개서 등록 프로세스 검증.
+- 변경:
+  - 브라우저 에이전트(browser subagent)를 활용하여 Neet2Work 사이트(`https://neet2work.duckdns.org/documents/profiles/new`)에 5개 분야 프로필(프론트엔드, 백엔드, 풀스택, 데이터 엔지니어, DevOps)을 등록함.
+  - Neet2Work 사이트에 등록된 5개 프로필 각각과 매칭하여 총 5건의 자기소개서(카카오뱅크 UX 리서치, 포이시스 금융솔루션 개발, EY한영 데이터 분석, 오토패스 파이썬/AWS 개발, PTKOREA 플랫폼 운영관리 지원서)를 작성 및 등록함.
+  - GDG 사이트(`https://gdg.ddns.net/documents/profiles/new`)에 1개의 프론트엔드 개발자 프로필을 등록함.
+  - 스크롤하지 못해 저장 버튼을 누르지 못하는 웹 자동화 장애 요인을 분석 및 해결(스크롤 강제 실행 지침 전달).
+- Verification:
+  - 등록된 각 프로필 및 자기소개서 상세 페이지 URL 접속 확인.
+  - 등록 과정 스크린샷(`profile_1_frontend.png`, `cover_letter.png`, `cover_letter_1.png` 등) 및 녹화본(`screencast.webm`, `screencast_part2.webm`, `screencast_part3.webm`, `screencast_cover_letter.webm` 등) 정상 생성 확인.

@@ -21,6 +21,9 @@ coverage/
 apps/backend/src/generated/prisma/
 docs/generated/
 
+# Local Codex presentation skill workspace and generated decks
+.codex/skills/presentation-skill/
+
 # React / Vite
 .vite/
 *.local
