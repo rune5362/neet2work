@@ -5,6 +5,13 @@
 
 ## 2026-06-09
 
+### Codex 장시간 생성 proxy timeout 5분 반영
+
+- 범위: 배포 `/ai-analysis`에서 Codex 자소서 작성 요청이 약 60초 후 504로 끊기는 문제를 줄이기 위해 운영 proxy timeout 설정을 300초 기준으로 보강했다.
+- 변경: frontend nginx `/api/`와 `/health` backend proxy에 `proxy_connect_timeout`, `proxy_send_timeout`, `proxy_read_timeout` 300초를 추가했다. Oracle Caddy demo mode와 Codex relay prefix helper가 생성하는 `reverse_proxy`에도 `response_header_timeout 300s`를 추가했다.
+- 운영 반영 상태: Oracle SSH 접속이 현재 `publickey` 거절로 막혀 라이브 서버 직접 재시작/즉시 배포는 수행하지 못했다. 변경분은 배포 브랜치 커밋/푸시 또는 SSH 복구 후 Oracle deploy 실행이 필요하다.
+- Verification: `git diff --check`, `scripts/oracle-caddy-demo-mode.ps1` PowerShell parser check, `scripts/oracle-codex-caddy-relay.ps1` PowerShell parser check 통과. 로컬에 `nginx`/`caddy` 실행 파일이 없어 실제 nginx/Caddy runtime validate는 생략했다.
+
 ### 포트폴리오 PPT 4페이지 작업 시작 기준 카피 교정
 
 - 범위: `neet2work-apple-keynote-copy-rhythm-v2.pptx`의 4페이지가 PPT 제작 과정 설명이나 프로젝트 구현 단계 설명으로 치우치지 않도록, 작업 시작 전에 사용한 기준과 도구로 뼈대를 잡는 내용으로 다시 조정했다.

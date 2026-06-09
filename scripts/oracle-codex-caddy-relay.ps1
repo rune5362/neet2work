@@ -43,12 +43,20 @@ $DOMAIN {
 
   handle $RELAY_PREFIX/health {
     uri strip_prefix $RELAY_PREFIX
-    reverse_proxy 127.0.0.1:$RELAY_PORT
+    reverse_proxy 127.0.0.1:$RELAY_PORT {
+      transport http {
+        response_header_timeout 300s
+      }
+    }
   }
 
   handle $RELAY_PREFIX/api/codex-bridge-relay/* {
     uri strip_prefix $RELAY_PREFIX
-    reverse_proxy 127.0.0.1:$RELAY_PORT
+    reverse_proxy 127.0.0.1:$RELAY_PORT {
+      transport http {
+        response_header_timeout 300s
+      }
+    }
   }
 
   handle $RELAY_PREFIX/* {
@@ -56,7 +64,11 @@ $DOMAIN {
   }
 
   handle {
-    reverse_proxy 127.0.0.1:$FRONTEND_PORT
+    reverse_proxy 127.0.0.1:$FRONTEND_PORT {
+      transport http {
+        response_header_timeout 300s
+      }
+    }
   }
 }
 EOF
