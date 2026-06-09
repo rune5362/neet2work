@@ -36,12 +36,12 @@ for source in $sources_text; do
     --output "$output_path"
 
   echo "import_dry_run_start source=$source"
-  pnpm --filter @neet2work/backend exec tsx apps/backend/prisma/importJobPostings.ts \
-    --dry-run "$output_path"
+  pnpm --filter @neet2work/backend exec tsx prisma/importJobPostings.ts \
+    --dry-run "$repo_root/$output_path"
 
   echo "import_apply_start source=$source"
-  pnpm --filter @neet2work/backend exec tsx apps/backend/prisma/importJobPostings.ts \
-    "$output_path"
+  pnpm --filter @neet2work/backend exec tsx prisma/importJobPostings.ts \
+    "$repo_root/$output_path"
 
   echo "import_apply_done source=$source"
 done
