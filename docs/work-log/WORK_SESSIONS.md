@@ -69,6 +69,6 @@
 
 - 범위: `2-demo-oracle-site.cmd`가 Oracle 전체 `/api/*`를 로컬 PC로 우회하지 않고, Codex Bridge provider만 현재 PC의 로컬 백엔드로 위임하도록 구조를 바꿨다. Gemini와 일반 API는 계속 Oracle backend가 담당한다.
 - 변경: backend에 `/api/codex-bridge-relay` 라우트를 추가하고, `CODEX_BRIDGE_REMOTE_BASE_URL`이 설정된 Oracle backend에서는 Codex status/execute/login 요청만 로컬 릴레이로 전달하도록 했다. `2-demo-oracle-site.cmd`는 SSH reverse tunnel과 Oracle Codex relay env만 켜고 종료 시 복구한다.
-- 운영 확인: 기존 Caddy demo mode가 켜져 dead local tunnel로 `/api/*`를 보내던 상태를 disable했다. 이후 public provider 상태는 Codex disabled, Gemini missing key/model, fallback online으로 확인했다.
-- Gemini 상태: Oracle env 파일의 `GEMINI_API_KEY`는 값이 실질적으로 비어 있어 Oracle backend 자체 Gemini는 아직 offline이다. Gemini를 항상 online으로 두려면 Oracle env에 유효한 Gemini API key를 별도로 주입해야 한다.
-- Verification: `corepack pnpm --filter @neet2work/backend test -- src/services/ai/ai-providers.status.test.ts`, `corepack pnpm --filter @neet2work/backend build`, `.\2-demo-oracle-site.cmd -DryRun`, PowerShell parser check, `git diff --check` 통과. 테스트/build는 Windows sandbox `spawn EPERM` 및 Prisma 바이너리 네트워크 제한 때문에 승인된 로컬 권한으로 실행했다.
+- 운영 확인: 기존 Caddy demo mode가 켜져 dead local tunnel로 `/api/*`를 보내던 상태를 disable했다. 이후 `sub-main`에 커밋/푸시하고 Oracle pull-based deploy를 즉시 실행해 배포 SHA가 최신 커밋을 가리키는 것을 확인했다.
+- Gemini 상태: Oracle env 파일의 `GEMINI_API_KEY`가 실질적으로 비어 있어 처음에는 `missing_key_or_model`이었다. 로컬 `.env`의 Gemini key를 채팅/로그에 출력하지 않고 SSH stdin으로 Oracle env에 주입한 뒤 backend를 재생성했고, public provider 상태가 `gemini online=true configured=true`로 바뀐 것을 확인했다.
+- Verification: `corepack pnpm --filter @neet2work/backend test -- src/services/ai/ai-providers.status.test.ts`, `corepack pnpm --filter @neet2work/backend build`, `.\2-demo-oracle-site.cmd -DryRun`, PowerShell parser check, `git diff --check` 통과. 운영 `/health`와 `/api/draft-workflow/providers`는 200으로 응답했고 Gemini provider는 online이다. 테스트/build는 Windows sandbox `spawn EPERM` 및 Prisma 바이너리 네트워크 제한 때문에 승인된 로컬 권한으로 실행했다.
