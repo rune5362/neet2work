@@ -93,6 +93,57 @@ Check the current Codex relay mode and tunnel health:
 .\oracle-codex-caddy-relay.cmd -Action status
 ```
 
+## Hourly Job Crawler Timer
+
+The Oracle deployment can run the operational job crawler once per hour through
+a systemd timer. The timer runs a one-shot Docker Compose task with the deployed
+backend image:
+
+1. Collect source batch JSON.
+2. Run import dry-run validation.
+3. Upsert validated postings into the configured production database.
+
+By default the timer uses the current KR operational sources:
+
+```txt
+saramin jobkorea linkareer
+```
+
+Lifecycle closed/inactive automation stays excluded from this hourly timer; it
+only creates or updates postings seen in the active source crawl.
+
+Install or update the hourly timer:
+
+```powershell
+.\oracle-job-crawler-timer.cmd -Action install -IntervalMinutes 60
+```
+
+Check timer status and recent logs:
+
+```powershell
+.\oracle-job-crawler-timer.cmd -Action status
+```
+
+Run one collection immediately:
+
+```powershell
+.\oracle-job-crawler-timer.cmd -Action run-now
+```
+
+Change the source set when explicitly approved:
+
+```powershell
+.\oracle-job-crawler-timer.cmd -Action install `
+  -IntervalMinutes 60 `
+  -Sources "saramin jobkorea linkareer"
+```
+
+Disable the timer:
+
+```powershell
+.\oracle-job-crawler-timer.cmd -Action uninstall
+```
+
 ## Manual Deploy
 
 ```bash

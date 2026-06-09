@@ -98,3 +98,10 @@
 - 변경: Docker gateway proxy 우회 대신 Caddy에 실행 중에만 `/__codex-relay/*` prefix를 열어 Codex relay 전용 `/health`, `/api/codex-bridge-relay/*`만 SSH tunnel로 전달하게 했다. 정상 `/api/*`와 Gemini는 계속 Oracle backend를 사용한다.
 - 안전장치: Caddy helper `oracle-codex-caddy-relay.cmd`를 추가하고, `2-demo-oracle-site.cmd` 종료 시 Oracle backend env와 Caddy config를 모두 원복한다. Prefix health 판정은 frontend SPA fallback 200 오탐을 피하도록 backend health JSON을 확인한다.
 - Verification: PowerShell parser check, `.\2-demo-oracle-site.cmd -DryRun`, `git diff --check` 통과. 운영 self-test `.\2-demo-oracle-site.cmd -RunForSeconds 10`에서 `public_codex online=True configured=True` 확인 후 자동 원복됐고, 원복 후 `codex_relay_mode=disabled`, `codex_caddy_relay_mode=disabled`, public provider는 `codex_bridge disabled`, `gemini online=True configured=True`로 확인했다.
+
+### Oracle 공고 수집 hourly timer 추가
+
+- 범위: Oracle 배포 환경에서 공고 수집기가 1시간마다 자동 실행되도록 systemd timer 설치 경로를 추가했다.
+- 변경: backend production image에 `python3`를 포함하고, `scripts/run-oracle-job-crawler.sh`가 source별 batch 수집, dry-run 검증, DB upsert import를 순서대로 수행하게 했다. `oracle-job-crawler-timer.cmd`/`scripts/oracle-job-crawler-timer.ps1`로 Oracle systemd service/timer를 install/status/run-now/uninstall 할 수 있게 했다.
+- 운영 기본값: `saramin jobkorea linkareer`를 60분마다 수집하며, lifecycle closed/inactive 자동 변경은 이번 timer에서 제외했다.
+- Verification: PowerShell parser check 통과. Oracle 기존 timer 상태는 `timer_installed=false`로 확인했다. 이 PC의 WSL/Git Bash는 프로세스 생성 권한 오류로 `bash -n`을 실행하지 못해 Linux shell 문법 검증은 Oracle 배포/실행 단계에서 확인한다.
