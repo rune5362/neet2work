@@ -25,6 +25,25 @@ if (-not (Test-Path $CodexHome)) {
   Write-Warning "Codex Bridge can stay offline until Codex CLI/Desktop login creates this directory."
 }
 
+function Test-TcpPortOpen {
+  param([int]$Port)
+
+  $client = [System.Net.Sockets.TcpClient]::new()
+  try {
+    $connect = $client.BeginConnect("127.0.0.1", $Port, $null, $null)
+    if (-not $connect.AsyncWaitHandle.WaitOne(500, $false)) {
+      return $false
+    }
+
+    $client.EndConnect($connect)
+    return $true
+  } catch {
+    return $false
+  } finally {
+    $client.Close()
+  }
+}
+
 function New-RelayToken {
   $bytes = [byte[]]::new(32)
   $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
@@ -61,6 +80,10 @@ Write-Host ""
 if ($DryRun) {
   Write-Host "Dry run only. Local backend, SSH tunnel, and Oracle backend relay config were not started."
   exit 0
+}
+
+if (Test-TcpPortOpen -Port $LocalBackendPort) {
+  throw "Local port $LocalBackendPort is already in use. Close the previous 2-demo window or backend process first, then rerun this script."
 }
 
 function Invoke-OracleCodexRelayMode {
@@ -139,8 +162,14 @@ try {
     $provider = $codexStatus.data
     $reason = if ($provider.reason) { " reason=$($provider.reason)" } else { "" }
     Write-Host "local_codex online=$($provider.online) configured=$($provider.configured)$reason"
+
+    if (-not $provider.configured -or -not $provider.online -or $provider.quotaExceeded) {
+      throw "Local Codex is not ready: online=$($provider.online) configured=$($provider.configured)$reason"
+    }
   } catch {
-    Write-Warning "Local Codex relay status check failed: $($_.Exception.Message)"
+    Write-Host "Local Codex relay status check failed. Recent backend output:"
+    Receive-Job -Job $backendJob -Keep | Select-Object -Last 40
+    throw $_
   }
 
   Write-Host ""
@@ -191,6 +220,38 @@ try {
     Write-Host "Enabling Oracle backend Codex relay mode..."
     Invoke-OracleCodexRelayMode -Action enable | Out-Null
     $relayEnabled = $true
+
+    $publicReadyDeadline = (Get-Date).AddSeconds(60)
+    $publicReady = $false
+    $lastPublicReason = "not_checked"
+
+    while ((Get-Date) -lt $publicReadyDeadline) {
+      Start-Sleep -Seconds 3
+
+      $statusOutput = Invoke-OracleCodexRelayMode -Action status
+      if (($statusOutput -join "`n") -notmatch "relay_health_http=200") {
+        $lastPublicReason = "oracle_cannot_reach_relay"
+        continue
+      }
+
+      try {
+        $providers = Invoke-RestMethod -Uri "$ClientUrl/api/draft-workflow/providers" -TimeoutSec 10
+        $codexProvider = @($providers.data) | Where-Object { $_.providerId -eq "codex_bridge" } | Select-Object -First 1
+        $lastPublicReason = if ($codexProvider.reason) { $codexProvider.reason } else { "unknown" }
+        Write-Host "public_codex online=$($codexProvider.online) configured=$($codexProvider.configured) reason=$lastPublicReason"
+
+        if ($codexProvider.online -and $codexProvider.configured -and -not $codexProvider.quotaExceeded) {
+          $publicReady = $true
+          break
+        }
+      } catch {
+        $lastPublicReason = $_.Exception.Message
+      }
+    }
+
+    if (-not $publicReady) {
+      throw "Oracle Codex relay did not become online within 60 seconds. Last reason: $lastPublicReason"
+    }
   }
 
   Write-Host ""

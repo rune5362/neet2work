@@ -84,3 +84,10 @@
 - 범위: `2-demo-oracle-site.cmd` 실행 시 Oracle Codex relay mode helper가 최신 pull-based deploy 디렉터리인 `/opt/neet2work/repo`가 아니라 오래된 `/opt/neet2work/current` 기준으로 backend를 재생성하던 문제를 수정했다.
 - 변경: `scripts/oracle-codex-relay-mode.ps1`의 원격 스크립트가 `/opt/neet2work/repo/docker-compose.oracle.yml`을 우선 사용하고, root/repo/current env 파일을 중복 없이 함께 갱신하도록 바꿨다.
 - Verification: PowerShell parser check, `.\2-demo-oracle-site.cmd -DryRun`, `.\oracle-codex-relay-mode.cmd -Action status` 통과. 실제 enable/disable 검증은 public backend 재시작을 동반하는 운영 변경이라 별도 명시 승인 전에는 실행하지 않았다.
+
+### Oracle Codex demo stale backend 방지
+
+- 범위: `2-demo-oracle-site.cmd`가 로컬 3000 포트에 이전 backend가 남아 있는 상태에서도 새 token으로 Oracle relay mode를 켜 버려 Codex가 online으로 올라오지 않던 문제를 방지했다.
+- 변경: 실행 전 로컬 3000 포트 점유를 검사해 stale backend가 있으면 중단하고, local relay status가 401/오프라인이면 Oracle env를 변경하지 않도록 실패를 fatal 처리했다. Oracle relay mode를 켠 뒤에도 public provider에서 Codex가 online이 되는지 확인하고, 실패하면 자동 복구 경로로 빠지게 했다.
+- Runtime: 현재 남아 있던 stale local backend PID 5312를 종료했고, Oracle relay mode는 정상 disabled 상태로 복구했다.
+- Verification: PowerShell parser check, `.\2-demo-oracle-site.cmd -DryRun`, public provider normal mode 확인, 로컬 3000 포트 free 확인, `git diff --check` 통과.
