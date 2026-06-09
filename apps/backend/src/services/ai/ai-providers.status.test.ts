@@ -11,7 +11,11 @@ const mockAiConfig = vi.hoisted(() => ({
     command: "codex",
     home: "C:\\Users\\test\\.codex",
     model: "",
-    reasoningEffort: ""
+    reasoningEffort: "",
+    turnTimeoutMs: 300_000,
+    remoteBaseUrl: "",
+    relayEnabled: false,
+    relayToken: ""
   },
   gemini: {
     enabled: false,
@@ -51,6 +55,9 @@ function resetConfig() {
   mockAiConfig.codexBridge.home = "C:\\Users\\test\\.codex";
   mockAiConfig.codexBridge.model = "";
   mockAiConfig.codexBridge.reasoningEffort = "";
+  mockAiConfig.codexBridge.remoteBaseUrl = "";
+  mockAiConfig.codexBridge.relayEnabled = false;
+  mockAiConfig.codexBridge.relayToken = "";
   mockAiConfig.gemini.enabled = false;
   mockAiConfig.gemini.apiKey = "";
   mockAiConfig.gemini.model = "";
@@ -99,6 +106,7 @@ describe("AI provider status", () => {
     resetConfig();
     mockSpawn.mockReset();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("reports all real providers offline when disabled", async () => {
@@ -175,6 +183,46 @@ describe("AI provider status", () => {
     expect(status.configured).toBe(true);
     expect(status.online).toBe(false);
     expect(status.reason).toBe("codex_not_logged_in");
+  });
+
+  it("reports remote Codex relay status without spawning local Codex", async () => {
+    mockAiConfig.codexBridge.enabled = true;
+    mockAiConfig.codexBridge.remoteBaseUrl = "http://127.0.0.1:3900";
+    mockAiConfig.codexBridge.relayToken = "relay-token";
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: {
+          providerId: "codex_bridge",
+          label: "Codex Bridge",
+          online: true,
+          configured: true,
+          quotaExceeded: false,
+          models: [
+            {
+              modelId: "codex-app-server",
+              label: "codex-app-server",
+              online: true,
+              quotaExceeded: false
+            }
+          ]
+        }
+      })
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { CodexBridgeProvider } = await import("./codex-bridge.provider.js");
+    const status = await new CodexBridgeProvider().getStatus();
+
+    expect(status.online).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:3900/api/codex-bridge-relay/status",
+      expect.objectContaining({
+        headers: { Authorization: "Bearer relay-token" }
+      })
+    );
+    expect(mockSpawn).not.toHaveBeenCalled();
   });
 
   it("starts Codex ChatGPT OAuth login through app-server when requested", async () => {
@@ -293,7 +341,7 @@ describe("AI provider status", () => {
     );
     await new Promise((resolve) => setTimeout(resolve, 20));
 
-    expect(getCodexBridgeLoginStatus("login_session_test")).toMatchObject({
+    await expect(getCodexBridgeLoginStatus("login_session_test")).resolves.toMatchObject({
       status: "succeeded",
       account: {
         type: "chatgpt",

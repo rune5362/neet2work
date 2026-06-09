@@ -33,11 +33,11 @@ draftWorkflowRouter.post("/providers/codex/login", ...protectedAiRoute, async (_
   }
 });
 
-draftWorkflowRouter.get("/providers/codex/login/:loginId", ...protectedAiRoute, (req, res, next) => {
+draftWorkflowRouter.get("/providers/codex/login/:loginId", ...protectedAiRoute, async (req, res, next) => {
   try {
     const rawLoginId = req.params.loginId;
     const loginId = (Array.isArray(rawLoginId) ? rawLoginId[0] ?? "" : rawLoginId).trim();
-    const data = getCodexBridgeLoginStatus(loginId);
+    const data = await getCodexBridgeLoginStatus(loginId);
     if (!data) {
       throw new HttpError(404, "Codex 로그인 세션을 찾을 수 없습니다.");
     }

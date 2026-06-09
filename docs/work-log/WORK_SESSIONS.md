@@ -5,6 +5,13 @@
 
 ## 2026-06-09
 
+### 포트폴리오 PPT 4페이지 작업 시작 기준 카피 교정
+
+- 범위: `neet2work-apple-keynote-copy-rhythm-v2.pptx`의 4페이지가 PPT 제작 과정 설명이나 프로젝트 구현 단계 설명으로 치우치지 않도록, 작업 시작 전에 사용한 기준과 도구로 뼈대를 잡는 내용으로 다시 조정했다.
+- 변경: 제목을 `작업 전, 뼈대를 세운 기준`으로 바꾸고, 오른쪽 단계 목록을 Goalplz, AGENTS.md, README / Docs, Product Design, Creative QA로 교체했다.
+- 산출물: `docs/portfolio/neet2work-apple-keynote-copy-rhythm-v2-project-build.pptx`
+- Verification: PPTX zip 무결성 검사 통과, `ppt/slides/slide4.xml` 텍스트 노드 16개가 의도한 문구로 교체된 것을 확인했다. PowerPoint/LibreOffice 렌더링 도구가 PATH에 없어 시각 렌더 검증은 생략했다.
+
 ### 슬라이드 산출물 커밋 제외 기준 정리
 
 - 범위: 발표자료 생성 중 나온 `outputs/` 하위 중간 산출물은 커밋 후보에서 제외하고, 루트에 둔 최종 PDF만 커밋 후보로 남기도록 `.gitignore`를 보강했다.
@@ -50,3 +57,18 @@
 - UI: 초안 본문, 글자수, TXT/Markdown 전환, 글자 크기, 제출 준비도, 복사/다운로드/문서함 저장 버튼을 첨부 문서 미리보기 패널 안으로 이동했다. 보완 질문 카드는 해당 작성본 viewer 아래에 표시되도록 순서를 바꿨다.
 - 앱 브라우저 검증: 현재 `/ai-analysis?jobId=jobkorea-48853600` 탭은 대화가 초기화된 상태라 진행 중 문서 세션 DOM은 없었다. 새로고침/전송은 하지 않고 현재 상태만 확인했다.
 - Verification: `corepack pnpm --filter frontend test AIDraftChatBuilder.test.tsx`, `corepack pnpm --filter frontend build` 통과. `checklist-vibe` CLI와 `harness.config.json`은 없어 CLI gate는 생략했다. 테스트/build는 기존 Windows `esbuild spawn EPERM` 때문에 승인된 로컬 권한으로 실행했다.
+
+### Oracle VM SSH 키 복구
+
+- 범위: 현재 PC에서 `2-demo-oracle-site.cmd` 기본 SSH key 경로가 동작하도록 OCI `neet2work-prod` 인스턴스의 `ubuntu` 접속 키를 복구했다.
+- OCI: Run Command는 Ubuntu 인스턴스에서 `Accepted` 상태에 머물러 실패했고, Bastion managed SSH 세션을 생성해 VM 내부 `/home/ubuntu/.ssh/authorized_keys`를 직접 정리했다.
+- 키 처리: ED25519 키는 서버가 public key를 accept한 뒤 최종 인증을 거부해 `C:\Users\pc07-00\.ssh\neet2work-prod.ed25519-20260609.key`로 백업했다. 실제 기본 키 `C:\Users\pc07-00\.ssh\neet2work-prod.key`는 direct SSH가 성공한 RSA 키로 교체했다.
+- Verification: `ssh -i C:\Users\pc07-00\.ssh\neet2work-prod.key ubuntu@129.146.96.211 "echo direct-default-key-ok"` 성공, `.\2-demo-oracle-site.cmd -DryRun` 성공. 실제 demo 실행은 Caddy demo mode를 바꿀 수 있어 DryRun까지만 확인했다.
+
+### Oracle Codex 전용 릴레이 모드 전환
+
+- 범위: `2-demo-oracle-site.cmd`가 Oracle 전체 `/api/*`를 로컬 PC로 우회하지 않고, Codex Bridge provider만 현재 PC의 로컬 백엔드로 위임하도록 구조를 바꿨다. Gemini와 일반 API는 계속 Oracle backend가 담당한다.
+- 변경: backend에 `/api/codex-bridge-relay` 라우트를 추가하고, `CODEX_BRIDGE_REMOTE_BASE_URL`이 설정된 Oracle backend에서는 Codex status/execute/login 요청만 로컬 릴레이로 전달하도록 했다. `2-demo-oracle-site.cmd`는 SSH reverse tunnel과 Oracle Codex relay env만 켜고 종료 시 복구한다.
+- 운영 확인: 기존 Caddy demo mode가 켜져 dead local tunnel로 `/api/*`를 보내던 상태를 disable했다. 이후 public provider 상태는 Codex disabled, Gemini missing key/model, fallback online으로 확인했다.
+- Gemini 상태: Oracle env 파일의 `GEMINI_API_KEY`는 값이 실질적으로 비어 있어 Oracle backend 자체 Gemini는 아직 offline이다. Gemini를 항상 online으로 두려면 Oracle env에 유효한 Gemini API key를 별도로 주입해야 한다.
+- Verification: `corepack pnpm --filter @neet2work/backend test -- src/services/ai/ai-providers.status.test.ts`, `corepack pnpm --filter @neet2work/backend build`, `.\2-demo-oracle-site.cmd -DryRun`, PowerShell parser check, `git diff --check` 통과. 테스트/build는 Windows sandbox `spawn EPERM` 및 Prisma 바이너리 네트워크 제한 때문에 승인된 로컬 권한으로 실행했다.

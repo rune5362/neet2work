@@ -49,20 +49,24 @@ Oracle Cloud security rules and the VM host firewall must allow inbound TCP
 `80` and `443`. Caddy terminates HTTPS, renews certificates automatically, and
 reverse proxies traffic to the frontend container on `127.0.0.1:8080`.
 
-## Temporary Codex Demo Mode
+## Temporary Codex Relay Mode
 
-For portfolio demos, the public Oracle site can keep serving the production
-frontend while `/api/*` and `/health` are temporarily proxied through an SSH
-reverse tunnel to a work PC running the backend with Codex Bridge enabled.
+For portfolio demos, the public Oracle site keeps using the Oracle production
+backend for normal API traffic, including Gemini. Only the `codex_bridge`
+provider is temporarily delegated through an SSH reverse tunnel to a work PC
+running a local Codex relay backend.
 
-Start the work PC backend, SSH reverse tunnel, and Caddy demo mode:
+Start the work PC relay backend, SSH reverse tunnel, and Oracle backend relay
+mode:
 
 ```powershell
 .\2-demo-oracle-site.cmd
 ```
 
-The script waits until the tunnel is reachable from Oracle, switches Caddy into
-demo mode, and restores the normal Caddyfile when the script exits.
+The script waits until the tunnel is reachable from Oracle, writes temporary
+`CODEX_BRIDGE_REMOTE_BASE_URL` and relay-token settings into the Oracle backend
+environment, recreates only the backend container, and restores the previous
+environment when the script exits.
 
 During the demo, users still open:
 
@@ -73,13 +77,13 @@ https://neet2work.duckdns.org
 Restore the normal Oracle backend after the demo:
 
 ```powershell
-.\oracle-caddy-demo-mode.cmd -Action disable
+.\oracle-codex-relay-mode.cmd -Action disable
 ```
 
-Check the current Caddy mode and tunnel health:
+Check the current Codex relay mode and tunnel health:
 
 ```powershell
-.\oracle-caddy-demo-mode.cmd -Action status
+.\oracle-codex-relay-mode.cmd -Action status
 ```
 
 ## Manual Deploy
