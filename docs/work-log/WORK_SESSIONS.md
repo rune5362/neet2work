@@ -91,3 +91,10 @@
 - 변경: 실행 전 로컬 3000 포트 점유를 검사해 stale backend가 있으면 중단하고, local relay status가 401/오프라인이면 Oracle env를 변경하지 않도록 실패를 fatal 처리했다. Oracle relay mode를 켠 뒤에도 public provider에서 Codex가 online이 되는지 확인하고, 실패하면 자동 복구 경로로 빠지게 했다.
 - Runtime: 현재 남아 있던 stale local backend PID 5312를 종료했고, Oracle relay mode는 정상 disabled 상태로 복구했다.
 - Verification: PowerShell parser check, `.\2-demo-oracle-site.cmd -DryRun`, public provider normal mode 확인, 로컬 3000 포트 free 확인, `git diff --check` 통과.
+
+### Oracle Codex relay Caddy prefix 경로 보정
+
+- 범위: Oracle host에서는 SSH reverse tunnel `127.0.0.1:3900`이 살아 있어도 backend 컨테이너 내부에서는 host loopback을 볼 수 없어 `public_codex online=False reason=fetch failed`가 나는 문제를 수정했다.
+- 변경: Docker gateway proxy 우회 대신 Caddy에 실행 중에만 `/__codex-relay/*` prefix를 열어 Codex relay 전용 `/health`, `/api/codex-bridge-relay/*`만 SSH tunnel로 전달하게 했다. 정상 `/api/*`와 Gemini는 계속 Oracle backend를 사용한다.
+- 안전장치: Caddy helper `oracle-codex-caddy-relay.cmd`를 추가하고, `2-demo-oracle-site.cmd` 종료 시 Oracle backend env와 Caddy config를 모두 원복한다. Prefix health 판정은 frontend SPA fallback 200 오탐을 피하도록 backend health JSON을 확인한다.
+- Verification: PowerShell parser check, `.\2-demo-oracle-site.cmd -DryRun`, `git diff --check` 통과. 운영 self-test `.\2-demo-oracle-site.cmd -RunForSeconds 10`에서 `public_codex online=True configured=True` 확인 후 자동 원복됐고, 원복 후 `codex_relay_mode=disabled`, `codex_caddy_relay_mode=disabled`, public provider는 `codex_bridge disabled`, `gemini online=True configured=True`로 확인했다.

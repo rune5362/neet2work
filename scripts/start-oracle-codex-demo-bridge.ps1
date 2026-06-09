@@ -7,6 +7,7 @@ param(
   [string]$ClientUrl = "https://neet2work.duckdns.org",
   [string]$CodexHome = "$env:USERPROFILE\.codex",
   [int]$TunnelReadyTimeoutSeconds = 45,
+  [int]$RunForSeconds = 0,
   [switch]$SkipOracleRelayConfig,
   [switch]$DryRun
 )
@@ -56,7 +57,11 @@ function New-RelayToken {
 }
 
 $relayToken = New-RelayToken
-$remoteRelayBaseUrl = "http://127.0.0.1:$RemoteRelayPort"
+$clientBaseUrl = $ClientUrl.TrimEnd([char[]]"/")
+$clientDomain = ([Uri]$clientBaseUrl).Host
+$relayPrefix = "/__codex-relay"
+$remoteTunnelBaseUrl = "http://127.0.0.1:$RemoteRelayPort"
+$remoteRelayBaseUrl = "$clientBaseUrl$relayPrefix"
 
 $backendEnv = @{
   "PORT" = "$LocalBackendPort"
@@ -72,18 +77,34 @@ $backendEnv = @{
 
 Write-Host "Starting local Codex relay backend..."
 Write-Host "Local relay:    http://127.0.0.1:$LocalBackendPort"
-Write-Host "Oracle relay:   $remoteRelayBaseUrl -> local 127.0.0.1:$LocalBackendPort"
-Write-Host "Public site:    $ClientUrl"
+Write-Host "Oracle tunnel:  $remoteTunnelBaseUrl -> local 127.0.0.1:$LocalBackendPort"
+Write-Host "Public relay:   $remoteRelayBaseUrl -> Oracle tunnel"
+Write-Host "Public site:    $clientBaseUrl"
 Write-Host "Oracle backend: stays active; only Codex Bridge is delegated to this PC"
 Write-Host ""
 
 if ($DryRun) {
-  Write-Host "Dry run only. Local backend, SSH tunnel, and Oracle backend relay config were not started."
+  Write-Host "Dry run only. Local backend, SSH tunnel, Caddy relay prefix, and Oracle backend relay config were not started."
   exit 0
 }
 
 if (Test-TcpPortOpen -Port $LocalBackendPort) {
   throw "Local port $LocalBackendPort is already in use. Close the previous 2-demo window or backend process first, then rerun this script."
+}
+
+function Invoke-OracleShell {
+  param([string]$Command)
+
+  $target = "$OracleUser@$OracleHost"
+  $output = & ssh -i $SshKey -o StrictHostKeyChecking=accept-new $target $Command
+  $exitCode = $LASTEXITCODE
+
+  if ($exitCode -ne 0) {
+    $output | ForEach-Object { Write-Host $_ }
+    throw "Oracle shell command failed with exit code $exitCode."
+  }
+
+  return $output
 }
 
 function Invoke-OracleCodexRelayMode {
@@ -111,6 +132,32 @@ function Invoke-OracleCodexRelayMode {
   return $output
 }
 
+function Invoke-OracleCodexCaddyRelay {
+  param(
+    [ValidateSet("enable", "disable", "status")]
+    [string]$Action
+  )
+
+  $scriptPath = Join-Path $PSScriptRoot "oracle-codex-caddy-relay.ps1"
+  $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath `
+    -Action $Action `
+    -OracleHost $OracleHost `
+    -OracleUser $OracleUser `
+    -SshKey $SshKey `
+    -Domain $clientDomain `
+    -RelayPrefix $relayPrefix `
+    -RelayPort $RemoteRelayPort
+
+  $exitCode = $LASTEXITCODE
+  $output | ForEach-Object { Write-Host $_ }
+
+  if ($exitCode -ne 0) {
+    throw "Oracle Codex Caddy relay '$Action' failed with exit code $exitCode."
+  }
+
+  return $output
+}
+
 $backendJob = Start-Job -Name "neet2work-local-codex-relay-backend" -ScriptBlock {
   param($RepoRoot, $EnvPairs)
 
@@ -124,6 +171,7 @@ $backendJob = Start-Job -Name "neet2work-local-codex-relay-backend" -ScriptBlock
 
 $tunnelJob = $null
 $relayEnabled = $false
+$caddyRelayEnabled = $false
 
 try {
   $healthUrl = "http://127.0.0.1:$LocalBackendPort/health"
@@ -204,7 +252,8 @@ try {
       exit 1
     }
 
-    $statusOutput = Invoke-OracleCodexRelayMode -Action status
+    $statusOutput = Invoke-OracleShell "curl -fsS -o /dev/null -w 'relay_health_http=%{http_code}\n' '$remoteTunnelBaseUrl/health' || true"
+    $statusOutput | ForEach-Object { Write-Host $_ }
     if (($statusOutput -join "`n") -match "relay_health_http=200") {
       $tunnelReady = $true
       break
@@ -213,6 +262,26 @@ try {
 
   if (-not $tunnelReady) {
     throw "SSH relay tunnel did not become reachable from Oracle within $TunnelReadyTimeoutSeconds seconds."
+  }
+
+  Write-Host ""
+  Write-Host "Enabling Oracle Caddy Codex relay prefix..."
+  Invoke-OracleCodexCaddyRelay -Action enable | Out-Null
+  $caddyRelayEnabled = $true
+
+  $caddyReadyDeadline = (Get-Date).AddSeconds(30)
+  $caddyReady = $false
+  while ((Get-Date) -lt $caddyReadyDeadline) {
+    Start-Sleep -Seconds 2
+    $statusOutput = Invoke-OracleCodexCaddyRelay -Action status
+    if (($statusOutput -join "`n") -match "codex_prefix_health=ok") {
+      $caddyReady = $true
+      break
+    }
+  }
+
+  if (-not $caddyReady) {
+    throw "Oracle Caddy Codex relay prefix did not become healthy within 30 seconds."
   }
 
   if (-not $SkipOracleRelayConfig) {
@@ -235,7 +304,7 @@ try {
       }
 
       try {
-        $providers = Invoke-RestMethod -Uri "$ClientUrl/api/draft-workflow/providers" -TimeoutSec 10
+        $providers = Invoke-RestMethod -Uri "$clientBaseUrl/api/draft-workflow/providers" -TimeoutSec 10
         $codexProvider = @($providers.data) | Where-Object { $_.providerId -eq "codex_bridge" } | Select-Object -First 1
         $lastPublicReason = if ($codexProvider.reason) { $codexProvider.reason } else { "unknown" }
         Write-Host "public_codex online=$($codexProvider.online) configured=$($codexProvider.configured) reason=$lastPublicReason"
@@ -255,11 +324,17 @@ try {
   }
 
   Write-Host ""
-  Write-Host "Codex relay is ready: $ClientUrl"
+  Write-Host "Codex relay is ready: $clientBaseUrl"
   Write-Host "Gemini and other APIs continue to run on the Oracle backend."
   Write-Host "Keep this window open during the Codex demo."
-  Write-Host "Press Ctrl+C or close this window to restore Oracle backend config and stop the tunnel."
+  Write-Host "Press Ctrl+C or close this window to restore Oracle backend/Caddy config and stop the tunnel."
   Write-Host ""
+
+  if ($RunForSeconds -gt 0) {
+    Write-Host "Self-test mode: keeping Codex relay open for $RunForSeconds seconds before automatic restore."
+    Start-Sleep -Seconds $RunForSeconds
+    return
+  }
 
   while ($tunnelJob.State -eq "Running" -and $backendJob.State -eq "Running") {
     Start-Sleep -Seconds 2
@@ -286,17 +361,28 @@ try {
     }
   }
 
+  if ($caddyRelayEnabled) {
+    Write-Host ""
+    Write-Host "Restoring Oracle Caddy normal config..."
+    try {
+      Invoke-OracleCodexCaddyRelay -Action disable | Out-Null
+    } catch {
+      Write-Warning "Failed to restore Oracle Caddy automatically: $($_.Exception.Message)"
+      Write-Warning "Run manually: oracle-codex-caddy-relay.cmd -Action disable"
+    }
+  }
+
   if ($tunnelJob -and $tunnelJob.State -eq "Running") {
     Stop-Job -Job $tunnelJob
   }
   if ($tunnelJob) {
-    Receive-Job -Job $tunnelJob -Keep | Select-Object -Last 20 | ForEach-Object { Write-Host $_ }
+    Receive-Job -Job $tunnelJob -Keep -ErrorAction SilentlyContinue | Select-Object -Last 20 | ForEach-Object { Write-Host $_ }
     Remove-Job -Job $tunnelJob -Force
   }
 
   if ($backendJob.State -eq "Running") {
     Stop-Job -Job $backendJob
   }
-  Receive-Job -Job $backendJob -Keep | Select-Object -Last 20 | ForEach-Object { Write-Host $_ }
+  Receive-Job -Job $backendJob -Keep -ErrorAction SilentlyContinue | Select-Object -Last 20 | ForEach-Object { Write-Host $_ }
   Remove-Job -Job $backendJob -Force
 }

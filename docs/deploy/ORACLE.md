@@ -63,10 +63,15 @@ mode:
 .\2-demo-oracle-site.cmd
 ```
 
-The script waits until the tunnel is reachable from Oracle, writes temporary
+The script waits until the tunnel is reachable from Oracle, enables a temporary
+Caddy prefix at `/__codex-relay/*`, writes temporary
 `CODEX_BRIDGE_REMOTE_BASE_URL` and relay-token settings into the Oracle backend
 environment, recreates only the backend container, and restores the previous
-environment when the script exits.
+environment and Caddy config when the script exits.
+
+The Caddy prefix is Codex-only. It forwards `/__codex-relay/health` and
+`/__codex-relay/api/codex-bridge-relay/*` to the SSH tunnel, while normal
+`/api/*` traffic stays on the Oracle backend.
 
 During the demo, users still open:
 
@@ -78,12 +83,14 @@ Restore the normal Oracle backend after the demo:
 
 ```powershell
 .\oracle-codex-relay-mode.cmd -Action disable
+.\oracle-codex-caddy-relay.cmd -Action disable
 ```
 
 Check the current Codex relay mode and tunnel health:
 
 ```powershell
 .\oracle-codex-relay-mode.cmd -Action status
+.\oracle-codex-caddy-relay.cmd -Action status
 ```
 
 ## Manual Deploy
