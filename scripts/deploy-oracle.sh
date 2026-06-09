@@ -101,6 +101,13 @@ EOF
   sudo systemctl daemon-reload
   sudo systemctl enable --now "$timer_name"
   echo "Job crawler timer installed: $timer_name every ${JOB_CRAWLER_INTERVAL_MINUTES:-60} minutes."
+
+  if sudo systemctl start "$service_name"; then
+    echo "Job crawler immediate run completed."
+  else
+    echo "Job crawler immediate run failed; hourly timer remains installed." >&2
+    sudo journalctl -u "$service_name" -n 80 --no-pager >&2 || true
+  fi
 }
 
 "${COMPOSE[@]}" build

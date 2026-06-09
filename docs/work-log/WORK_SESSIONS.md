@@ -110,6 +110,6 @@
 
 - 범위: Oracle 배포 환경에서 공고 수집기가 1시간마다 자동 실행되도록 systemd timer 설치 경로를 추가했다.
 - 변경: backend production image에 `python3`를 포함하고, `scripts/run-oracle-job-crawler.sh`가 source별 batch 수집, dry-run 검증, DB upsert import를 순서대로 수행하게 했다. `oracle-job-crawler-timer.cmd`/`scripts/oracle-job-crawler-timer.ps1`로 Oracle systemd service/timer를 install/status/run-now/uninstall 할 수 있게 했다.
-- 배포: SSH key가 timer 설치 직후 publickey 거절 상태가 되어 직접 설치 검증이 막힐 수 있으므로, `scripts/deploy-oracle.sh`의 정상 health 통과 후 systemd timer를 자동 설치/갱신하도록 보강했다.
+- 배포: SSH key가 timer 설치 직후 publickey 거절 상태가 되어 직접 설치 검증이 막힐 수 있으므로, `scripts/deploy-oracle.sh`의 정상 health 통과 후 systemd timer를 자동 설치/갱신하고 즉시 1회 실행을 시도하도록 보강했다.
 - 운영 기본값: `saramin jobkorea linkareer`를 60분마다 수집하며, lifecycle closed/inactive 자동 변경은 이번 timer에서 제외했다.
 - Verification: PowerShell parser check 통과. Oracle 기존 timer 상태는 `timer_installed=false`로 확인했다. 이 PC의 WSL/Git Bash는 프로세스 생성 권한 오류로 `bash -n`을 실행하지 못해 Linux shell 문법 검증은 Oracle 배포/실행 단계에서 확인한다.
