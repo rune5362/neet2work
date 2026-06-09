@@ -8,9 +8,9 @@
 ### 포트폴리오 PPT 4페이지 작업 시작 기준 카피 교정
 
 - 범위: `neet2work-apple-keynote-copy-rhythm-v2.pptx`의 4페이지가 PPT 제작 과정 설명이나 프로젝트 구현 단계 설명으로 치우치지 않도록, 작업 시작 전에 사용한 기준과 도구로 뼈대를 잡는 내용으로 다시 조정했다.
-- 변경: 제목을 `작업 전, 뼈대를 세운 기준`으로 바꾸고, 오른쪽 단계 목록을 Goalplz, AGENTS.md, README / Docs, Product Design, Creative QA로 교체했다.
+- 변경: 제목을 `작업 전, 뼈대를 세운 하네스`로 바꾸고, 오른쪽 단계 목록을 Goalplz, AGENTS.md, .codex Skills, README / Setup, Scripts / Work Log로 교체했다. 각 항목 아래에 목표/완료 조건, 작업 규칙, API·DB·구조 절차, 실행 환경, 검증·기록 루프 설명을 추가했다.
 - 산출물: `docs/portfolio/neet2work-apple-keynote-copy-rhythm-v2-project-build.pptx`
-- Verification: PPTX zip 무결성 검사 통과, `ppt/slides/slide4.xml` 텍스트 노드 16개가 의도한 문구로 교체된 것을 확인했다. PowerPoint/LibreOffice 렌더링 도구가 PATH에 없어 시각 렌더 검증은 생략했다.
+- Verification: PPTX zip 무결성 검사 통과, `ppt/slides/slide4.xml` 텍스트 노드 21개가 의도한 문구로 교체·추가된 것을 확인했다. PowerPoint/LibreOffice 렌더링 도구가 PATH에 없어 시각 렌더 검증은 생략했다.
 
 ### 슬라이드 산출물 커밋 제외 기준 정리
 
@@ -72,3 +72,15 @@
 - 운영 확인: 기존 Caddy demo mode가 켜져 dead local tunnel로 `/api/*`를 보내던 상태를 disable했다. 이후 `sub-main`에 커밋/푸시하고 Oracle pull-based deploy를 즉시 실행해 배포 SHA가 최신 커밋을 가리키는 것을 확인했다.
 - Gemini 상태: Oracle env 파일의 `GEMINI_API_KEY`가 실질적으로 비어 있어 처음에는 `missing_key_or_model`이었다. 로컬 `.env`의 Gemini key를 채팅/로그에 출력하지 않고 SSH stdin으로 Oracle env에 주입한 뒤 backend를 재생성했고, public provider 상태가 `gemini online=true configured=true`로 바뀐 것을 확인했다.
 - Verification: `corepack pnpm --filter @neet2work/backend test -- src/services/ai/ai-providers.status.test.ts`, `corepack pnpm --filter @neet2work/backend build`, `.\2-demo-oracle-site.cmd -DryRun`, PowerShell parser check, `git diff --check` 통과. 운영 `/health`와 `/api/draft-workflow/providers`는 200으로 응답했고 Gemini provider는 online이다. 테스트/build는 Windows sandbox `spawn EPERM` 및 Prisma 바이너리 네트워크 제한 때문에 승인된 로컬 권한으로 실행했다.
+
+### AI 페이지 상단 provider 연결 상태 표시 수정
+
+- 범위: AI 커리어 문서 코치 상단 badge가 선택 provider가 아니라 전체 real provider 중 하나라도 online이면 `연결됨`으로 표시되던 문제를 수정했다.
+- 변경: 상단 연결 상태를 현재 선택된 provider의 `online/configured/quotaExceeded` 기준으로 계산하게 바꿨다. Codex나 Local이 offline이고 Gemini만 online인 상태에서는 Codex/Local 선택 시 `연결 안됨`, Gemini 선택 시에만 `연결됨`으로 표시된다.
+- Verification: `corepack pnpm --filter frontend test -- AIDraftChatBuilder.test.tsx`, `corepack pnpm --filter frontend build`, `git diff --check` 통과. 테스트/build는 Windows sandbox `spawn EPERM` 때문에 승인된 로컬 권한으로 재실행했다.
+
+### Oracle Codex relay helper 배포 디렉터리 보정
+
+- 범위: `2-demo-oracle-site.cmd` 실행 시 Oracle Codex relay mode helper가 최신 pull-based deploy 디렉터리인 `/opt/neet2work/repo`가 아니라 오래된 `/opt/neet2work/current` 기준으로 backend를 재생성하던 문제를 수정했다.
+- 변경: `scripts/oracle-codex-relay-mode.ps1`의 원격 스크립트가 `/opt/neet2work/repo/docker-compose.oracle.yml`을 우선 사용하고, root/repo/current env 파일을 중복 없이 함께 갱신하도록 바꿨다.
+- Verification: PowerShell parser check, `.\2-demo-oracle-site.cmd -DryRun`, `.\oracle-codex-relay-mode.cmd -Action status` 통과. 실제 enable/disable 검증은 public backend 재시작을 동반하는 운영 변경이라 별도 명시 승인 전에는 실행하지 않았다.

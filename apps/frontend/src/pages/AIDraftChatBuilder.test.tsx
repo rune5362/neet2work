@@ -3058,7 +3058,7 @@ describe("AIDraftChatBuilder plan test plan coverage", () => {
     expect(screen.queryByText("AI ONLINE")).not.toBeInTheDocument();
   });
 
-  it("shows connection status separately from actual provider before planning", async () => {
+  it("shows header connection status for the selected provider before planning", async () => {
     const defaultFetchMock = createDraftWorkflowFetchMock();
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -3067,8 +3067,8 @@ describe("AIDraftChatBuilder plan test plan coverage", () => {
         return apiResponse({
           data: providerStatuses.map((provider) => ({
             ...provider,
-            online: provider.providerId !== "fallback",
-            configured: provider.providerId !== "fallback"
+            online: provider.providerId === "gemini" || provider.providerId === "fallback",
+            configured: provider.providerId === "gemini" || provider.providerId === "fallback"
           }))
         });
       }
@@ -3078,8 +3078,16 @@ describe("AIDraftChatBuilder plan test plan coverage", () => {
 
     render(<AIDraftChatBuilder />);
 
-    expect(await screen.findByText("연결됨")).toBeInTheDocument();
+    expect(await screen.findByText("연결 안됨")).toBeInTheDocument();
     expect(screen.getByText(/실제 생성 provider:/)).toHaveTextContent("실제 생성 provider: 분석 전");
+
+    fireEvent.click(screen.getByRole("button", { name: /AI provider 선택, 현재 Codex/i }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Gemini · 온라인/i }));
+    expect(screen.getByText("연결됨")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /AI provider 선택, 현재 Gemini/i }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Local · 오프라인/i }));
+    expect(screen.getByText("연결 안됨")).toBeInTheDocument();
   });
 
   it("starts Codex OAuth login from the provider status card", async () => {

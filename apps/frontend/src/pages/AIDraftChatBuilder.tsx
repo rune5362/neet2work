@@ -1583,17 +1583,23 @@ export function AIDraftChatBuilder() {
   const activeProgressStepIndex = isDraftProgressActive
     ? Math.min(completedProgressStepCount, draftProgressSteps.length - 1)
     : -1;
-  const selectedProviderLabel = providerBadgeLabel(aiSelection.providerId ?? DEFAULT_AI_PROVIDER_ID);
+  const selectedProviderId = aiSelection.providerId ?? DEFAULT_AI_PROVIDER_ID;
+  const selectedProviderLabel = providerBadgeLabel(selectedProviderId);
   const activeAiMeta = documentSession?.aiMeta ?? workflowDraft?.aiMeta ?? workflowPlan?.aiMeta;
-  const realAiProviderOnline = providerStatuses.some(
-    (provider) => provider.providerId !== "fallback" && provider.online && !provider.quotaExceeded
+  const selectedProviderStatus = providerStatuses.find((provider) => provider.providerId === selectedProviderId);
+  const selectedRealAiProviderOnline = Boolean(
+    selectedProviderStatus &&
+      selectedProviderStatus.providerId !== "fallback" &&
+      selectedProviderStatus.online &&
+      selectedProviderStatus.configured &&
+      !selectedProviderStatus.quotaExceeded
   );
   const actualProviderSummary = activeAiMeta
     ? formatAiExecutionLabel(activeAiMeta)
     : "분석 전";
   const headerAiStatus = providerStatuses.length === 0
     ? { label: "확인 중", status: "checking" }
-    : realAiProviderOnline
+    : selectedRealAiProviderOnline
       ? { label: "연결됨", status: "online" }
       : { label: "연결 안됨", status: "offline" };
   const documentDraftsWithText = documentSession?.drafts.filter((draft) => draft.draftText?.trim()) ?? [];

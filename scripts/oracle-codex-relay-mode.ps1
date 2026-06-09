@@ -25,19 +25,51 @@ RELAY_TOKEN="$4"
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-neet2work}"
 
 root_env="$DEPLOY_ROOT/.env.production"
+repo_dir="$DEPLOY_ROOT/repo"
+repo_env="$repo_dir/.env.production"
 current_dir="$DEPLOY_ROOT/current"
 current_env="$current_dir/.env.production"
+compose_dir=""
 
 env_files=()
+add_env_file() {
+  local file="$1"
+  local existing
+  if [[ ! -f "$file" ]]; then
+    return
+  fi
+
+  file="$(readlink -f "$file")"
+  for existing in "${env_files[@]}"; do
+    if [[ "$(readlink -f "$existing")" == "$file" ]]; then
+      return
+    fi
+  done
+
+  env_files+=("$file")
+}
+
 if [[ -f "$root_env" ]]; then
-  env_files+=("$root_env")
+  add_env_file "$root_env"
+fi
+if [[ -f "$repo_env" ]]; then
+  add_env_file "$repo_env"
 fi
 if [[ -f "$current_env" && "$current_env" != "$root_env" ]]; then
-  env_files+=("$current_env")
+  add_env_file "$current_env"
 fi
 
 if [[ ${#env_files[@]} -eq 0 ]]; then
   echo "missing_env=$root_env" >&2
+  exit 1
+fi
+
+if [[ -f "$repo_dir/docker-compose.oracle.yml" ]]; then
+  compose_dir="$repo_dir"
+elif [[ -f "$current_dir/docker-compose.oracle.yml" ]]; then
+  compose_dir="$current_dir"
+else
+  echo "missing_compose=$repo_dir/docker-compose.oracle.yml" >&2
   exit 1
 fi
 
@@ -53,12 +85,12 @@ docker_cmd() {
 }
 
 restart_backend() {
-  if [[ ! -d "$current_dir" ]]; then
-    echo "missing_current=$current_dir" >&2
+  if [[ ! -d "$compose_dir" ]]; then
+    echo "missing_compose_dir=$compose_dir" >&2
     exit 1
   fi
 
-  cd "$current_dir"
+  cd "$compose_dir"
   docker_cmd compose \
     -p "$COMPOSE_PROJECT_NAME" \
     --env-file .env.production \
