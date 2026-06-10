@@ -14,5 +14,5 @@
 ### README 최신 변경 반영
 
 - 범위: `origin/sub-main` 병합 후 최신 AI 문서 workflow, Codex Bridge relay, Agy CLI, Oracle job crawler timer, 환경변수/API 계약을 `README.md`에 반영했다.
-- 변경: `/api/career-workflow/document-session` 중심 흐름, evidence vault/template section/gap question/document package 설명, `AI_PROVIDER_ORDER=codex_bridge,gemini,local,agy_cli,fallback`, Codex relay env와 Oracle demo 원복 명령, relay/timer/API 표를 갱신했다.
+- 변경: `/api/career-workflow/document-session` 중심 흐름, evidence vault/template section/gap question/document package 설명, `AI_PROVIDER_ORDER=codex_bridge,gemini,local,agy_cli,fallback`, Codex relay env와 Oracle demo 원복 명령, relay/timer/API 표를 갱신했다. README 말미에는 Codex, Gemini/Gemma, Agy CLI, Product Design, Creative Production, presentation-skill, Playwright, Figma work-log, 문서/수집 자동화 도구 설명을 간소하게 추가했다.
 - Verification: `git diff --check -- README.md` 통과, README 내 오래된 Codex 전체 `/api` 우회 문구와 이전 provider order 잔재가 없는지 `rg`로 확인했다.

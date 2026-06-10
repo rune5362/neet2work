@@ -643,3 +643,14 @@ oracle-job-crawler-timer.cmd -Action uninstall
 - Prisma model source는 `apps/backend/prisma/models/*.prisma`입니다.
 - 공유된 migration은 수정하지 않고 새 migration으로 누적합니다.
 - 기능 제거 시 UI뿐 아니라 route, type, sample data, API client 잔재까지 같이 확인합니다.
+
+## 사용된 AI/자동화 도구
+
+- Codex: 코드 수정, 충돌 해결, 테스트/빌드 실행, README와 작업 로그 정리에 사용했습니다. 앱 runtime에서는 Codex Bridge provider로 자기소개서 생성 workflow에 연결됩니다.
+- Gemini/Gemma: Codex가 불가하거나 수동 선택이 필요한 경우를 위한 생성형 AI provider 후보로 구성했습니다.
+- Agy CLI: backend host에서 sandbox 조건으로 실행할 수 있는 대체 AI provider로 통합했습니다.
+- Product Design / Creative Production: 화면 흐름과 포트폴리오 발표자료의 방향성, 카피, 시각 컨셉 정리에 활용했습니다.
+- presentation-skill: 프로젝트 발표용 PPTX 생성, PNG asset 변환, QA 검사에 사용했습니다.
+- Playwright / Browser automation: 로컬 화면 캡처, UI flow 확인, 문서/프로필 등록 시나리오 검증에 사용했습니다.
+- Figma work-log scripts: 작업 내용을 Figma 공유용 요약과 세션 로그로 분리해 기록하는 데 사용했습니다.
+- 문서/수집 자동화: Mermaid/TypeDoc/dependency-cruiser 기반 문서 생성과 public HTML 채용공고 collector/import, Oracle hourly crawler timer를 사용했습니다.
