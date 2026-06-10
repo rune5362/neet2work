@@ -5,11 +5,21 @@
 
 ## 2026-06-09
 
+### Oracle Bastion SSH 복구 및 크롤러 타이머 검증
+
+- 범위: Oracle `neet2work-prod` SSH `publickey` 거절 상태를 Bastion Managed SSH 세션으로 복구하고, `sub-main` 최신 변경을 운영 서버에 반영했다.
+- 변경: `scripts/run-oracle-job-crawler.sh`의 backend import 실행 경로를 `prisma/importJobPostings.ts`와 repo-root 절대 JSON 경로로 보정해 운영 컨테이너 내부 cwd 문제를 해결했다.
+- 배포: `1ef1e0b Fix Oracle job crawler import path`를 `origin/sub-main`에 푸시했고, Oracle 서버 `/opt/neet2work/repo`가 `1ef1e0b`를 가리키는 것을 확인했다.
+- 운영 확인: backend/frontend 컨테이너가 기동 중이며 공개 `https://neet2work.duckdns.org/health`는 `ok=true`, `database=connected`로 응답했다. `/api/draft-workflow/providers`는 Gemini online, Codex Bridge offline(`codex relay status http 502`)으로 확인되어 로컬 릴레이 미실행 상태와 일치한다.
+- 크롤러: `neet2work-job-crawler.timer`는 active/enabled이고 다음 실행은 2026-06-09 07:33:56 UTC로 예약됐다. 즉시 실행 로그에서 saramin 12건, jobkorea 15건, linkareer 5건 import 완료 및 `Result=success`를 확인했다.
+- Verification: Bastion SSH와 direct SSH 모두 성공, `git diff --check` 통과. Windows 로컬 `bash -n scripts/run-oracle-job-crawler.sh`는 기존 Bash service `E_ACCESSDENIED` 환경 문제로 실패해 운영 컨테이너 실행 로그로 대체 검증했다.
+
 ### Codex 장시간 생성 proxy timeout 5분 반영
 
 - 범위: 배포 `/ai-analysis`에서 Codex 자소서 작성 요청이 약 60초 후 504로 끊기는 문제를 줄이기 위해 운영 proxy timeout 설정을 300초 기준으로 보강했다.
 - 변경: frontend nginx `/api/`와 `/health` backend proxy에 `proxy_connect_timeout`, `proxy_send_timeout`, `proxy_read_timeout` 300초를 추가했다. Oracle Caddy demo mode와 Codex relay prefix helper가 생성하는 `reverse_proxy`에도 `response_header_timeout 300s`를 추가했다.
 - 운영 반영 상태: Oracle SSH 접속이 현재 `publickey` 거절로 막혀 라이브 서버 직접 재시작/즉시 배포는 수행하지 못했다. 변경분은 배포 브랜치 커밋/푸시 또는 SSH 복구 후 Oracle deploy 실행이 필요하다.
+- 추가 확인: 2026-06-09 14:28 KST 기준 공개 `/health`는 Caddy/nginx/Express로 200 응답하지만, 최신 GitHub Actions run `27185782034`의 실제 `Deploy` step은 secrets 미설정 조건으로 `skipped`였다. 따라서 timeout 변경은 코드에는 있으나 운영 컨테이너/Caddy 설정에 반영됐다고 볼 수 없다.
 - Verification: `git diff --check`, `scripts/oracle-caddy-demo-mode.ps1` PowerShell parser check, `scripts/oracle-codex-caddy-relay.ps1` PowerShell parser check 통과. 로컬에 `nginx`/`caddy` 실행 파일이 없어 실제 nginx/Caddy runtime validate는 생략했다.
 
 ### 포트폴리오 PPT 4페이지 작업 시작 기준 카피 교정
