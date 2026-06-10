@@ -273,12 +273,28 @@ export class EvidenceVaultService {
             sourceType: "self_intro_template",
             fact: `작성 규칙: ${rule}`,
             confidence: "medium",
-          allowedInDraft: true,
-          needsUserConfirmation: false,
-          target,
-          targetSlotsOverride: []
-        })
-      );
+            allowedInDraft: true,
+            needsUserConfirmation: false,
+            target,
+            targetSlotsOverride: []
+          })
+        );
+      }
+
+      for (const section of analysis.template?.sections ?? []) {
+        items.push(
+          createEvidence({
+            index: baseIndex(),
+            sourceId: analysis.sourceId,
+            sourceType: "self_intro_template",
+            fact: `첨부 양식 섹션: ${section.title} (${section.kind})${section.requirements.length > 0 ? ` - ${section.requirements.join(" / ")}` : ""}`,
+            confidence: "medium",
+            allowedInDraft: true,
+            needsUserConfirmation: false,
+            target,
+            targetSlotsOverride: []
+          })
+        );
       }
 
       return items;

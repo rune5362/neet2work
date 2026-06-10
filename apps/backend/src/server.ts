@@ -9,6 +9,7 @@ import { analyzeRouter } from "./routes/analyze.route.js";
 import { applicationSetRouter } from "./routes/applicationSet.route.js";
 import { authRouter } from "./routes/auth.route.js";
 import { careerWorkflowRouter } from "./routes/career-workflow.route.js";
+import { codexBridgeRelayRouter } from "./routes/codex-bridge-relay.route.js";
 import { documentRouter } from "./routes/document.route.js";
 import { draftWorkflowRouter } from "./routes/draft-workflow.route.js";
 import { jobsRouter } from "./routes/jobs.route.js";
@@ -189,6 +190,7 @@ export function createApp() {
 
   app.use("/api/jobs", jobsRouter);
   app.use("/api/analyze", analyzeRouter);
+  app.use("/api/codex-bridge-relay", codexBridgeRelayRouter);
   app.use("/api/career-workflow", careerWorkflowRouter);
   app.use("/api/draft-workflow", draftWorkflowRouter);
   app.use("/api/resume/extract", resumeExtractRouter);

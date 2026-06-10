@@ -1,4 +1,9 @@
-import type { AiProviderExecuteInput, AiProviderExecuteResult, AiProviderStatus } from "../../types/ai-routing.js";
+import type {
+  AiProviderExecuteInput,
+  AiProviderExecuteResult,
+  AiProviderStatus,
+  AiWorkflowOperation
+} from "../../types/ai-routing.js";
 import type { AiProvider } from "../../types/ai-routing.js";
 
 export class ProviderExecutionError extends Error {
@@ -70,6 +75,27 @@ export function parseStrictJsonObject(raw: string) {
   } catch {
     throw new ProviderExecutionError("invalid_output", "invalid json output");
   }
+}
+
+export function extractWorkflowOutput(raw: string, operation: AiWorkflowOperation) {
+  try {
+    return extractJsonObject(raw);
+  } catch (error) {
+    if (operation === "draft" || operation === "revise") {
+      const draftText = normalizePlainDraftOutput(raw);
+      if (draftText) {
+        return { draftText };
+      }
+    }
+
+    throw error;
+  }
+}
+
+function normalizePlainDraftOutput(raw: string) {
+  const trimmed = raw.trim();
+  const fenced = trimmed.match(/^```(?:markdown|md|text)?\s*([\s\S]*?)\s*```$/i);
+  return (fenced?.[1] ?? trimmed).trim();
 }
 
 export function extractAssistantOutputFromJsonl(raw: string) {

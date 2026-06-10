@@ -40,6 +40,15 @@ const REFERENCE_RULE_SOURCES: ReferenceRuleSource[] = [
       "Separate company or job needs, user experience bank, and final wording pass.",
       "Treat KPI, behavior evidence, and competency evidence as distinct quality checks."
     ]
+  },
+  {
+    title: "Linkareer IT accepted cover-letter search listing",
+    url: "https://linkareer.com/cover-letter/search?role=IT",
+    rules: [
+      "For IT roles, connect technical growth to a concrete project, problem-solving episode, collaboration, or service impact instead of listing tools alone.",
+      "Keep company-specific motivation, technical competency, collaboration, and future contribution as separate answer intents.",
+      "Do not scrape or copy accepted cover-letter text; use the listing only as a structure and intent distribution reference."
+    ]
   }
 ];
 
@@ -55,7 +64,10 @@ export function buildSocraticDraftingRules() {
     "If project purpose, user role, action, technical reason, or result is missing, keep the draft provisional and ask the most useful follow-up.",
     "Never fill a missing skill, metric, award, company-fit claim, or personal detail from reference examples.",
     "A submission-ready draft needs a concrete role, project or experience anchor, user action, technical or decision evidence, and result or learning.",
-    "If the profile has no skills, do not invent profile skills; use verified GitHub or attachment skills, otherwise ask."
+    "A one-page target means DOCX-ready visual density, not a packed page of text: follow the attached table/cell/section layout when present, keep each section balanced, and avoid forcing extra sentences only to fill space.",
+    "Unless an attached document or user instruction gives a stricter limit, keep section bodies compact enough to fit the attached one-page layout with natural whitespace.",
+    "If the profile has no skills, do not invent profile skills; use verified GitHub or attachment skills, otherwise ask.",
+    "Put caveats, unsupported details, and follow-up needs into missingEvidence or review notes, not into the self-introduction body."
   ];
 }
 

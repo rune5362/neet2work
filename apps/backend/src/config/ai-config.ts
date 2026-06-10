@@ -101,6 +101,10 @@ function parseAgyCliConfigError(input: {
   return undefined;
 }
 
+function normalizeBaseUrl(raw: string | undefined) {
+  return raw?.trim().replace(/\/+$/, "") ?? "";
+}
+
 function resolveCodexBridgeCommand() {
   const explicit = process.env.CODEX_BRIDGE_COMMAND?.trim();
   if (explicit) {
@@ -164,7 +168,10 @@ export const aiConfig = {
     home: resolveCodexBridgeHome(),
     model: process.env.CODEX_BRIDGE_MODEL ?? "",
     reasoningEffort: process.env.CODEX_BRIDGE_REASONING_EFFORT ?? "",
-    turnTimeoutMs: parsePositiveInteger(process.env.CODEX_BRIDGE_TURN_TIMEOUT_MS, DEFAULT_CODEX_BRIDGE_TURN_TIMEOUT_MS)
+    turnTimeoutMs: parsePositiveInteger(process.env.CODEX_BRIDGE_TURN_TIMEOUT_MS, DEFAULT_CODEX_BRIDGE_TURN_TIMEOUT_MS),
+    remoteBaseUrl: normalizeBaseUrl(process.env.CODEX_BRIDGE_REMOTE_BASE_URL),
+    relayEnabled: process.env.CODEX_BRIDGE_RELAY_ENABLED === "true",
+    relayToken: process.env.CODEX_BRIDGE_RELAY_TOKEN ?? ""
   },
 
   gemini: (() => {

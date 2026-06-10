@@ -10,7 +10,7 @@ services:
       NODE_ENV: production
       PORT: 3000
       CLIENT_URL: ${PUBLIC_FRONTEND_URL:?set PUBLIC_FRONTEND_URL in .env.production}
-      TRUST_PROXY: ${TRUST_PROXY:-true}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
       REQUIRE_HTTPS: ${REQUIRE_HTTPS:-false}
       CODEX_HOME: ${CODEX_BRIDGE_HOME:-/app/.codex}
     volumes:

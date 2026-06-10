@@ -6,6 +6,10 @@ import type {
   CareerEvidenceVaultItem
 } from "../../types/career-document-workflow.js";
 import { inferIntent, requiredSlotsForIntent } from "./document-analysis.service.js";
+import { collectFilledEvidenceSlots } from "./evidence-slot-policy.js";
+
+const SELF_INTRO_ONE_PAGE_CHAR_LIMIT = 900;
+const SELF_INTRO_MAX_CHAR_LIMIT = 1200;
 
 export class DraftGenerationService {
   generate(input: {
@@ -15,7 +19,7 @@ export class DraftGenerationService {
   }): CareerDocumentDraft[] {
     const questions = collectTemplateQuestions(input.documentAnalyses, input.target);
     const allowedEvidence = input.evidenceVault.filter((item) => item.allowedInDraft && !item.needsUserConfirmation);
-    const filledSlots = new Set(allowedEvidence.flatMap((item) => item.targetSlots));
+    const filledSlots = collectFilledEvidenceSlots(input.evidenceVault, input.target);
     const hasExistingSelfIntro = input.documentAnalyses.some(
       (analysis) => analysis.classification === "existing_self_intro"
     );
@@ -23,39 +27,38 @@ export class DraftGenerationService {
     if (input.target.role?.trim()) {
       filledSlots.add("target_role");
     }
-    if (input.target.company?.trim() || input.target.jobPostingText?.trim()) {
-      filledSlots.add("company_fit");
-    }
 
     return questions.map((question) => {
-      const missingSlots = question.requiredSlots.filter((slot) => !filledSlots.has(slot));
+      const normalizedQuestion = normalizeQuestionCharLimit(question);
+      const missingSlots = normalizedQuestion.requiredSlots.filter((slot) => !filledSlots.has(slot));
+      const selectedEvidence = selectEvidenceForQuestion(allowedEvidence, normalizedQuestion);
+
       if (missingSlots.length > 0) {
-        const selectedEvidence = selectEvidenceForQuestion(allowedEvidence, question);
         const provisionalDraftText =
           selectedEvidence.length > 0
             ? fitToLimit(
                 buildProvisionalDraftText({
-                  question,
+                  question: normalizedQuestion,
                   evidence: selectedEvidence,
                   target: input.target
                 }),
-                question.charLimit,
-                question.charCountRule
+                normalizedQuestion.charLimit,
+                normalizedQuestion.charCountRule
               )
             : undefined;
 
         return {
-          questionId: question.questionId,
-          questionText: question.text,
-          charLimit: question.charLimit,
-          charCountRule: question.charCountRule,
+          questionId: normalizedQuestion.questionId,
+          questionText: normalizedQuestion.text,
+          charLimit: normalizedQuestion.charLimit,
+          charCountRule: normalizedQuestion.charCountRule,
           status: "needs_more_evidence",
           draftText: provisionalDraftText,
           charCount: provisionalDraftText
             ? {
                 withSpaces: provisionalDraftText.length,
                 withoutSpaces: provisionalDraftText.replace(/\s/g, "").length,
-                limit: question.charLimit
+                limit: normalizedQuestion.charLimit
               }
             : undefined,
           usedEvidenceSourceIds: Array.from(new Set(selectedEvidence.map((item) => item.sourceId))),
@@ -68,34 +71,34 @@ export class DraftGenerationService {
         } satisfies CareerDocumentDraft;
       }
 
-      const selectedEvidence = selectEvidenceForQuestion(allowedEvidence, question);
       const draftText = fitToLimit(
         buildDraftText({
-          question,
+          question: normalizedQuestion,
           evidence: selectedEvidence,
           target: input.target
         }),
-        question.charLimit,
-        question.charCountRule
+        normalizedQuestion.charLimit,
+        normalizedQuestion.charCountRule
       );
 
       return {
-        questionId: question.questionId,
-        questionText: question.text,
-        charLimit: question.charLimit,
-        charCountRule: question.charCountRule,
+        questionId: normalizedQuestion.questionId,
+        questionText: normalizedQuestion.text,
+        charLimit: normalizedQuestion.charLimit,
+        charCountRule: normalizedQuestion.charCountRule,
         status: "drafted",
         draftText,
         charCount: {
           withSpaces: draftText.length,
           withoutSpaces: draftText.replace(/\s/g, "").length,
-          limit: question.charLimit
+          limit: normalizedQuestion.charLimit
         },
         usedEvidenceSourceIds: Array.from(new Set(selectedEvidence.map((item) => item.sourceId))),
         usedEvidenceFacts: selectedEvidence.map((item) => item.fact),
-        missingEvidence: [],
+        missingEvidence: missingSlots.map(slotLabel),
         risks: unique([
           ...buildDraftRisks(selectedEvidence),
+          ...(missingSlots.length > 0 ? ["1차 초안은 확인된 근거만으로 작성했으며, 부족한 부분은 이어지는 질문 답변으로 보완해야 합니다."] : []),
           ...(hasExistingSelfIntro ? ["기존 자소서는 문장 복사가 아니라 구성과 문체 참고로만 사용해야 합니다."] : [])
         ])
       } satisfies CareerDocumentDraft;
@@ -107,7 +110,7 @@ function collectTemplateQuestions(documentAnalyses: CareerDocumentAnalysis[], ta
   const questions = documentAnalyses.flatMap((analysis) => analysis.template?.questions ?? []);
 
   if (questions.length > 0) {
-    return questions;
+    return questions.map(normalizeQuestionCharLimit);
   }
 
   if (target.questionText?.trim()) {
@@ -123,19 +126,35 @@ function collectTemplateQuestions(documentAnalyses: CareerDocumentAnalysis[], ta
         requiredSlots: requiredSlotsForIntent(intent),
         writingRules: target.formatLabel ? [`선택 형식: ${target.formatLabel}`] : []
       } satisfies CareerDocumentQuestion
-    ];
+    ].map(normalizeQuestionCharLimit);
   }
 
   return [
     {
       questionId: "default-q1",
       text: "지원 직무와 관련된 프로젝트 경험을 구체적으로 작성해 주세요.",
+      charLimit: target.charLimit,
       charCountRule: "unknown" as const,
       intent: "role_competency",
       requiredSlots: requiredSlotsForIntent("role_competency"),
       writingRules: []
     } satisfies CareerDocumentQuestion
-  ];
+  ].map(normalizeQuestionCharLimit);
+}
+
+function normalizeQuestionCharLimit(question: CareerDocumentQuestion): CareerDocumentQuestion {
+  return {
+    ...question,
+    charLimit: clampSelfIntroCharLimit(question.charLimit)
+  };
+}
+
+function clampSelfIntroCharLimit(limit: number | undefined) {
+  if (!limit || !Number.isFinite(limit)) {
+    return SELF_INTRO_ONE_PAGE_CHAR_LIMIT;
+  }
+
+  return Math.min(SELF_INTRO_MAX_CHAR_LIMIT, Math.max(200, Math.round(limit)));
 }
 
 function selectEvidenceForQuestion(
@@ -186,12 +205,12 @@ function buildDraftText(input: {
       : `${stylePrefix}${roleText}에 필요한 실무 역량은 ${projectText} 경험에서 확인할 수 있습니다.`;
   const sentences = [
     opening,
-    userRoleText ? `이 프로젝트에서 저는 ${userRoleText}을 맡았습니다.` : undefined,
+    userRoleText ? buildRoleSentence(userRoleText) : undefined,
     problemText ? `출발점은 ${problemText}였습니다.` : undefined,
-    actionsText && actionsText !== userRoleText ? `이를 해결하기 위해 ${actionsText} 과정을 실행했습니다.` : undefined,
-    technicalChoiceText ? `기술 스택은 ${technicalChoiceText}을 기반으로 구성했습니다.` : undefined,
+    actionsText && actionsText !== userRoleText ? buildActionSentence(actionsText) : undefined,
+    technicalChoiceText ? `기술적으로는 ${technicalChoiceText}를 활용했습니다.` : undefined,
     resultText ? buildResultSentence(resultText) : undefined,
-    learningText ? `이 과정에서 ${learningText}을 배웠습니다.` : undefined,
+    learningText ? buildLearningSentence(learningText) : undefined,
     companyFit && input.question.intent !== "company_fit"
       ? `따라서 이 경험은 ${companyFitText} 측면에서 지원 직무와 연결됩니다.`
       : undefined
@@ -234,6 +253,34 @@ function buildResultSentence(resultText: string) {
   }
 
   return `확인 가능한 결과는 ${resultText}입니다.`;
+}
+
+function buildRoleSentence(roleText: string) {
+  if (looksLikeSentence(roleText)) {
+    return `이 프로젝트에서 저는 ${ensureSentence(roleText)}`;
+  }
+
+  return `이 프로젝트에서 저는 ${roleText} 역할을 맡았습니다.`;
+}
+
+function buildActionSentence(actionText: string) {
+  if (looksLikeSentence(actionText)) {
+    return `이를 해결하기 위해 ${ensureSentence(actionText)}`;
+  }
+
+  return `이를 해결하기 위해 ${actionText} 과정을 실행했습니다.`;
+}
+
+function buildLearningSentence(learningText: string) {
+  if (looksLikeSentence(learningText)) {
+    return `이 과정에서 ${ensureSentence(learningText)}`;
+  }
+
+  return `이 과정에서 ${learningText}을 배웠습니다.`;
+}
+
+function looksLikeSentence(text: string) {
+  return /[.!?。]$/.test(text) || /(다|습니다|했다|했습니다)$/.test(text);
 }
 
 function ensureSentence(text: string) {

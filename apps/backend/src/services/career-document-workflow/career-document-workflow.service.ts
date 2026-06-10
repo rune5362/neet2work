@@ -11,7 +11,8 @@ import type {
   CareerDocumentWorkflowSessionRequest,
   CareerEvidenceVaultItem,
   CareerGapAnswer,
-  CareerGapQuestion
+  CareerGapQuestion,
+  CareerProfileSkillSuggestion
 } from "../../types/career-document-workflow.js";
 import type { AiRouter } from "../ai/ai-router.js";
 import { defaultAiRouter } from "../ai/ai-router.js";
@@ -22,6 +23,7 @@ import { gapInterviewService, GapInterviewService } from "./gap-interview.servic
 import { githubAnalysisService, GithubAnalysisService } from "./github-analysis.service.js";
 import { portfolioAnalysisService, PortfolioAnalysisService } from "./portfolio-analysis.service.js";
 import { draftWorkflowDraftSchema, draftWorkflowPlanSchema } from "../draft-workflow/schemas.js";
+import { defaultDocumentFormatting } from "../draft-workflow/fallback-content.js";
 import {
   buildFallbackStructureRules,
   buildReferenceRuleTexts,
@@ -29,6 +31,9 @@ import {
 } from "./self-intro-style-guide.js";
 
 const CAREER_DOCUMENT_AI_TIMEOUT_MS = Number(process.env.CAREER_DOCUMENT_AI_TIMEOUT_MS) || 300_000;
+
+const SELF_INTRO_ONE_PAGE_CHAR_LIMIT = 900;
+const SELF_INTRO_MAX_CHAR_LIMIT = 1200;
 
 /**
  * 첨부 자료 분석부터 보완 질문, 초안, 저장 가능한 문서 패키지까지 생성하는 통합 workflow입니다.
@@ -56,7 +61,7 @@ export class CareerDocumentWorkflowService {
    */
   async createSession(request: CareerDocumentWorkflowSessionRequest): Promise<CareerDocumentWorkflowSession> {
     const sessionId = randomUUID();
-    const target = request.target ?? {};
+    const target = normalizeWorkflowTarget(request.target ?? {});
     const analysisContextText = buildAnalysisContextText(request);
     const documentAnalyses = this.documents.analyze(request.attachments ?? []);
     const githubAnalyses = await this.github.analyzeFromText(analysisContextText);
@@ -116,6 +121,10 @@ export class CareerDocumentWorkflowService {
       missingEvidence,
       risks
     });
+    const profileSkillSuggestions = buildProfileSkillSuggestions({
+      profileContexts: request.profileContexts ?? [],
+      evidenceVault
+    });
 
     return {
       sessionId,
@@ -134,6 +143,7 @@ export class CareerDocumentWorkflowService {
       drafts: draftResult.drafts,
       completion,
       documentPackages,
+      profileSkillSuggestions,
       aiMeta: draftResult.aiMeta ?? questionResult.aiMeta,
       missingEvidence,
       risks
@@ -147,6 +157,7 @@ export class CareerDocumentWorkflowService {
    * @returns 답변 반영 후의 최신 workflow 세션입니다.
    */
   async answerQuestion(request: CareerDocumentWorkflowAnswerRequest): Promise<CareerDocumentWorkflowSession> {
+    const target = normalizeWorkflowTarget(request.session.target);
     const previousAnswer = request.session.interview.answers.find(
       (item) => item.questionId === request.questionId
     );
@@ -166,7 +177,7 @@ export class CareerDocumentWorkflowService {
     const answerEvidence = this.evidence
       .build({
         message: "",
-        target: request.session.target,
+        target,
         documentAnalyses: [],
         githubAnalyses: [],
         portfolioAnalyses: [],
@@ -182,14 +193,14 @@ export class CareerDocumentWorkflowService {
       githubAnalyses: request.session.githubAnalyses,
       portfolioAnalyses: request.session.portfolioAnalyses,
       evidenceVault,
-      target: request.session.target,
+      target,
       answers
     });
     const questionResult = await this.generateQuestions({
       baseQuestions,
       documentAnalyses: request.session.documentAnalyses,
       evidenceVault,
-      target: request.session.target,
+      target,
       answers,
       aiSelection: request.aiSelection
     });
@@ -197,14 +208,14 @@ export class CareerDocumentWorkflowService {
     const baseDrafts = this.drafts.generate({
       documentAnalyses: request.session.documentAnalyses,
       evidenceVault,
-      target: request.session.target
+      target
     });
     const draftResult = await this.generateDrafts({
       baseDrafts,
       questions,
       documentAnalyses: request.session.documentAnalyses,
       evidenceVault,
-      target: request.session.target,
+      target,
       aiSelection: request.aiSelection
     });
     const state = resolveState(questions.length, draftResult.drafts);
@@ -214,7 +225,7 @@ export class CareerDocumentWorkflowService {
     const documentPackages = buildDocumentPackages({
       sessionId: request.session.sessionId,
       state,
-      target: request.session.target,
+      target,
       profileContexts: request.session.profileContexts,
       drafts: draftResult.drafts,
       evidenceVault,
@@ -222,10 +233,15 @@ export class CareerDocumentWorkflowService {
       missingEvidence,
       risks
     });
+    const profileSkillSuggestions = buildProfileSkillSuggestions({
+      profileContexts: request.session.profileContexts,
+      evidenceVault
+    });
 
     return {
       ...request.session,
       state,
+      target,
       stages: buildStages(state, draftResult.drafts),
       evidenceVault,
       interview: {
@@ -235,6 +251,7 @@ export class CareerDocumentWorkflowService {
       drafts: draftResult.drafts,
       completion,
       documentPackages,
+      profileSkillSuggestions,
       aiMeta: draftResult.aiMeta ?? questionResult.aiMeta,
       missingEvidence,
       risks
@@ -367,13 +384,15 @@ export class CareerDocumentWorkflowService {
         return { draft: input.draft, aiMeta: result.aiMeta };
       }
 
-      const parsed = draftWorkflowDraftSchema.safeParse({
-        ...(typeof result.data === "object" && result.data !== null ? result.data : {}),
+      const parsed = coerceAiDraftResult({
+        data: result.data,
         aiMeta: result.aiMeta,
-        mode: "ai"
+        draft: input.draft,
+        evidenceVault: input.evidenceVault,
+        target: input.target
       });
 
-      if (!parsed.success) {
+      if (!parsed) {
         return {
           draft: {
             ...input.draft,
@@ -389,7 +408,7 @@ export class CareerDocumentWorkflowService {
         };
       }
 
-      const draftText = fitAiDraftToLimit(parsed.data.draftText, input.draft.charLimit, input.draft.charCountRule);
+      const draftText = fitAiDraftToLimit(parsed.draftText, input.draft.charLimit, input.draft.charCountRule);
 
       return {
         draft: {
@@ -400,7 +419,7 @@ export class CareerDocumentWorkflowService {
             withoutSpaces: draftText.replace(/\s/g, "").length,
             limit: input.draft.charLimit
           },
-          risks: unique([...parsed.data.reviewReport.issues.map((issue) => issue.message), ...parsed.data.reviewReport.sensitiveWarnings])
+          risks: unique([...parsed.reviewReport.issues.map((issue) => issue.message), ...parsed.reviewReport.sensitiveWarnings])
         },
         aiMeta: result.aiMeta
       };
@@ -420,6 +439,202 @@ export class CareerDocumentWorkflowService {
       };
     }
   }
+}
+
+function coerceAiDraftResult(input: {
+  data: unknown;
+  aiMeta: AiExecutionMeta;
+  draft: CareerDocumentDraft;
+  evidenceVault: CareerEvidenceVaultItem[];
+  target: CareerDocumentWorkflowSession["target"];
+}): DraftWorkflowDraft | null {
+  const source = findDraftPayload(input.data);
+  const draftText = extractDraftText(source);
+
+  if (!draftText) {
+    return null;
+  }
+
+  const sourceObject = isRecord(source) ? source : {};
+  const directParsed = draftWorkflowDraftSchema.safeParse({
+    ...sourceObject,
+    aiMeta: input.aiMeta,
+    mode: "ai"
+  });
+
+  if (directParsed.success) {
+    return directParsed.data;
+  }
+
+  const charCount = countDraftText(draftText, input.draft.charLimit);
+  const parsed = draftWorkflowDraftSchema.safeParse({
+    ...sourceObject,
+    mode: "ai",
+    state: normalizeDraftState(sourceObject.state),
+    aiMeta: input.aiMeta,
+    draftText,
+    charCount,
+    evidenceMap: normalizeEvidenceMap(sourceObject.evidenceMap),
+    documentFormatting: defaultDocumentFormatting,
+    reviewReport: normalizeReviewReport(sourceObject.reviewReport, input),
+    revisionOptions: normalizeStringArray(sourceObject.revisionOptions)
+  });
+
+  return parsed.success ? parsed.data : null;
+}
+
+function findDraftPayload(value: unknown, depth = 0): unknown {
+  if (depth > 3 || typeof value === "string") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.length > 0 ? findDraftPayload(value[0], depth + 1) : value;
+  }
+
+  if (!isRecord(value)) {
+    return value;
+  }
+
+  if (extractDraftText(value)) {
+    return value;
+  }
+
+  for (const key of ["draft", "data", "result", "output", "response", "message"]) {
+    if (key in value) {
+      const nested = findDraftPayload(value[key], depth + 1);
+      if (extractDraftText(nested)) {
+        return nested;
+      }
+    }
+  }
+
+  if (Array.isArray(value.drafts) && value.drafts.length > 0) {
+    return findDraftPayload(value.drafts[0], depth + 1);
+  }
+
+  return value;
+}
+
+function extractDraftText(value: unknown): string | null {
+  if (typeof value === "string") {
+    return value.trim() || null;
+  }
+
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  for (const key of ["draftText", "draft_text", "text", "content", "body", "answer", "coverLetter", "selfIntroduction"]) {
+    const text = value[key];
+    if (typeof text === "string" && text.trim()) {
+      return text.trim();
+    }
+  }
+
+  return null;
+}
+
+function normalizeDraftState(value: unknown) {
+  return typeof value === "string" && ["DRAFT_GENERATED", "REVIEW_COMPLETED", "FINALIZED"].includes(value)
+    ? value
+    : "REVIEW_COMPLETED";
+}
+
+function countDraftText(draftText: string, limit?: number) {
+  return {
+    withSpaces: draftText.length,
+    withoutSpaces: draftText.replace(/\s/g, "").length,
+    limit
+  };
+}
+
+function normalizeEvidenceMap(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [{ textRangeLabel: "전체 초안", claimIds: [], experienceIds: [] }];
+  }
+
+  return value.map((item, index) => {
+    const entry = isRecord(item) ? item : {};
+    return {
+      textRangeLabel: typeof entry.textRangeLabel === "string" ? entry.textRangeLabel : `문단 ${index + 1}`,
+      claimIds: normalizeStringArray(entry.claimIds),
+      experienceIds: normalizeStringArray(entry.experienceIds)
+    };
+  });
+}
+
+function normalizeReviewReport(
+  value: unknown,
+  input: {
+    draft: CareerDocumentDraft;
+    evidenceVault: CareerEvidenceVaultItem[];
+    target: CareerDocumentWorkflowSession["target"];
+  }
+) {
+  const report = isRecord(value) ? value : {};
+  const scores = isRecord(report.scores) ? report.scores : {};
+  const evidenceScore = input.evidenceVault.some((item) => item.allowedInDraft) ? 82 : 65;
+  const hasPrivacyRisk = input.evidenceVault.some((item) => item.privacyRisk !== "none");
+
+  return {
+    scores: {
+      promptFit: normalizeScore(scores.promptFit, 82),
+      jobFit: normalizeScore(scores.jobFit, input.target.role?.trim() ? 82 : 72),
+      specificity: normalizeScore(scores.specificity, 76),
+      evidenceSafety: normalizeScore(scores.evidenceSafety, evidenceScore),
+      koreanReadability: normalizeScore(scores.koreanReadability, 82),
+      aiLikenessRisk: normalizeScore(scores.aiLikenessRisk, 35),
+      blindRisk: normalizeScore(scores.blindRisk, hasPrivacyRisk ? 20 : 0),
+      interviewDefensibility: normalizeScore(scores.interviewDefensibility, evidenceScore)
+    },
+    issues: normalizeIssueArray(report.issues, input.draft),
+    likelyInterviewQuestions: normalizeStringArray(report.likelyInterviewQuestions),
+    sensitiveWarnings: normalizeStringArray(report.sensitiveWarnings)
+  };
+}
+
+function normalizeScore(value: unknown, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : fallback;
+}
+
+function normalizeIssueArray(value: unknown, draft: CareerDocumentDraft) {
+  if (!Array.isArray(value) || value.length === 0) {
+    return [
+      {
+        type: "format_repaired",
+        severity: "low" as const,
+        message: "AI 초안 응답 형식을 보정해 사용했습니다."
+      }
+    ];
+  }
+
+  return value.map((item) => {
+    if (typeof item === "string") {
+      return {
+        type: "review_note",
+        severity: "medium" as const,
+        message: item
+      };
+    }
+
+    const entry = isRecord(item) ? item : {};
+    const severity = entry.severity === "low" || entry.severity === "medium" || entry.severity === "high" ? entry.severity : "medium";
+    return {
+      type: typeof entry.type === "string" ? entry.type : "review_note",
+      severity,
+      message: typeof entry.message === "string" ? entry.message : draft.risks[0] ?? "초안 검토가 필요합니다.",
+      ...(typeof entry.suggestedQuestion === "string" ? { suggestedQuestion: entry.suggestedQuestion } : {})
+    };
+  });
+}
+
+function normalizeStringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function resolveState(questionCount: number, drafts: CareerDocumentDraft[]): CareerDocumentSessionState {
@@ -453,6 +668,14 @@ function buildAiQuestionPlanPayload(input: {
 }) {
   const allowedEvidence = input.evidenceVault.filter((item) => item.allowedInDraft && !item.needsUserConfirmation);
   const templateQuestions = input.documentAnalyses.flatMap((analysis) => analysis.template?.questions ?? []);
+  const templateSections = input.documentAnalyses.flatMap((analysis) => analysis.template?.sections ?? []);
+  const templateLayoutRules = input.documentAnalyses.flatMap((analysis) => analysis.template?.layoutRules ?? []);
+  const templateSectionRules = templateSections.map((section) => {
+    const requirements = section.requirements.length > 0
+      ? ` 요구사항: ${section.requirements.join(" / ")}`
+      : "";
+    return `첨부 복합 양식 섹션: ${section.title} (${section.kind})${requirements}`;
+  });
   const primaryQuestion = templateQuestions[0];
   const evidenceItems = allowedEvidence.map((item) => ({
     evidenceId: item.evidenceId,
@@ -469,11 +692,13 @@ function buildAiQuestionPlanPayload(input: {
   }));
   const evidenceFacts = allowedEvidence.map((item) => item.fact);
   const answerFacts = input.answers.map((answer) => `${answer.slot ?? answer.questionId}: ${answer.answer}`);
-  const referenceRules = [
+  const referenceRules = unique([
     ...input.documentAnalyses.flatMap((analysis) => analysis.template?.writingRules ?? []),
+    ...templateLayoutRules,
+    ...templateSectionRules,
     ...buildReferenceRuleTexts(),
     ...buildSocraticDraftingRules()
-  ];
+  ]);
   const baseQuestionNotes = input.baseQuestions.map(
     (question) => `- slot=${question.slot}; priority=${question.priority}; why=${question.whyAsking}; targetQuestionIds=${question.targetQuestionIds.join(",")}`
   );
@@ -496,6 +721,10 @@ function buildAiQuestionPlanPayload(input: {
       sectionName: input.target.formatLabel,
       requirementSourceText: [
         input.target.formatLabel ? `선택 형식: ${input.target.formatLabel}` : "",
+        ...templateSections.map((section) => {
+          const requirements = section.requirements.length > 0 ? ` - ${section.requirements.join(" / ")}` : "";
+          return `첨부 양식 섹션 ${section.order + 1}: ${section.title} (${section.kind})${requirements}`;
+        }),
         ...templateQuestions.map((question) => question.text),
         ...input.documentAnalyses.map((analysis) => analysis.summary)
       ].filter(Boolean).join("\n")
@@ -506,6 +735,7 @@ function buildAiQuestionPlanPayload(input: {
       additionalContext: [
         "현재 감지된 부족 정보 슬롯입니다. 기존 규칙 문장을 복사하지 말고, 첨부 자료/대화/직무 맥락에 맞는 새 한국어 질문을 한 문장으로 작성해 주세요.",
         "질문은 사용자가 채팅에서 바로 답할 수 있어야 하고, 부족한 사실만 확인해야 합니다.",
+        "첨부 파일에 이력서, 자기소개서, 기술스택, 포트폴리오 양식이 함께 있으면 각 섹션을 별도 작성 대상으로 보고, 부족한 섹션의 근거만 질문하세요.",
         "레퍼런스는 문장 구조와 평가 기준으로만 사용하고, 레퍼런스의 사실/문장을 사용자 사실로 쓰지 마세요.",
         ...referenceRules,
         ...baseQuestionNotes
@@ -958,9 +1188,7 @@ function buildDocumentPackages(input: {
     }));
 
   if (coverLetterSections.length > 0) {
-    const content = coverLetterSections
-      .map((section, index) => `문항 ${index + 1}. ${section.title}\n\n${section.body}`)
-      .join("\n\n");
+    const content = formatCoverLetterContent(coverLetterSections);
 
     packages.push(
       buildPackage({
@@ -1004,6 +1232,18 @@ function buildDocumentPackages(input: {
   }
 
   return packages;
+}
+
+function formatCoverLetterContent(
+  sections: Array<{ title: string; body: string }>
+) {
+  if (sections.length === 1) {
+    return sections[0]?.body ?? "";
+  }
+
+  return sections
+    .map((section) => `${section.title}\n\n${section.body}`)
+    .join("\n\n");
 }
 
 function buildPackage(input: {
@@ -1087,10 +1327,8 @@ function buildResumeContent(input: {
   const skills = unique([
     ...(profile?.skills ?? []),
     ...(profile?.profileJson.skills ?? []),
-    ...input.evidenceVault
-      .filter((item) => item.targetSlots.includes("skills"))
-      .flatMap((item) => extractSkillCandidates(item.fact))
-  ]).slice(0, 18);
+    ...collectEvidenceSkills(input.evidenceVault)
+  ]).slice(0, 14);
   const desiredRoles = unique([
     input.target.role ?? "",
     profile?.targetRole ?? "",
@@ -1098,45 +1336,55 @@ function buildResumeContent(input: {
     ...(profile?.profileJson.desired?.roles ?? [])
   ]);
   const summary = profile?.profileJson.summary?.description?.trim() || profile?.profileJson.summary?.headline?.trim();
-  const hasProfileProjects = (profile?.profileJson.projects ?? []).some(
-    (project) => (project.name || project.title || project.role || project.result || project.impact || project.achievements?.length)
-  );
-  const projectFacts = unique([
-    ...(profile?.profileJson.projects ?? []).map((project) =>
-      [
-        project.name || project.title,
-        project.role ? `역할: ${project.role}` : "",
-        project.result || project.impact || project.achievements?.join(", ")
-      ].filter(Boolean).join(" / ")
-    ),
-    ...input.evidenceVault
-      .filter((item) =>
-        (item.targetSlots.includes("project_name") || item.targetSlots.includes("actions")) &&
-        !(hasProfileProjects && item.sourceType === "profile_context")
-      )
-      .map((item) => item.fact)
-  ]).filter((fact) => fact.trim().length > 0).slice(0, 6);
+  const profileProjects = (profile?.profileJson.projects ?? [])
+    .map(formatProfileProjectForResume)
+    .filter((project) => project.length > 0)
+    .slice(0, 3);
+  const githubProjects = collectGithubResumeProjects(input.evidenceVault).slice(0, profileProjects.length > 0 ? 2 : 4);
+  const actionFacts = unique(
+    input.evidenceVault
+      .filter((item) => item.sourceType !== "profile_context" && !item.sourceType.startsWith("github"))
+      .filter((item) => item.targetSlots.includes("actions") || item.targetSlots.includes("technical_choice"))
+      .map((item) => simplifyPackageFact(item.fact))
+      .filter(isResumeWorthyFact)
+  ).slice(0, 3);
 
   if (profile?.profileJson.basics.name?.trim()) {
+    lines.push("[기본 정보]");
     lines.push(`이름: ${profile.profileJson.basics.name.trim()}`);
   }
   if (desiredRoles.length > 0) {
     lines.push(`희망 직무: ${desiredRoles.join(", ")}`);
   }
   if (skills.length > 0) {
+    lines.push("");
+    lines.push("[기술 스택]");
     lines.push(`기술 스택: ${skills.join(", ")}`);
   }
   if (summary) {
+    lines.push("");
+    lines.push("[요약]");
     lines.push(`요약: ${summary}`);
   }
-  if (projectFacts.length > 0) {
-    lines.push("프로젝트 경험:");
-    for (const fact of projectFacts) {
-      lines.push(`- ${simplifyPackageFact(fact)}`);
+  if (profileProjects.length > 0 || githubProjects.length > 0 || actionFacts.length > 0) {
+    lines.push("");
+    lines.push("[프로젝트 경험]");
+    for (const project of profileProjects) {
+      lines.push(project);
+    }
+    for (const project of githubProjects) {
+      lines.push(project);
+    }
+    for (const fact of actionFacts) {
+      lines.push(`- ${fact}`);
     }
   }
   if (input.missingEvidence.length > 0) {
-    lines.push(`보완 필요: ${input.missingEvidence.slice(0, 5).join(", ")}`);
+    lines.push("");
+    lines.push("[보완 필요]");
+    for (const item of input.missingEvidence.slice(0, 5)) {
+      lines.push(`- ${item}`);
+    }
   }
 
   return lines.join("\n");
@@ -1149,17 +1397,138 @@ function extractSkillCandidates(fact: string) {
     "React",
     "Vite",
     "Node.js",
+    "Tailwind CSS",
     "Express",
     "PostgreSQL",
     "Prisma",
     "REST API",
     "GitHub Actions",
     "Docker",
+    "Vitest",
+    "CSS",
+    "HTML",
     "SQL",
     "Python"
   ];
   const lower = fact.toLowerCase();
   return knownSkills.filter((skill) => lower.includes(skill.toLowerCase()));
+}
+
+function collectEvidenceSkills(evidenceVault: CareerEvidenceVaultItem[]) {
+  return unique(
+    evidenceVault
+      .filter((item) => item.allowedInDraft && !item.needsUserConfirmation)
+      .filter(
+        (item) =>
+          item.targetSlots.includes("skills") ||
+          item.sourceType === "github_repo_metadata" ||
+          item.sourceType === "github_readme" ||
+          item.sourceType === "portfolio_page"
+      )
+      .flatMap((item) => extractSkillCandidates(item.fact))
+  );
+}
+
+function buildProfileSkillSuggestions(input: {
+  profileContexts: CareerDocumentWorkflowSession["profileContexts"];
+  evidenceVault: CareerEvidenceVaultItem[];
+}): CareerProfileSkillSuggestion[] {
+  const evidenceSkills = collectEvidenceSkills(input.evidenceVault);
+  if (evidenceSkills.length === 0) {
+    return [];
+  }
+
+  return input.profileContexts
+    .map((profile) => {
+      const currentSkills = unique([...(profile.skills ?? []), ...(profile.profileJson.skills ?? [])]);
+      const skills = evidenceSkills.filter((skill) => !currentSkills.some((current) => current.toLowerCase() === skill.toLowerCase()));
+      if (skills.length === 0) {
+        return null;
+      }
+
+      const sources = unique(
+        input.evidenceVault
+          .filter((item) => item.allowedInDraft && !item.needsUserConfirmation)
+          .filter((item) => skills.some((skill) => item.fact.toLowerCase().includes(skill.toLowerCase())))
+          .map((item) => (item.sourceType.startsWith("github") ? "github" : item.sourceType === "portfolio_page" ? "portfolio" : "mixed"))
+      );
+      const source =
+        sources.includes("github") && sources.includes("portfolio")
+          ? "mixed"
+          : sources.includes("portfolio")
+            ? "portfolio"
+            : "github";
+
+      return {
+        profileId: profile.profileId,
+        title: profile.title,
+        skills: skills.slice(0, 12),
+        source,
+        reason: "GitHub/포트폴리오에서 확인된 기술스택을 기존 프로필 인적사항은 유지한 채 병합할 수 있습니다."
+      } satisfies CareerProfileSkillSuggestion;
+    })
+    .filter((suggestion): suggestion is CareerProfileSkillSuggestion => Boolean(suggestion));
+}
+
+function formatProfileProjectForResume(project: NonNullable<CareerDocumentWorkflowSession["profileContexts"][number]["profileJson"]["projects"]>[number]) {
+  const title = project.name || project.title;
+  const details = [
+    project.role ? `역할: ${project.role}` : "",
+    project.result || project.impact || project.achievements?.join(", ")
+  ].filter(Boolean);
+
+  if (!title && details.length === 0) {
+    return "";
+  }
+
+  return [`- ${title || "프로젝트"}`, ...details.map((detail) => `  - ${detail}`)].join("\n");
+}
+
+function collectGithubResumeProjects(evidenceVault: CareerEvidenceVaultItem[]) {
+  const projects = new Map<string, { description?: string; readme?: string; skills: string[] }>();
+
+  for (const item of evidenceVault) {
+    if (item.sourceType !== "github_repo_metadata" && item.sourceType !== "github_readme") {
+      continue;
+    }
+    const match = item.fact.match(/^GitHub 저장소 ([^\s]+) (설명|README 요약|감지 기술스택|사용 언어):\s*(.+)$/);
+    if (!match) {
+      continue;
+    }
+    const [, repoName, kind, content] = match;
+    const project = projects.get(repoName) ?? { skills: [] };
+    if (kind === "설명" && isResumeWorthyFact(content)) {
+      project.description = content.trim();
+    }
+    if (kind === "README 요약" && isResumeWorthyFact(content)) {
+      project.readme = content.trim();
+    }
+    project.skills = unique([...project.skills, ...extractSkillCandidates(item.fact)]);
+    projects.set(repoName, project);
+  }
+
+  return Array.from(projects.entries())
+    .map(([repoName, project]) => {
+      const details = [
+        project.description ? `설명: ${project.description}` : "",
+        !project.description && project.readme ? `README 요약: ${project.readme}` : "",
+        project.skills.length > 0 ? `기술: ${project.skills.join(", ")}` : ""
+      ].filter(Boolean);
+      if (details.length === 0) {
+        return "";
+      }
+
+      return [`- GitHub 프로젝트: ${repoName}`, ...details.map((detail) => `  - ${detail}`)].join("\n");
+    })
+    .filter((project) => project.length > 0);
+}
+
+function isResumeWorthyFact(fact: string) {
+  const trimmed = fact.trim();
+  if (!trimmed) {
+    return false;
+  }
+  return !/메타데이터가 확인|public repository|우선 분석|기술스택 근거 파일|주요 소스 구성/.test(trimmed);
 }
 
 function simplifyPackageFact(fact: string) {
@@ -1227,6 +1596,21 @@ function collectRisks(
 
 function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
+}
+
+function normalizeWorkflowTarget(target: CareerDocumentWorkflowSession["target"]) {
+  return {
+    ...target,
+    charLimit: clampSelfIntroCharLimit(target.charLimit)
+  };
+}
+
+function clampSelfIntroCharLimit(limit: number | undefined) {
+  if (!limit || !Number.isFinite(limit)) {
+    return SELF_INTRO_ONE_PAGE_CHAR_LIMIT;
+  }
+
+  return Math.min(SELF_INTRO_MAX_CHAR_LIMIT, Math.max(200, Math.round(limit)));
 }
 
 function buildAnalysisContextText(request: CareerDocumentWorkflowSessionRequest) {

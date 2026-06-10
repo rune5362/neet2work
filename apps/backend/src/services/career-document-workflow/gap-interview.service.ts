@@ -9,6 +9,7 @@ import type {
   CareerPortfolioAnalysis
 } from "../../types/career-document-workflow.js";
 import { inferIntent, requiredSlotsForIntent } from "./document-analysis.service.js";
+import { collectFilledEvidenceSlots } from "./evidence-slot-policy.js";
 
 const SLOT_PRIORITY = [
   "github_context",
@@ -50,17 +51,10 @@ export class GapInterviewService {
     const templateQuestions = collectTemplateQuestions(input.documentAnalyses, input.target);
     const requiredSlots = collectRequiredSlots(templateQuestions, input.target);
     const answeredIds = new Set((input.answers ?? []).map((answer) => answer.questionId));
-    const filledSlots = new Set(
-      input.evidenceVault
-        .filter((item) => item.allowedInDraft && !item.needsUserConfirmation)
-        .flatMap((item) => item.targetSlots)
-    );
+    const filledSlots = collectFilledEvidenceSlots(input.evidenceVault, input.target);
 
     if (input.target.role?.trim()) {
       filledSlots.add("target_role");
-    }
-    if (input.target.company?.trim() || input.target.jobPostingText?.trim()) {
-      filledSlots.add("company_fit");
     }
 
     const needsGithubFallbackQuestion =

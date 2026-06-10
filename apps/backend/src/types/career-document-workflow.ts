@@ -97,6 +97,14 @@ export type CareerDocumentPackage = {
   };
 };
 
+export type CareerProfileSkillSuggestion = {
+  profileId: string;
+  title: string;
+  skills: string[];
+  source: "github" | "portfolio" | "mixed";
+  reason: string;
+};
+
 export type CareerEvidenceSourceType =
   | "attached_document"
   | "self_intro_template"
@@ -121,6 +129,21 @@ export type CareerDocumentQuestion = {
   writingRules: string[];
 };
 
+export type CareerDocumentTemplateSectionKind =
+  | "resume"
+  | "self_intro"
+  | "skills"
+  | "portfolio"
+  | "common_rules";
+
+export type CareerDocumentTemplateSection = {
+  sectionId: string;
+  kind: CareerDocumentTemplateSectionKind;
+  title: string;
+  order: number;
+  requirements: string[];
+};
+
 /**
  * 첨부 자료를 분류하고 문항, 작성 규칙, 추출 텍스트로 정리한 결과입니다.
  */
@@ -134,6 +157,8 @@ export type CareerDocumentAnalysis = {
   template?: {
     questions: CareerDocumentQuestion[];
     writingRules: string[];
+    layoutRules: string[];
+    sections: CareerDocumentTemplateSection[];
     submissionFormat?: string;
   };
   summary: string;
@@ -308,6 +333,7 @@ export type CareerDocumentWorkflowSession = {
   drafts: CareerDocumentDraft[];
   completion: CareerDocumentCompletion;
   documentPackages: CareerDocumentPackage[];
+  profileSkillSuggestions: CareerProfileSkillSuggestion[];
   aiMeta?: AiExecutionMeta;
   missingEvidence: string[];
   risks: string[];

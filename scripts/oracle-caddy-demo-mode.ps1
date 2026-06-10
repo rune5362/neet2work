@@ -36,15 +36,27 @@ $DOMAIN {
   encode gzip
 
   handle /api/* {
-    reverse_proxy 127.0.0.1:$DEMO_API_PORT
+    reverse_proxy 127.0.0.1:$DEMO_API_PORT {
+      transport http {
+        response_header_timeout 300s
+      }
+    }
   }
 
   handle /health {
-    reverse_proxy 127.0.0.1:$DEMO_API_PORT
+    reverse_proxy 127.0.0.1:$DEMO_API_PORT {
+      transport http {
+        response_header_timeout 300s
+      }
+    }
   }
 
   handle {
-    reverse_proxy 127.0.0.1:$FRONTEND_PORT
+    reverse_proxy 127.0.0.1:$FRONTEND_PORT {
+      transport http {
+        response_header_timeout 300s
+      }
+    }
   }
 }
 EOF
