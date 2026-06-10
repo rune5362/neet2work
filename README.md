@@ -15,8 +15,9 @@
 
 | 이름 | 역할 |
 | --- | --- |
-| 김대균 | 팀장, 프로젝트 관리, 일정 관리, 기능 통합 관리 |
-| 이성호 | AI 기술 담당, 생성형 AI 분석 로직 설계 |
+| 이성호 | 팀장, AI 기술 담당, 생성형 AI 분석 로직 설계 |
+| 김대균 | 프로젝트 관리, 일정 관리, 기능 통합 관리 |
+
 
 
 ## 현재 구현된 주요 기능
@@ -30,8 +31,11 @@
 - 자기소개서 fit 분석 mock API(`/api/analyze`)
 - AI 자기소개서 작성 workflow(`/ai-analysis`)
 - TXT/MD/DOCX/PDF 본문 추출
-- AI provider 라우팅: Codex Bridge, Gemini, Local AI, fallback demo
+- AI provider 라우팅: Codex Bridge, Gemini, Local AI, Agy CLI, fallback demo
 - Codex app-server OAuth 상태 확인 및 로그인 URL 발급 flow
+- Codex Bridge 전용 relay mode로 Oracle 운영 backend의 일반 API는 유지하고 Codex 호출만 작업 PC로 위임
+- GitHub/포트폴리오 분석, 첨부 양식 section 추출, 보완 질문, 자소서/이력서 문서 패키지 생성
+- Oracle 배포 환경용 hourly job crawler timer
 - PostgreSQL/Prisma 기반 스키마, migration, seed, audit/soft-delete 기반
 - DB 미설정 또는 일부 provider 미설정 시 demo fallback 유지
 
@@ -61,14 +65,14 @@
 
 현재 흐름:
 
-1. 사용자가 지원 회사, 직무, 문항, 공고 정보, 작성 톤, 기존 문서/대화 내용을 입력합니다.
-2. 저장된 자기소개서 또는 첨부 파일을 레퍼런스로 선택할 수 있습니다.
-3. 첨부 파일이 TXT/MD/DOCX/PDF이면 backend가 본문을 추출합니다.
-4. 문항 요구사항이 있으면 공고/레퍼런스보다 우선해 material store에 고정합니다.
-5. AI provider router가 `auto` 또는 `manual` 모드로 사용 가능한 provider를 선택합니다.
-6. `/plan` 단계에서 경험 카드, 적합도 판단, 보완 질문, 개요, 근거 검증 정보를 생성합니다.
-7. `/draft` 단계에서 개요 기반 초안, evidence map, 자기검수 리포트, 수정 옵션을 생성합니다.
-8. `/revise` 단계에서 기존 계획과 근거를 유지한 채 사용자 수정 요청을 반영합니다.
+1. 사용자가 지원 회사, 직무, 문항, 공고 정보, 작성 톤, GitHub/포트폴리오 URL, 기존 문서/대화 내용을 입력합니다.
+2. 저장된 프로필, 자기소개서 또는 첨부 파일을 레퍼런스로 선택할 수 있습니다.
+3. 첨부 파일이 TXT/MD/DOCX/PDF이면 backend가 본문을 추출하고, 양식/이력서/기술스택/포트폴리오 section을 분류합니다.
+4. 문항 요구사항과 첨부 양식은 공고/레퍼런스보다 우선해 evidence vault와 template section에 고정합니다.
+5. GitHub/포트폴리오 분석 결과는 프로젝트와 기술 맥락으로 쓰고, 사용자 고유 행동/성과/지원동기는 사용자 입력 또는 답변 근거로만 확정합니다.
+6. AI provider router가 `auto` 또는 `manual` 모드로 사용 가능한 provider를 선택합니다.
+7. `/api/career-workflow/document-session`에서 보완 질문, 가초안/완성본, 제출 준비도, 저장 가능한 자기소개서/이력서 패키지를 생성합니다.
+8. `/api/career-workflow/document-session/answer`에서 보완 질문 답변을 반영해 같은 세션의 근거 저장소, 질문, 초안, 문서 패키지를 다시 계산합니다.
 
 첨부 파일 정책:
 
@@ -80,7 +84,7 @@
 AI 라우팅 정책:
 
 - 기본 mode는 `auto`
-- 기본 provider 순서: `codex_bridge`, `gemini`, `local`, `fallback`
+- 기본 provider 순서: `codex_bridge`, `gemini`, `local`, `agy_cli`, `fallback`
 - 수동 provider가 실패하면 다른 유료 provider가 아니라 fallback demo로 내려갑니다.
 - fallback 결과는 `aiMeta.usedFallback=true`와 `fallbackReason`으로 구분됩니다.
 
@@ -94,7 +98,7 @@ AI 라우팅 정책:
 | Backend | Express 5, TypeScript, Zod |
 | Database | PostgreSQL 17, Prisma 7, Prisma Migrate |
 | Auth | JWT access token, refresh token, password hashing, rate limit |
-| AI Routing | Codex Bridge, Gemini API, Local AI, Fallback Demo |
+| AI Routing | Codex Bridge, Gemini API, Local AI, Agy CLI, Fallback Demo |
 | Document Parsing | Mammoth, pdf-parse |
 | Test | Vitest, Testing Library |
 | Lint/Format | ESLint, Prettier |
@@ -124,7 +128,7 @@ AI 라우팅 정책:
 - middleware는 rate limit, CORS, HTTPS guard 같은 공통 정책을 담당합니다.
 - `HttpError`와 전역 error handler로 validation 오류와 서버 오류를 구분합니다.
 - `dotenv`로 root/backend `.env`를 로딩하되 test 환경에서는 로컬 `.env` 영향이 테스트를 흔들지 않게 분리합니다.
-- 현재 주요 API는 jobs, analyze, draft-workflow, resume extract, auth, profiles, documents, document-sets입니다.
+- 현재 주요 API는 jobs, analyze, draft-workflow, career-workflow, resume extract, auth, profiles, documents, document-sets입니다.
 
 ### Database & Storage
 
@@ -147,22 +151,25 @@ AI 라우팅 정책:
 - backend import script가 dry-run, 형식 검증, 실제 upsert를 담당합니다.
 - Saramin, JobKorea, Linkareer, Mynavi Tenshoku, Daijob, CareerCross, Green Japan check 명령이 준비되어 있습니다.
 - 채용공고 운영 lifecycle을 위해 dry-run/apply, operational plan, manual run, scheduler, SQL artifact 명령을 제공합니다.
+- Oracle 배포 환경에서는 `oracle-job-crawler-timer.cmd`가 systemd timer를 설치해 `saramin jobkorea linkareer` 수집과 import를 1시간마다 실행할 수 있습니다.
 - Playwright는 브라우저 자동화가 필요한 future RPA 또는 검증 경로로 분리되어 있습니다.
 
 ### AI
 
-- AI workflow는 provider router를 통해 Codex Bridge, Gemini, Local AI, fallback demo를 선택합니다.
+- AI workflow는 provider router를 통해 Codex Bridge, Gemini, Local AI, Agy CLI, fallback demo를 선택합니다.
 - 기본 routing mode는 `auto`입니다.
-- 기본 provider 순서는 `codex_bridge`, `gemini`, `local`, `fallback`입니다.
+- 기본 provider 순서는 `codex_bridge`, `gemini`, `local`, `agy_cli`, `fallback`입니다.
 - manual mode에서 선택 provider가 실패하면 다른 유료 provider가 아니라 fallback demo로 내려갑니다.
 - fallback 결과는 `aiMeta.usedFallback`과 `fallbackReason`으로 실제 AI 결과와 구분합니다.
 - Codex Bridge는 Codex CLI app-server 프로토콜을 사용합니다.
 - Neet2Work는 Codex OAuth token이나 OpenAI API key를 저장하지 않습니다.
+- Codex Bridge relay mode는 배포 backend의 일반 API를 유지한 채 `codex_bridge` provider 호출만 작업 PC의 로컬 relay backend로 위임합니다.
 - Gemini provider는 API key와 model이 설정된 경우에만 online 후보가 됩니다.
 - Local AI provider는 Ollama 또는 OpenAI-compatible endpoint 연결을 염두에 둡니다.
+- Agy CLI provider는 backend host에서 허용된 `agy.exe`/`agy` 명령 또는 SSH wrapper를 sandbox 조건으로 실행합니다.
 - hardcoded fallback demo provider는 발표와 개발 안정성을 위한 deterministic output을 제공합니다.
-- 자기소개서 작성 flow는 `/plan`, `/draft`, `/revise` 단계로 분리되어 있습니다.
-- material store, experience cards, evidence map, review report를 통해 근거 기반 초안 작성을 지향합니다.
+- 자기소개서 작성 flow는 legacy `/plan`, `/draft`, `/revise` API와 통합 `/api/career-workflow/document-session` API를 함께 유지합니다.
+- evidence vault, template sections, gap questions, document packages, review report를 통해 근거 기반 초안 작성을 지향합니다.
 
 ### Document Parsing
 
@@ -253,15 +260,19 @@ Express REST API
   ├─ jobs routes
   ├─ profile/document/document-set routes
   ├─ analyze route
+  ├─ career-workflow routes
   ├─ draft-workflow routes
+  ├─ codex-bridge-relay routes
   └─ resume extract route
       │
       ├─ Prisma/PostgreSQL
       ├─ local JSON / in-memory fallback
       ├─ AI provider router
       │   ├─ Codex app-server
+      │   ├─ Codex relay
       │   ├─ Gemini
       │   ├─ Local AI
+      │   ├─ Agy CLI
       │   └─ hardcoded fallback
       └─ document parsers
 ```
@@ -292,8 +303,13 @@ AUTH_RATE_LIMIT_WINDOW_SECONDS=60
 AUTH_RATE_LIMIT_MAX_REQUESTS=30
 
 AI_ROUTING_DEFAULT=auto
-AI_PROVIDER_ORDER=codex_bridge,gemini,local,fallback
+AI_PROVIDER_ORDER=codex_bridge,gemini,local,agy_cli,fallback
 AI_PROVIDER_TIMEOUT_MS=180000
+CAREER_DOCUMENT_AI_TIMEOUT_MS=300000
+
+GITHUB_TOKEN=
+GITHUB_ANALYSIS_TIMEOUT_MS=8000
+GITHUB_ANALYSIS_CACHE_TTL_MS=900000
 
 CODEX_BRIDGE_ENABLED=false
 CODEX_BRIDGE_COMMAND=
@@ -301,16 +317,45 @@ CODEX_CLI_PATH=
 CODEX_BRIDGE_HOME=
 CODEX_BRIDGE_MODEL=
 CODEX_BRIDGE_REASONING_EFFORT=
+CODEX_BRIDGE_REMOTE_BASE_URL=
+CODEX_BRIDGE_RELAY_ENABLED=false
+CODEX_BRIDGE_RELAY_TOKEN=
+CODEX_BRIDGE_TURN_TIMEOUT_MS=300000
 
 GEMINI_ENABLED=false
 GEMINI_API_KEY=
 GEMINI_MODELS=gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash
 GEMINI_MODEL=
+GEMINI_TIMEOUT_MS=120000
 
 LOCAL_AI_ENABLED=false
 LOCAL_AI_BASE_URL=http://localhost:11434
 LOCAL_AI_MODEL=
+LOCAL_AI_TIMEOUT_MS=120000
 LOCAL_AI_PROTOCOL=ollama
+
+AGY_CLI_ENABLED=false
+AGY_CLI_COMMAND=
+AGY_CLI_MODEL=
+AGY_CLI_TIMEOUT_MS=120000
+AGY_CLI_SANDBOX_ENABLED=true
+AGY_CLI_MAX_PROMPT_BYTES=200000
+AGY_CLI_MAX_OUTPUT_BYTES=1000000
+AGY_CLI_MAX_CONCURRENCY=1
+AGY_CLI_MODEL_ALLOWLIST=
+AGY_CLI_TASK_PROFILE=cover_letter_review
+AGY_CLI_WORKDIR=
+
+AGY_SSH_ENABLED=false
+AGY_SSH_HOST=
+AGY_SSH_PORT=22
+AGY_SSH_USERNAME=
+AGY_SSH_KEY_PATH=
+AGY_SSH_HOST_FINGERPRINT=
+AGY_SSH_KNOWN_HOSTS_PATH=
+AGY_SSH_REMOTE_WRAPPER=/opt/neet2work/run-agy-sandbox-print
+AGY_SSH_CONNECT_TIMEOUT_MS=10000
+AGY_SSH_EXEC_TIMEOUT_MS=120000
 
 DATABASE_URL=
 DATABASE_PASSWORD=
@@ -338,6 +383,9 @@ Codex Bridge는 `codex exec`가 아니라 Codex CLI의 app-server 프로토콜�
 - 로그인 시작은 `/api/draft-workflow/providers/codex/login`에서 app-server의 로그인 URL을 받아 처리합니다.
 - `CODEX_BRIDGE_COMMAND`가 비어 있으면 Windows에서는 `%LOCALAPPDATA%\OpenAI\Codex\bin\*\codex.exe`, 그 외에는 `CODEX_CLI_PATH` 또는 PATH의 `codex`를 사용합니다.
 - `CODEX_BRIDGE_HOME`이 비어 있으면 사용자 홈의 `.codex`를 우선 사용하고, 그 다음 `CODEX_HOME`을 봅니다.
+- `CODEX_BRIDGE_TURN_TIMEOUT_MS=300000`은 한 번의 Codex turn을 최대 5분 기다린다는 뜻입니다.
+- `CODEX_BRIDGE_REMOTE_BASE_URL`이 설정되면 현재 backend는 Codex 호출만 원격 relay endpoint로 위임합니다.
+- relay backend는 `CODEX_BRIDGE_RELAY_ENABLED=true`와 같은 `CODEX_BRIDGE_RELAY_TOKEN`을 사용해 `/api/codex-bridge-relay/*` 요청을 인증합니다.
 
 Smoke check:
 
@@ -367,13 +415,13 @@ http://localhost:5173
 
 ### Oracle 사이트 + 작업 PC Codex 시연
 
-오라클에 배포된 `https://neet2work.duckdns.org` 화면은 그대로 쓰고, `/api` 요청만 작업 PC의 Codex Bridge backend로 보내려면 작업 PC에서 다음 명령을 실행합니다.
+오라클에 배포된 `https://neet2work.duckdns.org` 화면과 일반 Oracle backend API는 그대로 쓰고, `codex_bridge` provider 호출만 작업 PC의 Codex Bridge relay backend로 보내려면 작업 PC에서 다음 명령을 실행합니다.
 
 ```bash
 2-demo-oracle-site.cmd
 ```
 
-이 스크립트는 backend 실행, SSH reverse tunnel 연결, 오라클 Caddy 시연 모드 전환을 순서대로 처리합니다. 창을 닫거나 `Ctrl+C`로 종료하면 Caddy를 원래 모드로 되돌리고 backend/tunnel도 정리합니다.
+이 스크립트는 로컬 relay backend 실행, SSH reverse tunnel 연결, Oracle Caddy의 `__codex-relay` prefix 임시 활성화, Oracle backend의 `CODEX_BRIDGE_REMOTE_BASE_URL`/relay token 임시 설정을 순서대로 처리합니다. 창을 닫거나 `Ctrl+C`로 종료하면 Oracle backend env와 Caddy 설정을 원래 모드로 되돌리고 backend/tunnel도 정리합니다.
 
 시연 PC에서는 기존 운영 주소로 접속합니다.
 
@@ -384,13 +432,15 @@ https://neet2work.duckdns.org
 강제 종료나 네트워크 끊김으로 자동 원복이 안 된 경우에만 수동으로 원복합니다.
 
 ```bash
-oracle-caddy-demo-mode.cmd -Action disable
+oracle-codex-relay-mode.cmd -Action disable
+oracle-codex-caddy-relay.cmd -Action disable
 ```
 
 상태 확인:
 
 ```bash
-oracle-caddy-demo-mode.cmd -Action status
+oracle-codex-relay-mode.cmd -Action status
+oracle-codex-caddy-relay.cmd -Action status
 ```
 
 ## 실행 방법
@@ -522,6 +572,15 @@ corepack pnpm run jobs:operational:scheduler
 corepack pnpm run jobs:operational:jp-plan
 ```
 
+Oracle 배포 서버에서 1시간마다 KR 공고 수집/import를 실행하려면 명시 승인 후 timer helper를 사용합니다.
+
+```bash
+oracle-job-crawler-timer.cmd -Action install -IntervalMinutes 60
+oracle-job-crawler-timer.cmd -Action status
+oracle-job-crawler-timer.cmd -Action run-now
+oracle-job-crawler-timer.cmd -Action uninstall
+```
+
 ## API 요약
 
 세부 request/response schema는 [docs/API_CONTRACT.md](./docs/API_CONTRACT.md)를 기준으로 합니다.
@@ -540,6 +599,15 @@ corepack pnpm run jobs:operational:jp-plan
 | `POST` | `/api/draft-workflow/plan` | 작성 계획 생성 |
 | `POST` | `/api/draft-workflow/draft` | 초안 생성 |
 | `POST` | `/api/draft-workflow/revise` | 초안 수정 |
+| `POST` | `/api/career-workflow/session` | 커리어 workflow 세션 생성 |
+| `POST` | `/api/career-workflow/next-question` | 다음 보완 질문 조회 |
+| `POST` | `/api/career-workflow/answer-question` | 보완 질문 답변 반영 |
+| `POST` | `/api/career-workflow/document-session` | 첨부/프로필 기반 문서 세션과 저장 패키지 생성 |
+| `POST` | `/api/career-workflow/document-session/answer` | 문서 세션 보완 질문 답변 반영 |
+| `GET` | `/api/codex-bridge-relay/status` | Codex relay provider 상태, relay mode 내부용 |
+| `POST` | `/api/codex-bridge-relay/execute` | Codex relay 실행, relay mode 내부용 |
+| `POST` | `/api/codex-bridge-relay/login` | Codex relay 로그인 시작, relay mode 내부용 |
+| `GET` | `/api/codex-bridge-relay/login/:loginId` | Codex relay 로그인 상태, relay mode 내부용 |
 | `POST` | `/api/auth/signup` | 회원가입 |
 | `POST` | `/api/auth/login` | 로그인 |
 | `POST` | `/api/auth/refresh` | access token 갱신 |
