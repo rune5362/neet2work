@@ -75,6 +75,9 @@ async function sendJson<T>(
   return response.json() as Promise<T>;
 }
 
+/**
+ * 로그인 사용자의 지원 문서 묶음 목록을 조회합니다.
+ */
 export async function getDocumentSets(options: { includeArchived?: boolean } = {}): Promise<ApplicationSetItem[]> {
   const query = buildQuery({
     includeArchived: options.includeArchived
@@ -87,6 +90,9 @@ export async function getDocumentSets(options: { includeArchived?: boolean } = {
   return result.data;
 }
 
+/**
+ * 지원 문서 묶음을 새로 생성합니다.
+ */
 export async function createDocumentSet(payload: CreateApplicationSetPayload): Promise<ApplicationSetItem> {
   const result = await sendJson<ApiItemResponse<ApplicationSetItem>>(
     "/api/document-sets",
@@ -98,6 +104,9 @@ export async function createDocumentSet(payload: CreateApplicationSetPayload): P
   return result.data;
 }
 
+/**
+ * 지원 문서 묶음 상세 정보를 조회합니다.
+ */
 export async function getDocumentSet(setId: string): Promise<ApplicationSetItem> {
   const query = buildQuery({});
   const result = await getJson<ApiItemResponse<ApplicationSetItem>>(
@@ -108,6 +117,9 @@ export async function getDocumentSet(setId: string): Promise<ApplicationSetItem>
   return result.data;
 }
 
+/**
+ * 지원 문서 묶음의 제목, 연결 문서, 보관 상태를 수정합니다.
+ */
 export async function updateDocumentSet(
   setId: string,
   payload: UpdateApplicationSetPayload
@@ -122,6 +134,9 @@ export async function updateDocumentSet(
   return result.data;
 }
 
+/**
+ * 지원 문서 묶음을 보관 상태로 전환합니다.
+ */
 export async function archiveDocumentSet(setId: string): Promise<ApplicationSetItem> {
   const query = buildQuery({});
   const response = await authorizedFetch(`/api/document-sets/${setId}?${query}`, {
@@ -136,6 +151,9 @@ export async function archiveDocumentSet(setId: string): Promise<ApplicationSetI
   return result.data;
 }
 
+/**
+ * 보관 상태인 지원 문서 묶음을 다시 기본 목록에 노출합니다.
+ */
 export async function restoreDocumentSet(setId: string): Promise<ApplicationSetItem> {
   return updateDocumentSet(setId, { isArchived: false });
 }

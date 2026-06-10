@@ -8,6 +8,8 @@ import { createRateLimit } from "./middleware/rateLimit.js";
 import { analyzeRouter } from "./routes/analyze.route.js";
 import { applicationSetRouter } from "./routes/applicationSet.route.js";
 import { authRouter } from "./routes/auth.route.js";
+import { careerWorkflowRouter } from "./routes/career-workflow.route.js";
+import { codexBridgeRelayRouter } from "./routes/codex-bridge-relay.route.js";
 import { documentRouter } from "./routes/document.route.js";
 import { draftWorkflowRouter } from "./routes/draft-workflow.route.js";
 import { jobsRouter } from "./routes/jobs.route.js";
@@ -63,7 +65,7 @@ function isAllowedOrigin(origin?: string) {
 
 function createHttpsGuard() {
   return (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    if (process.env.REQUIRE_HTTPS !== "true") {
+    if (!shouldRequireHttps()) {
       next();
       return;
     }
@@ -80,6 +82,20 @@ function createHttpsGuard() {
   };
 }
 
+function shouldRequireHttps() {
+  const value = process.env.REQUIRE_HTTPS?.trim();
+
+  if (value === "true") {
+    return true;
+  }
+
+  if (value === "false") {
+    return false;
+  }
+
+  return (process.env.NODE_ENV || NODE_ENV) === "production";
+}
+
 function resolveTrustProxySetting() {
   const value = process.env.TRUST_PROXY?.trim();
 
@@ -88,6 +104,10 @@ function resolveTrustProxySetting() {
   }
 
   if (value === "true") {
+    if ((process.env.NODE_ENV || NODE_ENV) === "production") {
+      throw new Error("TRUST_PROXY=true is not allowed in production. Use a hop count or explicit subnet.");
+    }
+
     return true;
   }
 
@@ -170,6 +190,8 @@ export function createApp() {
 
   app.use("/api/jobs", jobsRouter);
   app.use("/api/analyze", analyzeRouter);
+  app.use("/api/codex-bridge-relay", codexBridgeRelayRouter);
+  app.use("/api/career-workflow", careerWorkflowRouter);
   app.use("/api/draft-workflow", draftWorkflowRouter);
   app.use("/api/resume/extract", resumeExtractRouter);
   app.use("/api/auth", authRateLimit, authRouter);

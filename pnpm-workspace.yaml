@@ -1,10 +1,18 @@
 packages:
   - "apps/*"
 
+overrides:
+  "@hono/node-server": 1.19.13
+  hono: 4.12.21
+  qs: 6.15.2
+
 allowBuilds:
   "@prisma/engines": true
+  cpu-features: true
   "esbuild": true
   "prisma": true
+  puppeteer: false
+  ssh2: true
 
 minimumReleaseAge: 1440
 verifyDepsBeforeRun: false

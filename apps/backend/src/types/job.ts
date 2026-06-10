@@ -14,6 +14,9 @@ export type PublicCareerStage = Extract<CareerStage, "entry" | "junior" | "senio
 
 export type PublicEmploymentTypeCategory = "permanent" | "contract" | "intern" | "freelance";
 
+/**
+ * 채용공고 목록과 상세 화면에서 공유하는 공개 채용공고 항목입니다.
+ */
 export type JobPosting = {
   id: string;
   title: string;
@@ -43,6 +46,9 @@ export type JobPosting = {
   jobCategory?: string | null;
 };
 
+/**
+ * crawler/import pipeline이 수집 직후 보존하는 원천 채용공고 항목입니다.
+ */
 export type CollectedJobPosting = JobPosting & {
   crawlBatchId?: string | null;
   classifierMeta?: Record<string, unknown> | null;
@@ -51,6 +57,9 @@ export type CollectedJobPosting = JobPosting & {
   rawJson?: Record<string, unknown> | null;
 };
 
+/**
+ * 채용공고 수집 batch 실행 결과와 품질 지표입니다.
+ */
 export type CollectedJobBatch = {
   schemaVersion: "job_batch_v1";
   source: string;

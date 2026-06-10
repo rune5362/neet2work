@@ -26,4 +26,19 @@ describe("resolveDatabaseUrl", () => {
       "postgresql://postgres.ref:pa%3Ass%40word@example.pooler.supabase.com:5432/postgres?sslmode=verify-full"
     );
   });
+
+  it("rewrites a stale sslrootcert path to the bundled backend certificate when available", () => {
+    const resolved = resolveDatabaseUrl({
+      DATABASE_URL:
+        "postgresql://user:password@example.com:5432/postgres?sslmode=verify-full&sslrootcert=C:\\old\\neet2work\\apps\\backend\\certs\\prod-ca-2021.crt"
+    });
+
+    expect(resolved).toBeDefined();
+    const parsed = new URL(resolved ?? "");
+    const resolvedCertPath = parsed.searchParams.get("sslrootcert") ?? "";
+    expect(resolvedCertPath.replaceAll("\\", "/")).toMatch(
+      /apps\/backend\/certs\/prod-ca-2021\.crt$/
+    );
+    expect(resolvedCertPath).not.toContain("C:\\old\\neet2work");
+  });
 });

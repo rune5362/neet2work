@@ -11,12 +11,17 @@ const mockAiConfig = vi.hoisted(() => ({
     command: "codex",
     home: "C:\\Users\\test\\.codex",
     model: "",
-    reasoningEffort: ""
+    reasoningEffort: "",
+    turnTimeoutMs: 300_000,
+    remoteBaseUrl: "",
+    relayEnabled: false,
+    relayToken: ""
   },
   gemini: {
     enabled: false,
     apiKey: "",
     model: "",
+    models: [] as string[],
     timeoutMs: 120_000
   },
   localAi: {
@@ -25,6 +30,32 @@ const mockAiConfig = vi.hoisted(() => ({
     model: "",
     timeoutMs: 120_000,
     protocol: "ollama" as const
+  },
+  agyCli: {
+    enabled: false,
+    command: "C:\\tools\\agy.exe",
+    model: "",
+    timeoutMs: 120_000,
+    sandboxEnabled: true,
+    maxPromptBytes: 200_000,
+    maxOutputBytes: 1_000_000,
+    maxConcurrency: 1,
+    modelAllowlist: [] as string[],
+    taskProfile: "cover_letter_review",
+    workdir: "",
+    configErrorReason: undefined as string | undefined,
+    ssh: {
+      enabled: false,
+      host: "",
+      port: 22,
+      username: "",
+      keyPath: "",
+      hostFingerprint: "",
+      knownHostsPath: "",
+      remoteWrapper: "/opt/neet2work/run-agy-sandbox-print",
+      connectTimeoutMs: 10_000,
+      execTimeoutMs: 120_000
+    }
   }
 }));
 
@@ -39,7 +70,7 @@ vi.mock("../../config/ai-config.js", () => ({
   isGeminiConfigured: () =>
     mockAiConfig.gemini.enabled &&
     Boolean(mockAiConfig.gemini.apiKey) &&
-    Boolean(mockAiConfig.gemini.model),
+    mockAiConfig.gemini.models.length > 0,
   isLocalAiConfigured: () =>
     mockAiConfig.localAi.enabled && Boolean(mockAiConfig.localAi.baseUrl),
   isCodexBridgeConfigured: () => mockAiConfig.codexBridge.enabled
@@ -50,11 +81,18 @@ function resetConfig() {
   mockAiConfig.codexBridge.home = "C:\\Users\\test\\.codex";
   mockAiConfig.codexBridge.model = "";
   mockAiConfig.codexBridge.reasoningEffort = "";
+  mockAiConfig.codexBridge.remoteBaseUrl = "";
+  mockAiConfig.codexBridge.relayEnabled = false;
+  mockAiConfig.codexBridge.relayToken = "";
   mockAiConfig.gemini.enabled = false;
   mockAiConfig.gemini.apiKey = "";
   mockAiConfig.gemini.model = "";
+  mockAiConfig.gemini.models = [];
   mockAiConfig.localAi.enabled = false;
   mockAiConfig.localAi.baseUrl = "http://localhost:11434";
+  mockAiConfig.agyCli.enabled = false;
+  mockAiConfig.agyCli.configErrorReason = undefined;
+  mockAiConfig.agyCli.ssh.enabled = false;
 }
 
 function createCodexAppServerMock(
@@ -97,25 +135,29 @@ describe("AI provider status", () => {
     resetConfig();
     mockSpawn.mockReset();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("reports all real providers offline when disabled", async () => {
     const { CodexBridgeProvider } = await import("./codex-bridge.provider.js");
     const { GeminiProvider } = await import("./gemini.provider.js");
     const { LocalAiProvider } = await import("./local-ai.provider.js");
+    const { AgyCliProvider } = await import("./agy-cli.provider.js");
     const { HardcodedFallbackProvider } = await import("./hardcoded-fallback.provider.js");
 
     const statuses = await Promise.all([
       new CodexBridgeProvider().getStatus(),
       new GeminiProvider().getStatus(),
       new LocalAiProvider().getStatus(),
+      new AgyCliProvider().getStatus(),
       new HardcodedFallbackProvider().getStatus()
     ]);
 
     expect(statuses[0]).toMatchObject({ providerId: "codex_bridge", online: false, configured: false });
     expect(statuses[1]).toMatchObject({ providerId: "gemini", online: false, configured: false });
     expect(statuses[2]).toMatchObject({ providerId: "local", online: false, configured: false });
-    expect(statuses[3]).toMatchObject({ providerId: "fallback", online: true, configured: true });
+    expect(statuses[3]).toMatchObject({ providerId: "agy_cli", online: false, configured: false });
+    expect(statuses[4]).toMatchObject({ providerId: "fallback", online: true, configured: true });
   });
 
   it("reports Codex enabled but unavailable when login probe fails", async () => {
@@ -173,6 +215,46 @@ describe("AI provider status", () => {
     expect(status.configured).toBe(true);
     expect(status.online).toBe(false);
     expect(status.reason).toBe("codex_not_logged_in");
+  });
+
+  it("reports remote Codex relay status without spawning local Codex", async () => {
+    mockAiConfig.codexBridge.enabled = true;
+    mockAiConfig.codexBridge.remoteBaseUrl = "http://127.0.0.1:3900";
+    mockAiConfig.codexBridge.relayToken = "relay-token";
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: {
+          providerId: "codex_bridge",
+          label: "Codex Bridge",
+          online: true,
+          configured: true,
+          quotaExceeded: false,
+          models: [
+            {
+              modelId: "codex-app-server",
+              label: "codex-app-server",
+              online: true,
+              quotaExceeded: false
+            }
+          ]
+        }
+      })
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { CodexBridgeProvider } = await import("./codex-bridge.provider.js");
+    const status = await new CodexBridgeProvider().getStatus();
+
+    expect(status.online).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:3900/api/codex-bridge-relay/status",
+      expect.objectContaining({
+        headers: { Authorization: "Bearer relay-token" }
+      })
+    );
+    expect(mockSpawn).not.toHaveBeenCalled();
   });
 
   it("starts Codex ChatGPT OAuth login through app-server when requested", async () => {
@@ -291,7 +373,7 @@ describe("AI provider status", () => {
     );
     await new Promise((resolve) => setTimeout(resolve, 20));
 
-    expect(getCodexBridgeLoginStatus("login_session_test")).toMatchObject({
+    await expect(getCodexBridgeLoginStatus("login_session_test")).resolves.toMatchObject({
       status: "succeeded",
       account: {
         type: "chatgpt",
@@ -376,10 +458,121 @@ describe("AI provider status", () => {
     expect(result.data.ok).toBe(true);
   });
 
+  it("does not pass the Codex app-server display model as a concrete model override", async () => {
+    mockAiConfig.codexBridge.enabled = true;
+    let child: ReturnType<typeof createCodexAppServerMock>;
+
+    mockSpawn.mockImplementation(() => {
+      child = createCodexAppServerMock((message) => {
+        if (message.method === "initialize") {
+          return { id: message.id, result: { userAgent: "codex-test" } };
+        }
+        if (message.method === "account/read") {
+          return {
+            id: message.id,
+            result: {
+              account: { type: "chatgpt", email: "user@example.com", planType: "pro" },
+              requiresOpenaiAuth: true
+            }
+          };
+        }
+        if (message.method === "thread/start") {
+          return { id: message.id, result: { thread: { id: "thr_default_model" } } };
+        }
+        if (message.method === "turn/start") {
+          return [
+            { id: message.id, result: { turn: { id: "turn_default_model", status: "inProgress", items: [] } } },
+            {
+              method: "item/completed",
+              params: { item: { type: "agentMessage", id: "msg_default_model", text: "{\"ok\":true}" } }
+            },
+            { method: "turn/completed", params: { turn: { id: "turn_default_model", status: "completed" } } }
+          ];
+        }
+        return undefined;
+      });
+      return child;
+    });
+
+    const { CodexBridgeProvider } = await import("./codex-bridge.provider.js");
+    const result = await new CodexBridgeProvider().execute<{ ok: boolean }>({
+      operation: "plan",
+      payload: { userText: "manual codex provider selection" },
+      modelId: "codex-app-server",
+      timeoutMs: 1_000
+    });
+
+    const threadStartWrite = child!.stdin.write.mock.calls.find(([line]) => String(line).includes('"method":"thread/start"'));
+    const turnStartWrite = child!.stdin.write.mock.calls.find(([line]) => String(line).includes('"method":"turn/start"'));
+    const threadStart = JSON.parse(String(threadStartWrite?.[0] ?? "{}")) as { params?: { model?: string } };
+    const turnStart = JSON.parse(String(turnStartWrite?.[0] ?? "{}")) as { params?: { model?: string } };
+
+    expect(threadStart.params?.model).toBeUndefined();
+    expect(turnStart.params?.model).toBeUndefined();
+    expect(result.modelId).toBe("codex-app-server");
+    expect(result.data.ok).toBe(true);
+  });
+
+  it("does not pass a misconfigured Codex app-server display model from env as a model override", async () => {
+    mockAiConfig.codexBridge.enabled = true;
+    mockAiConfig.codexBridge.model = "codex-app-server";
+    let child: ReturnType<typeof createCodexAppServerMock>;
+
+    mockSpawn.mockImplementation(() => {
+      child = createCodexAppServerMock((message) => {
+        if (message.method === "initialize") {
+          return { id: message.id, result: { userAgent: "codex-test" } };
+        }
+        if (message.method === "account/read") {
+          return {
+            id: message.id,
+            result: {
+              account: { type: "chatgpt", email: "user@example.com", planType: "pro" },
+              requiresOpenaiAuth: true
+            }
+          };
+        }
+        if (message.method === "thread/start") {
+          return { id: message.id, result: { thread: { id: "thr_env_default_model" } } };
+        }
+        if (message.method === "turn/start") {
+          return [
+            { id: message.id, result: { turn: { id: "turn_env_default_model", status: "inProgress", items: [] } } },
+            {
+              method: "item/completed",
+              params: { item: { type: "agentMessage", id: "msg_env_default_model", text: "{\"ok\":true}" } }
+            },
+            { method: "turn/completed", params: { turn: { id: "turn_env_default_model", status: "completed" } } }
+          ];
+        }
+        return undefined;
+      });
+      return child;
+    });
+
+    const { CodexBridgeProvider } = await import("./codex-bridge.provider.js");
+    const result = await new CodexBridgeProvider().execute<{ ok: boolean }>({
+      operation: "plan",
+      payload: { userText: "env codex provider selection" },
+      timeoutMs: 1_000
+    });
+
+    const threadStartWrite = child!.stdin.write.mock.calls.find(([line]) => String(line).includes('"method":"thread/start"'));
+    const turnStartWrite = child!.stdin.write.mock.calls.find(([line]) => String(line).includes('"method":"turn/start"'));
+    const threadStart = JSON.parse(String(threadStartWrite?.[0] ?? "{}")) as { params?: { model?: string } };
+    const turnStart = JSON.parse(String(turnStartWrite?.[0] ?? "{}")) as { params?: { model?: string } };
+
+    expect(threadStart.params?.model).toBeUndefined();
+    expect(turnStart.params?.model).toBeUndefined();
+    expect(result.modelId).toBe("codex-app-server");
+    expect(result.data.ok).toBe(true);
+  });
+
   it("reports Gemini disabled when enabled but key or model is missing", async () => {
     mockAiConfig.gemini.enabled = true;
     mockAiConfig.gemini.apiKey = "";
     mockAiConfig.gemini.model = "";
+    mockAiConfig.gemini.models = [];
 
     const { GeminiProvider } = await import("./gemini.provider.js");
     const status = await new GeminiProvider().getStatus();
@@ -393,6 +586,7 @@ describe("AI provider status", () => {
     mockAiConfig.gemini.enabled = true;
     mockAiConfig.gemini.apiKey = "test-key";
     mockAiConfig.gemini.model = "gemini-test";
+    mockAiConfig.gemini.models = ["gemini-test"];
 
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       status: 429,
@@ -411,6 +605,7 @@ describe("AI provider status", () => {
     mockAiConfig.gemini.enabled = true;
     mockAiConfig.gemini.apiKey = "test-key";
     mockAiConfig.gemini.model = "gemini-test";
+    mockAiConfig.gemini.models = ["gemini-test"];
 
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       status: 500,
@@ -424,6 +619,103 @@ describe("AI provider status", () => {
     expect(status.quotaExceeded).toBe(false);
     expect(status.online).toBe(false);
     expect(status.models[0]?.online).toBe(false);
+  });
+
+  it("reports all configured Gemini models in priority order", async () => {
+    mockAiConfig.gemini.enabled = true;
+    mockAiConfig.gemini.apiKey = "test-key";
+    mockAiConfig.gemini.model = "gemma-4-31b-it";
+    mockAiConfig.gemini.models = ["gemma-4-31b-it", "gemma-4-26b-a4b-it", "gemini-2.5-flash"];
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      status: 200,
+      ok: true
+    } as Response);
+
+    const { GeminiProvider } = await import("./gemini.provider.js");
+    const status = await new GeminiProvider().getStatus();
+
+    expect(status.online).toBe(true);
+    expect(status.models.map((model) => model.modelId)).toEqual([
+      "gemma-4-31b-it",
+      "gemma-4-26b-a4b-it",
+      "gemini-2.5-flash"
+    ]);
+    expect(status.models[0]?.recommended).toBe(true);
+    expect(status.models[1]?.recommended).toBe(false);
+  });
+
+  it("falls through Gemini models when the first model is quota exhausted", async () => {
+    mockAiConfig.gemini.enabled = true;
+    mockAiConfig.gemini.apiKey = "test-key";
+    mockAiConfig.gemini.model = "gemma-4-31b-it";
+    mockAiConfig.gemini.models = ["gemma-4-31b-it", "gemma-4-26b-a4b-it", "gemini-2.5-flash"];
+
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        status: 429,
+        ok: false
+      } as Response)
+      .mockResolvedValueOnce({
+        status: 200,
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: "{\"ok\":true}" }] } }]
+        })
+      } as Response);
+
+    const { GeminiProvider } = await import("./gemini.provider.js");
+    const result = await new GeminiProvider().execute<{ ok: boolean }>({
+      operation: "plan",
+      payload: { userText: "Gemini model rollover" },
+      timeoutMs: 1_000
+    });
+
+    expect(result.modelId).toBe("gemma-4-26b-a4b-it");
+    expect(result.data.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("gemma-4-31b-it");
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/v1/models/");
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain("gemma-4-26b-a4b-it");
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain("/v1/models/");
+
+    const firstBody = JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body));
+    expect(firstBody.generationConfig.responseMimeType).toBeUndefined();
+  });
+
+  it("retries transient Gemini HTTP errors before moving to the next model", async () => {
+    mockAiConfig.gemini.enabled = true;
+    mockAiConfig.gemini.apiKey = "test-key";
+    mockAiConfig.gemini.model = "gemma-4-31b-it";
+    mockAiConfig.gemini.models = ["gemma-4-31b-it", "gemini-2.5-flash"];
+
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        status: 500,
+        ok: false
+      } as Response)
+      .mockResolvedValueOnce({
+        status: 200,
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: "{\"ok\":true}" }] } }]
+        })
+      } as Response);
+
+    const { GeminiProvider } = await import("./gemini.provider.js");
+    const result = await new GeminiProvider().execute<{ ok: boolean }>({
+      operation: "plan",
+      payload: { userText: "Gemini transient retry" },
+      timeoutMs: 1_000
+    });
+
+    expect(result.modelId).toBe("gemma-4-31b-it");
+    expect(result.data.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("gemma-4-31b-it");
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain("gemma-4-31b-it");
   });
 
   it("reports Local AI offline when ping fails", async () => {

@@ -1,0 +1,21 @@
+sequenceDiagram
+  actor User
+  participant UI as DocumentNew Page
+  participant Client as documentClient
+  participant Route as document.route
+  participant Auth as auth middleware
+  participant Service as document.service
+  participant DB as Prisma and PostgreSQL
+
+  User->>UI: 문서 제목, 유형, 본문 입력
+  UI->>Client: createDocument(payload)
+  Client->>Route: POST /api/documents with bearer token
+  Route->>Auth: requireAuthenticatedUser
+  Auth-->>Route: authenticated user
+  Route->>Route: createDocumentSchema.parse
+  Route->>Service: createDocument(candidateKey, actorUserId, payload)
+  Service->>DB: ApplicationDocument create
+  DB-->>Service: DocumentDetail
+  Service-->>Route: DocumentDetail
+  Route-->>Client: { data: document }
+  Client-->>UI: 상세 화면으로 이동

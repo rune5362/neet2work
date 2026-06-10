@@ -77,6 +77,11 @@ async function sendJson<T>(
   return response.json() as Promise<T>;
 }
 
+/**
+ * 로그인 사용자의 지원 문서 목록을 조회합니다.
+ *
+ * @param filters - 문서 유형과 보호된 문서 포함 여부입니다.
+ */
 export async function getDocuments(
   filters: { documentType?: ApplicationDocumentType; includeArchived?: boolean } = {}
 ): Promise<DocumentListItem[]> {
@@ -92,6 +97,9 @@ export async function getDocuments(
   return result.data;
 }
 
+/**
+ * 새 지원 문서를 생성합니다.
+ */
 export async function createDocument(payload: CreateDocumentPayload): Promise<DocumentDetail> {
   const result = await sendJson<ApiItemResponse<DocumentDetail>>(
     "/api/documents",
@@ -103,6 +111,9 @@ export async function createDocument(payload: CreateDocumentPayload): Promise<Do
   return result.data;
 }
 
+/**
+ * 지원 문서 상세 정보를 조회합니다.
+ */
 export async function getDocument(documentId: string): Promise<DocumentDetail> {
   const query = buildQuery({});
   const result = await getJson<ApiItemResponse<DocumentDetail>>(
@@ -113,6 +124,9 @@ export async function getDocument(documentId: string): Promise<DocumentDetail> {
   return result.data;
 }
 
+/**
+ * 지원 문서의 제목, 연결 대상, 본문, 보호 상태를 수정합니다.
+ */
 export async function updateDocumentMeta(
   documentId: string,
   payload: UpdateDocumentMetaPayload
@@ -127,6 +141,12 @@ export async function updateDocumentMeta(
   return result.data;
 }
 
+/**
+ * 지원 문서를 보호 상태로 전환해 기본 목록에서 숨깁니다.
+ *
+ * @remarks
+ * 기존 archive 용어와 같은 backend lifecycle을 사용하지만, UI에서는 보호/해제 용어를 사용합니다.
+ */
 export async function protectDocument(documentId: string): Promise<DocumentDetail> {
   const query = buildQuery({});
   const response = await authorizedFetch(`/api/documents/${documentId}?${query}`, {
@@ -141,6 +161,9 @@ export async function protectDocument(documentId: string): Promise<DocumentDetai
   return result.data;
 }
 
+/**
+ * 보호 상태인 지원 문서를 다시 기본 목록에 노출합니다.
+ */
 export async function unprotectDocument(documentId: string): Promise<DocumentDetail> {
   return updateDocumentMeta(documentId, { isArchived: false });
 }
@@ -148,6 +171,9 @@ export async function unprotectDocument(documentId: string): Promise<DocumentDet
 export const archiveDocument = protectDocument;
 export const restoreDocument = unprotectDocument;
 
+/**
+ * 기존 지원 문서를 복사해 새 문서로 생성합니다.
+ */
 export async function copyDocument(documentId: string): Promise<DocumentDetail> {
   const result = await sendJson<ApiItemResponse<DocumentDetail>>(
     `/api/documents/${documentId}/copy`,
@@ -159,6 +185,9 @@ export async function copyDocument(documentId: string): Promise<DocumentDetail> 
   return result.data;
 }
 
+/**
+ * 지원 문서를 삭제 lifecycle로 전환합니다.
+ */
 export async function deleteDocument(documentId: string): Promise<DocumentDetail> {
   const result = await sendJson<ApiItemResponse<DocumentDetail>>(
     `/api/documents/${documentId}/delete`,

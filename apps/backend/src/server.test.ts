@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getPrismaClient } from "./database/prisma.js";
 import { checkPostgresConnection } from "./storage/postgres.js";
 import { createApp, logServerError } from "./server.js";
+import { issueAccessToken } from "./services/token.service.js";
 
 vi.mock("./database/prisma.js", () => ({
   getPrismaClient: vi.fn()
@@ -79,20 +80,42 @@ async function request(
   }
 }
 
+function authHeader() {
+  const { accessToken } = issueAccessToken({
+    sub: "server-test-user",
+    email: "server-test@example.com",
+    status: "ACTIVE"
+  });
+  return `Bearer ${accessToken}`;
+}
+
+function jsonAuthHeaders() {
+  return {
+    Authorization: authHeader(),
+    "Content-Type": "application/json"
+  };
+}
+
 describe("server HTTP contract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     checkPostgresConnectionMock.mockResolvedValue("connected");
     getPrismaClientMock.mockReturnValue(null);
     process.env.AI_API_KEY = "present-but-not-wired";
+    process.env.AI_RATE_LIMIT_MAX_REQUESTS = "1000";
+    process.env.JWT_SECRET = "server-test-secret-that-is-long-enough";
     process.env.R2_ACCESS_KEY_ID = "present-but-not-wired";
   });
 
   afterEach(() => {
     delete process.env.AI_API_KEY;
+    delete process.env.AI_RATE_LIMIT_MAX_REQUESTS;
     delete process.env.ALLOW_LOCALHOST_ORIGINS;
+    delete process.env.JWT_SECRET;
     delete process.env.NODE_ENV;
+    delete process.env.REQUIRE_HTTPS;
     delete process.env.R2_ACCESS_KEY_ID;
+    delete process.env.TRUST_PROXY;
   });
 
   it("reports only live runtime capabilities in health", async () => {
@@ -121,6 +144,7 @@ describe("server HTTP contract", () => {
 
   it("rejects unconfigured localhost origins in production by default", async () => {
     process.env.NODE_ENV = "production";
+    process.env.REQUIRE_HTTPS = "false";
 
     const response = await request(createApp(), "/api/jobs", {
       headers: {
@@ -135,6 +159,7 @@ describe("server HTTP contract", () => {
   it("allows unconfigured localhost origins in production only when explicitly enabled", async () => {
     process.env.ALLOW_LOCALHOST_ORIGINS = "true";
     process.env.NODE_ENV = "production";
+    process.env.REQUIRE_HTTPS = "false";
 
     const response = await request(createApp(), "/api/jobs", {
       headers: {
@@ -144,6 +169,26 @@ describe("server HTTP contract", () => {
 
     expect(response.headers.get("access-control-allow-origin")).toBe("http://localhost:5174");
     expect(response.headers.get("access-control-allow-credentials")).toBe("true");
+  });
+
+  it("requires HTTPS by default in production", async () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.REQUIRE_HTTPS;
+
+    const response = await request(createApp(), "/api/jobs");
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      message: "HTTPS 연결이 필요합니다."
+    });
+  });
+
+  it("rejects wildcard trust proxy in production", () => {
+    process.env.NODE_ENV = "production";
+    process.env.TRUST_PROXY = "true";
+
+    expect(() => createApp()).toThrow("TRUST_PROXY=true is not allowed in production");
   });
 
   it("requires authentication for candidate-owned library routes", async () => {
@@ -172,9 +217,7 @@ describe("server HTTP contract", () => {
   it("keeps the analyze route envelope stable", async () => {
     const response = await request(createApp(), "/api/analyze", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({
         jobId: "job-001",
         resumeText: "React와 TypeScript로 API 연동 화면을 만들었습니다."
@@ -189,15 +232,67 @@ describe("server HTTP contract", () => {
     });
   });
 
+  it("requires authentication for AI execution routes", async () => {
+    const response = await request(createApp(), "/api/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        jobId: "job-001",
+        resumeText: "React와 TypeScript로 API 연동 화면을 만들었습니다."
+      })
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({
+      message: "인증이 필요합니다.",
+      fallback: true
+    });
+  });
+
+  it("rejects access tokens when the backing user is no longer active", async () => {
+    const findFirst = vi.fn().mockResolvedValue(null);
+    getPrismaClientMock.mockReturnValue({
+      user: { findFirst }
+    } as unknown as ReturnType<typeof getPrismaClient>);
+
+    const response = await request(createApp(), "/api/resume/extract", {
+      method: "POST",
+      headers: jsonAuthHeaders(),
+      body: JSON.stringify({
+        fileName: "resume.txt",
+        mimeType: "text/plain",
+        contentBase64: Buffer.from("첨부 텍스트 파일 본문입니다.", "utf-8").toString("base64")
+      })
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({
+      message: "세션이 만료되었습니다. 다시 로그인해 주세요.",
+      fallback: true
+    });
+    expect(findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "server-test-user",
+        deletedAt: null,
+        status: "ACTIVE"
+      },
+      select: {
+        id: true
+      }
+    });
+  });
+
   it("returns 400 for unsupported image resume extract requests", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     try {
       const response = await request(createApp(), "/api/resume/extract", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: jsonAuthHeaders(),
         body: JSON.stringify({
           fileName: "resume.png",
           mimeType: "image/png",
@@ -217,9 +312,7 @@ describe("server HTTP contract", () => {
   it("keeps the resume extract route envelope stable for txt files", async () => {
     const response = await request(createApp(), "/api/resume/extract", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({
         fileName: "resume.txt",
         mimeType: "text/plain",

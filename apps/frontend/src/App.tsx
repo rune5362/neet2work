@@ -1,9 +1,6 @@
 import { lazy, Suspense, type ReactNode } from "react";
 
 const Home = lazy(() => import("./pages/Home").then((module) => ({ default: module.Home })));
-const AIAnalysisDetails = lazy(() =>
-  import("./pages/AIAnalysisDetails").then((module) => ({ default: module.AIAnalysisDetails }))
-);
 const AIDraftChatBuilder = lazy(() =>
   import("./pages/AIDraftChatBuilder").then((module) => ({ default: module.AIDraftChatBuilder }))
 );
@@ -19,9 +16,10 @@ const Documents = lazy(() => import("./pages/Documents").then((module) => ({ def
 const Jobs = lazy(() => import("./pages/Jobs").then((module) => ({ default: module.Jobs })));
 const Login = lazy(() => import("./pages/Login").then((module) => ({ default: module.Login })));
 const MyAccount = lazy(() => import("./pages/MyAccount").then((module) => ({ default: module.MyAccount })));
-const Notifications = lazy(() =>
-  import("./pages/Notifications").then((module) => ({ default: module.Notifications }))
-);
+// Notifications are unfinished, so the page route is temporarily disabled.
+// const Notifications = lazy(() =>
+//   import("./pages/Notifications").then((module) => ({ default: module.Notifications }))
+// );
 const ProfileDetail = lazy(() =>
   import("./pages/ProfileDetail").then((module) => ({ default: module.ProfileDetail }))
 );
@@ -66,11 +64,7 @@ export default function App() {
   }
 
   if (pathname === "/ai-analysis/details") {
-    return (
-      <DeferredPage>
-        <AIAnalysisDetails />
-      </DeferredPage>
-    );
+    return <Redirect to="/ai-analysis" />;
   }
 
   if (pathname === "/ai-analysis") {
@@ -162,11 +156,7 @@ export default function App() {
   }
 
   if (pathname === "/notifications") {
-    return (
-      <DeferredPage>
-        <Notifications />
-      </DeferredPage>
-    );
+    return <Redirect to="/" />;
   }
 
   if (pathname === "/myaccount") {

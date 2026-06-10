@@ -1,0 +1,22 @@
+flowchart LR
+  start["사용자 진입"]
+  choice{"계정이 있나?"}
+  signup["회원가입 화면"]
+  login["로그인 화면"]
+  submitSignup["이메일, 비밀번호, 이름 입력"]
+  submitLogin["이메일, 비밀번호 입력"]
+  authApi["Auth API"]
+  session["access token과 refresh token 저장"]
+  account["내 계정 화면"]
+  security["보안 요약 조회"]
+  logout["로그아웃"]
+
+  start --> choice
+  choice -->|없음| signup
+  choice -->|있음| login
+  signup --> submitSignup --> authApi
+  login --> submitLogin --> authApi
+  authApi --> session
+  session --> account
+  account --> security
+  account --> logout

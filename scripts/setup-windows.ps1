@@ -16,6 +16,18 @@ function Test-Command {
   return $null -ne (Get-Command $Command -ErrorAction SilentlyContinue)
 }
 
+function Invoke-CheckedNative {
+  param(
+    [scriptblock]$Command,
+    [string]$ErrorMessage
+  )
+
+  & $Command
+  if ($LASTEXITCODE -ne 0) {
+    throw $ErrorMessage
+  }
+}
+
 function Refresh-Path {
   $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
   $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
@@ -27,8 +39,16 @@ function Get-NodeVersion {
     return $null
   }
 
-  $version = (& node -v).TrimStart("v")
-  return [Version]$version
+  try {
+    $version = (& node -v 2>$null)
+    if ($LASTEXITCODE -ne 0 -or -not $version) {
+      return $null
+    }
+
+    return [Version]$version.TrimStart("v")
+  } catch {
+    return $null
+  }
 }
 
 function Ensure-Winget {
@@ -47,7 +67,7 @@ function Ensure-NvmWindows {
 
   Ensure-Winget
   Write-Step "winget으로 nvm-windows 설치"
-  winget install --id CoreyButler.NVMforWindows --exact --silent --accept-package-agreements --accept-source-agreements
+  Invoke-CheckedNative { winget install --id CoreyButler.NVMforWindows --exact --silent --accept-package-agreements --accept-source-agreements } "nvm-windows 설치에 실패했습니다."
   Refresh-Path
 
   if (-not (Test-Command "nvm")) {
@@ -59,8 +79,8 @@ function Ensure-ProjectNodeVersion {
   Ensure-NvmWindows
 
   Write-Step "nvm-windows로 Node.js 24.14.0 준비"
-  nvm install 24.14.0
-  nvm use 24.14.0
+  Invoke-CheckedNative { nvm install 24.14.0 } "Node.js 24.14.0 설치에 실패했습니다."
+  Invoke-CheckedNative { nvm use 24.14.0 } "Node.js 24.14.0 사용 설정에 실패했습니다."
   Refresh-Path
 }
 
@@ -100,21 +120,21 @@ Write-Host "pnpm: $(& corepack pnpm --version)" -ForegroundColor Green
 
 if (-not $SkipInstall) {
   Write-Step "pnpm 의존성 설치"
-  corepack pnpm install
+  Invoke-CheckedNative { corepack pnpm install } "pnpm 의존성 설치에 실패했습니다."
 
   Write-Step ".env 생성"
-  corepack pnpm run setup:env
+  Invoke-CheckedNative { corepack pnpm run setup:env } ".env 생성에 실패했습니다."
 
   Write-Step "Prisma Client 생성"
-  corepack pnpm run db:generate
+  Invoke-CheckedNative { corepack pnpm run db:generate } "Prisma Client 생성에 실패했습니다."
 
   Write-Step "Playwright Chromium 설치"
-  corepack pnpm run setup:playwright
+  Invoke-CheckedNative { corepack pnpm run setup:playwright } "Playwright Chromium 설치에 실패했습니다."
 }
 
 if ($RunCheck) {
   Write-Step "프로젝트 전체 검사"
-  corepack pnpm run check
+  Invoke-CheckedNative { corepack pnpm run check } "프로젝트 전체 검사에 실패했습니다."
 }
 
 Write-Step "세팅 완료"

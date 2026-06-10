@@ -1,9 +1,10 @@
 import type { AddressInfo } from "node:net";
 import express from "express";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 import { draftWorkflowRouter } from "./draft-workflow.route.js";
 import { HttpError } from "../utils/http-error.js";
+import { issueAccessToken } from "../services/token.service.js";
 
 function createDraftWorkflowTestApp() {
   const app = express();
@@ -35,13 +36,39 @@ function createDraftWorkflowTestApp() {
   return app;
 }
 
-async function request(path: string, init?: RequestInit): Promise<Response> {
+function authHeaders() {
+  const { accessToken } = issueAccessToken({
+    sub: "route-test-user",
+    email: "route-test@example.com",
+    status: "ACTIVE"
+  });
+  return `Bearer ${accessToken}`;
+}
+
+function withAuth(init?: RequestInit) {
+  const headers = new Headers(init?.headers);
+  if (!headers.has("Authorization")) {
+    headers.set("Authorization", authHeaders());
+  }
+
+  return {
+    ...init,
+    headers
+  };
+}
+
+async function request(
+  path: string,
+  init?: RequestInit,
+  options: { auth?: boolean } = {}
+): Promise<Response> {
   const app = createDraftWorkflowTestApp();
   const server = app.listen(0);
+  const requestInit = options.auth === false ? init : withAuth(init);
 
   try {
     const address = server.address() as AddressInfo;
-    return await fetch(`http://127.0.0.1:${address.port}${path}`, init);
+    return await fetch(`http://127.0.0.1:${address.port}${path}`, requestInit);
   } finally {
     await new Promise<void>((resolve, reject) => {
       server.close((error) => {
@@ -65,9 +92,66 @@ const validTarget = {
   blindRecruitment: false
 };
 
+const validProfileContext = {
+  profileId: "candidate-profile-1",
+  title: "백엔드 지원 프로필",
+  schemaVersion: 1,
+  profileText: "Node.js와 PostgreSQL로 REST API 서버를 설계하고 운영했습니다.",
+  targetRole: "백엔드 엔지니어",
+  targetCompany: "Backend Bridge",
+  desiredRoles: ["백엔드 엔지니어"],
+  skills: ["Node.js", "PostgreSQL", "REST API"],
+  profileJson: {
+    basics: {
+      name: "김백엔드",
+      email: "backend@example.com",
+      phone: "010-0000-0000",
+      location: "Seoul",
+      links: {
+        github: "https://github.com/backend"
+      }
+    },
+    desired: {
+      roles: ["백엔드 엔지니어"],
+      industries: ["SaaS"],
+      locations: ["Tokyo"],
+      employmentTypes: ["Full-time"]
+    },
+    summary: {
+      headline: "API 운영 경험",
+      description: "PostgreSQL 기반 REST API 서버를 운영했습니다."
+    },
+    skills: ["Node.js", "PostgreSQL", "REST API"],
+    projects: [
+      {
+        title: "채용 API 개선",
+        role: "백엔드 개발",
+        result: "응답 시간을 단축했습니다.",
+        impact: "운영 안정성을 높였습니다.",
+        achievements: ["장애 대응 절차를 문서화했습니다."]
+      }
+    ],
+    experiences: [],
+    certifications: [],
+    education: [],
+    activities: [],
+    metadata: {
+      lastUpdatedBy: "user",
+      lastAiUpdatedAt: null
+    }
+  }
+};
+
 describe("draft workflow routes", () => {
+  beforeEach(() => {
+    process.env.AI_RATE_LIMIT_MAX_REQUESTS = "1000";
+    process.env.JWT_SECRET = "route-test-secret-that-is-long-enough";
+  });
+
   afterEach(() => {
+    delete process.env.AI_RATE_LIMIT_MAX_REQUESTS;
     delete process.env.AI_PROVIDER_ORDER;
+    delete process.env.JWT_SECRET;
   });
 
   it("GET /providers includes fallback provider", async () => {
@@ -76,6 +160,24 @@ describe("draft workflow routes", () => {
 
     expect(response.status).toBe(200);
     expect(body.data.some((item: { providerId: string; online: boolean }) => item.providerId === "fallback" && item.online)).toBe(true);
+  });
+
+  it("POST /plan requires authentication", async () => {
+    const response = await request("/api/draft-workflow/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        aiSelection: { mode: "auto" },
+        target: validTarget,
+        experienceInput: {
+          manualExperienceText: "Node.js와 PostgreSQL로 REST API 서버를 구축하고 운영했습니다."
+        }
+      })
+    }, { auth: false });
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body.message).toBe("인증이 필요합니다.");
   });
 
   it("POST /providers/codex/login returns 400 when Codex Bridge is disabled", async () => {
@@ -120,6 +222,51 @@ describe("draft workflow routes", () => {
         aiSelection: { mode: "auto" },
         target: validTarget,
         experienceInput: {}
+      })
+    });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("POST /plan accepts selected profile contexts as factual evidence", async () => {
+    const response = await request("/api/draft-workflow/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        aiSelection: { mode: "auto" },
+        target: validTarget,
+        experienceInput: {
+          profileContexts: [validProfileContext]
+        }
+      })
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.experienceCards[0].evidenceItems[0].content).toContain("백엔드 지원 프로필");
+    expect(body.data.experienceCards[0].evidenceItems[0].content).toContain("Node.js");
+  });
+
+  it("POST /plan returns 400 for invalid selected profile context shape", async () => {
+    const response = await request("/api/draft-workflow/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        aiSelection: { mode: "auto" },
+        target: validTarget,
+        experienceInput: {
+          profileContexts: [
+            {
+              ...validProfileContext,
+              profileJson: {
+                summary: {
+                  headline: "missing required fields",
+                  description: "invalid"
+                }
+              }
+            }
+          ]
+        }
       })
     });
 

@@ -1,0 +1,52 @@
+sequenceDiagram
+  actor User
+  participant UI as AIDraftChatBuilder
+  participant Route as draft-workflow.route
+  participant Service as DraftWorkflowService
+  participant Router as AiRouter
+  participant Provider as AI Provider
+  participant Fallback as Fallback Provider
+
+  User->>UI: 문항, 경험 자료, provider 선택 입력
+  UI->>Route: POST /api/draft-workflow/plan
+  Route->>Route: draftWorkflowPlanRequestSchema.parse
+  Route->>Service: createPlan(request)
+  Service->>Router: execute(operation: plan)
+  Router->>Provider: run selected or auto provider
+  Provider-->>Router: plan candidate + aiMeta
+  Router-->>Service: result
+  Service->>Service: draftWorkflowPlanSchema.parse
+  alt invalid output or material priority mismatch
+    Service->>Router: executeFallback(reason: invalid_output)
+    Router->>Fallback: build fallback plan
+    Fallback-->>Router: fallback plan + aiMeta
+    Router-->>Service: fallback result
+    Service->>Service: validate fallback plan
+  end
+  Service-->>Route: DraftWorkflowPlan
+  Route-->>UI: { data: plan }
+
+  UI->>Route: POST /api/draft-workflow/draft
+  Route->>Service: createDraft(request)
+  Service->>Router: execute(operation: draft)
+  Router->>Provider: generate draft
+  Provider-->>Service: draft candidate + aiMeta
+  Service->>Service: normalize char count
+  Service->>Service: assertDraftIsEvidenceLocked
+  alt invalid output or evidence lock failure
+    Service->>Router: executeFallback(reason: invalid_output)
+    Router->>Fallback: build fallback draft
+    Fallback-->>Service: fallback draft + aiMeta
+    Service->>Service: normalize and validate fallback
+  end
+  Service-->>Route: DraftWorkflowDraft
+  Route-->>UI: { data: draft }
+
+  UI->>Route: POST /api/draft-workflow/revise
+  Route->>Service: reviseDraft(request)
+  Service->>Router: execute(operation: revise)
+  Router->>Provider: revise draft
+  Provider-->>Service: revised draft candidate + aiMeta
+  Service->>Service: normalize and validate evidence lock
+  Service-->>Route: DraftWorkflowDraft
+  Route-->>UI: { data: revisedDraft }

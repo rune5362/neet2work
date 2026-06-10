@@ -360,6 +360,47 @@ Response:
 }
 ```
 
+## Career Workflow
+
+The `/api/career-workflow` endpoints are the MVP routing layer for the AI career
+document coach. They do not generate final prose. They classify source material,
+build an Evidence Vault, and return the next best Socratic question.
+
+### `POST /api/career-workflow/session`
+
+Creates a stateless local session from optional document type, target context,
+and source inputs.
+
+Source types include `empty`, `experience_text`, `blank_cover_letter_template`,
+`resume`, `career_description`, `portfolio`, `github_url`, `job_posting`,
+`project_text`, and `reference_pattern`.
+
+Response includes:
+
+- `documentType` and `documentTypeReason`
+- `sources` with extracted signals and confirmation requirements
+- `templateAnalysis.questions`
+- `evidenceVault`
+- `completion`
+- `nextQuestion`
+
+Evidence Vault items carry `status`, `confirmedByUser`, resume/cover-letter/
+career-description usability flags, and blind/privacy risk flags. GitHub source
+material is confirmation-required and is not treated as proof of user
+contribution until the user answers.
+
+### `POST /api/career-workflow/next-question`
+
+Accepts a prior `session` and returns the current `nextQuestion`. The question
+contains `question`, `whyAsking`, `targetDocument`, `targetSection`,
+`expectedAnswerType`, `priority`, `canSkip`, and `targetSlot`.
+
+### `POST /api/career-workflow/answer-question`
+
+Accepts a prior `session`, `questionId`, and user `answer`. The response returns
+an updated stateless `session`, an `acceptedEvidence` item with
+`status=user_provided`, and the next question if more required slots are empty.
+
 ## Draft Workflow
 
 The `/ai-analysis` page uses these endpoints instead of `POST /api/analyze` for

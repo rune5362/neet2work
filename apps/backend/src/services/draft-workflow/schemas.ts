@@ -1,8 +1,11 @@
 import { z } from "zod";
 
+const optionalStringResultSchema = z.preprocess((value) => (value === null ? undefined : value), z.string().optional());
+const optionalNumberResultSchema = z.preprocess((value) => (value === null ? undefined : value), z.number().optional());
+
 export const aiSelectionSchema = z.object({
   mode: z.enum(["auto", "manual"]),
-  providerId: z.enum(["codex_bridge", "gemini", "local", "fallback"]).optional(),
+  providerId: z.enum(["codex_bridge", "gemini", "local", "agy_cli", "fallback"]).optional(),
   modelId: z.string().optional()
 }).superRefine((selection, ctx) => {
   if (selection.mode === "manual" && !selection.providerId) {
@@ -28,11 +31,67 @@ export const draftTargetSchema = z.object({
   previousDraftText: z.string().optional()
 });
 
+const profileProjectSchema = z.object({
+  name: z.string().optional(),
+  title: z.string().optional(),
+  role: z.string().optional(),
+  result: z.string().optional(),
+  impact: z.string().optional(),
+  achievements: z.array(z.string()).optional()
+});
+
+const profileJsonSchema = z.object({
+  basics: z.object({
+    name: z.string(),
+    email: z.string(),
+    phone: z.string(),
+    location: z.string(),
+    links: z.object({
+      github: z.string().optional(),
+      portfolio: z.string().optional(),
+      blog: z.string().optional()
+    })
+  }),
+  desired: z.object({
+    roles: z.array(z.string()),
+    industries: z.array(z.string()),
+    locations: z.array(z.string()),
+    employmentTypes: z.array(z.string())
+  }),
+  summary: z.object({
+    headline: z.string(),
+    description: z.string()
+  }),
+  skills: z.array(z.string()),
+  projects: z.array(profileProjectSchema),
+  experiences: z.array(z.unknown()),
+  certifications: z.array(z.unknown()),
+  education: z.array(z.unknown()),
+  activities: z.array(z.unknown()),
+  metadata: z.object({
+    lastUpdatedBy: z.enum(["user", "ai", "system"]),
+    lastAiUpdatedAt: z.string().nullable()
+  })
+});
+
+export const draftProfileContextSchema = z.object({
+  profileId: z.string().min(1),
+  title: z.string().min(1),
+  schemaVersion: z.number().int().positive(),
+  profileJson: profileJsonSchema,
+  profileText: z.string().optional(),
+  targetRole: z.string().nullable().optional(),
+  targetCompany: z.string().nullable().optional(),
+  desiredRoles: z.array(z.string()),
+  skills: z.array(z.string())
+});
+
 export const draftExperienceInputSchema = z.object({
   portfolioText: z.string().optional(),
   manualExperienceText: z.string().optional(),
   additionalContext: z.string().optional(),
-  referenceSelfIntroText: z.string().optional()
+  referenceSelfIntroText: z.string().optional(),
+  profileContexts: z.array(draftProfileContextSchema).optional()
 });
 
 export const documentFormattingSchema = z.object({
@@ -100,15 +159,15 @@ export const experienceCardSchema = z.object({
   experienceId: z.string(),
   source: z.enum(["portfolio", "manual", "conversation", "fallback"]),
   title: z.string(),
-  period: z.string().optional(),
-  context: z.string().optional(),
-  role: z.string().optional(),
-  problem: z.string().optional(),
+  period: optionalStringResultSchema,
+  context: optionalStringResultSchema,
+  role: optionalStringResultSchema,
+  problem: optionalStringResultSchema,
   actions: z.array(
     z.object({
       action: z.string(),
-      method: z.string().optional(),
-      rationale: z.string().optional()
+      method: optionalStringResultSchema,
+      rationale: optionalStringResultSchema
     })
   ),
   tools: z.array(z.string()),
@@ -154,7 +213,7 @@ export const answerStrategySchema = z.object({
 });
 
 export const aiExecutionMetaSchema = z.object({
-  providerId: z.enum(["codex_bridge", "gemini", "local", "fallback"]),
+  providerId: z.enum(["codex_bridge", "gemini", "local", "agy_cli", "fallback"]),
   modelId: z.string(),
   routingMode: z.enum(["auto", "manual"]),
   usedFallback: z.boolean(),
@@ -210,7 +269,7 @@ export const draftWorkflowPlanSchema = z.object({
       paragraphId: z.string(),
       purpose: z.string(),
       plannedClaims: z.array(z.string()),
-      targetChars: z.number().optional()
+      targetChars: optionalNumberResultSchema
     })
   )
 });
@@ -219,11 +278,11 @@ export const draftWorkflowDraftSchema = z.object({
   mode: z.enum(["ai", "fallback"]),
   state: draftWorkflowStateSchema,
   aiMeta: aiExecutionMetaSchema,
-  draftText: z.string(),
+  draftText: z.string().min(1),
   charCount: z.object({
     withSpaces: z.number(),
     withoutSpaces: z.number(),
-    limit: z.number().optional()
+    limit: optionalNumberResultSchema
   }),
   evidenceMap: z.array(
     z.object({
@@ -249,7 +308,7 @@ export const draftWorkflowDraftSchema = z.object({
         type: z.string(),
         severity: z.enum(["low", "medium", "high"]),
         message: z.string(),
-        suggestedQuestion: z.string().optional()
+        suggestedQuestion: optionalStringResultSchema
       })
     ),
     likelyInterviewQuestions: z.array(z.string()),
@@ -265,7 +324,8 @@ export const draftWorkflowPlanRequestSchema = z.object({
     (input) =>
       Boolean(input.portfolioText?.trim()) ||
       Boolean(input.manualExperienceText?.trim()) ||
-      Boolean(input.additionalContext?.trim()),
+      Boolean(input.additionalContext?.trim()) ||
+      Boolean(input.profileContexts?.length),
     { message: "경험 입력 텍스트가 필요합니다." }
   )
 });

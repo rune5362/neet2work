@@ -6209,15 +6209,20 @@ textarea:focus {
 }
 
 .aiDraftTimeline {
+  --draft-timeline-bottom-gutter: 18px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 12px;
   min-height: 0;
-  padding: 24px 22px 14px;
+  padding: 24px 22px var(--draft-timeline-bottom-gutter);
   overflow-y: auto;
-  scroll-padding-bottom: 18px;
+  scroll-padding-bottom: calc(var(--draft-timeline-bottom-gutter) + 8px);
   scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+
+.aiDraftTimeline.hasActiveProgress {
+  --draft-timeline-bottom-gutter: 112px;
 }
 
 .aiDraftMessage {
@@ -6244,6 +6249,98 @@ textarea:focus {
 
 .aiDraftMessage.user .aiDraftBubble {
   margin-left: auto;
+}
+
+.aiDraftUserMessageStack {
+  display: flex;
+  width: fit-content;
+  max-width: min(86%, 840px);
+  margin-left: auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.aiDraftUserMessageStack .aiDraftBubble {
+  max-width: 100%;
+}
+
+.aiDraftSentAttachments {
+  display: flex;
+  width: min(320px, 100%);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.aiDraftSentAttachmentCard {
+  display: flex;
+  min-width: 0;
+  min-height: 58px;
+  padding: 8px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  background: rgba(3, 7, 18, 0.78);
+  color: #f8fafc;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
+}
+
+.aiDraftSentAttachmentCard.error {
+  border-color: rgba(248, 113, 113, 0.46);
+}
+
+.aiDraftSentAttachmentIcon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  border-radius: 10px;
+  background: #0b74ff;
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.aiDraftSentAttachmentIcon.pdf {
+  background: #1663e8;
+}
+
+.aiDraftSentAttachmentIcon.docx {
+  background: #0b74ff;
+}
+
+.aiDraftSentAttachmentIcon.markdown,
+.aiDraftSentAttachmentIcon.text {
+  background: #2563eb;
+}
+
+.aiDraftSentAttachmentIcon.file {
+  background: #475569;
+}
+
+.aiDraftSentAttachmentBody {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.aiDraftSentAttachmentName {
+  overflow: hidden;
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aiDraftSentAttachmentMeta {
+  color: rgba(226, 232, 240, 0.88);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .aiDraftAvatar {
@@ -6327,6 +6424,15 @@ textarea:focus {
   padding: 8px 16px;
   line-height: 1.35;
   box-shadow: 0 10px 24px rgba(0, 102, 255, 0.18);
+}
+
+.aiDraftMessage.user .aiDraftBubble.withSentAttachments {
+  border-color: rgba(196, 88, 139, 0.62);
+  border-radius: 19px;
+  background: #a34073;
+  padding: 10px 16px;
+  line-height: 1.45;
+  box-shadow: 0 14px 26px rgba(73, 20, 49, 0.24);
 }
 
 .aiDraftMessage.user .aiDraftBubble.expandable {
@@ -6459,6 +6565,7 @@ textarea:focus {
 }
 
 .aiDraftProgressCard {
+  box-sizing: border-box;
   position: relative;
   overflow: hidden;
   isolation: isolate;
@@ -6466,7 +6573,13 @@ textarea:focus {
   grid-template-columns: 132px minmax(0, 1fr) auto;
   gap: 22px;
   align-items: center;
+  min-height: 142px;
   padding: 24px 28px;
+  scroll-margin-bottom: 112px;
+}
+
+.aiDraftProgressCard.isLoading {
+  min-height: 148px;
 }
 
 .aiDraftProgressCard.isLoading::before {
@@ -6943,8 +7056,10 @@ textarea:focus {
   bottom: calc(100% + 8px);
   z-index: 30;
   display: grid;
-  min-width: 184px;
-  padding: 6px;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  min-width: 72px;
+  padding: 4px;
   border: 1px solid rgba(226, 232, 240, 0.14);
   border-radius: 8px;
   background: #101827;
@@ -6952,15 +7067,15 @@ textarea:focus {
 }
 
 .aiDraftResultToolbar .aiDraftDownloadMenu button {
-  justify-content: space-between;
+  justify-content: center;
   width: 100%;
-  min-height: 38px;
-  padding: 6px 9px;
+  min-height: 30px;
+  padding: 0 8px;
   border: 0;
   border-radius: 6px;
   background: transparent;
   color: #e2e8f0;
-  text-align: left;
+  text-align: center;
   transform: none;
 }
 
@@ -6968,20 +7083,10 @@ textarea:focus {
   background: rgba(0, 102, 255, 0.15);
 }
 
-.aiDraftDownloadMenu span,
-.aiDraftDownloadMenu small {
-  display: block;
-}
-
 .aiDraftDownloadMenu span {
+  display: block;
   font-size: 0.78rem;
   font-weight: 900;
-}
-
-.aiDraftDownloadMenu small {
-  color: #94a3b8;
-  font-size: 0.68rem;
-  font-weight: 800;
 }
 
 .aiDraftComposer {
@@ -7036,6 +7141,10 @@ textarea:focus {
   border-color: rgba(148, 163, 184, 0.24);
 }
 
+.aiDraftAttachedFileChip.type-profile {
+  border-color: rgba(34, 197, 94, 0.32);
+}
+
 .aiDraftAttachedFileChip.error {
   border-color: rgba(248, 113, 113, 0.35);
   color: #fecaca;
@@ -7080,6 +7189,11 @@ textarea:focus {
 .aiDraftAttachedFileIcon.file {
   background: linear-gradient(135deg, #71717a, #3f3f46);
   box-shadow: 0 5px 12px rgba(82, 82, 91, 0.26);
+}
+
+.aiDraftAttachedFileIcon.profile {
+  background: linear-gradient(135deg, #16a34a, #166534);
+  box-shadow: 0 5px 12px rgba(22, 163, 74, 0.24);
 }
 
 .aiDraftAttachedFileIcon svg {
@@ -7167,6 +7281,16 @@ textarea:focus {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 10px 28px rgba(0, 0, 0, 0.18);
+}
+
+.aiDraftComposerBar.isDraggingFile {
+  border-color: rgba(59, 130, 246, 0.88);
+  background:
+    linear-gradient(rgba(37, 99, 235, 0.16), rgba(37, 99, 235, 0.16)),
+    rgba(15, 23, 42, 0.96);
+  box-shadow:
+    inset 0 0 0 1px rgba(147, 197, 253, 0.34),
+    0 12px 34px rgba(37, 99, 235, 0.24);
 }
 
 .aiDraftComposerBar.withAttachments {
@@ -7452,6 +7576,85 @@ textarea:focus {
   top: auto;
   bottom: 0;
   left: calc(100% + 6px);
+}
+
+.aiDraftComposerProfileSubmenu {
+  position: absolute;
+  z-index: 25;
+  width: 220px;
+  min-width: 190px;
+  max-width: 260px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid rgba(226, 232, 240, 0.14);
+  border-radius: 12px;
+  background: rgba(17, 27, 52, 0.98);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
+}
+
+.aiDraftComposerProfileSubmenuAligned {
+  top: auto;
+  bottom: 0;
+  left: calc(100% + 6px);
+}
+
+.aiDraftComposerProfileOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.aiDraftComposerProfileOption span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aiDraftComposerProfileOption small {
+  flex: 0 0 auto;
+  color: #94a3b8;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.aiDraftComposerProfileOption:hover,
+.aiDraftComposerProfileOption:focus-visible,
+.aiDraftComposerProfileOption.active {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+}
+
+.aiDraftComposerProfileOption.active {
+  background: rgba(34, 197, 94, 0.16);
+}
+
+.aiDraftComposerProfileOption:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.aiDraftComposerMenuNote {
+  margin: 0;
+  padding: 8px;
+  color: #cbd5e1;
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .aiDraftComposerToneOption {
@@ -7847,6 +8050,30 @@ textarea:focus {
   cursor: wait;
 }
 
+.aiDraftFormatChoiceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.aiDraftFormatChoiceGrid button {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid #cfd9e7;
+  border-radius: 7px;
+  color: #5f7088;
+  background: #f8fafc;
+  font-size: 0.8rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.aiDraftFormatChoiceGrid button.active {
+  color: #0d5fd7;
+  border-color: rgba(0, 102, 255, 0.38);
+  background: rgba(0, 102, 255, 0.1);
+}
+
 .aiDraftFootnote {
   margin: 14px 0 0;
   color: #8190a8;
@@ -7974,6 +8201,45 @@ textarea:focus {
   content: "✓";
 }
 
+.aiDraftQuestionMeta {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid rgba(0, 102, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(0, 102, 255, 0.06);
+}
+
+.aiDraftQuestionMeta strong,
+.aiDraftQuestionMeta p,
+.aiDraftQuestionMeta span,
+.aiDraftQuestionMeta em {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.aiDraftQuestionMeta strong {
+  color: #1d4ed8;
+  font-size: 0.76rem;
+}
+
+.aiDraftQuestionMeta p {
+  color: #102033;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.aiDraftQuestionMeta span,
+.aiDraftQuestionMeta em {
+  color: #52657f;
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .aiDraftSummaryButton {
   justify-content: flex-start;
   min-height: 40px;
@@ -8036,11 +8302,18 @@ textarea:focus {
   border-radius: 12px;
 }
 
-.aiDraftGapFieldset legend {
+.aiDraftGapFieldset legend,
+.aiDraftGapFieldset > strong {
   padding: 0 6px;
   font-size: 0.84rem;
   font-weight: 700;
   color: #e2e8f0;
+}
+
+.aiDraftGapFieldset > strong {
+  display: block;
+  margin: 0 0 8px;
+  padding: 0;
 }
 
 .aiDraftGapChoices {
@@ -8063,6 +8336,576 @@ textarea:focus {
 .aiDraftGapChoiceButton:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.aiDraftGapActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.aiDraftGapConfirmButton {
+  display: inline-flex;
+  min-height: 34px;
+  padding: 0 13px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(20, 184, 166, 0.5);
+  border-radius: 8px;
+  background: rgba(20, 184, 166, 0.14);
+  color: #5eead4;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.aiDraftGapConfirmButton:hover,
+.aiDraftGapConfirmButton:focus-visible {
+  background: rgba(20, 184, 166, 0.2);
+  color: #ccfbf1;
+}
+
+.aiDraftGapConfirmButton:disabled {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(148, 163, 184, 0.08);
+  color: rgba(203, 213, 225, 0.55);
+  cursor: not-allowed;
+}
+
+.aiDraftWorkflowStages {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 14px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.aiDraftWorkflowStages li {
+  display: grid;
+  gap: 4px;
+  min-height: 58px;
+  padding: 10px;
+  border: 1px solid rgba(226, 232, 240, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.aiDraftWorkflowStages li.complete {
+  border-color: rgba(20, 184, 166, 0.34);
+  background: rgba(20, 184, 166, 0.1);
+}
+
+.aiDraftWorkflowStages li.active {
+  border-color: rgba(96, 165, 250, 0.42);
+  background: rgba(0, 102, 255, 0.12);
+}
+
+.aiDraftWorkflowStages li.blocked {
+  border-color: rgba(245, 158, 11, 0.38);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.aiDraftWorkflowStages span,
+.aiDraftWorkflowStages em {
+  overflow-wrap: anywhere;
+  font-style: normal;
+}
+
+.aiDraftWorkflowStages span {
+  color: #f8fafc;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.aiDraftWorkflowStages em {
+  color: #9fb0c8;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.aiDraftDocumentFocus {
+  display: grid;
+  gap: 12px;
+}
+
+.aiDraftFileViewerStrip {
+  display: grid;
+  gap: 8px;
+}
+
+.aiDraftFileViewerItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 52px;
+  padding: 9px 10px;
+  border: 1px solid rgba(226, 232, 240, 0.13);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.aiDraftFileViewerItem > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.aiDraftFileViewerItem strong,
+.aiDraftNextQuestionCard strong {
+  color: #f8fafc;
+  overflow-wrap: anywhere;
+}
+
+.aiDraftFileViewerItem > div span {
+  color: #8fa4bf;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.aiDraftFileViewerOpen,
+.aiDraftFileViewerUnavailable {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 11px;
+  border-radius: 8px;
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.aiDraftFileViewerOpen {
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  color: #bfdbfe;
+  background: rgba(37, 99, 235, 0.14);
+  cursor: pointer;
+  font: inherit;
+}
+
+.aiDraftFileViewerOpen.active,
+.aiDraftFileViewerOpen:hover,
+.aiDraftFileViewerOpen:focus-visible {
+  color: #eff6ff;
+  background: rgba(37, 99, 235, 0.22);
+}
+
+.aiDraftFileViewerUnavailable {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.aiDraftNextQuestionCard {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid rgba(96, 165, 250, 0.34);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.54);
+}
+
+.aiDraftNextQuestionCard.complete {
+  border-color: rgba(20, 184, 166, 0.34);
+  background: rgba(20, 184, 166, 0.11);
+}
+
+.aiDraftNextQuestionCard.pending {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.aiDraftNextQuestionCard > span {
+  color: #93c5fd;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.aiDraftNextQuestionCard.complete > span {
+  color: #5eead4;
+}
+
+.aiDraftNextQuestionCard strong {
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.aiDraftEmbeddedFilePanel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.14);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.aiDraftEmbeddedFileHeader {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.aiDraftEmbeddedFileHeader > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.aiDraftEmbeddedFileHeader strong {
+  color: #f8fafc;
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.aiDraftEmbeddedFileHeader span {
+  color: #8fa4bf;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.aiDraftEmbeddedFileHeader .aiDraftModeBadge {
+  justify-self: flex-start;
+  width: fit-content;
+  margin-top: 4px;
+}
+
+.aiDraftEmbeddedFileHeader em {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border-radius: 8px;
+  color: #19a569;
+  background: rgba(16, 185, 129, 0.14);
+  font-size: 0.74rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.aiDraftEmbeddedFileHeader em.warning {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.14);
+}
+
+.aiDraftEmbeddedFileHeader a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(96, 165, 250, 0.34);
+  border-radius: 8px;
+  color: #bfdbfe;
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.aiDraftEmbeddedFileHeader a:hover,
+.aiDraftEmbeddedFileHeader a:focus-visible {
+  color: #eff6ff;
+  background: rgba(37, 99, 235, 0.16);
+}
+
+.aiDraftEmbeddedDraftViewer {
+  display: grid;
+  gap: 14px;
+}
+
+.aiDraftEmbeddedDraftViewer .aiDraftUtilityBar {
+  margin-bottom: 0;
+}
+
+.aiDraftEmbeddedDraftViewer .aiDraftResultText {
+  max-height: min(58vh, 560px);
+  padding: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.14);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.48);
+  overflow: auto;
+}
+
+.aiDraftEmbeddedDraftViewer .aiDraftResultInsights {
+  margin-top: 0;
+}
+
+.aiDraftEmbeddedDraftViewer .aiDraftResultToolbar {
+  margin-top: 0;
+}
+
+.aiDraftEmbeddedFileFrame {
+  width: 100%;
+  min-height: 560px;
+  border: 1px solid rgba(226, 232, 240, 0.18);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.aiDraftEmbeddedFileFrame.pdf {
+  height: min(72vh, 720px);
+}
+
+.aiDraftEmbeddedFileFrame.docx {
+  height: min(72vh, 760px);
+}
+
+.aiDraftEmbeddedTextPreview,
+.aiDraftEmbeddedFileFallback {
+  margin: 0;
+  padding: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.14);
+  border-radius: 8px;
+  color: #dbeafe;
+  background: rgba(2, 6, 23, 0.48);
+  font-size: 0.82rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.aiDraftEmbeddedTextPreview {
+  max-height: 560px;
+  overflow: auto;
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+}
+
+.aiDraftDocumentGrid,
+.aiDraftQuestionDrafts {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.aiDraftDocumentMiniCard,
+.aiDraftEvidencePanel,
+.aiDraftQuestionDrafts article {
+  padding: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.aiDraftDocumentMiniCard {
+  display: grid;
+  gap: 8px;
+}
+
+.aiDraftDocumentMiniHeader {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.aiDraftDocumentMiniHeader > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.aiDraftDocumentTypeBadge {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 999px;
+  color: #dbeafe;
+  background: rgba(15, 23, 42, 0.42);
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.aiDraftDocumentTypeBadge.type-pdf {
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.34);
+}
+
+.aiDraftDocumentTypeBadge.type-docx {
+  color: #bfdbfe;
+  border-color: rgba(96, 165, 250, 0.34);
+}
+
+.aiDraftFilePreviewFrame {
+  width: 100%;
+  min-height: 220px;
+  max-height: 360px;
+  overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.14);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.aiDraftFilePreviewFrame.image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.aiDraftFilePreviewFrame.image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 360px;
+  object-fit: contain;
+}
+
+.aiDraftFilePreviewFrame.pdf {
+  height: 320px;
+}
+
+.aiDraftOriginalFilePreview {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px dashed rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.36);
+}
+
+.aiDraftOriginalFilePreview > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.aiDraftOriginalFilePreview p,
+.aiDraftDocumentPreviewFallback {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.aiDraftOriginalFilePreview a {
+  color: #93c5fd;
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.aiDraftOriginalFilePreview a:hover,
+.aiDraftOriginalFilePreview a:focus-visible {
+  text-decoration: underline;
+}
+
+.aiDraftDocumentDetails {
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  padding-top: 7px;
+}
+
+.aiDraftDocumentDetails summary {
+  cursor: pointer;
+  color: #93c5fd;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.aiDraftDocumentDetails pre {
+  max-height: 220px;
+  margin: 8px 0 0;
+  padding: 10px;
+  overflow: auto;
+  border-radius: 8px;
+  color: #dbeafe;
+  background: rgba(2, 6, 23, 0.48);
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.aiDraftDocumentMiniCard strong,
+.aiDraftEvidencePanel strong,
+.aiDraftQuestionDrafts strong {
+  color: #f8fafc;
+  font-size: 0.86rem;
+}
+
+.aiDraftDocumentMiniHeader > div span,
+.aiDraftQuestionDrafts article > div span {
+  color: #93c5fd;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.aiDraftDocumentMiniCard > p,
+.aiDraftQuestionDrafts p,
+.aiDraftQuestionDrafts small {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.aiDraftDocumentMiniCard ul,
+.aiDraftEvidencePanel ul,
+.aiDraftQuestionDrafts ul {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding-left: 16px;
+  color: #b8c5d8;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.aiDraftEvidencePanel {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.aiDraftEvidencePanel li {
+  overflow-wrap: anywhere;
+}
+
+.aiDraftEvidencePanel li span {
+  display: block;
+  margin-top: 2px;
+  color: #7dd3fc;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.aiDraftQuestionDrafts article {
+  display: grid;
+  gap: 8px;
+}
+
+.aiDraftQuestionDrafts article.drafted {
+  border-color: rgba(20, 184, 166, 0.28);
+}
+
+.aiDraftQuestionDrafts article.needs_more_evidence {
+  border-color: rgba(245, 158, 11, 0.34);
+}
+
+.aiDraftQuestionDrafts article > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.aiDraftQuestionDrafts blockquote {
+  margin: 0;
+  padding: 12px;
+  border-left: 3px solid #60a5fa;
+  border-radius: 0 8px 8px 0;
+  background: rgba(15, 23, 42, 0.45);
+  color: #f8fafc;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .aiDraftRevisePanel {
@@ -8089,7 +8932,8 @@ textarea:focus {
   font-weight: 700;
 }
 
-.aiDraftModeBadge.mock {
+.aiDraftModeBadge.mock,
+.aiDraftModeBadge.fallback {
   color: #fde68a;
   border: 1px solid rgba(245, 158, 11, 0.45);
   background: rgba(245, 158, 11, 0.14);
@@ -8469,7 +9313,7 @@ textarea:focus {
     gap: 11px;
     padding-top: 18px;
     padding-right: 14px;
-    padding-bottom: 10px;
+    padding-bottom: var(--draft-timeline-bottom-gutter);
     padding-left: 14px;
   }
 
@@ -8491,6 +9335,18 @@ textarea:focus {
     min-width: 0;
     border-radius: 999px;
     padding: 8px 14px;
+  }
+
+  .aiDraftUserMessageStack {
+    max-width: min(92%, 100%);
+  }
+
+  .aiDraftSentAttachments {
+    width: min(300px, 100%);
+  }
+
+  .aiDraftSentAttachmentCard {
+    min-height: 54px;
   }
 
   .aiDraftMessage.user .aiDraftBubble.expandable {

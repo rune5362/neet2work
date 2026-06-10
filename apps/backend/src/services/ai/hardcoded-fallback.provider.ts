@@ -13,6 +13,7 @@ import type {
   GapAnswer,
   MaterialStore
 } from "../../types/draft-workflow.js";
+import { buildFallbackAnalysis, type AnalyzeFallbackInput } from "../analysis-fallback.js";
 import {
   countChars,
   defaultDocumentFormatting,
@@ -29,6 +30,29 @@ type FallbackPlanPayload = {
     manualExperienceText?: string;
     additionalContext?: string;
     referenceSelfIntroText?: string;
+    profileContexts?: Array<{
+      title: string;
+      profileText?: string;
+      targetRole?: string | null;
+      targetCompany?: string | null;
+      desiredRoles: string[];
+      skills: string[];
+      profileJson: {
+        summary?: {
+          headline?: string;
+          description?: string;
+        };
+        skills?: string[];
+        projects?: Array<{
+          name?: string;
+          title?: string;
+          role?: string;
+          result?: string;
+          impact?: string;
+          achievements?: string[];
+        }>;
+      };
+    }>;
   };
 };
 
@@ -482,6 +506,9 @@ export class HardcodedFallbackProvider implements AiProvider {
   }
 
   private buildOperationResult(operation: AiWorkflowOperation, payload: unknown) {
+    if (operation === "analyze") {
+      return buildFallbackAnalysis(payload as AnalyzeFallbackInput);
+    }
     if (operation === "plan") {
       return buildFallbackPlan(payload as FallbackPlanPayload);
     }

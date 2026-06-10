@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDraftWorkflowPrompt } from "./prompt-builder.js";
+import { buildAgyCliDraftWorkflowPrompt, buildDraftWorkflowPrompt } from "./prompt-builder.js";
 
 describe("buildDraftWorkflowPrompt", () => {
   it("limits final polishing to reducing repeated expressions in draft prompts", () => {
@@ -39,5 +39,38 @@ describe("buildDraftWorkflowPrompt", () => {
     expect(prompt).toContain("Fill materialStore.sectionPlan.avoidRepeating");
     expect(prompt).toContain("sentence openings");
     expect(prompt).toContain("verb patterns");
+  });
+
+  it("marks selected profile contexts as factual evidence in plan prompts", () => {
+    const prompt = buildDraftWorkflowPrompt("plan", {
+      target: { questionText: "직무 역량을 작성하세요." },
+      experienceInput: {
+        profileContexts: [
+          {
+            profileId: "candidate-profile-1",
+            title: "백엔드 지원 프로필",
+            profileJson: { skills: ["Node.js"] }
+          }
+        ]
+      }
+    });
+
+    expect(prompt).toContain("profileContexts");
+    expect(prompt).toContain("user-owned factual evidence");
+    expect(prompt).toContain("백엔드 지원 프로필");
+  });
+
+  it("prepends fixed Agy CLI role and strict-output constraints", () => {
+    const prompt = buildAgyCliDraftWorkflowPrompt("plan", {
+      target: { company: "A", role: "B", questionText: "지원 동기를 작성하세요." },
+      experienceInput: { profileContexts: [{ profileId: "p1", title: "프로필" }] }
+    });
+
+    expect(prompt).toContain("AGY_CLI_FIXED_ROLE");
+    expect(prompt).toContain("Korean AI reviewer for hiring self-introduction cover letters");
+    expect(prompt).toContain("Forbidden actions");
+    expect(prompt).toContain("Return strict JSON only");
+    expect(prompt).toContain("never output those fields");
+    expect(prompt).toContain("The backend will inject aiMeta and mode");
   });
 });

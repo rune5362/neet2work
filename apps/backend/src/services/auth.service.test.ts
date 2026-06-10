@@ -53,6 +53,7 @@ function createMockPrisma(user: User | null) {
   const state = {
     findFirstArgs: null as unknown,
     findUniqueArgs: null as unknown,
+    refreshUpdateManyCountOverride: undefined as number | undefined,
     user,
     refreshTokens
   };
@@ -134,6 +135,37 @@ function createMockPrisma(user: User | null) {
 
         Object.assign(token, data);
         return token;
+      },
+      updateMany: async ({
+        where,
+        data
+      }: {
+        where: {
+          id: string;
+          revokedAt: null;
+          deletedAt: null;
+          expiresAt: { gt: Date };
+        };
+        data: Partial<MockRefreshToken>;
+      }) => {
+        if (state.refreshUpdateManyCountOverride !== undefined) {
+          return { count: state.refreshUpdateManyCountOverride };
+        }
+
+        const token = refreshTokens.find(
+          (item) =>
+            item.id === where.id &&
+            item.revokedAt === where.revokedAt &&
+            item.deletedAt === where.deletedAt &&
+            item.expiresAt > where.expiresAt.gt
+        );
+
+        if (!token) {
+          return { count: 0 };
+        }
+
+        Object.assign(token, data);
+        return { count: 1 };
       }
     }
   };
@@ -403,6 +435,27 @@ describe("auth service login", () => {
     expect(refreshResult.refreshToken).not.toBe(loginResult.refreshToken);
     expect(mock.state.refreshTokens).toHaveLength(2);
     expect(mock.state.refreshTokens[0]?.revokedAt).toBeInstanceOf(Date);
+  });
+
+  it("rejects refresh token rotation when the token was already consumed concurrently", async () => {
+    const passwordHash = await hashPassword("StrongPass1");
+    const mock = createMockPrisma(createUser({ passwordHash }));
+    const loginResult = await loginWithClient(mock.prisma, {
+      email: "user@example.com",
+      password: "StrongPass1"
+    });
+    mock.state.refreshUpdateManyCountOverride = 0;
+
+    await expect(
+      refreshAccessTokenWithClient(mock.prisma, {
+        refreshToken: loginResult.refreshToken
+      })
+    ).rejects.toMatchObject({
+      statusCode: 401,
+      message: "세션이 만료되었습니다. 다시 로그인해 주세요."
+    });
+
+    expect(mock.state.refreshTokens).toHaveLength(1);
   });
 
   it("revokes refresh token on logout and writes an audit log", async () => {

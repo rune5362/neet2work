@@ -19,9 +19,15 @@ function resolveDatabaseUrl() {
 }
 
 const databaseUrl = resolveDatabaseUrl();
+// `prisma generate` does not connect to the database, but Prisma 7 still
+// resolves datasource env vars while loading config.
+const usesGeneratePlaceholder =
+  !databaseUrl && process.argv.some((argument) => argument === "generate");
 
 if (databaseUrl) {
   process.env.DATABASE_URL = databaseUrl;
+} else if (usesGeneratePlaceholder) {
+  process.env.DATABASE_URL = "postgresql://neet2work:neet2work@localhost:5432/neet2work";
 }
 
 export default defineConfig({

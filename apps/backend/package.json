@@ -26,6 +26,8 @@
     "jobs:operational:scheduler": "tsx src/scripts/jobOperationalScheduler.ts",
     "jobs:operational:jp-plan": "tsx src/scripts/jobOperationalJpPlan.ts",
     "codex:bridge:smoke": "tsx src/scripts/codexBridgeSmoke.ts",
+    "agy:local:smoke": "tsx src/scripts/agyLocalSmoke.ts",
+    "agy:ssh:smoke": "tsx src/scripts/agySshSmoke.ts",
     "db:studio": "prisma studio",
     "db:status": "prisma migrate status"
   },
@@ -38,6 +40,7 @@
     "mammoth": "^1.12.0",
     "pdf-parse": "^2.4.5",
     "pg": "^8.0.0",
+    "ssh2": "^1.17.0",
     "zod": "^3.0.0"
   },
   "devDependencies": {
@@ -49,6 +52,6 @@
     "prisma": "^7.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
-    "vitest": "^3.0.0"
+    "vitest": "^4.1.0"
   }
 }

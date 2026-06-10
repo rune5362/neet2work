@@ -1,3 +1,5 @@
+import type { AiExecutionMeta } from "./ai-routing.js";
+
 export type AnalysisResult = {
   jobId: string;
   matchScore: number;
@@ -7,4 +9,5 @@ export type AnalysisResult = {
   rewriteGuides: string[];
   suggestedSentences: string[];
   mode: "mock" | "ai";
+  aiMeta?: AiExecutionMeta;
 };

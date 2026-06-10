@@ -13,6 +13,11 @@ type AccessTokenHeader = {
 
 const defaultAccessTokenTtlSeconds = 60 * 60;
 const defaultRefreshTokenTtlSeconds = 60 * 60 * 24 * 30;
+const productionJwtMinBytes = 32;
+const placeholderJwtSecrets = new Set([
+  "change-me-to-a-long-random-secret",
+  "test-secret"
+]);
 
 function base64UrlEncode(value: string | Buffer) {
   return Buffer.from(value)
@@ -39,11 +44,20 @@ export function getRefreshTokenTtlSeconds() {
 }
 
 function getJwtSecret() {
-  if (!process.env.JWT_SECRET) {
+  const secret = process.env.JWT_SECRET;
+
+  if (!secret) {
     throw new Error("JWT_SECRET이 설정되어 있지 않습니다.");
   }
 
-  return process.env.JWT_SECRET;
+  if (
+    process.env.NODE_ENV === "production" &&
+    (placeholderJwtSecrets.has(secret) || Buffer.byteLength(secret, "utf8") < productionJwtMinBytes)
+  ) {
+    throw new Error("운영 환경 JWT_SECRET은 32바이트 이상의 무작위 값이어야 합니다.");
+  }
+
+  return secret;
 }
 
 export function issueRefreshToken() {

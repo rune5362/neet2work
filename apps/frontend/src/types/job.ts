@@ -12,6 +12,9 @@ export type EmploymentTypeCategory = "permanent" | "contract" | "intern" | "free
 
 export type JobPostingStatus = "active" | "closed" | "inactive" | "unknown";
 
+/**
+ * 채용공고 목록과 상세 화면에서 공유하는 공개 채용공고 항목입니다.
+ */
 export type JobPosting = {
   id: string;
   title: string;

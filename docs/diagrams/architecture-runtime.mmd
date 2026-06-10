@@ -1,0 +1,15 @@
+flowchart LR
+  browser["Browser\nReact + Vite"]
+  api["Express API\nroutes + middleware"]
+  services["Domain services\nworkflow, documents, auth, jobs"]
+  prisma["Prisma Client"]
+  db["PostgreSQL"]
+  aiRouter["AI Router"]
+  providers["Codex Bridge\nGemini\nLocal\nAgy CLI\nFallback"]
+  files["Uploaded text and parsed document inputs"]
+
+  browser --> api
+  api --> services
+  services --> prisma --> db
+  services --> aiRouter --> providers
+  browser --> files --> api

@@ -5,6 +5,10 @@ import { ProviderExecutionError, withTimeout } from "./provider-utils.js";
 
 type LoginSessionStatus = "pending" | "succeeded" | "failed" | "expired";
 
+type CodexLoginOptions = {
+  forceLocal?: boolean;
+};
+
 type LoginSession = {
   loginId: string;
   startedAt: string;
@@ -70,9 +74,64 @@ function toAlreadyLoggedInResponse(account: CodexAccount | null) {
   };
 }
 
-export async function startCodexBridgeLogin() {
+function shouldUseRemoteRelay(options?: CodexLoginOptions) {
+  return !options?.forceLocal && Boolean(aiConfig.codexBridge.remoteBaseUrl);
+}
+
+function relayUrl(pathname: string) {
+  return `${aiConfig.codexBridge.remoteBaseUrl}${pathname}`;
+}
+
+function relayHeaders(): Record<string, string> {
+  const token = aiConfig.codexBridge.relayToken.trim();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function parseRelayResponse<T>(response: Response, label: string) {
+  if (!response.ok) {
+    throw new HttpError(502, `${label} relay failed`);
+  }
+
+  const body = (await response.json()) as { data?: T };
+  if (!body.data) {
+    throw new HttpError(502, `${label} relay invalid`);
+  }
+
+  return body.data;
+}
+
+async function startRemoteCodexBridgeLogin() {
+  const response = await withTimeout(
+    fetch(relayUrl("/api/codex-bridge-relay/login"), {
+      method: "POST",
+      headers: relayHeaders()
+    }),
+    LOGIN_START_TIMEOUT_MS,
+    "codex relay login/start"
+  );
+
+  return parseRelayResponse(response, "Codex login");
+}
+
+async function getRemoteCodexBridgeLoginStatus(loginId: string) {
+  const response = await withTimeout(
+    fetch(relayUrl(`/api/codex-bridge-relay/login/${encodeURIComponent(loginId)}`), {
+      headers: relayHeaders()
+    }),
+    LOGIN_START_TIMEOUT_MS,
+    "codex relay login/status"
+  );
+
+  return parseRelayResponse(response, "Codex login status");
+}
+
+export async function startCodexBridgeLogin(options?: CodexLoginOptions) {
   if (!aiConfig.codexBridge.enabled) {
     throw new HttpError(400, "Codex Bridge가 비활성화되어 있습니다.");
+  }
+
+  if (shouldUseRemoteRelay(options)) {
+    return startRemoteCodexBridgeLogin();
   }
 
   pruneExpiredSessions();
@@ -157,7 +216,11 @@ export async function startCodexBridgeLogin() {
   }
 }
 
-export function getCodexBridgeLoginStatus(loginId: string) {
+export async function getCodexBridgeLoginStatus(loginId: string, options?: CodexLoginOptions) {
+  if (shouldUseRemoteRelay(options)) {
+    return getRemoteCodexBridgeLoginStatus(loginId);
+  }
+
   pruneExpiredSessions();
   const session = sessions.get(loginId);
   return session ? toLoginResponse(session) : null;

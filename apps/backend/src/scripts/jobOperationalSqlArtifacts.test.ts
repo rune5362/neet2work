@@ -88,6 +88,26 @@ describe("buildImportApplySql", () => {
     expect(sql).toContain("\"classifier_meta\"");
     expect(sql).not.toContain("\"first_seen_at\" = excluded.\"first_seen_at\"");
   });
+
+  it("rejects source and crawlBatchId values that could escape SQL comments or filenames", () => {
+    expect(() =>
+      buildImportApplySql({
+        ...batch,
+        source: "saramin\ncommit;--",
+        postings: batch.postings.map((posting) => ({
+          ...posting,
+          source: "saramin\ncommit;--"
+        }))
+      })
+    ).toThrow("batch.source must contain only letters, numbers, dot, underscore, or hyphen.");
+
+    expect(() =>
+      buildImportApplySql({
+        ...batch,
+        crawlBatchId: "../saramin"
+      })
+    ).toThrow("batch.crawlBatchId must contain only letters, numbers, dot, underscore, or hyphen.");
+  });
 });
 
 describe("buildLifecycleApplySql", () => {
@@ -110,6 +130,22 @@ describe("buildLifecycleApplySql", () => {
         partialReasons: ["batch_warning"]
       })
     ).toThrow("partial lifecycle reports cannot be applied");
+  });
+
+  it("rejects lifecycle source and crawlBatchId values that are unsafe for comments or filenames", () => {
+    expect(() =>
+      buildLifecycleApplySql({
+        ...lifecycleReport,
+        source: "saramin\ncommit;--"
+      })
+    ).toThrow("lifecycle.source must contain only letters, numbers, dot, underscore, or hyphen.");
+
+    expect(() =>
+      buildLifecycleApplySql({
+        ...lifecycleReport,
+        crawlBatchId: "../saramin"
+      })
+    ).toThrow("lifecycle.crawlBatchId must contain only letters, numbers, dot, underscore, or hyphen.");
   });
 });
 

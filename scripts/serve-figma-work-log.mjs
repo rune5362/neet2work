@@ -4,6 +4,7 @@ import { buildWorkLogExport, todayKstIso } from './export-work-log.mjs';
 const DEFAULT_PORT = 3927;
 const DEFAULT_HOST = 'localhost';
 const MAX_BODY_BYTES = 1024 * 1024;
+const DEFAULT_ALLOWED_ORIGINS = ['https://www.figma.com', 'https://figma.com'];
 
 let currentJob = null;
 let nextJobNumber = 1;
@@ -20,33 +21,63 @@ function readArg(name) {
   return null;
 }
 
-function sendEmpty(response, statusCode) {
-  response.writeHead(statusCode, {
-    'Access-Control-Allow-Origin': '*',
+function allowedOrigins() {
+  return new Set([
+    ...DEFAULT_ALLOWED_ORIGINS,
+    ...(process.env.FIGMA_WORK_LOG_ALLOWED_ORIGINS ?? '')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean),
+  ]);
+}
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  if (origin === 'null') return process.env.FIGMA_WORK_LOG_ALLOW_NULL_ORIGIN === 'true';
+  return allowedOrigins().has(origin);
+}
+
+function corsHeaders(request) {
+  const origin = request.headers.origin;
+  const headers = {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Private-Network': 'true',
+  };
+
+  if (origin) {
+    headers['Access-Control-Allow-Origin'] = origin;
+    headers.Vary = 'Origin';
+  }
+  if (request.headers['access-control-request-private-network'] === 'true') {
+    headers['Access-Control-Allow-Private-Network'] = 'true';
+  }
+
+  return headers;
+}
+
+function sendForbiddenOrigin(response) {
+  response.writeHead(403, {
+    'Content-Type': 'application/json; charset=utf-8',
   });
+  response.end(JSON.stringify({ error: 'origin_not_allowed' }, null, 2));
+}
+
+function sendEmpty(request, response, statusCode) {
+  response.writeHead(statusCode, corsHeaders(request));
   response.end();
 }
 
-function sendJson(response, statusCode, payload) {
+function sendJson(request, response, statusCode, payload) {
   response.writeHead(statusCode, {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Private-Network': 'true',
+    ...corsHeaders(request),
     'Content-Type': 'application/json; charset=utf-8',
   });
   response.end(JSON.stringify(payload, null, 2));
 }
 
-function sendText(response, statusCode, payload) {
+function sendText(request, response, statusCode, payload) {
   response.writeHead(statusCode, {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Private-Network': 'true',
+    ...corsHeaders(request),
     'Content-Type': 'text/plain; charset=utf-8',
   });
   response.end(payload);
@@ -113,13 +144,18 @@ const date = readArg('date') ?? todayKstIso();
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? `${host}:${port}`}`);
 
+  if (!isAllowedOrigin(request.headers.origin)) {
+    sendForbiddenOrigin(response);
+    return;
+  }
+
   if (request.method === 'OPTIONS') {
-    sendEmpty(response, 204);
+    sendEmpty(request, response, 204);
     return;
   }
 
   if (request.method === 'GET' && url.pathname === '/health') {
-    sendJson(response, 200, {
+    sendJson(request, response, 200, {
       ok: true,
       date,
       currentJob: currentJob ? publicJobStatus(currentJob) : null,
@@ -130,6 +166,7 @@ const server = createServer(async (request, response) => {
 
   if (request.method === 'GET' && url.pathname === '/') {
     sendText(
+      request,
       response,
       200,
       [
@@ -149,16 +186,16 @@ const server = createServer(async (request, response) => {
 
   if (request.method === 'GET' && url.pathname === '/work-log') {
     try {
-      sendJson(response, 200, buildWorkLogExport({ date }));
+      sendJson(request, response, 200, buildWorkLogExport({ date }));
     } catch (error) {
-      sendJson(response, 500, { error: 'work_log_export_failed', message: error.message });
+      sendJson(request, response, 500, { error: 'work_log_export_failed', message: error.message });
     }
     return;
   }
 
   if (request.method === 'POST' && url.pathname === '/work-log/jobs') {
     if (currentJob) {
-      sendJson(response, 409, {
+      sendJson(request, response, 409, {
         error: 'job_already_pending',
         message: `Job ${currentJob.id} is still ${currentJob.status}.`,
         job: publicJobStatus(currentJob),
@@ -170,23 +207,23 @@ const server = createServer(async (request, response) => {
       const body = await readJsonBody(request);
       const jobDate = typeof body.date === 'string' && body.date.trim() ? body.date.trim() : date;
       currentJob = buildJob({ date: jobDate });
-      sendJson(response, 201, publicJobStatus(currentJob));
+      sendJson(request, response, 201, publicJobStatus(currentJob));
     } catch (error) {
-      sendJson(response, 500, { error: 'job_create_failed', message: error.message });
+      sendJson(request, response, 500, { error: 'job_create_failed', message: error.message });
     }
     return;
   }
 
   if (request.method === 'GET' && url.pathname === '/work-log/jobs/next') {
     if (!currentJob || currentJob.delivered) {
-      sendEmpty(response, 204);
+      sendEmpty(request, response, 204);
       return;
     }
 
     currentJob.status = 'processing';
     currentJob.delivered = true;
     currentJob.deliveredAt = new Date().toISOString();
-    sendJson(response, 200, {
+    sendJson(request, response, 200, {
       id: currentJob.id,
       ...currentJob.payload,
     });
@@ -198,11 +235,11 @@ const server = createServer(async (request, response) => {
     const jobId = decodeURIComponent(jobStatusMatch[1]);
     const job = currentJob?.id === jobId ? currentJob : finishedJobs.get(jobId);
     if (!job) {
-      sendJson(response, 404, { error: 'job_not_found' });
+      sendJson(request, response, 404, { error: 'job_not_found' });
       return;
     }
 
-    sendJson(response, 200, publicJobStatus(job));
+    sendJson(request, response, 200, publicJobStatus(job));
     return;
   }
 
@@ -210,7 +247,7 @@ const server = createServer(async (request, response) => {
   if (request.method === 'POST' && jobResultMatch) {
     const jobId = decodeURIComponent(jobResultMatch[1]);
     if (!currentJob || currentJob.id !== jobId) {
-      sendJson(response, 404, { error: 'job_not_found' });
+      sendJson(request, response, 404, { error: 'job_not_found' });
       return;
     }
 
@@ -223,14 +260,14 @@ const server = createServer(async (request, response) => {
       finishedJobs.set(currentJob.id, currentJob);
       const finishedJob = currentJob;
       currentJob = null;
-      sendJson(response, 200, publicJobStatus(finishedJob));
+      sendJson(request, response, 200, publicJobStatus(finishedJob));
     } catch (error) {
-      sendJson(response, 500, { error: 'job_result_failed', message: error.message });
+      sendJson(request, response, 500, { error: 'job_result_failed', message: error.message });
     }
     return;
   }
 
-  sendJson(response, 404, { error: 'not_found' });
+  sendJson(request, response, 404, { error: 'not_found' });
 });
 
 server.listen(port, host, () => {

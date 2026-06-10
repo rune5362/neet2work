@@ -65,7 +65,11 @@ const profile: ProfileDetail = {
   isDefault: true,
   isArchived: false,
   createdAt: timestamp,
-  updatedAt: timestamp
+  updatedAt: timestamp,
+  deletedAt: null,
+  createdBy: null,
+  updatedBy: null,
+  deletedBy: null
 };
 
 const document: DocumentDetail = {
@@ -86,7 +90,11 @@ const document: DocumentDetail = {
   jobSnapshotJson: null,
   isArchived: false,
   createdAt: timestamp,
-  updatedAt: timestamp
+  updatedAt: timestamp,
+  deletedAt: null,
+  createdBy: null,
+  updatedBy: null,
+  deletedBy: null
 };
 
 const protectedDocument: DocumentDetail = {
@@ -248,7 +256,7 @@ describe("profile/document frontend integration flow", () => {
 
     renderAt("/documents");
     expect(await screen.findByRole("heading", { name: "문서함" })).toBeInTheDocument();
-    expect(screen.getByText("프로필과 자기소개서를 한 곳에서 확인합니다.")).toBeInTheDocument();
+    expect(screen.getByText("프로필, 자기소개서, 이력서를 한 곳에서 확인합니다.")).toBeInTheDocument();
     expect((await screen.findAllByText("프론트엔드 자기소개서")).length).toBeGreaterThan(0);
     expect(screen.queryByText("프론트엔드 이력서")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "지원 묶음 만들기" })).not.toBeInTheDocument();
@@ -283,11 +291,14 @@ describe("profile/document frontend integration flow", () => {
     expect(window.location.pathname).toBe("/documents");
     expect(window.location.search).toBe("?type=profile");
 
-    expect(screen.queryByRole("button", { name: "이력서" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "이력서" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "묶음" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "자기소개서" }));
     expect(window.location.search).toBe("?type=cover_letter");
+
+    fireEvent.click(screen.getByRole("button", { name: "이력서" }));
+    expect(window.location.search).toBe("?type=resume");
 
     fireEvent.click(screen.getByRole("button", { name: "전체" }));
     expect(window.location.pathname).toBe("/documents");
@@ -305,7 +316,7 @@ describe("profile/document frontend integration flow", () => {
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "전체" })).toHaveClass("active"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "이력서" })).toHaveClass("active"));
   });
 
   it("문서함 인증/빈 상태와 검색/보호 토글을 구분한다", async () => {

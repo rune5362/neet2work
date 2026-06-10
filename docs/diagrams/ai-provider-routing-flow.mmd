@@ -1,0 +1,31 @@
+flowchart TD
+  start["Workflow request includes AiSelection"]
+  mode{"routing mode"}
+  manual["manual: use requested provider/model"]
+  auto["auto: inspect provider status and recommended model"]
+  available{"provider available?"}
+  execute["execute provider operation"]
+  providerError{"provider error, timeout, or invalid output?"}
+  parse["parse provider JSON with workflow schema"]
+  valid{"schema and domain validation pass?"}
+  fallback["execute fallback provider"]
+  meta["attach aiMeta providerId, modelId, routingMode, usedFallback, fallbackReason"]
+  response["return workflow response"]
+  fail["surface validation/provider error"]
+
+  start --> mode
+  mode -->|manual| manual
+  mode -->|auto| auto
+  manual --> available
+  auto --> available
+  available -->|yes| execute
+  available -->|no| fallback
+  execute --> providerError
+  providerError -->|no| parse
+  providerError -->|yes| fallback
+  parse --> valid
+  valid -->|yes| meta
+  valid -->|no and primary provider used| fallback
+  valid -->|no and fallback already used| fail
+  fallback --> meta
+  meta --> response

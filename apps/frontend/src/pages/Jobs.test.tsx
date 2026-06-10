@@ -1,8 +1,9 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { JobPosting } from "../types/job";
 import { Jobs } from "./Jobs";
 
-const apiJob = {
+const apiJob: JobPosting = {
   id: "api-job-1",
   title: "API 백엔드 연결 공고",
   company: "Backend Bridge",
@@ -26,7 +27,7 @@ const apiJob = {
   collectedAt: "2026-05-20T00:00:00.000Z"
 };
 
-const krApiJob = {
+const krApiJob: JobPosting = {
   ...apiJob,
   id: "api-job-2",
   title: "한국 백엔드 공고",
@@ -40,7 +41,7 @@ const krApiJob = {
   postedAt: "2026-05-10T00:00:00.000Z"
 };
 
-const legacyCareerApiJob = {
+const legacyCareerApiJob: JobPosting = {
   ...apiJob,
   id: "api-job-legacy",
   title: "Legacy Mid Career 공고",
@@ -48,7 +49,7 @@ const legacyCareerApiJob = {
   careerStage: undefined
 };
 
-const legacyEmploymentApiJob = {
+const legacyEmploymentApiJob: JobPosting = {
   ...apiJob,
   id: "api-job-legacy-employment",
   title: "Legacy Freelance 공고",
@@ -58,7 +59,7 @@ const legacyEmploymentApiJob = {
   employmentTypeCategory: undefined
 };
 
-const legacyInternApiJob = {
+const legacyInternApiJob: JobPosting = {
   ...apiJob,
   id: "api-job-legacy-intern",
   title: "채용연계형 인턴 모집",
@@ -69,7 +70,7 @@ const legacyInternApiJob = {
   employmentTypeCategory: undefined
 };
 
-const unspecifiedEmploymentApiJob = {
+const unspecifiedEmploymentApiJob: JobPosting = {
   ...apiJob,
   id: "api-job-unspecified",
   title: "운영 코디네이터",
@@ -80,7 +81,7 @@ const unspecifiedEmploymentApiJob = {
   postedAt: null
 };
 
-const displayFormatApiJob = {
+const displayFormatApiJob: JobPosting = {
   ...apiJob,
   id: "api-job-display-format",
   title: "표시 포맷 공고",
@@ -92,7 +93,7 @@ const displayFormatApiJob = {
   deadlineText: null
 };
 
-const displayFallbackApiJob = {
+const displayFallbackApiJob: JobPosting = {
   ...apiJob,
   id: "api-job-display-fallback",
   title: "표시 미기재 공고",
@@ -104,49 +105,49 @@ const displayFallbackApiJob = {
   deadlineText: null
 };
 
-const displayJpyKRangeApiJob = {
+const displayJpyKRangeApiJob: JobPosting = {
   ...apiJob,
   id: "api-job-display-jpy-k-range",
   title: "JPY K 범위 공고",
   salaryText: "JPY - Japanese Yen JPY 6000K - JPY 10000K"
 };
 
-const displayJpyKOverApiJob = {
+const displayJpyKOverApiJob: JobPosting = {
   ...apiJob,
   id: "api-job-display-jpy-k-over",
   title: "JPY K 이상 공고",
   salaryText: "JPY - Japanese Yen JPY 4500K Over"
 };
 
-const displayNegotiableCapApiJob = {
+const displayNegotiableCapApiJob: JobPosting = {
   ...apiJob,
   id: "api-job-display-negotiable-cap",
   title: "협의 상한 공고",
   salaryText: "Negotiable, based on experience ~ 9 million yen"
 };
 
-const displayNegotiableApiJob = {
+const displayNegotiableApiJob: JobPosting = {
   ...apiJob,
   id: "api-job-display-negotiable",
   title: "협의 공고",
   salaryText: "Negotiable, based on experience"
 };
 
-const displayKoreanRangeApiJob = {
+const displayKoreanRangeApiJob: JobPosting = {
   ...krApiJob,
   id: "api-job-display-kr-range",
   title: "한국 연봉 범위 공고",
   salaryText: "연봉 3,000~6,000만원 (면접 후 결정)"
 };
 
-const displayKoreanNegotiableApiJob = {
+const displayKoreanNegotiableApiJob: JobPosting = {
   ...krApiJob,
   id: "api-job-display-kr-negotiable",
   title: "한국 내규 공고",
   salaryText: "회사 내규에 따름 (면접 후 결정)"
 };
 
-const japanNationwideLocationApiJob = {
+const japanNationwideLocationApiJob: JobPosting = {
   ...apiJob,
   id: "api-job-location-japan-wide",
   title: "【IT系総合職】未経験入社9割＆月25万スタート★フルリモあり",
@@ -156,7 +157,7 @@ const japanNationwideLocationApiJob = {
   language: "ja"
 };
 
-const japanMinatoLocationApiJob = {
+const japanMinatoLocationApiJob: JobPosting = {
   ...apiJob,
   id: "api-job-location-minato",
   title: "도쿄 미나토구 공고",
@@ -165,7 +166,7 @@ const japanMinatoLocationApiJob = {
   language: "en"
 };
 
-const koreaMultiLocationApiJob = {
+const koreaMultiLocationApiJob: JobPosting = {
   ...krApiJob,
   id: "api-job-location-kr-multi",
   title: "서울 다지역 공고",
@@ -175,7 +176,7 @@ const koreaMultiLocationApiJob = {
 };
 
 function jobsPageResponse(
-  jobs: Array<typeof apiJob>,
+  jobs: JobPosting[],
   options: {
     total?: number;
     page?: number;

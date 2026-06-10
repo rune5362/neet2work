@@ -1,4 +1,6 @@
-export type AiProviderId = "codex_bridge" | "gemini" | "local" | "fallback";
+import type { CandidateProfileJson } from "./profile";
+
+export type AiProviderId = "codex_bridge" | "gemini" | "local" | "agy_cli" | "fallback";
 
 export type AiRoutingMode = "auto" | "manual";
 
@@ -10,6 +12,9 @@ export type FallbackReason =
   | "provider_error"
   | "all_providers_unavailable";
 
+/**
+ * draft workflow provider 선택 UI에 표시할 provider/모델 상태입니다.
+ */
 export type AiProviderStatus = {
   providerId: AiProviderId;
   label: string;
@@ -27,6 +32,9 @@ export type AiProviderStatus = {
   }>;
 };
 
+/**
+ * Codex bridge provider의 브라우저 로그인 진행 상태입니다.
+ */
 export type CodexBridgeLoginStatus = {
   loginId: string | null;
   status: "pending" | "succeeded" | "failed" | "expired";
@@ -46,12 +54,18 @@ export type CodexBridgeLoginStatus = {
   expiresAt: string | null;
 };
 
+/**
+ * 사용자가 선택한 AI routing 방식과 provider/model override입니다.
+ */
 export type AiSelection = {
   mode: AiRoutingMode;
   providerId?: AiProviderId;
   modelId?: string;
 };
 
+/**
+ * 실제 AI 실행에 사용된 provider와 fallback 여부를 설명하는 메타데이터입니다.
+ */
 export type AiExecutionMeta = {
   providerId: AiProviderId;
   modelId: string;
@@ -60,6 +74,9 @@ export type AiExecutionMeta = {
   fallbackReason?: FallbackReason;
 };
 
+/**
+ * 자기소개서 작성 workflow가 UI와 backend 사이에서 공유하는 진행 상태입니다.
+ */
 export type DraftWorkflowState =
   | "SESSION_CREATED"
   | "TARGET_CAPTURED"
@@ -80,6 +97,12 @@ export type DraftWorkflowState =
   | "USER_CONFIRMATION_REQUIRED"
   | "REFERENCE_RISK_FLAGGED";
 
+/**
+ * AI가 답해야 할 자기소개서 문항과 채용 맥락입니다.
+ *
+ * @remarks
+ * `blindRecruitment`와 `charCountRule`은 초안 검증과 문체 제약에 직접 사용됩니다.
+ */
 export type DraftTarget = {
   company: string;
   role: string;
@@ -94,11 +117,33 @@ export type DraftTarget = {
   previousDraftText?: string;
 };
 
+/**
+ * 초안 생성에 사용할 사용자 경험 자료 묶음입니다.
+ *
+ * @remarks
+ * 프로필 컨텍스트, 직접 입력, 포트폴리오, 참고 자소서를 같은 workflow 입력으로 합칩니다.
+ */
 export type DraftExperienceInput = {
   portfolioText?: string;
   manualExperienceText?: string;
   additionalContext?: string;
   referenceSelfIntroText?: string;
+  profileContexts?: DraftProfileContext[];
+};
+
+/**
+ * draft workflow가 참조하는 지원 프로필 snapshot입니다.
+ */
+export type DraftProfileContext = {
+  profileId: string;
+  title: string;
+  schemaVersion: number;
+  profileJson: CandidateProfileJson;
+  profileText?: string;
+  targetRole?: string | null;
+  targetCompany?: string | null;
+  desiredRoles: string[];
+  skills: string[];
 };
 
 export type MaterialRequirementSource =
@@ -119,6 +164,9 @@ export type DocumentFormatting = {
   forbidMojibake: true;
 };
 
+/**
+ * AI 계획 단계가 추출한 요구사항, 경험, 문단별 근거 저장소입니다.
+ */
 export type MaterialStore = {
   requirements: Array<{
     requirementId: string;
@@ -165,6 +213,9 @@ export type Claim = {
   allowedInDraft: boolean;
 };
 
+/**
+ * 초안에 사용할 수 있는 경험 단위와 그 경험을 뒷받침하는 근거 ledger입니다.
+ */
 export type ExperienceCard = {
   experienceId: string;
   source: "portfolio" | "manual" | "conversation" | "fallback";
@@ -216,6 +267,9 @@ export type AnswerStrategy = {
   }>;
 };
 
+/**
+ * 문항 분석 후 초안 작성 전에 UI가 검토하고 확정할 수 있는 계획 결과입니다.
+ */
 export type DraftWorkflowPlan = {
   mode: "ai" | "fallback";
   state: DraftWorkflowState;
@@ -238,6 +292,9 @@ export type DraftWorkflowPlan = {
   }>;
 };
 
+/**
+ * 생성 또는 수정된 자기소개서 초안과 근거 검토 리포트입니다.
+ */
 export type DraftWorkflowDraft = {
   mode: "ai" | "fallback";
   state: DraftWorkflowState;
@@ -282,12 +339,18 @@ export type GapAnswer = {
   answer: string;
 };
 
+/**
+ * `/api/draft-workflow/plan` 요청 payload입니다.
+ */
 export type DraftWorkflowPlanRequest = {
   aiSelection: AiSelection;
   target: DraftTarget;
   experienceInput: DraftExperienceInput;
 };
 
+/**
+ * `/api/draft-workflow/draft` 요청 payload입니다.
+ */
 export type DraftWorkflowDraftRequest = {
   aiSelection: AiSelection;
   target: DraftTarget;
@@ -297,6 +360,9 @@ export type DraftWorkflowDraftRequest = {
   confirmedOutline?: DraftWorkflowPlan["outline"];
 };
 
+/**
+ * `/api/draft-workflow/revise` 요청 payload입니다.
+ */
 export type DraftWorkflowReviseRequest = {
   aiSelection: AiSelection;
   target: DraftTarget;
@@ -306,6 +372,9 @@ export type DraftWorkflowReviseRequest = {
   reviewIssueTypes?: string[];
 };
 
+/**
+ * provider id를 UI badge에 표시할 짧은 이름으로 변환합니다.
+ */
 export function providerBadgeLabel(providerId: AiProviderId) {
   switch (providerId) {
     case "codex_bridge":
@@ -314,11 +383,16 @@ export function providerBadgeLabel(providerId: AiProviderId) {
       return "Gemini";
     case "local":
       return "Local";
+    case "agy_cli":
+      return "Agy CLI";
     case "fallback":
       return "Fallback";
   }
 }
 
+/**
+ * fallback 사유를 사용자에게 보여줄 한국어 라벨로 변환합니다.
+ */
 export function fallbackReasonLabel(reason?: FallbackReason) {
   switch (reason) {
     case "offline":

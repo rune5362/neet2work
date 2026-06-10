@@ -1,0 +1,20 @@
+flowchart LR
+  start["AI 자기소개서 작성 시작"]
+  target["회사, 직무, 문항, 글자수 입력"]
+  materials["프로필, 경험, 포트폴리오, 참고 자소서 추가"]
+  provider["AI provider 선택 또는 auto mode"]
+  plan["문항 분석과 작성 계획 생성"]
+  reviewPlan{"outline과 보완 질문 확인"}
+  answer["부족한 근거 답변"]
+  draft["초안 생성"]
+  reviewDraft["근거 매핑과 검토 리포트 확인"]
+  revise{"수정 요청 필요?"}
+  reviseDraft["초안 수정"]
+  save["문서로 저장 또는 복사"]
+
+  start --> target --> materials --> provider --> plan --> reviewPlan
+  reviewPlan -->|보완 필요| answer --> draft
+  reviewPlan -->|충분함| draft
+  draft --> reviewDraft --> revise
+  revise -->|예| reviseDraft --> reviewDraft
+  revise -->|아니오| save

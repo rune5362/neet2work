@@ -9,6 +9,7 @@ import type {
   AiWorkflowOperation,
   FallbackReason
 } from "../../types/ai-routing.js";
+import { AgyCliProvider } from "./agy-cli.provider.js";
 import { CodexBridgeProvider } from "./codex-bridge.provider.js";
 import { GeminiProvider } from "./gemini.provider.js";
 import { HardcodedFallbackProvider } from "./hardcoded-fallback.provider.js";
@@ -27,6 +28,7 @@ export class AiRouter {
       new CodexBridgeProvider(),
       new GeminiProvider(),
       new LocalAiProvider(),
+      new AgyCliProvider(),
       new HardcodedFallbackProvider()
     ]);
   }
@@ -56,10 +58,11 @@ export class AiRouter {
     operation: AiWorkflowOperation;
     payload: unknown;
     aiSelection: AiSelection;
+    timeoutMs?: number;
   }): Promise<{ data: T; aiMeta: AiExecutionMeta }> {
     const routingMode = input.aiSelection.mode ?? aiConfig.routingDefault;
     const candidates = this.resolveCandidates(routingMode, input.aiSelection);
-    const timeoutMs = aiConfig.providerTimeoutMs;
+    const timeoutMs = input.timeoutMs ?? aiConfig.providerTimeoutMs;
     let lastReason: FallbackReason = "all_providers_unavailable";
 
     for (const candidate of candidates) {

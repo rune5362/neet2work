@@ -1,0 +1,38 @@
+flowchart LR
+  request["POST /api/career-workflow/document-session"]
+  validate["careerDocumentWorkflowSessionRequestSchema.parse"]
+  context["Build analysis context from message, target, attachments"]
+  docs["DocumentAnalysisService analyzes attachments"]
+  github["GithubAnalysisService extracts repository facts"]
+  portfolio["PortfolioAnalysisService extracts portfolio facts"]
+  evidence["EvidenceVaultService builds evidence vault"]
+  baseQuestions["GapInterviewService builds base questions"]
+  aiQuestions["AI router improves gap questions"]
+  baseDrafts["DraftGenerationService builds base drafts"]
+  aiDrafts["AI router improves drafts"]
+  completion["Resolve state, completion gates, missing evidence, risks"]
+  packages["Build document packages for save flow"]
+  response["Return CareerDocumentWorkflowSession"]
+
+  request --> validate --> context
+  context --> docs
+  context --> github
+  context --> portfolio
+  docs --> evidence
+  github --> evidence
+  portfolio --> evidence
+  evidence --> baseQuestions --> aiQuestions
+  evidence --> baseDrafts
+  aiQuestions --> aiDrafts
+  baseDrafts --> aiDrafts
+  aiDrafts --> completion --> packages --> response
+
+  answer["POST /api/career-workflow/document-session/answer"]
+  answerValidate["careerDocumentWorkflowAnswerRequestSchema.parse"]
+  updateAnswer["Merge or replace answer"]
+  answerEvidence["Rebuild interview answer evidence"]
+  recompute["Recompute questions, drafts, completion, packages"]
+
+  answer --> answerValidate --> updateAnswer --> answerEvidence
+  answerEvidence --> recompute
+  recompute --> response
